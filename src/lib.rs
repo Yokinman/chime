@@ -4,7 +4,7 @@
 
 mod change;
 // mod comparison;
-// mod polynomial;
+mod polynomial;
 // mod time;
 // mod value;
 // mod when;
