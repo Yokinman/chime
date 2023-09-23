@@ -194,9 +194,17 @@ impl LinearIso for Linear<u64> {
 	fn inv_map(self) -> Self::Linear { self.0 as Self::Linear }
 }
 
+impl LinearIso for Linear<i64> {
+	type Linear = f64;
+	type Op = LinearOp;
+	fn map(value: Self::Linear) -> Self { Self(value.round() as i64) }
+	fn inv_map(self) -> Self::Linear { self.0 as Self::Linear }
+}
+
 /// A linear map that translates between addition and multiplication.
 /// 
 /// `map(inv_map(A) + inv_map(B)) <=> Exponential(A * B)`
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Exponential<T>(T);
 
 impl<T> From<T> for Exponential<T> {
@@ -224,9 +232,9 @@ mod value_tests {
 	use super::*;
 	use TimeUnit::*;
 	
-	fn build() -> [Value<Linear<u64>>; 4] {
+	fn linear() -> [Value<Linear<i64>>; 4] {
 		let mut v = Value::new(3)
-			.add_change(Change::new(LinearOp::Add, Value::new(5), Nanosecs))
+			.add_change(Change::new(LinearOp::Sub, Value::new(5), Nanosecs))
 			.unwrap();
 		
 		let mut v1 = Value::new(20)
@@ -251,40 +259,104 @@ mod value_tests {
 	#[test]
 	fn degree_limit() {
 		assert!(Value::new(200)
-			.add_change(Change::new(LinearOp::Add, build()[3].clone(), Nanosecs))
+			.add_change(Change::new(LinearOp::Add, linear()[3].clone(), Nanosecs))
 			.is_err());
 	}
 	
 	#[test]
-	fn build_success() {
-		let v = build();
-		assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([3.0, 5.0]));
-		assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([20.0, 6.0, 10.0]));
-		assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([52.0, 20.0, 6.0, 10.0]));
-		assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([150.0, 55.0, 25.0, 6.0, 10.0]));
-		
-		// let mut v = Value::new(3_f64);
-		// v.add_change(Change::new(ExponentialOp::Mul, Value::new(3_f64), Nanosecs));
-		
-		// let c = Change::new(LinearOp::Add, Value::new(3_u64), Nanosecs);
-		// let c = Change::new(ExponentialOp::Mul, Value::new(3_f64), Nanosecs);
+	fn linear_polynomial() {
+		let v = linear();
+		assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([3.0, -5.0]));
+		assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([20.0, 6.0, -10.0]));
+		assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([52.0, 20.0, 6.0, -10.0]));
+		assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([150.0, 55.0, 15.0, 6.0, -10.0]));
 		
 		// assert_eq!(2_u64 + 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Add, Value::new(3), Secs)));
 		// assert_eq!(2_u64 - 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Sub, Value::new(3), Secs)));
 	}
 	
 	#[test]
-	fn value_calc() {
-		let n0 = [3, 8, 13, 18, 23, 28, 33, 38, 43, 48];
-		let n1 = [20, 36, 62, 98, 144, 200, 266, 342, 428, 524];
-		let n2 = [52, 88, 150, 248, 392, 592, 858, 1200, 1628, 2152];
-		let n3 = [150, 246, 409, 675, 1090, 1710, 2601, 3839, 5510, 7710];
+	fn linear_value() {
+		let v = linear();
+		let n0 = [3, -2, -7, -12, -17, -22, -27, -32, -37, -42];
+		let n1 = [20, 16, 2, -22, -56, -100, -154, -218, -292, -376];
+		let n2 = [52, 68, 70, 48, -8, -108, -262, -480, -772, -1148];
+		let n3 = [150, 216, 279, 315, 290, 160, -129, -641, -1450, -2640];
 		for t in 0..10_u64 {
-			let v = build();
 			assert_eq!(v[0].at(t*Nanosecs), n0[t as usize].into());
 			assert_eq!(v[1].at(t*Nanosecs), n1[t as usize].into());
 			assert_eq!(v[2].at(t*Nanosecs), n2[t as usize].into());
 			assert_eq!(v[3].at(t*Nanosecs), n3[t as usize].into());
 		}
+	}
+	
+	fn exponential() -> [Value<Exponential<f64>>; 4] {
+		let mut v = Value::new(3.2)
+			.add_change(Change::new(ExponentialOp::Div, Value::new(1.1), Nanosecs))
+			.unwrap();
+		
+		let mut v1 = Value::new(14.515)
+			.add_change(Change::new(ExponentialOp::Mul, v.clone(), Nanosecs))
+			.unwrap()
+			.add_change(Change::new(ExponentialOp::Mul, v.clone(), Nanosecs))
+			.unwrap();
+		
+		let mut v2 = Value::new(30.4)
+			.add_change(Change::new(ExponentialOp::Mul, v1.clone(), Nanosecs))
+			.unwrap();
+		
+		let mut v3 = Value::new(300.0)
+			.add_change(Change::new(ExponentialOp::Mul, v2.clone(), Nanosecs))
+			.unwrap()
+			.add_change(Change::new(ExponentialOp::Div, v.clone(), Nanosecs))
+			.unwrap();
+		
+		[v, v1, v2, v3]
+	}
+	
+	#[test]
+	fn exponential_polynomial() {
+		let v = exponential();
+		fn ln(n: f64) -> f64 { n.ln() }
+		assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([ln(3.2), -ln(1.1)]));
+		assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
+		assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([ln(30.4), ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
+		assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([ln(300.0), ln(30.4) - ln(3.2), ln(14.515) + ln(1.1), 2.0*ln(3.2), -2.0*ln(1.1)]));
+	}
+	
+	#[test]
+	fn exponential_value() {
+		let v = exponential();
+		let n0 = [3.2, 2.9090909, 2.6446281, 2.4042074, 2.1856431];
+		let n1 = [14.515, 122.83769, 859.13387, 4965.97682, 23722.647933];
+		let n2 = [30.4, 3734.26565, 3208234.11489, 15932016253.16265, 377949612447409.6];
+		for t in 0..5_u64 {
+			assert!((v[0].at(t*Nanosecs).0 - n0[t as usize]).abs() < 0.00001);
+			assert!((v[1].at(t*Nanosecs).0 - n1[t as usize]).abs() < 0.00001);
+			assert!((v[2].at(t*Nanosecs).0 - n2[t as usize]).abs() < 0.00001);
+		}
+		assert!(v[3].at(100*Nanosecs).0.abs() < 0.00001);
+	}
+	
+	#[test]
+	fn exponential_non_pos() {
+		let v = Value::<Exponential<f64>>::new(0.0)
+			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
+			.unwrap();
+		
+		assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
+		assert_eq!(v.at(0*Nanosecs).0, 0.0);
+		assert_eq!(v.at(u64::MAX*Nanosecs).0, 0.0);
+		
+		let v = Value::<Exponential<f64>>::new(-1.5)
+			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
+			.unwrap();
+		
+		match v.polynomial() {
+			FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
+			_ => panic!()
+		}
+		assert!(v.at(0*Nanosecs).0.is_nan());
+		assert!(v.at(u64::MAX*Nanosecs).0.is_nan());
 	}
 }
