@@ -33,12 +33,22 @@ impl<Iso: LinearIso> Value<Iso> {
 		self.polynomial
 	}
 	
+	fn calc(&self, t: f64, d: f64) -> Iso::Linear {
+		self.change_list.iter().fold(self.polynomial.term(0), |n, change| {
+			let v = change.rate.calc(t, d + 1.0);
+			let u = t / ((change.time_unit >> TimeUnit::Nanosecs) as f64);
+			n + (v * Scalar(((u + d) / (d + 1.0))) * change.operator.scalar())
+		})
+	}
+	
 	fn at(&self, time: Time) -> Iso {
-		Iso::map(self.polynomial.at(time /* - time_offset */))
+		Iso::map(self.calc(((time /* - time_offset */) >> TimeUnit::Nanosecs) as f64, 0.0))
 	}
 	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
-		let scalar = change.operator.scalar();
+		let scalar = change.operator.scalar()
+			* Scalar(1.0 / ((change.time_unit >> TimeUnit::Nanosecs) as f64));
+		
 		for term_index in 0..=change.rate.polynomial.degree() {
 			let term = change.rate.polynomial.term(term_index) * scalar;
 			match self.polynomial.add_term(term_index + 1, term) {
@@ -54,7 +64,7 @@ impl<Iso: LinearIso> Value<Iso> {
 /// ...
 #[derive(Debug, Clone)]
 struct Change<Iso: LinearIso> {
-	operator: Iso::Op,
+	operator: Iso::Op, // ??? Could just store the Scalar
 	rate: Value<Iso>,
 	time_unit: TimeUnit,
 }
@@ -358,5 +368,28 @@ mod value_tests {
 		}
 		assert!(v.at(0*Nanosecs).0.is_nan());
 		assert!(v.at(u64::MAX*Nanosecs).0.is_nan());
+	}
+	
+	#[test]
+	fn long_term() {
+		let h = Value::<Linear<f64>>::new(10.0)
+			.add_change(Change::new(LinearOp::Add, Value::new(1.0), Hours))
+			.unwrap();
+		let n = Value::<Linear<f64>>::new(10.0)
+			.add_change(Change::new(LinearOp::Add, Value::new(1.0), Nanosecs))
+			.unwrap();
+		
+		assert_eq!(h.at(1*Hours), n.at(1*Nanosecs));
+		assert_eq!(h.at(10*Hours), n.at(10*Nanosecs));
+		
+		let h1 = Value::<Linear<f64>>::new(30.0)
+			.add_change(Change::new(LinearOp::Add, h, Hours))
+			.unwrap();
+		let n1 = Value::<Linear<f64>>::new(30.0)
+			.add_change(Change::new(LinearOp::Add, n, Nanosecs))
+			.unwrap();
+		
+		assert_eq!(h1.at(1*Hours), n1.at(1*Nanosecs));
+		assert_eq!(h1.at(10*Hours), n1.at(10*Nanosecs));
 	}
 }
