@@ -141,7 +141,7 @@ impl FluxPolynomial<f64> {
 
 /// `a + b x + c x^2 + d x^3 + ..`
 #[derive(Debug)]
-enum Polynomial {
+pub enum Polynomial {
 	Constant ([f64; 1]),
 	Linear   ([f64; 2]),
 	Quadratic([f64; 3]),

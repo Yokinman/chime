@@ -1,6 +1,7 @@
 //! Change describing utilities ...
 
 use std::fmt::Debug;
+use std::iter::Sum;
 use std::marker::PhantomData;
 use std::ops::{Add, Mul};
 
@@ -8,7 +9,7 @@ use impl_op::impl_op;
 
 use time::{Time, TimeUnit};
 
-use crate::polynomial::{FluxPolynomial, Degree};
+use crate::polynomial::{FluxPolynomial, Degree, Polynomial};
 
 /// ...
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
@@ -34,15 +35,73 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 	
 	fn calc(&self, t: f64, d: f64) -> Iso::Linear {
-		self.change_list.iter().fold(self.polynomial.term(0), |n, change| {
+		let term_iter = self.change_list.iter().map(|change| {
 			let v = change.rate.calc(t, d + 1.0);
 			let u = t / ((change.time_unit >> TimeUnit::Nanosecs) as f64);
-			n + (v * Scalar(((u + d) / (d + 1.0))) * change.operator.scalar())
-		})
+			v * Scalar(((u + d) / (d + 1.0))) * change.operator.scalar()
+		});
+		self.polynomial.term(0) + term_iter.sum()
 	}
 	
 	fn at(&self, time: Time) -> Iso {
 		Iso::map(self.calc(((time /* - time_offset */) >> TimeUnit::Nanosecs) as f64, 0.0))
+	}
+	
+	fn coeff_calc(&self, d: f64, d_min: f64) -> Iso::Linear {
+		let coeff_iter = self.change_list.iter().map(|Change { rate, time_unit, .. }| {
+			let coeff = rate.coeff_calc(d + 1.0, d_min);
+			if d < d_min {
+				let coeff = coeff * Scalar(1.0 / ((*time_unit >> TimeUnit::Nanosecs) as f64));
+				if d == 0.0 {
+					coeff
+				} else {
+					coeff + (rate.coeff_calc(d + 1.0, d_min + 1.0) * Scalar(d))
+				}
+			} else {
+				coeff * Scalar(d)
+			}
+		});
+		if d == 0.0 && d_min == 0.0 {
+			self.polynomial.term(0)
+		} else {
+			let coeff_sum = coeff_iter.sum::<Iso::Linear>() * Scalar(1.0 / (d + 1.0));
+			if d >= d_min {
+				self.polynomial.term(0) + coeff_sum
+			} else {
+				coeff_sum
+			}
+		}
+		// https://www.desmos.com/calculator/tn0udn7swy
+	}
+	
+	fn roots(&self) -> Vec<Time> {
+		// let offset = Time(0);
+		// 
+		// let polynomial = match self.degree() {
+		// 	0 => Polynomial::Constant([self.coeff_calc(0.0, 0.0)]),
+		// 	1 => Polynomial::Linear([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
+		// 	2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
+		// 	3 => Polynomial::Cubic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
+		// 	4 => Polynomial::Quartic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
+		// 	_ => unreachable!()
+		// };
+		// 
+		// let mut roots: Vec<Time> = polynomial.roots()
+		// 	.iter()
+		// 	.filter_map(|&r| {
+		// 		let r = r? - ((offset >> TimeUnit::Nanosecs) as f64);
+		// 		debug_assert!(!r.is_nan());
+		// 		if r < 0.0 || r > (u64::MAX as f64) {
+		// 			None
+		// 		} else {
+		// 			Some((r as u64)*TimeUnit::Nanosecs)
+		// 		}
+		// 	})
+		// 	.collect();
+		// 
+		// roots.sort_unstable();
+		// roots
+		vec![]
 	}
 	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
@@ -104,6 +163,7 @@ where
 		Sized + Copy + Clone
 		+ Add<Output=Self> + Mul<Scalar, Output=Self>
 		// + Sub<Output=Self> + Div<Scalar, Output=Self>
+		+ Sum
 		+ PartialEq + PartialOrd // !!! Temporary, wouldn't work for something like vectors
 		+ Debug // ??? Could be optional
 	// Scalar:
@@ -115,7 +175,7 @@ where
 	T:
 		Copy + Clone
 		+ Add<Output=T> + Mul<Scalar, Output=T>
-		// + Sub<Output=T> + Div<Scalar, Output=T>
+		+ Sum
 		+ PartialEq + PartialOrd
 		+ Debug
 	// Scalar:
@@ -300,6 +360,41 @@ mod value_tests {
 		}
 	}
 	
+	#[test]
+	fn calc_test() {
+		let e = Value::<Linear<f64>>::new(2.0);
+		let d = Value::new(1.0)
+			.add_change(Change::new(LinearOp::Add, e, Mins)).unwrap();
+		let d1 = Value::new(7.0);
+		let d2 = Value::new(9.0);
+		let c = Value::new(1.0)
+			.add_change(Change::new(LinearOp::Add, d, Mins)).unwrap()
+			.add_change(Change::new(LinearOp::Add, d1, Secs)).unwrap();
+		let c1 = Value::new(3.0)
+			.add_change(Change::new(LinearOp::Add, d2, Millisecs)).unwrap();
+		let b = Value::new(10.0)
+			.add_change(Change::new(LinearOp::Add, c, Microsecs)).unwrap()
+			.add_change(Change::new(LinearOp::Add, c1, Mins)).unwrap();
+		let a = Value::new(30.0)
+			.add_change(Change::new(LinearOp::Add, b, Microsecs)).unwrap();
+		
+		assert_eq!(a.coeff_calc(0.0, 0.0), 30.0);
+		assert_eq!(a.coeff_calc(0.0, 1.0), 0.018166666666666664);
+		assert_eq!(a.coeff_calc(0.0, 2.0), 3.668167918055556e-6);
+		assert_eq!(a.coeff_calc(0.0, 3.0), 1.1764138889120372e-15);
+		assert_eq!(a.coeff_calc(0.0, 4.0), 2.314814814814815e-29);
+	}
+	
+	#[ignore]
+	#[test]
+	fn linear_roots() {
+		let v = linear();
+		assert_eq!(v[0].roots(), vec![0*Nanosecs]); // 0.6
+		assert_eq!(v[1].roots(), vec![2*Nanosecs]); // -1.902, 2.102
+		assert_eq!(v[2].roots(), vec![3*Nanosecs]); // 3.892
+		assert_eq!(v[3].roots(), vec![5*Nanosecs]); // -3.687, 5.631
+	}
+	
 	fn exponential() -> [Value<Exponential<f64>>; 4] {
 		let mut v = Value::new(3.2)
 			.add_change(Change::new(ExponentialOp::Div, Value::new(1.1), Nanosecs))
@@ -346,6 +441,16 @@ mod value_tests {
 			assert!((v[2].at(t*Nanosecs).0 - n2[t as usize]).abs() < 0.00001);
 		}
 		assert!(v[3].at(100*Nanosecs).0.abs() < 0.00001);
+	}
+	
+	#[ignore]
+	#[test]
+	fn exponential_roots() {
+		let v = exponential();
+		assert_eq!(v[0].roots(), vec![12*Nanosecs]); // 12.204
+		assert_eq!(v[1].roots(), vec![24*Nanosecs]); // -1.143, 24.551
+		assert_eq!(v[2].roots(), vec![36*Nanosecs]); // 36.91 
+		assert_eq!(v[3].roots(), vec![49*Nanosecs]); // -4.752, 49.329
 	}
 	
 	#[test]
