@@ -2,7 +2,6 @@
 
 use std::fmt::Debug;
 use std::iter::Sum;
-use std::marker::PhantomData;
 use std::ops::{Add, Mul};
 
 use impl_op::impl_op;
@@ -38,7 +37,7 @@ impl<Iso: LinearIso> Value<Iso> {
 		let term_iter = self.change_list.iter().map(|change| {
 			let v = change.rate.calc(t, d + 1.0);
 			let u = t / ((change.time_unit >> TimeUnit::Nanosecs) as f64);
-			v * Scalar(((u + d) / (d + 1.0))) * change.operator.scalar()
+			v * Scalar((u + d) / (d + 1.0)) * change.operator.scalar()
 		});
 		self.initial_value + term_iter.sum()
 	}

@@ -23,12 +23,12 @@ impl<T: LinearValue> Polynomial<T> {
 		//! If not all roots are known, `Err` is returned.
 		
 		let cleanup = |mut roots: Vec<f64>| {
-			roots = roots.into_iter().filter(|r| !r.is_nan()).collect();
+			roots.retain(|r| !r.is_nan());
 			roots.sort_unstable_by(|a,b| a.total_cmp(b));
 			roots
 		};
 		
-		T::roots(&self)
+		T::roots(self)
 			.map(cleanup)
 			.map_err(cleanup)
 	}
@@ -130,8 +130,7 @@ impl LinearValue for f64 {
 				f64::roots(&P::Quadratic([a,c,e]))?
 					.into_iter()
 					.map(|r| r.sqrt())
-					.map(|r| [r, -r])
-					.flatten()
+					.flat_map(|r| [r, -r])
 					.collect()
 			},
 			
