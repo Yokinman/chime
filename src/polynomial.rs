@@ -80,155 +80,100 @@ impl<T: LinearValue> FluxPolynomial<T> {
 	}
 }
 
-impl FluxPolynomial<f64> {
-	pub fn roots(self, offset: Time) -> Vec<Time> {
-		//! Returns all real roots in the range `0..=u64::MAX` as a sorted list.
+/// `a + b x + c x^2 + d x^3 + ..`
+#[derive(Debug)]
+pub enum Polynomial<T: LinearValue> {
+	Constant ([T; 1]),
+	Linear   ([T; 2]),
+	Quadratic([T; 3]),
+	Cubic    ([T; 4]),
+	Quartic  ([T; 5]),
+	// Generic(Vec<T>),
+}
+
+impl<T: LinearValue> Polynomial<T> {
+	pub fn real_roots(&self) -> Result<Vec<f64>, Vec<f64>> {
+		//! Returns all real-valued roots of this polynomial in ascending order.
+		//! If the roots aren't known with enough accuracy, `Err` is returned.
 		
-		let b_time = 1.0;
-		let c_time = 1.0;
-		let d_time = 1.0;
-		let e_time = 1.0;
-		
-		let polynomial = match self {
-			Self::Constant(a) => Polynomial::Constant(a),
-			Self::Linear([a, b]) => Polynomial::Linear([
-				a,
-				b/b_time,
-			]),
-			Self::Quadratic([a, b, c]) => {
-				Polynomial::Quadratic([
-					a,
-					(b + (c/2.0)/c_time)/b_time,
-					(c/2.0)/c_time,
-				])
-			},
-			Self::Cubic([a, b, c, d]) => {
-				Polynomial::Cubic([
-					a,
-					(b     +    (c/2.0 + (d/3.0)/d_time)/c_time)/b_time,
-					(c/2.0 + ((d+d/2.0)/3.0)/d_time)/c_time,
-					(d/2.0/3.0)/d_time,
-				])
-			},
-			Self::Quartic([a, b, c, d, e]) => {
-				Polynomial::Quartic([
-					a,
-					(b         +           (c/2.0      +          (d/3.0 + (e/4.0)/e_time)/d_time)/c_time)/b_time,
-					(c/2.0     +        ((d+d/2.0)/3.0 + ((e+e/2.0+e/3.0)/4.0)/e_time)/d_time)/c_time,
-					(d/2.0/3.0 + ((e/2.0+(e+e/2.0)/3.0)/4.0)/e_time)/d_time,
-					(e/2.0/3.0/4.0)/e_time,
-				])
-			},
+		let cleanup = |mut roots: Vec<f64>| {
+			roots = roots.into_iter().filter(|r| !r.is_nan()).collect();
+			roots.sort_unstable_by(|a,b| a.total_cmp(b));
+			roots
 		};
 		
-		let mut roots: Vec<Time> = polynomial.roots()
-			.iter()
-			.filter_map(|&r| {
-				let r = r? - ((offset >> TimeUnit::Nanosecs) as f64);
-				debug_assert!(!r.is_nan());
-				if r < 0.0 || r > (u64::MAX as f64) {
-					None
-				} else {
-					Some((r as u64)*TimeUnit::Nanosecs)
-				}
-			})
-			.collect();
-		
-		roots.sort_unstable();
-		roots
+		T::roots(&self)
+			.map(cleanup)
+			.map_err(cleanup)
 	}
 }
 
-/// `a + b x + c x^2 + d x^3 + ..`
-#[derive(Debug)]
-pub enum Polynomial {
-	Constant ([f64; 1]),
-	Linear   ([f64; 2]),
-	Quadratic([f64; 3]),
-	Cubic    ([f64; 4]),
-	Quartic  ([f64; 5]),
-}
-
-impl Polynomial {
-	pub fn roots(self) -> Vec<Option<f64>> {
-		const ZERO: f64 = 0.0;
-		const ONE:  f64 = 1.0;
-		
-		fn sqrt(num: f64) -> Option<f64> {
-			if num < 0.0 {
-				None
-			} else {
-				Some(num.sqrt())
-			}
-		}
-		fn cbrt(num: f64) -> f64 {
-			num.cbrt()
-		}
-		
-		match self {
-			Self::Constant(_) => vec![],
+impl LinearValue for f64 {
+	fn roots(poly: &Polynomial<f64>) -> Result<Vec<f64>, Vec<f64>> {
+		use Polynomial as P;
+		Ok(match *poly {
+			P::Constant(_) => vec![],
 			
 			 // Downgrade:
-			Self::Linear   ([a, b         ]) if b == ZERO => [vec![None], Self::Constant ([a         ]).roots()].concat(),
-			Self::Quadratic([a, b, c      ]) if c == ZERO => [vec![None], Self::Linear   ([a, b      ]).roots()].concat(),
-			Self::Cubic    ([a, b, c, d   ]) if d == ZERO => [vec![None], Self::Quadratic([a, b, c   ]).roots()].concat(),
-			Self::Quartic  ([a, b, c, d, e]) if e == ZERO => [vec![None], Self::Cubic    ([a, b, c, d]).roots()].concat(),
+			P::Linear   ([a,b      ]) if b == 0. => f64::roots(&P::Constant ([a      ]))?,
+			P::Quadratic([a,b,c    ]) if c == 0. => f64::roots(&P::Linear   ([a,b    ]))?,
+			P::Cubic    ([a,b,c,d  ]) if d == 0. => f64::roots(&P::Quadratic([a,b,c  ]))?,
+			P::Quartic  ([a,b,c,d,e]) if e == 0. => f64::roots(&P::Cubic    ([a,b,c,d]))?,
 			
 			 // Shift Over:
-			Self::Linear   ([a, b         ]) if a == ZERO => [vec![Some(ZERO)], Self::Constant ([b         ]).roots()].concat(),
-			Self::Quadratic([a, b, c      ]) if a == ZERO => [vec![Some(ZERO)], Self::Linear   ([b, c      ]).roots()].concat(),
-			Self::Cubic    ([a, b, c, d   ]) if a == ZERO => [vec![Some(ZERO)], Self::Quadratic([b, c, d   ]).roots()].concat(),
-			Self::Quartic  ([a, b, c, d, e]) if a == ZERO => [vec![Some(ZERO)], Self::Cubic    ([b, c, d, e]).roots()].concat(),
+			P::Linear   ([a,b      ]) if a == 0. => [vec![0.], f64::roots(&P::Constant ([b      ]))?].concat(),
+			P::Quadratic([a,b,c    ]) if a == 0. => [vec![0.], f64::roots(&P::Linear   ([b,c    ]))?].concat(),
+			P::Cubic    ([a,b,c,d  ]) if a == 0. => [vec![0.], f64::roots(&P::Quadratic([b,c,d  ]))?].concat(),
+			P::Quartic  ([a,b,c,d,e]) if a == 0. => [vec![0.], f64::roots(&P::Cubic    ([b,c,d,e]))?].concat(),
 			
 			 // Linear:
-			Self::Linear([a, b]) => vec![Some(-a / b)],
+			P::Linear([a, b]) => vec![-a / b],
 			
 			 // Pseudo-linear:
-			Self::Quadratic([a, b, c]) if b == ZERO => {
-				let r = sqrt(-a / c);
-				vec![r, r.map(|r| -r)]
+			P::Quadratic([a,b,c]) if b == 0. => {
+				let r = (-a / c).sqrt();
+				vec![r, -r]
 			},
-			Self::Cubic([a, b, c, d]) if b == ZERO && c == ZERO => {
-				let r = Some(cbrt(-a / d));
+			P::Cubic([a,b,c,d]) if (b,c) == (0.,0.) => {
+				let r = (-a / d).cbrt();
 				vec![r, r, r]
 			},
-			Self::Quartic([a, b, c, d, e]) if b == ZERO && c == ZERO && d == ZERO => {
-				let r = sqrt(-a / e).map(|r| sqrt(r).unwrap());
-				vec![
-					r, r.map(|r| -r),
-					r, r.map(|r| -r),
-				]
+			P::Quartic([a,b,c,d,e]) if (b,c,d) == (0.,0.,0.) => {
+				let r = (-a / e).sqrt().sqrt();
+				vec![r, r, -r, -r]
 			},
 			
 			 // Quadratic:
-			Self::Quadratic([a, b, c]) => {
+			P::Quadratic([a,b,c]) => {
 				let n = -b / (2.0 * c);
-				let n1 = sqrt(n*n - a/c);
-				vec![n1.map(|n1| n + n1), n1.map(|n1| n - n1)]
+				let n1 = (n*n - a/c).sqrt();
+				vec![n + n1, n - n1]
 			},
 			
 			 // Depressed Cubic:
-			Self::Cubic([a, b, c, d]) if c == ZERO => {
+			P::Cubic([a,b,c,d]) if c == 0. => {
 				let p = -a / (2.0 * d);
 				let q = -b / (3.0 * d);
 				let discriminant = p*p - q*q*q;
 				match discriminant.partial_cmp(&0.0) {
 					 // 3 Real Roots:
 					Some(Ordering::Less) => {
-						let sqrt_q = sqrt(q).unwrap();
+						let sqrt_q = q.sqrt();
+						debug_assert!(!sqrt_q.is_nan());
 						let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
 						use std::f64::consts::TAU;
 						vec![
-							Some(2.0 * sqrt_q * f64::cos(angle + TAU*0.0/3.0)),
-							Some(2.0 * sqrt_q * f64::cos(angle + TAU*1.0/3.0)),
-							Some(2.0 * sqrt_q * f64::cos(angle + TAU*2.0/3.0)),
+							2.0 * sqrt_q * f64::cos(angle + TAU*0.0/3.0),
+							2.0 * sqrt_q * f64::cos(angle + TAU*1.0/3.0),
+							2.0 * sqrt_q * f64::cos(angle + TAU*2.0/3.0),
 						]
 					},
 					
 					 // 1 Real Root:
 					Some(Ordering::Greater) => {
-						let n = sqrt(discriminant).unwrap();
-						vec![Some(cbrt(p + n) + cbrt(p - n)), None, None]
+						let n = discriminant.sqrt();
+						debug_assert!(!n.is_nan());
+						vec![(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN]
 					},
 					
 					_ => unreachable!()
@@ -236,91 +181,88 @@ impl Polynomial {
 			},
 			
 			 // Cubic:
-			Self::Cubic([a, b, c, d]) => {
+			P::Cubic([a,b,c,d]) => {
 				let n = -c / (3.0 * d);
-				let depressed_cubic = Self::Cubic([
+				let depressed_cubic = P::Cubic([
 					a + (n * (b + (n * c * 2.0)/3.0)),
 					b + (n * c),
-					ZERO,
+					0.0,
 					d,
 				]);
-				depressed_cubic.roots()
-					.iter()
-					.map(|x| x.map(|x| x + n))
+				f64::roots(&depressed_cubic)?
+					.into_iter()
+					.map(|x| x + n)
 					.collect()
 			},
 			
 			 // Biquadratic:
-			Self::Quartic([a, b, c, d, e]) if b == ZERO && d == ZERO => {
-				let roots: Vec<Option<f64>> = Self::Quadratic([a, c, e])
-					.roots()
-					.iter().map(|&r| sqrt(r?))
-					.collect();
-				
-				vec![
-					roots[0], roots[0].map(|x| -x),
-					roots[1], roots[1].map(|x| -x)
-				]
+			P::Quartic([a,b,c,d,e]) if (b,d) == (0.,0.) => {
+				f64::roots(&P::Quadratic([a,c,e]))?
+					.into_iter()
+					.map(|r| r.sqrt())
+					.map(|r| [r, -r])
+					.flatten()
+					.collect()
 			},
 			
 			 // Depressed Quartic:
-			Self::Quartic([a, b, c, d, e]) if d == ZERO => {
+			P::Quartic([a,b,c,d,e]) if d == 0. => {
 				let p = a / e;
 				let q = b / (2.0 * e);
 				let r = c / (2.0 * e);
-				let resolvent_cubic = Self::Cubic([
+				let resolvent_cubic = P::Cubic([
 					-(q * q) / 2.0,
 					(r * r) - p,
 					2.0 * r,
-					ONE
+					1.0
 				]);
-				match *resolvent_cubic.roots().as_slice() {
-					[Some(m), _, _] |
-					[_, Some(m), _] |
-					[_, _, Some(m)] => {
-						let sqrt_2m = sqrt(2.0 * m).unwrap();
-						let quad_a = Self::Quadratic([ (q / sqrt_2m) + r + m, -sqrt_2m, ONE]);
-						let quad_b = Self::Quadratic([-(q / sqrt_2m) + r + m,  sqrt_2m, ONE]);
-						[quad_a.roots(), quad_b.roots()].concat()
-					},
-					_ => unreachable!()
-				}
+				let m = *resolvent_cubic.real_roots()?.last().unwrap();
+				debug_assert!(m >= 0.0);
+				let sqrt_2m = (2.0 * m).sqrt();
+				let quad_a = P::Quadratic([ (q / sqrt_2m) + r + m, -sqrt_2m, 1.0]);
+				let quad_b = P::Quadratic([-(q / sqrt_2m) + r + m,  sqrt_2m, 1.0]);
+				[f64::roots(&quad_a)?, f64::roots(&quad_b)?].concat()
 			},
 			
 			 // Quartic:
-			Self::Quartic([a, b, c, d, e]) => {
+			P::Quartic([a,b,c,d,e]) => {
 				let n = -d / (4.0 * e);
-				let depressed_quartic = Self::Quartic([
+				let depressed_quartic = P::Quartic([
 					a + (n * (b + (n * (c + (n * d * 3.0)/4.0)))),
 					b + (n * (c + (n * d)) * 2.0),
 					c + (n * d * 3.0)/2.0,
-					ZERO,
+					0.0,
 					e
 				]);
-				depressed_quartic.roots()
-					.iter()
-					.map(|x| x.map(|x| x + n))
+				f64::roots(&depressed_quartic)?
+					.into_iter()
+					.map(|x| x + n)
 					.collect()
 			},
-		}
+		})
 	}
 }
+
+/*
+impl LinearValue for Vec2<f64> {
+	fn roots(polynomial: Polynomial<Self>) -> Vec<Option<f64>> {
+		let a = (Polynomial<f64> from Vec2 primary terms).roots();
+		let b = (Polynomial<f64> from Vec2 secondary terms).roots();
+		sort root lists, return pairs of a and b that match (or are close?)
+		// https://www.desmos.com/calculator/usraewodwz
+	}
+}
+*/
 
 #[cfg(test)]
 mod root_tests {
 	use super::*;
 	
-	fn assert_roots(p: Polynomial, mut expected_roots: Vec<Option<f64>>) {
-		let mut r = p.roots();
-		r.sort_unstable_by(|x, y| x.map(|x| x as u64).cmp(&y.map(|y| y as u64)));
-		expected_roots.sort_unstable_by(|x, y| x.map(|x| x as u64).cmp(&y.map(|y| y as u64)));
+	fn assert_roots(p: Polynomial<f64>, mut expected_roots: Vec<f64>) {
+		let mut r = p.real_roots().unwrap();
 		for i in 0..r.len() {
-			if r[i].is_some() && expected_roots[i].is_some() {
-				// println!("{:?} <> {:?}", r[i], expected_roots[i]);
-				assert!(f64::abs(r[i].unwrap() - expected_roots[i].unwrap()) < 0.1);
-			} else {
-				assert_eq!(r[i], expected_roots[i]);
-			}
+			// println!("{:?} <> {:?}", r[i], expected_roots[i]);
+			assert!((r[i] - expected_roots[i]).abs() < 0.1);
 		}
 	}
 	
@@ -332,28 +274,28 @@ mod root_tests {
 	
 	#[test]
 	fn linear() {
-		assert_roots(Polynomial::Linear([20.0, -4.0]), vec![Some(5.0)]);
-		assert_roots(Polynomial::Linear([20.0, 4.0]), vec![Some(-5.0)]);
-		assert_roots(Polynomial::Linear([-0.0, 4.0/3.0]), vec![Some(0.0)]);
+		assert_roots(Polynomial::Linear([20.0, -4.0]), vec![5.0]);
+		assert_roots(Polynomial::Linear([20.0, 4.0]), vec![-5.0]);
+		assert_roots(Polynomial::Linear([-0.0, 4.0/3.0]), vec![0.0]);
 	}
 	
 	#[test]
 	fn quadratic() {
 		assert_roots(
 			Polynomial::Quadratic([20.0, 4.0, 7.0]),
-			vec![None, None]
+			vec![]
 		);
 		assert_roots(
 			Polynomial::Quadratic([20.0, 4.0, -7.0]),
-			vec![Some(-10.0/7.0), Some(2.0)]
+			vec![-10.0/7.0, 2.0]
 		);
 		assert_roots(
 			Polynomial::Quadratic([ 40.0/3.0,  2.0/3.0, -17.0/100.0]),
-			Polynomial::Quadratic([-40.0/3.0, -2.0/3.0,  17.0/100.0]).roots()
+			Polynomial::Quadratic([-40.0/3.0, -2.0/3.0,  17.0/100.0]).real_roots().unwrap()
 		);
 		assert_roots(
 			Polynomial::Quadratic([0.0, 4.0/6.0, -17.0/100.0]),
-			vec![Some(0.0), Some(200.0/51.0)]
+			vec![0.0, 200.0/51.0]
 		);
 	}
 	
@@ -361,10 +303,10 @@ mod root_tests {
 	fn cubic() {
 		assert_roots(
 			Polynomial::Cubic([6.0, -2077.5, -17000.0/77.0, 6712.0/70.0]),
-			vec![Some(-3.64550618348), Some(0.00288720188), Some(5.94514363216)]
+			vec![-3.64550618348, 0.00288720188, 5.94514363216]
 		);
 		
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Polynomial {
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Polynomial<f64> {
 			Polynomial::Cubic([
 				a,
 				b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s),
@@ -374,29 +316,29 @@ mod root_tests {
 		}
 		assert_roots(
 			sum_poly(1000000000.0, 1.0, 1.0, 1.0, -1.0),
-			vec![None, None, Some(4591405718.8520711602007)]
+			vec![4591405718.8520711602007]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0, 1.0, 1.0, 1.0, -1.0),
-			vec![None, None, Some(275484343229.41354766068234)]
+			vec![275484343229.41354766068234]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 1.0, 1.0, 1.0, -1.0),
-			vec![None, None, Some(16529060593863.10213769318)]
+			vec![16529060593863.10213769318]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 1000.0, 300.0, 10.0, -4.0),
 			vec![
-				Some(-55432951711728.79099027553),
-				Some(-13201315814560.382043758431976512),
-				Some(95634267526286.173034033963943),
+				-55432951711728.79099027553,
+				-13201315814560.382043758431976512,
+				95634267526286.173034033963943,
 			]
 		);
 	}
 	
 	#[test]
 	fn quartic() {
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Polynomial {
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Polynomial<f64> {
 			Polynomial::Quartic([
 				a,
 				b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s),
@@ -408,97 +350,21 @@ mod root_tests {
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 7.5, -6.4, -10.0, 7.8, 2.7),
 			vec![
-				Some(-5830778969957.388671875),
-				Some(-51671989204288.265625),
-				Some(2846556446843.169921875),
-				Some(13056211727396.474609375),
+				-51671989204288.265625,
+				-5830778969957.388671875,
+				2846556446843.169921875,
+				13056211727396.474609375,
 			]
 		);
 		let t = 1000000000.0*60.0*60.0;
 		assert_roots(
 			Polynomial::Quartic([7500.0, 0.0, -1000.0/(t*t), 0.0, 27.0/(t*t*t*t)]),
 			vec![
-				Some(-2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0))),
-				Some(-2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0))),
-				Some(2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0))),
-				Some(2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0))),
+				-2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
+				-2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),
+				2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),
+				2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
 			]
 		);
 	}
 }
-
-// /// `Sign(integer, numerator)`, `denominator = u64::MAX`
-// #[derive(Debug, Copy, Clone)]
-// enum Frac {
-// 	Pos(u64, u64),
-// 	Neg(u64, u64),
-// }
-// 
-// impl_op!{ a <= b { (Frac, Frac)['total] => match(a, b) {
-// 	(Frac::Pos(0, 0), Frac::Neg(0, 0)) |
-// 	(Frac::Neg(0, 0), Frac::Pos(0, 0)) => Ordering::Equal,
-// 	(Frac::Pos(_, _), Frac::Neg(_, _)) => Ordering::Greater,
-// 	(Frac::Neg(_, _), Frac::Pos(_, _)) => Ordering::Less,
-// 	(Frac::Pos(i, n), Frac::Pos(j, m)) |
-// 	(Frac::Neg(j, m), Frac::Neg(i, n)) => i.cmp(j).then_with(|| n.cmp(m)),
-// }}}
-// 
-// impl_op!{ a + b { (Frac, Frac) => match (a, b) {
-// 	(Frac::Pos(i, n), Frac::Pos(j, m)) => {
-// 		let (n, can_add) = n.overflowing_add(m);
-// 		let i = i + j + if can_add { 1 } else { 0 };
-// 		Frac::Pos(i, n)
-// 	},
-// 	(Frac::Neg(i, n), Frac::Neg(j, m)) => {
-// 		let (n, can_add) = n.overflowing_add(m);
-// 		let i = i + j + if can_add { 1 } else { 0 };
-// 		Frac::Neg(i, n)
-// 	},
-// 	(Frac::Pos(i, n), Frac::Neg(j, m)) => Frac::Pos(i, n) - Frac::Pos(j, m),
-// 	(Frac::Neg(i, n), Frac::Pos(j, m)) => Frac::Neg(i, n) - Frac::Neg(j, m),
-// }}}
-// 
-// impl_op!{ a - b { (Frac, Frac) => match(a, b) {
-// 	(Frac::Pos(i, n), Frac::Pos(j, m)) => match a.cmp(&b) {
-// 		Ordering::Greater => {
-// 			let (n, can_sub) = n.overflowing_sub(m);
-// 			Frac::Pos(i - j - if can_sub { 1 } else { 0 }, n)
-// 		},
-// 		Ordering::Less => {
-// 			let (m, can_sub) = m.overflowing_sub(n);
-// 			Frac::Neg(j - i - if can_sub { 1 } else { 0 }, m)
-// 		},
-// 		Ordering::Equal => Frac::Pos(0, 0),
-// 	},
-// 	(Frac::Neg(i, n), Frac::Neg(j, m)) => match a.cmp(&b) {
-// 		Ordering::Greater => {
-// 			let (n, can_sub) = n.overflowing_sub(m);
-// 			Frac::Neg(i - j - if can_sub { 1 } else { 0 }, n)
-// 		},
-// 		Ordering::Less => {
-// 			let (m, can_sub) = m.overflowing_sub(n);
-// 			Frac::Pos(j - i - if can_sub { 1 } else { 0 }, m)
-// 		},
-// 		Ordering::Equal => Frac::Neg(0, 0),
-// 	},
-// 	(Frac::Pos(i, n), Frac::Neg(j, m)) => Frac::Pos(i, n) + Frac::Pos(j, m),
-// 	(Frac::Neg(i, n), Frac::Pos(j, m)) => Frac::Neg(i, n) + Frac::Neg(j, m),
-// }}}
-// 
-// impl_op!{ a * b { (Frac, Frac) => match(a, b) {
-// 	// i n/d * j m/d = i*j + i*n/d + j*m/d + n*m/d/d 
-// 	(Frac::Pos(i, n), Frac::Pos(j, m)) => {
-// 		let (p, p_can_add) = m.overflowing_mul(i);
-// 		let (q, q_can_add) = n.overflowing_mul(j);
-// 		let (r, r_can_add) = p.overflowing_add(q);
-// 		let (s, s_can_add) = r.overflowing_add(n / ((u64::MAX / m) + 1));
-// 		Frac::Pos(
-// 			(i * j)
-// 			+ if p_can_add { (i - 1) / (u64::MAX / m) } else { 0 } // these are a little wrong, due to the loss of the fractional part
-// 			+ if q_can_add { (j - 1) / (u64::MAX / n) } else { 0 } // these are a little wrong, due to the loss of the fractional part
-// 			+ if r_can_add { 1 } else { 0 }
-// 			+ if s_can_add { 1 } else { 0 },
-// 			s
-// 		)
-// 	}
-// }}}

@@ -48,17 +48,18 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 	
 	fn coeff_calc(&self, d: f64, d_min: f64) -> Iso::Linear {
-		let coeff_iter = self.change_list.iter().map(|Change { rate, time_unit, .. }| {
-			let coeff = rate.coeff_calc(d + 1.0, d_min);
+		let coeff_iter = self.change_list.iter().map(|change| {
+			let coeff = change.rate.coeff_calc(d + 1.0, d_min);
+			let scalar = change.operator.scalar();
 			if d < d_min {
-				let coeff = coeff * Scalar(1.0 / ((*time_unit >> TimeUnit::Nanosecs) as f64));
+				let coeff = coeff * Scalar(1.0 / ((change.time_unit >> TimeUnit::Nanosecs) as f64));
 				if d == 0.0 {
-					coeff
+					coeff * scalar
 				} else {
-					coeff + (rate.coeff_calc(d + 1.0, d_min + 1.0) * Scalar(d))
+					(coeff + (change.rate.coeff_calc(d + 1.0, d_min + 1.0) * Scalar(d))) * scalar
 				}
 			} else {
-				coeff * Scalar(d)
+				coeff * Scalar(d) * scalar
 			}
 		});
 		if d == 0.0 && d_min == 0.0 {
@@ -74,34 +75,35 @@ impl<Iso: LinearIso> Value<Iso> {
 		// https://www.desmos.com/calculator/tn0udn7swy
 	}
 	
-	fn roots(&self) -> Vec<Time> {
-		// let offset = Time(0);
-		// 
-		// let polynomial = match self.degree() {
-		// 	0 => Polynomial::Constant([self.coeff_calc(0.0, 0.0)]),
-		// 	1 => Polynomial::Linear([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
-		// 	2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
-		// 	3 => Polynomial::Cubic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
-		// 	4 => Polynomial::Quartic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
-		// 	_ => unreachable!()
-		// };
-		// 
-		// let mut roots: Vec<Time> = polynomial.roots()
-		// 	.iter()
-		// 	.filter_map(|&r| {
-		// 		let r = r? - ((offset >> TimeUnit::Nanosecs) as f64);
-		// 		debug_assert!(!r.is_nan());
-		// 		if r < 0.0 || r > (u64::MAX as f64) {
-		// 			None
-		// 		} else {
-		// 			Some((r as u64)*TimeUnit::Nanosecs)
-		// 		}
-		// 	})
-		// 	.collect();
-		// 
-		// roots.sort_unstable();
-		// roots
-		vec![]
+	fn roots(&self) -> Result<Vec<Time>, Vec<Time>> {
+		let offset = 0.0; // (time_offset >> TimeUnit::Nanosecs) as f64;
+		
+		let into_time = |roots: Vec<f64>| -> Vec<Time> {
+			 roots.into_iter()
+				.filter_map(|r| {
+					debug_assert!(!r.is_nan());
+					let r = r - offset;
+					if r < 0.0 || r > (u64::MAX as f64) {
+						None
+					} else {
+						Some((r as u64)*TimeUnit::Nanosecs)
+					}
+				})
+				.collect()
+		};
+		
+		let polynomial = match self.degree() {
+			0 => Polynomial::Constant ([self.coeff_calc(0.0, 0.0)]),
+			1 => Polynomial::Linear   ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
+			2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
+			3 => Polynomial::Cubic    ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
+			4 => Polynomial::Quartic  ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
+			_ => unreachable!()
+		};
+		
+		polynomial.real_roots()
+			.map(into_time)
+			.map_err(into_time)
 	}
 	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
@@ -168,19 +170,16 @@ where
 		+ Debug // ??? Could be optional
 	// Scalar:
 	// 	Mul<Self, Output=Self>,
-{}
-
-impl<T> LinearValue for T
-where
-	T:
-		Copy + Clone
-		+ Add<Output=T> + Mul<Scalar, Output=T>
-		+ Sum
-		+ PartialEq + PartialOrd
-		+ Debug
-	// Scalar:
-	// 	Mul<T, Output=T>,
-{}
+{
+	fn roots(polynomial: &Polynomial<Self>) -> Result<Vec<f64>, Vec<f64>> {
+		//! Returns all real-valued roots of the given polynomial. If not all
+		//! roots are known with enough accuracy, `Err` should be returned.
+		//! 
+		//! [`Polynomial::real_roots`] should generally be used instead.
+		
+		Err(vec![])
+	}
+}
 
 /// The binary operators for addition & subtraction.
 #[derive(Debug, Copy, Clone)]
@@ -385,14 +384,13 @@ mod value_tests {
 		assert_eq!(a.coeff_calc(0.0, 4.0), 2.314814814814815e-29);
 	}
 	
-	#[ignore]
 	#[test]
 	fn linear_roots() {
 		let v = linear();
-		assert_eq!(v[0].roots(), vec![0*Nanosecs]); // 0.6
-		assert_eq!(v[1].roots(), vec![2*Nanosecs]); // -1.902, 2.102
-		assert_eq!(v[2].roots(), vec![3*Nanosecs]); // 3.892
-		assert_eq!(v[3].roots(), vec![5*Nanosecs]); // -3.687, 5.631
+		assert_eq!(v[0].roots(), Ok(vec![0*Nanosecs])); // 0.6
+		assert_eq!(v[1].roots(), Ok(vec![2*Nanosecs])); // -1.902, 2.102
+		assert_eq!(v[2].roots(), Ok(vec![3*Nanosecs])); // 3.892
+		assert_eq!(v[3].roots(), Ok(vec![5*Nanosecs])); // -3.687, 5.631
 	}
 	
 	fn exponential() -> [Value<Exponential<f64>>; 4] {
@@ -443,14 +441,13 @@ mod value_tests {
 		assert!(v[3].at(100*Nanosecs).0.abs() < 0.00001);
 	}
 	
-	#[ignore]
 	#[test]
 	fn exponential_roots() {
 		let v = exponential();
-		assert_eq!(v[0].roots(), vec![12*Nanosecs]); // 12.204
-		assert_eq!(v[1].roots(), vec![24*Nanosecs]); // -1.143, 24.551
-		assert_eq!(v[2].roots(), vec![36*Nanosecs]); // 36.91 
-		assert_eq!(v[3].roots(), vec![49*Nanosecs]); // -4.752, 49.329
+		assert_eq!(v[0].roots(), Ok(vec![12*Nanosecs])); // 12.204
+		assert_eq!(v[1].roots(), Ok(vec![24*Nanosecs])); // -1.143, 24.551
+		assert_eq!(v[2].roots(), Ok(vec![36*Nanosecs])); // 36.91 
+		assert_eq!(v[3].roots(), Ok(vec![49*Nanosecs])); // -4.752, 49.329
 	}
 	
 	#[test]
