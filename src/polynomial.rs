@@ -6,80 +6,6 @@ use crate::change::{LinearValue, Scalar};
 
 pub type Degree = usize;
 
-/// `a + (b + (c + (d + ..) (t+2)/3) (t+1)/2) t`
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum FluxPolynomial<T: LinearValue> {
-	Constant  ([T; 1]),
-	Linear    ([T; 2]),
-	Quadratic ([T; 3]),
-	Cubic     ([T; 4]),
-	Quartic   ([T; 5]),
-}
-
-impl<T: LinearValue> FluxPolynomial<T> {
-	pub fn degree(&self) -> Degree {
-		match self {
-			Self::Constant(..)  => 0,
-			Self::Linear(..)    => 1,
-			Self::Quadratic(..) => 2,
-			Self::Cubic(..)     => 3,
-			Self::Quartic(..)   => 4,
-		}
-	}
-	
-	// !!! Derivative is:
-	// `a + (b + (c + (d + ..) (t+2)/3) (t+1)/2) t`
-	// => (b + c/2 + d/3 + ..) + ((c + d/2 + ..) + (d + ..) (t+1)/2) t
-	
-	pub fn term(&self, term_index: Degree) -> T {
-		match self {
-			Self::Constant (list) => list[term_index],
-			Self::Linear   (list) => list[term_index],
-			Self::Quadratic(list) => list[term_index],
-			Self::Cubic    (list) => list[term_index],
-			Self::Quartic  (list) => list[term_index],
-		}
-	}
-	
-	pub fn add_term(mut self, term_index: Degree, term: T) -> Result<Self, Self> {
-		match term_index.cmp(&(self.degree() + 1)) {
-			Ordering::Less => {
-				match self {
-					Self::Constant (ref mut list) => list[term_index] = list[term_index] + term,
-					Self::Linear   (ref mut list) => list[term_index] = list[term_index] + term,
-					Self::Quadratic(ref mut list) => list[term_index] = list[term_index] + term,
-					Self::Cubic    (ref mut list) => list[term_index] = list[term_index] + term,
-					Self::Quartic  (ref mut list) => list[term_index] = list[term_index] + term,
-				}
-				Ok(self)
-			},
-			Ordering::Equal => match self {
-				Self::Constant ([a         ]) => Ok(Self::Linear   ([a,          term])),
-				Self::Linear   ([a, b      ]) => Ok(Self::Quadratic([a, b,       term])),
-				Self::Quadratic([a, b, c   ]) => Ok(Self::Cubic    ([a, b, c,    term])),
-				Self::Cubic    ([a, b, c, d]) => Ok(Self::Quartic  ([a, b, c, d, term])),
-				Self::Quartic(..) => Err(self),
-			},
-			Ordering::Greater => Err(self),
-		}
-	}
-	
-	pub fn at(&self, time: Time) -> T {
-		let t = (time >> TimeUnit::Nanosecs) as f64;
-		let b_time = 1;
-		let c_time = 1;
-		let d_time = 1;
-		let e_time = 1;
-		match *self {
-			Self::Constant ([a        ]) => a,
-			Self::Linear   ([a,b      ]) => a + b*Scalar(t),
-			Self::Quadratic([a,b,c    ]) => a + (b + c*Scalar((t+1.0)/2.0))*Scalar(t),
-			Self::Cubic    ([a,b,c,d  ]) => a + (b + (c + d*Scalar((t+2.0)/3.0))*Scalar((t+1.0)/2.0))*Scalar(t),
-			Self::Quartic  ([a,b,c,d,e]) => a + (b + (c + (d + e*Scalar((t+3.0)/4.0))*Scalar((t+2.0)/3.0))*Scalar((t+1.0)/2.0))*Scalar(t),
-		}
-	}
-}
-
 /// `a + b x + c x^2 + d x^3 + ..`
 #[derive(Debug)]
 pub enum Polynomial<T: LinearValue> {
@@ -94,7 +20,7 @@ pub enum Polynomial<T: LinearValue> {
 impl<T: LinearValue> Polynomial<T> {
 	pub fn real_roots(&self) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of this polynomial in ascending order.
-		//! If the roots aren't known with enough accuracy, `Err` is returned.
+		//! If not all roots are known, `Err` is returned.
 		
 		let cleanup = |mut roots: Vec<f64>| {
 			roots = roots.into_iter().filter(|r| !r.is_nan()).collect();
@@ -106,6 +32,10 @@ impl<T: LinearValue> Polynomial<T> {
 			.map(cleanup)
 			.map_err(cleanup)
 	}
+	
+	// !!! Derivative is:
+	// `a + (b + (c + (d + ..) (t+2)/3) (t+1)/2) t`
+	// => (b + c/2 + d/3 + ..) + ((c + d/2 + ..) + (d + ..) (t+1)/2) t
 }
 
 impl LinearValue for f64 {

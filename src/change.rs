@@ -9,29 +9,29 @@ use impl_op::impl_op;
 
 use time::{Time, TimeUnit};
 
-use crate::polynomial::{FluxPolynomial, Degree, Polynomial};
+use crate::polynomial::{Degree, Polynomial};
 
 /// ...
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
 struct Value<Iso: LinearIso> {
-	polynomial: FluxPolynomial<Iso::Linear>,
+	initial_value: Iso::Linear,
 	change_list: Vec<Change<Iso>>,
 }
 
 impl<Iso: LinearIso> Value<Iso> {
 	pub fn new(value: impl Into<Iso>) -> Self {
 		Self {
-			polynomial: FluxPolynomial::Constant([value.into().inv_map()]),
+			initial_value: value.into().inv_map(),
 			change_list: vec![],
 		}
 	}
 	
 	pub fn degree(&self) -> Degree {
-		self.polynomial.degree()
-	}
-	
-	fn polynomial(&self) -> FluxPolynomial<Iso::Linear> {
-		self.polynomial
+		self.change_list
+			.iter()
+			.map(|change| change.rate.degree() + 1)
+			.max()
+			.unwrap_or(0)
 	}
 	
 	fn calc(&self, t: f64, d: f64) -> Iso::Linear {
@@ -40,7 +40,7 @@ impl<Iso: LinearIso> Value<Iso> {
 			let u = t / ((change.time_unit >> TimeUnit::Nanosecs) as f64);
 			v * Scalar(((u + d) / (d + 1.0))) * change.operator.scalar()
 		});
-		self.polynomial.term(0) + term_iter.sum()
+		self.initial_value + term_iter.sum()
 	}
 	
 	fn at(&self, time: Time) -> Iso {
@@ -63,11 +63,11 @@ impl<Iso: LinearIso> Value<Iso> {
 			}
 		});
 		if d == 0.0 && d_min == 0.0 {
-			self.polynomial.term(0)
+			self.initial_value
 		} else {
 			let coeff_sum = coeff_iter.sum::<Iso::Linear>() * Scalar(1.0 / (d + 1.0));
 			if d >= d_min {
-				self.polynomial.term(0) + coeff_sum
+				self.initial_value + coeff_sum
 			} else {
 				coeff_sum
 			}
@@ -107,18 +107,12 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
-		let scalar = change.operator.scalar()
-			* Scalar(1.0 / ((change.time_unit >> TimeUnit::Nanosecs) as f64));
-		
-		for term_index in 0..=change.rate.polynomial.degree() {
-			let term = change.rate.polynomial.term(term_index) * scalar;
-			match self.polynomial.add_term(term_index + 1, term) {
-				Ok(polynomial) => self.polynomial = polynomial,
-				Err(..) => return Err(self),
-			}
+		if change.rate.degree() >= 4 {
+			Err(self)
+		} else {
+			self.change_list.push(change);
+			Ok(self)
 		}
-		self.change_list.push(change);
-		Ok(self)
 	}
 }
 
@@ -173,7 +167,7 @@ where
 {
 	fn roots(polynomial: &Polynomial<Self>) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of the given polynomial. If not all
-		//! roots are known with enough accuracy, `Err` should be returned.
+		//! roots are known, `Err` should be returned.
 		//! 
 		//! [`Polynomial::real_roots`] should generally be used instead.
 		
@@ -332,17 +326,17 @@ mod value_tests {
 			.is_err());
 	}
 	
-	#[test]
-	fn linear_polynomial() {
-		let v = linear();
-		assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([3.0, -5.0]));
-		assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([20.0, 6.0, -10.0]));
-		assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([52.0, 20.0, 6.0, -10.0]));
-		assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([150.0, 55.0, 15.0, 6.0, -10.0]));
-		
-		// assert_eq!(2_u64 + 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Add, Value::new(3), Secs)));
-		// assert_eq!(2_u64 - 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Sub, Value::new(3), Secs)));
-	}
+	// #[test]
+	// fn linear_polynomial() {
+	// 	let v = linear();
+	// 	assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([3.0, -5.0]));
+	// 	assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([20.0, 6.0, -10.0]));
+	// 	assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([52.0, 20.0, 6.0, -10.0]));
+	// 	assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([150.0, 55.0, 15.0, 6.0, -10.0]));
+	// 	
+	// 	// assert_eq!(2_u64 + 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Add, Value::new(3), Secs)));
+	// 	// assert_eq!(2_u64 - 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Sub, Value::new(3), Secs)));
+	// }
 	
 	#[test]
 	fn linear_value() {
@@ -417,15 +411,15 @@ mod value_tests {
 		[v, v1, v2, v3]
 	}
 	
-	#[test]
-	fn exponential_polynomial() {
-		let v = exponential();
-		fn ln(n: f64) -> f64 { n.ln() }
-		assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([ln(3.2), -ln(1.1)]));
-		assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
-		assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([ln(30.4), ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
-		assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([ln(300.0), ln(30.4) - ln(3.2), ln(14.515) + ln(1.1), 2.0*ln(3.2), -2.0*ln(1.1)]));
-	}
+	// #[test]
+	// fn exponential_polynomial() {
+	// 	let v = exponential();
+	// 	fn ln(n: f64) -> f64 { n.ln() }
+	// 	assert_eq!(v[0].polynomial(), FluxPolynomial::Linear([ln(3.2), -ln(1.1)]));
+	// 	assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
+	// 	assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([ln(30.4), ln(14.515), 2.0*ln(3.2), -2.0*ln(1.1)]));
+	// 	assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([ln(300.0), ln(30.4) - ln(3.2), ln(14.515) + ln(1.1), 2.0*ln(3.2), -2.0*ln(1.1)]));
+	// }
 	
 	#[test]
 	fn exponential_value() {
@@ -456,7 +450,7 @@ mod value_tests {
 			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
 			.unwrap();
 		
-		assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
+		// assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
 		assert_eq!(v.at(0*Nanosecs).0, 0.0);
 		assert_eq!(v.at(u64::MAX*Nanosecs).0, 0.0);
 		
@@ -464,10 +458,10 @@ mod value_tests {
 			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
 			.unwrap();
 		
-		match v.polynomial() {
-			FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
-			_ => panic!()
-		}
+		// match v.polynomial() {
+		// 	FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
+		// 	_ => panic!()
+		// }
 		assert!(v.at(0*Nanosecs).0.is_nan());
 		assert!(v.at(u64::MAX*Nanosecs).0.is_nan());
 	}
