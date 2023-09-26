@@ -105,7 +105,16 @@ impl<Iso: LinearIso> Value<Iso> {
 			.map_err(into_time)
 	}
 	
+	fn update(&mut self, time: Time) {
+		self.initial_value = self.at(time).inv_map();
+		for change in &mut self.change_list {
+			change.rate.update(time);
+		}
+	}
+	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
+		// ??? Maybe use independent time offsets instead of a shared time
+		// offset, so less has to be updated when a change is made to a value.
 		if change.rate.degree() >= 4 {
 			Err(self)
 		} else {
@@ -486,5 +495,24 @@ mod value_tests {
 		
 		assert_eq!(h1.at(1*Hours), n1.at(1*Nanosecs));
 		assert_eq!(h1.at(10*Hours), n1.at(10*Nanosecs));
+	}
+	
+	#[test]
+	fn discrete_update() {
+		let mut v = linear();
+		
+		v[0].update(10*Nanosecs);
+		let new_v0 = v[0].clone()
+			.add_change(Change::new(LinearOp::Add, Value::new(7), Nanosecs))
+			.unwrap();
+		assert_eq!(v[0].at(0*Nanosecs), new_v0.at(0*Nanosecs));
+		assert_eq!(new_v0.roots(), Ok(vec![23*Nanosecs])); // 23.5
+		
+		v[3].update(6*Nanosecs);
+		let new_v3 = v[3].clone()
+			.add_change(Change::new(LinearOp::Add, Value::new(1000), Nanosecs))
+			.unwrap();
+		assert_eq!(v[3].at(0*Nanosecs), new_v3.at(0*Nanosecs));
+		assert_eq!(new_v3.roots(), Ok(vec![0*Nanosecs, 3*Nanosecs])); // 0.22, 3.684
 	}
 }
