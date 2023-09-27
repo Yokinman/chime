@@ -1,13 +1,19 @@
 //! ...
 
 use std::cmp::Ordering;
-use time::{Time, TimeUnit};
+use std::ops::{Add, Mul, Sub};
+
 use crate::change::{LinearValue, Scalar};
+
+use time::{Time, TimeUnit};
+
+use std::slice::{Iter, IterMut};
+use std::vec::IntoIter;
 
 pub type Degree = usize;
 
 /// `a + b x + c x^2 + d x^3 + ..`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Polynomial<T: LinearValue> {
 	Constant ([T; 1]),
 	Linear   ([T; 2]),
@@ -18,6 +24,56 @@ pub enum Polynomial<T: LinearValue> {
 }
 
 impl<T: LinearValue> Polynomial<T> {
+	pub fn degree(&self) -> Degree {
+		match self {
+			Self::Constant(..)  => 0,
+			Self::Linear(..)    => 1,
+			Self::Quadratic(..) => 2,
+			Self::Cubic(..)     => 3,
+			Self::Quartic(..)   => 4,
+		}
+	}
+	
+	pub fn term(&self, degree: Degree) -> Option<&T> {
+		match self {
+			Self::Constant (list) => list.get(degree),
+			Self::Linear   (list) => list.get(degree),
+			Self::Quadratic(list) => list.get(degree),
+			Self::Cubic    (list) => list.get(degree),
+			Self::Quartic  (list) => list.get(degree),
+		}
+	}
+	
+	pub fn iter(&self) -> Iter<T> {
+		match self {
+			Self::Constant (list) => list.iter(),
+			Self::Linear   (list) => list.iter(),
+			Self::Quadratic(list) => list.iter(),
+			Self::Cubic    (list) => list.iter(),
+			Self::Quartic  (list) => list.iter(),
+		}
+	}
+	
+	pub fn iter_mut(&mut self) -> IterMut<T> {
+		match self {
+			Self::Constant (list) => list.iter_mut(),
+			Self::Linear   (list) => list.iter_mut(),
+			Self::Quadratic(list) => list.iter_mut(),
+			Self::Cubic    (list) => list.iter_mut(),
+			Self::Quartic  (list) => list.iter_mut(),
+		}
+	}
+	
+	pub fn into_iter(self) -> IntoIter<T> {
+		match self {
+			Self::Constant (list) => list.to_vec().into_iter(),
+			Self::Linear   (list) => list.to_vec().into_iter(),
+			Self::Quadratic(list) => list.to_vec().into_iter(),
+			Self::Cubic    (list) => list.to_vec().into_iter(),
+			Self::Quartic  (list) => list.to_vec().into_iter(),
+		}
+	}
+	
 	pub fn real_roots(&self) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of this polynomial in ascending order.
 		//! If not all roots are known, `Err` is returned.
@@ -38,9 +94,46 @@ impl<T: LinearValue> Polynomial<T> {
 	// => (b + c/2 + d/3 + ..) + ((c + d/2 + ..) + (d + ..) (t+1)/2) t
 }
 
+impl<T: LinearValue> Add for Polynomial<T> {
+	type Output = Self;
+	fn add(self, rhs: Self) -> Self {
+		let (mut augend, addend) = if rhs.degree() > self.degree() {
+			(rhs, self)
+		} else {
+			(self, rhs)
+		};
+		for (degree, term) in augend.iter_mut().enumerate() {
+			if let Some(&addend_term) = addend.term(degree) {
+				*term = term.clone() + addend_term;
+			} else {
+				break
+			}
+		}
+		augend
+	}
+}
+
+impl<T: LinearValue> Sub for Polynomial<T> {
+	type Output = Self;
+	fn sub(self, rhs: Self) -> Self {
+		self + (rhs * Scalar(-1.0))
+	}
+}
+
+impl<T: LinearValue> Mul<Scalar> for Polynomial<T> {
+	type Output = Self;
+	fn mul(mut self, rhs: Scalar) -> Self::Output {
+		for term in self.iter_mut() {
+			*term = term.clone() * rhs
+		}
+		self
+	}
+}
+
 impl LinearValue for f64 {
 	fn roots(poly: &Polynomial<f64>) -> Result<Vec<f64>, Vec<f64>> {
 		use Polynomial as P;
+		// !!! Are infinity coefficients handled properly (cubic, quartic)?
 		Ok(match *poly {
 			P::Constant(_) => vec![],
 			

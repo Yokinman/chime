@@ -1,8 +1,9 @@
 //! Change describing utilities ...
 
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::iter::Sum;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 use impl_op::impl_op;
 
@@ -74,6 +75,17 @@ impl<Iso: LinearIso> Value<Iso> {
 		// https://www.desmos.com/calculator/tn0udn7swy
 	}
 	
+	fn polynomial(&self) -> Polynomial<Iso::Linear> {
+		match self.degree() {
+			0 => Polynomial::Constant ([self.coeff_calc(0.0, 0.0)]),
+			1 => Polynomial::Linear   ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
+			2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
+			3 => Polynomial::Cubic    ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
+			4 => Polynomial::Quartic  ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
+			_ => unreachable!()
+		}
+	}
+	
 	fn roots(&self) -> Result<Vec<Time>, Vec<Time>> {
 		let offset = 0.0; // (time_offset >> TimeUnit::Nanosecs) as f64;
 		
@@ -91,16 +103,7 @@ impl<Iso: LinearIso> Value<Iso> {
 				.collect()
 		};
 		
-		let polynomial = match self.degree() {
-			0 => Polynomial::Constant ([self.coeff_calc(0.0, 0.0)]),
-			1 => Polynomial::Linear   ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
-			2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
-			3 => Polynomial::Cubic    ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
-			4 => Polynomial::Quartic  ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
-			_ => unreachable!()
-		};
-		
-		polynomial.real_roots()
+		self.polynomial().real_roots()
 			.map(into_time)
 			.map_err(into_time)
 	}
@@ -110,11 +113,14 @@ impl<Iso: LinearIso> Value<Iso> {
 		for change in &mut self.change_list {
 			change.rate.update(time);
 		}
+		// ??? Could probably reuse most of the initial_value calculation for
+		// updating each sub-change's initial_value.
 	}
 	
 	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
 		// ??? Maybe use independent time offsets instead of a shared time
 		// offset, so less has to be updated when a change is made to a value.
+		// Downside - this may complicate value calculation & root finding.
 		if change.rate.degree() >= 4 {
 			Err(self)
 		} else {
@@ -124,12 +130,117 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 }
 
+impl<Iso> Value<Iso>
+where
+	Iso: LinearIso + Debug,
+	Iso::Linear: PartialEq + Sub,
+{
+	fn when_eq(&self, eq_value: &Self) -> Vec<Time> {
+		let polynomial = self.polynomial().clone() - eq_value.polynomial().clone();
+		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
+		
+		 // Constant Equality:
+		if real_roots.len() == 0 {
+			if polynomial.iter().all(|&term| term == term*Scalar(0.0)) {
+				real_roots.push(0.0)
+			}
+		}
+		
+		real_roots.into_iter()
+			.filter_map(|t| {
+				if t < 0.0 || t > (u64::MAX as f64) {
+					None
+				} else {
+					Some((t as u64)*TimeUnit::Nanosecs)
+				}
+			})
+			.collect()
+	}
+}
+
+impl<Iso> Value<Iso>
+where
+	Iso: LinearIso + Debug,
+	Iso::Linear: PartialOrd + Sub,
+{
+	fn when(&self, cmp_order: Ordering, cmp_value: &Self) -> Vec<(Time, Time)> {
+		let polynomial = self.polynomial().clone() - cmp_value.polynomial().clone();
+		
+		 // Find Initial Order:
+		let mut degree = polynomial.degree();
+		let mut initial_order = loop {
+			let coeff = *polynomial.term(degree).unwrap();
+			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
+			if degree == 0 || order != Some(Ordering::Equal) {
+				break if degree % 2 == 0 {
+					order
+				} else {
+					order.map(|o| o.reverse())
+				}
+			}
+			degree -= 1;
+		};
+		
+		 // Convert Roots to Ranges:
+		let range_list = match polynomial.real_roots() {
+			Ok(roots) => {
+				let mut list = Vec::with_capacity(
+					if cmp_order == Ordering::Equal {
+						roots.len()
+					} else {
+						1 + (roots.len() / 2)
+					}
+				);
+				let mut prev_point = if initial_order == Some(cmp_order) {
+					Some(f64::NEG_INFINITY)
+				} else {
+					None
+				};
+				for point in roots {
+					if let Some(prev) = prev_point {
+						if prev != point {
+							list.push((prev, point));
+						}
+						prev_point = None;
+					} else if cmp_order == Ordering::Equal {
+						list.push((point, point));
+					} else {
+						prev_point = Some(point);
+					}
+				}
+				if let Some(point) = prev_point {
+					list.push((point, f64::INFINITY));
+				}
+				list
+			},
+			Err(_) => vec![],
+		};
+		
+		 // Convert Ranges to Time Ranges:
+		range_list.into_iter()
+			.filter_map(|(a, b)| {
+				assert!(a <= b);
+				if b < 0.0 || a > (u64::MAX as f64) {
+					None
+				} else {
+					Some((
+						(a as u64)*TimeUnit::Nanosecs,
+						(b as u64)*TimeUnit::Nanosecs
+					))
+				}
+			})
+			.collect()
+	}
+}
+
 /// ...
 #[derive(Debug, Clone)]
 struct Change<Iso: LinearIso> {
 	operator: Iso::Op, // ??? Could just store the Scalar
 	rate: Value<Iso>,
 	time_unit: TimeUnit,
+	// !!! Remove Iso-specific generics so Change can be created arbitrarily.
+	// Then, implement a trait such that `1 + 2.per(Secs)` works.
 }
 
 impl<Iso: LinearIso> Change<Iso> {
@@ -147,9 +258,15 @@ impl<Iso: LinearIso> Change<Iso> {
 pub struct Scalar(pub f64);
 
 impl_op!{ a * b {
-	(Scalar, Scalar) => Scalar(a.0 * b.0),
-	(f64, Scalar)['commut] => a * b.0,
-	(f32, Scalar)['commut] => ((a as f64) * b.0) as f32,
+	(Scalar, Scalar) as (Scalar(a), Scalar(b)) => {
+		if a == 0. || b == 0. {
+			Scalar(0.)
+		} else {
+			Scalar(a * b)
+		}
+	},
+	(f64, Scalar)['commut] => if b.0 == 0. { 0. } else { a * b.0 },
+	(f32, Scalar)['commut] => if b.0 == 0. { 0. } else { a * (b.0 as f32) },
 	// (u64, Scalar)['commut] |
 	// (u32, Scalar)['commut] |
 	// (u16, Scalar)['commut] |
@@ -341,9 +458,6 @@ mod value_tests {
 	// 	assert_eq!(v[1].polynomial(), FluxPolynomial::Quadratic([20.0, 6.0, -10.0]));
 	// 	assert_eq!(v[2].polynomial(), FluxPolynomial::Cubic([52.0, 20.0, 6.0, -10.0]));
 	// 	assert_eq!(v[3].polynomial(), FluxPolynomial::Quartic([150.0, 55.0, 15.0, 6.0, -10.0]));
-	// 	
-	// 	// assert_eq!(2_u64 + 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Add, Value::new(3), Secs)));
-	// 	// assert_eq!(2_u64 - 3|Secs, Value::with_change(2_u64, Change::new(LinearOp::Sub, Value::new(3), Secs)));
 	// }
 	
 	#[test]
@@ -514,5 +628,35 @@ mod value_tests {
 			.unwrap();
 		assert_eq!(v[3].at(0*Nanosecs), new_v3.at(0*Nanosecs));
 		assert_eq!(new_v3.roots(), Ok(vec![0*Nanosecs, 3*Nanosecs])); // 0.22, 3.684
+	}
+	
+	#[test]
+	fn when() {
+		use Ordering::*;
+		let v = linear();
+		assert_eq!(v[0].when(Equal,   &Value::new(-5)),  vec![(1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v[0].when(Less,    &Value::new(-5)),  vec![(1*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v[0].when(Greater, &Value::new(-5)),  vec![(0*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v[1].when(Equal,   &Value::new(-5)),  vec![(2*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(v[1].when(Less,    &Value::new(-5)),  vec![(2*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v[1].when(Greater, &Value::new(-25)), vec![(0*Nanosecs, 3*Nanosecs)]);
+		assert_eq!(v[2].when(Equal,   &Value::new(71)),  vec![(1*Nanosecs, 1*Nanosecs), (1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v[2].when(Less,    &Value::new(20)),  vec![(3*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v[2].when(Greater, &Value::new(69)),  vec![(1*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(v[3].when(Equal,   &Value::new(140)), vec![(5*Nanosecs, 5*Nanosecs)]);
+		assert_eq!(v[3].when(Less,    &Value::new(160)), vec![(0*Nanosecs, 0*Nanosecs), (5*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v[3].when(Greater, &Value::new(280)), vec![(2*Nanosecs, 4*Nanosecs)]);
+	}
+	
+	#[test]
+	fn when_eq() {
+		for value in linear() {
+			assert_eq!(
+				value.when_eq(&Value::new(3)),
+				value.when(Ordering::Equal, &Value::new(3)).into_iter()
+					.map(|(a, _)| a)
+					.collect::<Vec<Time>>()
+			)
+		}
 	}
 }
