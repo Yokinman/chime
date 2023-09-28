@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::iter::Sum;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Sub, Div};
 
 use impl_op::impl_op;
 
@@ -13,7 +13,7 @@ use crate::polynomial::{Degree, Polynomial};
 
 /// ...
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
-struct Value<Iso: LinearIso> {
+pub struct Value<Iso: LinearIso> {
 	value: LinearFluxValue<Iso::Linear>,
 }
 
@@ -318,8 +318,6 @@ struct Change<T: LinearValue> {
 	scalar: Scalar,
 	rate: LinearFluxValue<T>,
 	time_unit: TimeUnit,
-	// !!! Remove Iso-specific generics so Change can be created arbitrarily.
-	// Then, implement a trait such that `1 + 2.per(Secs)` works.
 }
 
 impl<T: LinearValue> Change<T> {
@@ -437,6 +435,98 @@ pub trait LinearIso {
 	// }
 }
 
+/// ...
+pub struct Flux<T> {
+	rate: T,
+	time_unit: TimeUnit,
+}
+
+impl Per for f64 {}
+impl Per for u64 {}
+impl Per for i64 {}
+impl<Iso: LinearIso> Per for Value<Iso> {}
+
+pub trait Per: Sized {
+	fn per(self, time_unit: TimeUnit) -> Flux<Self> {
+		Flux {
+			rate: self,
+			time_unit
+		}
+	}
+}
+
+impl_op!{ a + b -> Value<Linear<Self>> {
+	(f64, Flux<f64>)                |
+	(u64, Flux<u64>)                |
+	(i64, Flux<i64>)                |
+	(f64, Flux<Value<Linear<f64>>>) |
+	(u64, Flux<Value<Linear<u64>>>) |
+	(i64, Flux<Value<Linear<i64>>>) => Self::Output::new(a)
+		.add_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a - b -> Value<Linear<Self>> {
+	(f64, Flux<f64>)                |
+	(u64, Flux<u64>)                |
+	(i64, Flux<i64>)                |
+	(f64, Flux<Value<Linear<f64>>>) |
+	(u64, Flux<Value<Linear<u64>>>) |
+	(i64, Flux<Value<Linear<i64>>>) => Self::Output::new(a)
+		.sub_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a * b -> Value<Exponential<Self>> {
+	(f64, Flux<f64>)                     |
+	(u64, Flux<u64>)                     |
+	(f64, Flux<Value<Exponential<f64>>>) |
+	(u64, Flux<Value<Exponential<u64>>>) => Self::Output::new(a)
+		.add_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a / b -> Value<Exponential<Self>> {
+	(f64, Flux<f64>)                     |
+	(u64, Flux<u64>)                     |
+	(f64, Flux<Value<Exponential<f64>>>) |
+	(u64, Flux<Value<Exponential<u64>>>) => Self::Output::new(a)
+		.sub_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a + b {
+	(Value<Linear<f64>>, Flux<Self>) |
+	(Value<Linear<f64>>, Flux<f64>)  |
+	(Value<Linear<u64>>, Flux<Self>) |
+	(Value<Linear<u64>>, Flux<u64>)  |
+	(Value<Linear<i64>>, Flux<Self>) |
+	(Value<Linear<i64>>, Flux<i64>)  => a
+		.add_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a - b {
+	(Value<Linear<f64>>, Flux<Self>) |
+	(Value<Linear<f64>>, Flux<f64>)  |
+	(Value<Linear<u64>>, Flux<Self>) |
+	(Value<Linear<u64>>, Flux<u64>)  |
+	(Value<Linear<i64>>, Flux<Self>) |
+	(Value<Linear<i64>>, Flux<i64>)  => a
+		.sub_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a * b {
+	(Value<Exponential<f64>>, Flux<Self>) |
+	(Value<Exponential<f64>>, Flux<f64>)  |
+	(Value<Exponential<u64>>, Flux<Self>) |
+	(Value<Exponential<u64>>, Flux<u64>)  => a
+		.add_change(b.rate, b.time_unit).unwrap()
+}}
+
+impl_op!{ a / b {
+	(Value<Exponential<f64>>, Flux<Self>) |
+	(Value<Exponential<f64>>, Flux<f64>)  |
+	(Value<Exponential<u64>>, Flux<Self>) |
+	(Value<Exponential<u64>>, Flux<u64>)  => a
+		.sub_change(b.rate, b.time_unit).unwrap()
+}}
+
 /// A linear map that performs no change - pure addition.
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Linear<T>(T);
@@ -522,20 +612,10 @@ mod value_tests {
 	use TimeUnit::*;
 	
 	fn linear() -> [Value<Linear<i64>>; 4] {
-		let mut v0 = Value::<Linear<i64>>::new(3)
-			.sub_change(5, Nanosecs).unwrap();
-		
-		let mut v1 = Value::<Linear<i64>>::new(20)
-			.add_change(v0.clone(), Nanosecs).unwrap()
-			.add_change(v0.clone(), Nanosecs).unwrap();
-		
-		let mut v2 = Value::<Linear<i64>>::new(52)
-			.add_change(v1.clone(), Nanosecs).unwrap();
-		
-		let mut v3 = Value::<Linear<i64>>::new(150)
-			.add_change(v2.clone(), Nanosecs).unwrap()
-			.add_change(v0.clone(), Nanosecs).unwrap();
-		
+		let v0 = 3_i64 - 5.per(Nanosecs);
+		let v1 = 20 + v0.clone().per(Nanosecs) + v0.clone().per(Nanosecs);
+		let v2 = 52 + v1.clone().per(Nanosecs);
+		let v3 = 150 + v2.clone().per(Nanosecs) + v0.clone().per(Nanosecs);
 		[v0, v1, v2, v3]
 	}
 	
@@ -572,11 +652,11 @@ mod value_tests {
 	
 	#[test]
 	fn calc_test() {
-		let d = Value::new(1.0).add_change(2.0, Mins).unwrap();
-		let c = Value::new(1.0).add_change(d, Mins).unwrap().add_change(7.0, Secs).unwrap();
-		let c1 = Value::new(3.0).add_change(9.0, Millisecs).unwrap();
-		let b = Value::new(10.0).add_change(c, Microsecs).unwrap().add_change(c1, Mins).unwrap();
-		let a = Value::<Linear<f64>>::new(30.0).add_change(b, Microsecs).unwrap();
+		let d = 1.0 + 2.0.per(Mins);
+		let c = 1.0 + d.per(Mins) + 7.0.per(Secs);
+		let c1 = 3.0 + 9.0.per(Millisecs);
+		let b = 10.0 + c.per(Microsecs) + c1.per(Mins);
+		let a = 30.0 + b.per(Microsecs);
 		
 		assert_eq!(a.value.polynomial(), Polynomial::Quartic([
 			30.0,
@@ -597,20 +677,10 @@ mod value_tests {
 	}
 	
 	fn exponential() -> [Value<Exponential<f64>>; 4] {
-		let mut v0 = Value::new(3.2)
-			.sub_change(1.1, Nanosecs).unwrap();
-		
-		let mut v1 = Value::new(14.515)
-			.add_change(v0.clone(), Nanosecs).unwrap()
-			.add_change(v0.clone(), Nanosecs).unwrap();
-		
-		let mut v2 = Value::new(30.4)
-			.add_change(v1.clone(), Nanosecs).unwrap();
-		
-		let mut v3 = Value::new(300.0)
-			.add_change(v2.clone(), Nanosecs).unwrap()
-			.add_change(v0.clone(), Nanosecs).unwrap();
-		
+		let v0 = 3.2 / 1.1.per(Nanosecs);
+		let v1 = 14.515 * v0.clone().per(Nanosecs) * v0.clone().per(Nanosecs);
+		let v2 = 30.4 * v1.clone().per(Nanosecs);
+		let v3 = 300.0 * v2.clone().per(Nanosecs) * v0.clone().per(Nanosecs);
 		[v0, v1, v2, v3]
 	}
 	
@@ -641,23 +711,21 @@ mod value_tests {
 	#[test]
 	fn exponential_roots() {
 		let v = exponential();
-		assert_eq!(v[0].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![12*Nanosecs]); // 12.204
-		assert_eq!(v[1].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![24*Nanosecs]); // -1.143, 24.551
-		assert_eq!(v[2].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![36*Nanosecs]); // 36.91 
-		assert_eq!(v[3].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![49*Nanosecs]); // -4.752, 49.329
+		assert_eq!(v[0].when_eq(&Value::new(1.0)), vec![12*Nanosecs]); // 12.204
+		assert_eq!(v[1].when_eq(&Value::new(1.0)), vec![24*Nanosecs]); // -1.143, 24.551
+		assert_eq!(v[2].when_eq(&Value::new(1.0)), vec![36*Nanosecs]); // 36.91 
+		assert_eq!(v[3].when_eq(&Value::new(1.0)), vec![49*Nanosecs]); // -4.752, 49.329
 	}
 	
 	#[test]
 	fn exponential_non_pos() {
-		let v = Value::<Exponential<f64>>::new(0.0)
-			.add_change(2.0, Nanosecs).unwrap();
+		let v = 0.0 * 2.0.per(Nanosecs);
 		
 		// assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
 		assert_eq!(v.at(0*Nanosecs).0, 0.0);
 		assert_eq!(v.at(u64::MAX*Nanosecs).0, 0.0);
 		
-		let v = Value::<Exponential<f64>>::new(-1.5)
-			.add_change(2.0, Nanosecs).unwrap();
+		let v = -1.5 * 2.0.per(Nanosecs);
 		
 		// match v.polynomial() {
 		// 	FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
@@ -669,15 +737,13 @@ mod value_tests {
 	
 	#[test]
 	fn long_term() {
-		let h = Value::<Linear<f64>>::new(10.0).add_change(1.0, Hours).unwrap();
-		let n = Value::<Linear<f64>>::new(10.0).add_change(1.0, Nanosecs).unwrap();
-		
+		let h = 10.0 + 1.0.per(Hours);
+		let n = 10.0 + 1.0.per(Nanosecs);
 		assert_eq!(h.at(1*Hours), n.at(1*Nanosecs));
 		assert_eq!(h.at(10*Hours), n.at(10*Nanosecs));
 		
-		let h1 = Value::new(30.0).add_change(h, Hours).unwrap();
-		let n1 = Value::new(30.0).add_change(n, Nanosecs).unwrap();
-		
+		let h1 = 30.0 + h.per(Hours);
+		let n1 = 30.0 + n.per(Nanosecs);
 		assert_eq!(h1.at(1*Hours), n1.at(1*Nanosecs));
 		assert_eq!(h1.at(10*Hours), n1.at(10*Nanosecs));
 	}
@@ -687,12 +753,12 @@ mod value_tests {
 		let mut v = linear();
 		
 		v[0].value.update(10*Nanosecs);
-		let new_v0 = v[0].clone().add_change(7, Nanosecs).unwrap();
+		let new_v0 = v[0].clone() + 7.per(Nanosecs);
 		assert_eq!(v[0].at(0*Nanosecs), new_v0.at(0*Nanosecs));
 		assert_eq!(new_v0.when_eq(&Value::new(0)), vec![23*Nanosecs]); // 23.5
 		
 		v[3].value.update(6*Nanosecs);
-		let new_v3 = v[3].clone().add_change(1000, Nanosecs).unwrap();
+		let new_v3 = v[3].clone() + 1000.per(Nanosecs);
 		assert_eq!(v[3].at(0*Nanosecs), new_v3.at(0*Nanosecs));
 		assert_eq!(new_v3.when_eq(&Value::new(0)), vec![0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
 	}
