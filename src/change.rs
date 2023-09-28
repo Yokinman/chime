@@ -28,8 +28,9 @@ impl<Iso: LinearIso> Value<Iso> {
 		Iso::map(self.value.at(time /* - self.time_offset */))
 	}
 	
-	pub fn add_change(mut self, rate: Self, time_unit: TimeUnit) -> Result<Self, Self> {
-		match self.value.add_change(Change::new(Scalar(1.0), rate.value, time_unit)) {
+	pub fn add_change(mut self, rate: impl Into<Self>, time_unit: TimeUnit) -> Result<Self, Self> {
+		let change = Change::new(Scalar(1.0), rate.into().value, time_unit);
+		match self.value.add_change(change) {
 			Ok(value) => {
 				self.value = value;
 				Ok(self)
@@ -41,8 +42,9 @@ impl<Iso: LinearIso> Value<Iso> {
 		}
 	}
 	
-	pub fn sub_change(mut self, rate: Self, time_unit: TimeUnit) -> Result<Self, Self> {
-		match self.value.add_change(Change::new(Scalar(-1.0), rate.value, time_unit)) {
+	pub fn sub_change(mut self, rate: impl Into<Self>, time_unit: TimeUnit) -> Result<Self, Self> {
+		let change = Change::new(Scalar(-1.0), rate.into().value, time_unit);
+		match self.value.add_change(change) {
 			Ok(value) => {
 				self.value = value;
 				Ok(self)
@@ -445,6 +447,17 @@ impl<T> From<T> for Linear<T> {
 	}
 }
 
+impl<T> From<T> for Value<Linear<T>>
+where
+	Linear<T>: LinearIso
+{
+	fn from(value: T) -> Value<Linear<T>> {
+		Self {
+			value: LinearFluxValue::new(Linear(value).inv_map())
+		}
+	}
+}
+
 impl LinearIso for Linear<f64> {
 	type Linear = f64;
 	type Op = LinearOp;
@@ -478,6 +491,17 @@ impl<T> From<T> for Exponential<T> {
 	}
 }
 
+impl<T> From<T> for Value<Exponential<T>>
+where
+	Exponential<T>: LinearIso
+{
+	fn from(value: T) -> Value<Exponential<T>> {
+		Self {
+			value: LinearFluxValue::new(Exponential(value).inv_map())
+		}
+	}
+}
+
 impl LinearIso for Exponential<f64> {
 	type Linear = f64;
 	type Op = ExponentialOp;
@@ -499,7 +523,7 @@ mod value_tests {
 	
 	fn linear() -> [Value<Linear<i64>>; 4] {
 		let mut v0 = Value::<Linear<i64>>::new(3)
-			.sub_change(Value::new(5), Nanosecs).unwrap();
+			.sub_change(5, Nanosecs).unwrap();
 		
 		let mut v1 = Value::<Linear<i64>>::new(20)
 			.add_change(v0.clone(), Nanosecs).unwrap()
@@ -548,21 +572,11 @@ mod value_tests {
 	
 	#[test]
 	fn calc_test() {
-		let e = Value::new(2.0);
-		let d = Value::new(1.0)
-			.add_change(e, Mins).unwrap();
-		let d1 = Value::new(7.0);
-		let d2 = Value::new(9.0);
-		let c = Value::new(1.0)
-			.add_change(d, Mins).unwrap()
-			.add_change(d1, Secs).unwrap();
-		let c1 = Value::new(3.0)
-			.add_change(d2, Millisecs).unwrap();
-		let b = Value::new(10.0)
-			.add_change(c, Microsecs).unwrap()
-			.add_change(c1, Mins).unwrap();
-		let a = Value::<Linear<f64>>::new(30.0)
-			.add_change(b, Microsecs).unwrap();
+		let d = Value::new(1.0).add_change(2.0, Mins).unwrap();
+		let c = Value::new(1.0).add_change(d, Mins).unwrap().add_change(7.0, Secs).unwrap();
+		let c1 = Value::new(3.0).add_change(9.0, Millisecs).unwrap();
+		let b = Value::new(10.0).add_change(c, Microsecs).unwrap().add_change(c1, Mins).unwrap();
+		let a = Value::<Linear<f64>>::new(30.0).add_change(b, Microsecs).unwrap();
 		
 		assert_eq!(a.value.polynomial(), Polynomial::Quartic([
 			30.0,
@@ -584,7 +598,7 @@ mod value_tests {
 	
 	fn exponential() -> [Value<Exponential<f64>>; 4] {
 		let mut v0 = Value::new(3.2)
-			.sub_change(Value::new(1.1), Nanosecs).unwrap();
+			.sub_change(1.1, Nanosecs).unwrap();
 		
 		let mut v1 = Value::new(14.515)
 			.add_change(v0.clone(), Nanosecs).unwrap()
@@ -636,14 +650,14 @@ mod value_tests {
 	#[test]
 	fn exponential_non_pos() {
 		let v = Value::<Exponential<f64>>::new(0.0)
-			.add_change(Value::new(2.0), Nanosecs).unwrap();
+			.add_change(2.0, Nanosecs).unwrap();
 		
 		// assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
 		assert_eq!(v.at(0*Nanosecs).0, 0.0);
 		assert_eq!(v.at(u64::MAX*Nanosecs).0, 0.0);
 		
 		let v = Value::<Exponential<f64>>::new(-1.5)
-			.add_change(Value::new(2.0), Nanosecs).unwrap();
+			.add_change(2.0, Nanosecs).unwrap();
 		
 		// match v.polynomial() {
 		// 	FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
@@ -655,10 +669,8 @@ mod value_tests {
 	
 	#[test]
 	fn long_term() {
-		let h = Value::<Linear<f64>>::new(10.0)
-			.add_change(Value::new(1.0), Hours).unwrap();
-		let n = Value::<Linear<f64>>::new(10.0)
-			.add_change(Value::new(1.0), Nanosecs).unwrap();
+		let h = Value::<Linear<f64>>::new(10.0).add_change(1.0, Hours).unwrap();
+		let n = Value::<Linear<f64>>::new(10.0).add_change(1.0, Nanosecs).unwrap();
 		
 		assert_eq!(h.at(1*Hours), n.at(1*Nanosecs));
 		assert_eq!(h.at(10*Hours), n.at(10*Nanosecs));
@@ -675,14 +687,12 @@ mod value_tests {
 		let mut v = linear();
 		
 		v[0].value.update(10*Nanosecs);
-		let new_v0 = v[0].clone()
-			.add_change(Value::new(7), Nanosecs).unwrap();
+		let new_v0 = v[0].clone().add_change(7, Nanosecs).unwrap();
 		assert_eq!(v[0].at(0*Nanosecs), new_v0.at(0*Nanosecs));
 		assert_eq!(new_v0.when_eq(&Value::new(0)), vec![23*Nanosecs]); // 23.5
 		
 		v[3].value.update(6*Nanosecs);
-		let new_v3 = v[3].clone()
-			.add_change(Value::new(1000), Nanosecs).unwrap();
+		let new_v3 = v[3].clone().add_change(1000, Nanosecs).unwrap();
 		assert_eq!(v[3].at(0*Nanosecs), new_v3.at(0*Nanosecs));
 		assert_eq!(new_v3.when_eq(&Value::new(0)), vec![0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
 	}
