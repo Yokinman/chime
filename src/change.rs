@@ -14,14 +14,84 @@ use crate::polynomial::{Degree, Polynomial};
 /// ...
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
 struct Value<Iso: LinearIso> {
-	initial_value: Iso::Linear,
-	change_list: Vec<Change<Iso>>,
+	value: LinearFluxValue<Iso::Linear>,
 }
 
 impl<Iso: LinearIso> Value<Iso> {
-	pub fn new(value: impl Into<Iso>) -> Self {
+	pub fn new(initial_value: impl Into<Iso>) -> Self {
 		Self {
-			initial_value: value.into().inv_map(),
+			value: LinearFluxValue::new(initial_value.into().inv_map())
+		}
+	}
+	
+	fn at(&self, time: Time) -> Iso {
+		Iso::map(self.value.at(time /* - self.time_offset */))
+	}
+	
+	pub fn add_change(mut self, rate: Self, time_unit: TimeUnit) -> Result<Self, Self> {
+		match self.value.add_change(Change::new(Scalar(1.0), rate.value, time_unit)) {
+			Ok(value) => {
+				self.value = value;
+				Ok(self)
+			},
+			Err(value) => {
+				self.value = value;
+				Err(self)
+			},
+		}
+	}
+	
+	pub fn sub_change(mut self, rate: Self, time_unit: TimeUnit) -> Result<Self, Self> {
+		match self.value.add_change(Change::new(Scalar(-1.0), rate.value, time_unit)) {
+			Ok(value) => {
+				self.value = value;
+				Ok(self)
+			},
+			Err(value) => {
+				self.value = value;
+				Err(self)
+			},
+		}
+	}
+}
+
+impl<Iso> Value<Iso>
+where
+	Iso: LinearIso,
+	Iso::Linear: PartialEq,
+{
+	fn when_eq(&self, eq_value: &Self) -> Vec<Time> {
+		self.value.when_eq(&eq_value.value)
+	}
+}
+
+impl<Iso> Value<Iso>
+where
+	Iso: LinearIso,
+	Iso::Linear: PartialOrd,
+{
+	fn when(&self, cmp_order: Ordering, cmp_value: &Self) -> Vec<(Time, Time)> {
+		self.value.when(cmp_order, &cmp_value.value)
+	}
+}
+
+// impl<Iso: LinearIso> AsRef<Value<Iso::Linear>> for FluxValue<Iso> {
+// 	fn as_ref(&self) -> &Value<Iso::Linear> {
+// 		&self.value
+// 	}
+// }
+
+/// ...
+#[derive(Debug, Clone)] // ??? Copy may be worth deriving
+struct LinearFluxValue<T: LinearValue> {
+	initial_value: T,
+	change_list: Vec<Change<T>>,
+}
+
+impl<T: LinearValue> LinearFluxValue<T> {
+	pub fn new(initial_value: T) -> Self {
+		Self {
+			initial_value,
 			change_list: vec![],
 		}
 	}
@@ -34,23 +104,23 @@ impl<Iso: LinearIso> Value<Iso> {
 			.unwrap_or(0)
 	}
 	
-	fn calc(&self, t: f64, d: f64) -> Iso::Linear {
+	fn calc(&self, t: f64, d: f64) -> T {
 		let term_iter = self.change_list.iter().map(|change| {
 			let v = change.rate.calc(t, d + 1.0);
 			let u = t / ((change.time_unit >> TimeUnit::Nanosecs) as f64);
-			v * Scalar((u + d) / (d + 1.0)) * change.operator.scalar()
+			v * Scalar((u + d) / (d + 1.0)) * change.scalar
 		});
 		self.initial_value + term_iter.sum()
 	}
 	
-	fn at(&self, time: Time) -> Iso {
-		Iso::map(self.calc(((time /* - time_offset */) >> TimeUnit::Nanosecs) as f64, 0.0))
+	fn at(&self, time: Time) -> T {
+		self.calc((time >> TimeUnit::Nanosecs) as f64, 0.0)
 	}
 	
-	fn coeff_calc(&self, d: f64, d_min: f64) -> Iso::Linear {
+	fn coeff_calc(&self, d: f64, d_min: f64) -> T {
 		let coeff_iter = self.change_list.iter().map(|change| {
 			let coeff = change.rate.coeff_calc(d + 1.0, d_min);
-			let scalar = change.operator.scalar();
+			let scalar = change.scalar;
 			if d < d_min {
 				let coeff = coeff * Scalar(1.0 / ((change.time_unit >> TimeUnit::Nanosecs) as f64));
 				if d == 0.0 {
@@ -65,7 +135,7 @@ impl<Iso: LinearIso> Value<Iso> {
 		if d == 0.0 && d_min == 0.0 {
 			self.initial_value
 		} else {
-			let coeff_sum = coeff_iter.sum::<Iso::Linear>() * Scalar(1.0 / (d + 1.0));
+			let coeff_sum = coeff_iter.sum::<T>() * Scalar(1.0 / (d + 1.0));
 			if d >= d_min {
 				self.initial_value + coeff_sum
 			} else {
@@ -75,7 +145,7 @@ impl<Iso: LinearIso> Value<Iso> {
 		// https://www.desmos.com/calculator/tn0udn7swy
 	}
 	
-	fn polynomial(&self) -> Polynomial<Iso::Linear> {
+	fn polynomial(&self) -> Polynomial<T> {
 		match self.degree() {
 			0 => Polynomial::Constant ([self.coeff_calc(0.0, 0.0)]),
 			1 => Polynomial::Linear   ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
@@ -109,7 +179,7 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 	
 	fn update(&mut self, time: Time) {
-		self.initial_value = self.at(time).inv_map();
+		self.initial_value = self.at(time);
 		for change in &mut self.change_list {
 			change.rate.update(time);
 		}
@@ -117,7 +187,7 @@ impl<Iso: LinearIso> Value<Iso> {
 		// updating each sub-change's initial_value.
 	}
 	
-	pub fn add_change(mut self, change: Change<Iso>) -> Result<Self, Self> {
+	pub fn add_change(mut self, change: Change<T>) -> Result<Self, Self> {
 		// ??? Maybe use independent time offsets instead of a shared time
 		// offset, so less has to be updated when a change is made to a value.
 		// Downside - this may complicate value calculation & root finding.
@@ -130,13 +200,20 @@ impl<Iso: LinearIso> Value<Iso> {
 	}
 }
 
-impl<Iso> Value<Iso>
+impl<T: LinearValue> From<T> for LinearFluxValue<T> {
+	fn from(value: T) -> Self {
+		LinearFluxValue::new(value)
+	}
+}
+
+impl<T> LinearFluxValue<T>
 where
-	Iso: LinearIso + Debug,
-	Iso::Linear: PartialEq + Sub,
+	T: LinearValue + PartialEq,
 {
 	fn when_eq(&self, eq_value: &Self) -> Vec<Time> {
-		let polynomial = self.polynomial().clone() - eq_value.polynomial().clone();
+		let polynomial = self.polynomial().clone()
+			- eq_value.polynomial().clone();
+		
 		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
 		
 		 // Constant Equality:
@@ -158,13 +235,13 @@ where
 	}
 }
 
-impl<Iso> Value<Iso>
+impl<T> LinearFluxValue<T>
 where
-	Iso: LinearIso + Debug,
-	Iso::Linear: PartialOrd + Sub,
+	T: LinearValue + PartialOrd,
 {
 	fn when(&self, cmp_order: Ordering, cmp_value: &Self) -> Vec<(Time, Time)> {
-		let polynomial = self.polynomial().clone() - cmp_value.polynomial().clone();
+		let polynomial = self.polynomial().clone()
+			- cmp_value.polynomial().clone();
 		
 		 // Find Initial Order:
 		let mut degree = polynomial.degree();
@@ -235,18 +312,18 @@ where
 
 /// ...
 #[derive(Debug, Clone)]
-struct Change<Iso: LinearIso> {
-	operator: Iso::Op, // ??? Could just store the Scalar
-	rate: Value<Iso>,
+struct Change<T: LinearValue> {
+	scalar: Scalar,
+	rate: LinearFluxValue<T>,
 	time_unit: TimeUnit,
 	// !!! Remove Iso-specific generics so Change can be created arbitrarily.
 	// Then, implement a trait such that `1 + 2.per(Secs)` works.
 }
 
-impl<Iso: LinearIso> Change<Iso> {
-	pub fn new(operator: Iso::Op, rate: Value<Iso>, time_unit: TimeUnit) -> Self {
+impl<T: LinearValue> Change<T> {
+	pub fn new(scalar: Scalar, rate: LinearFluxValue<T>, time_unit: TimeUnit) -> Self {
 		Self {
-			operator,
+			scalar,
 			rate,
 			time_unit,
 		}
@@ -421,33 +498,27 @@ mod value_tests {
 	use TimeUnit::*;
 	
 	fn linear() -> [Value<Linear<i64>>; 4] {
-		let mut v = Value::new(3)
-			.add_change(Change::new(LinearOp::Sub, Value::new(5), Nanosecs))
-			.unwrap();
+		let mut v0 = Value::<Linear<i64>>::new(3)
+			.sub_change(Value::new(5), Nanosecs).unwrap();
 		
-		let mut v1 = Value::new(20)
-			.add_change(Change::new(LinearOp::Add, v.clone(), Nanosecs))
-			.unwrap()
-			.add_change(Change::new(LinearOp::Add, v.clone(), Nanosecs))
-			.unwrap();
+		let mut v1 = Value::<Linear<i64>>::new(20)
+			.add_change(v0.clone(), Nanosecs).unwrap()
+			.add_change(v0.clone(), Nanosecs).unwrap();
 		
-		let mut v2 = Value::new(52)
-			.add_change(Change::new(LinearOp::Add, v1.clone(), Nanosecs))
-			.unwrap();
+		let mut v2 = Value::<Linear<i64>>::new(52)
+			.add_change(v1.clone(), Nanosecs).unwrap();
 		
-		let mut v3 = Value::new(150)
-			.add_change(Change::new(LinearOp::Add, v2.clone(), Nanosecs))
-			.unwrap()
-			.add_change(Change::new(LinearOp::Add, v.clone(), Nanosecs))
-			.unwrap();
+		let mut v3 = Value::<Linear<i64>>::new(150)
+			.add_change(v2.clone(), Nanosecs).unwrap()
+			.add_change(v0.clone(), Nanosecs).unwrap();
 		
-		[v, v1, v2, v3]
+		[v0, v1, v2, v3]
 	}
 	
 	#[test]
 	fn degree_limit() {
 		assert!(Value::new(200)
-			.add_change(Change::new(LinearOp::Add, linear()[3].clone(), Nanosecs))
+			.add_change(linear()[3].clone(), Nanosecs)
 			.is_err());
 	}
 	
@@ -477,60 +548,56 @@ mod value_tests {
 	
 	#[test]
 	fn calc_test() {
-		let e = Value::<Linear<f64>>::new(2.0);
+		let e = Value::new(2.0);
 		let d = Value::new(1.0)
-			.add_change(Change::new(LinearOp::Add, e, Mins)).unwrap();
+			.add_change(e, Mins).unwrap();
 		let d1 = Value::new(7.0);
 		let d2 = Value::new(9.0);
 		let c = Value::new(1.0)
-			.add_change(Change::new(LinearOp::Add, d, Mins)).unwrap()
-			.add_change(Change::new(LinearOp::Add, d1, Secs)).unwrap();
+			.add_change(d, Mins).unwrap()
+			.add_change(d1, Secs).unwrap();
 		let c1 = Value::new(3.0)
-			.add_change(Change::new(LinearOp::Add, d2, Millisecs)).unwrap();
+			.add_change(d2, Millisecs).unwrap();
 		let b = Value::new(10.0)
-			.add_change(Change::new(LinearOp::Add, c, Microsecs)).unwrap()
-			.add_change(Change::new(LinearOp::Add, c1, Mins)).unwrap();
-		let a = Value::new(30.0)
-			.add_change(Change::new(LinearOp::Add, b, Microsecs)).unwrap();
+			.add_change(c, Microsecs).unwrap()
+			.add_change(c1, Mins).unwrap();
+		let a = Value::<Linear<f64>>::new(30.0)
+			.add_change(b, Microsecs).unwrap();
 		
-		assert_eq!(a.coeff_calc(0.0, 0.0), 30.0);
-		assert_eq!(a.coeff_calc(0.0, 1.0), 0.018166666666666664);
-		assert_eq!(a.coeff_calc(0.0, 2.0), 3.668167918055556e-6);
-		assert_eq!(a.coeff_calc(0.0, 3.0), 1.1764138889120372e-15);
-		assert_eq!(a.coeff_calc(0.0, 4.0), 2.314814814814815e-29);
+		assert_eq!(a.value.polynomial(), Polynomial::Quartic([
+			30.0,
+			0.018166666666666664,
+			3.668167918055556e-6,
+			1.1764138889120372e-15,
+			2.314814814814815e-29
+		]));
 	}
 	
 	#[test]
 	fn linear_roots() {
 		let v = linear();
-		assert_eq!(v[0].roots(), Ok(vec![0*Nanosecs])); // 0.6
-		assert_eq!(v[1].roots(), Ok(vec![2*Nanosecs])); // -1.902, 2.102
-		assert_eq!(v[2].roots(), Ok(vec![3*Nanosecs])); // 3.892
-		assert_eq!(v[3].roots(), Ok(vec![5*Nanosecs])); // -3.687, 5.631
+		assert_eq!(v[0].when_eq(&Value::new(0)), vec![0*Nanosecs]); // 0.6
+		assert_eq!(v[1].when_eq(&Value::new(0)), vec![2*Nanosecs]); // -1.902, 2.102
+		assert_eq!(v[2].when_eq(&Value::new(0)), vec![3*Nanosecs]); // 3.892
+		assert_eq!(v[3].when_eq(&Value::new(0)), vec![5*Nanosecs]); // -3.687, 5.631
 	}
 	
 	fn exponential() -> [Value<Exponential<f64>>; 4] {
-		let mut v = Value::new(3.2)
-			.add_change(Change::new(ExponentialOp::Div, Value::new(1.1), Nanosecs))
-			.unwrap();
+		let mut v0 = Value::new(3.2)
+			.sub_change(Value::new(1.1), Nanosecs).unwrap();
 		
 		let mut v1 = Value::new(14.515)
-			.add_change(Change::new(ExponentialOp::Mul, v.clone(), Nanosecs))
-			.unwrap()
-			.add_change(Change::new(ExponentialOp::Mul, v.clone(), Nanosecs))
-			.unwrap();
+			.add_change(v0.clone(), Nanosecs).unwrap()
+			.add_change(v0.clone(), Nanosecs).unwrap();
 		
 		let mut v2 = Value::new(30.4)
-			.add_change(Change::new(ExponentialOp::Mul, v1.clone(), Nanosecs))
-			.unwrap();
+			.add_change(v1.clone(), Nanosecs).unwrap();
 		
 		let mut v3 = Value::new(300.0)
-			.add_change(Change::new(ExponentialOp::Mul, v2.clone(), Nanosecs))
-			.unwrap()
-			.add_change(Change::new(ExponentialOp::Div, v.clone(), Nanosecs))
-			.unwrap();
+			.add_change(v2.clone(), Nanosecs).unwrap()
+			.add_change(v0.clone(), Nanosecs).unwrap();
 		
-		[v, v1, v2, v3]
+		[v0, v1, v2, v3]
 	}
 	
 	// #[test]
@@ -560,25 +627,23 @@ mod value_tests {
 	#[test]
 	fn exponential_roots() {
 		let v = exponential();
-		assert_eq!(v[0].roots(), Ok(vec![12*Nanosecs])); // 12.204
-		assert_eq!(v[1].roots(), Ok(vec![24*Nanosecs])); // -1.143, 24.551
-		assert_eq!(v[2].roots(), Ok(vec![36*Nanosecs])); // 36.91 
-		assert_eq!(v[3].roots(), Ok(vec![49*Nanosecs])); // -4.752, 49.329
+		assert_eq!(v[0].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![12*Nanosecs]); // 12.204
+		assert_eq!(v[1].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![24*Nanosecs]); // -1.143, 24.551
+		assert_eq!(v[2].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![36*Nanosecs]); // 36.91 
+		assert_eq!(v[3].when_eq(&Value::<Exponential<f64>>::new(1.0)), vec![49*Nanosecs]); // -4.752, 49.329
 	}
 	
 	#[test]
 	fn exponential_non_pos() {
 		let v = Value::<Exponential<f64>>::new(0.0)
-			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
-			.unwrap();
+			.add_change(Value::new(2.0), Nanosecs).unwrap();
 		
 		// assert_eq!(v.polynomial(), FluxPolynomial::Linear([f64::NEG_INFINITY, f64::ln(2.0)]));
 		assert_eq!(v.at(0*Nanosecs).0, 0.0);
 		assert_eq!(v.at(u64::MAX*Nanosecs).0, 0.0);
 		
 		let v = Value::<Exponential<f64>>::new(-1.5)
-			.add_change(Change::new(ExponentialOp::Mul, Value::new(2.0), Nanosecs))
-			.unwrap();
+			.add_change(Value::new(2.0), Nanosecs).unwrap();
 		
 		// match v.polynomial() {
 		// 	FluxPolynomial::Linear([a, _]) => assert!(a.is_nan()),
@@ -591,21 +656,15 @@ mod value_tests {
 	#[test]
 	fn long_term() {
 		let h = Value::<Linear<f64>>::new(10.0)
-			.add_change(Change::new(LinearOp::Add, Value::new(1.0), Hours))
-			.unwrap();
+			.add_change(Value::new(1.0), Hours).unwrap();
 		let n = Value::<Linear<f64>>::new(10.0)
-			.add_change(Change::new(LinearOp::Add, Value::new(1.0), Nanosecs))
-			.unwrap();
+			.add_change(Value::new(1.0), Nanosecs).unwrap();
 		
 		assert_eq!(h.at(1*Hours), n.at(1*Nanosecs));
 		assert_eq!(h.at(10*Hours), n.at(10*Nanosecs));
 		
-		let h1 = Value::<Linear<f64>>::new(30.0)
-			.add_change(Change::new(LinearOp::Add, h, Hours))
-			.unwrap();
-		let n1 = Value::<Linear<f64>>::new(30.0)
-			.add_change(Change::new(LinearOp::Add, n, Nanosecs))
-			.unwrap();
+		let h1 = Value::new(30.0).add_change(h, Hours).unwrap();
+		let n1 = Value::new(30.0).add_change(n, Nanosecs).unwrap();
 		
 		assert_eq!(h1.at(1*Hours), n1.at(1*Nanosecs));
 		assert_eq!(h1.at(10*Hours), n1.at(10*Nanosecs));
@@ -615,19 +674,17 @@ mod value_tests {
 	fn discrete_update() {
 		let mut v = linear();
 		
-		v[0].update(10*Nanosecs);
+		v[0].value.update(10*Nanosecs);
 		let new_v0 = v[0].clone()
-			.add_change(Change::new(LinearOp::Add, Value::new(7), Nanosecs))
-			.unwrap();
+			.add_change(Value::new(7), Nanosecs).unwrap();
 		assert_eq!(v[0].at(0*Nanosecs), new_v0.at(0*Nanosecs));
-		assert_eq!(new_v0.roots(), Ok(vec![23*Nanosecs])); // 23.5
+		assert_eq!(new_v0.when_eq(&Value::new(0)), vec![23*Nanosecs]); // 23.5
 		
-		v[3].update(6*Nanosecs);
+		v[3].value.update(6*Nanosecs);
 		let new_v3 = v[3].clone()
-			.add_change(Change::new(LinearOp::Add, Value::new(1000), Nanosecs))
-			.unwrap();
+			.add_change(Value::new(1000), Nanosecs).unwrap();
 		assert_eq!(v[3].at(0*Nanosecs), new_v3.at(0*Nanosecs));
-		assert_eq!(new_v3.roots(), Ok(vec![0*Nanosecs, 3*Nanosecs])); // 0.22, 3.684
+		assert_eq!(new_v3.when_eq(&Value::new(0)), vec![0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
 	}
 	
 	#[test]

@@ -13,7 +13,7 @@ use std::vec::IntoIter;
 pub type Degree = usize;
 
 /// `a + b x + c x^2 + d x^3 + ..`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Polynomial<T: LinearValue> {
 	Constant ([T; 1]),
 	Linear   ([T; 2]),
