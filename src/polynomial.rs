@@ -196,7 +196,7 @@ impl LinearValue for f64 {
 			P::Cubic([a,b,c,d]) => {
 				let n = -c / (3.0 * d);
 				let depressed_cubic = P::Cubic([
-					a + (n * (b + (n * c * 2.0)/3.0)),
+					a + (n * (b + (n * c * (2.0/3.0)))),
 					b + (n * c),
 					0.0,
 					d,
@@ -239,9 +239,9 @@ impl LinearValue for f64 {
 			P::Quartic([a,b,c,d,e]) => {
 				let n = -d / (4.0 * e);
 				let depressed_quartic = P::Quartic([
-					a + (n * (b + (n * (c + (n * d * 3.0)/4.0)))),
+					a + (n * (b + (n * (c + (n * d * (3.0/4.0)))))),
 					b + (n * (c + (n * d)) * 2.0),
-					c + (n * d * 3.0)/2.0,
+					c + (n * d * (3.0/2.0)),
 					0.0,
 					e
 				]);
