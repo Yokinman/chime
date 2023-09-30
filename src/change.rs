@@ -15,7 +15,7 @@ use crate::degree::{Degree, Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
 
 /// A value that changes over time (linearly, exponentially, etc.).
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
-pub struct Value<Iso: LinearIso, D: IsDeg> {
+pub struct Value<Iso: LinearIso, D: IsDeg> { // ??? It may be possible to just use a const parameter with Deg as a trait constraint utility
 	value: LinearFluxValue<Iso::Linear>,
 	// time_offset: Time,
 	degree: PhantomData<D>,

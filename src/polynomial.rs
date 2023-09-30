@@ -13,7 +13,7 @@ use crate::degree::Degree;
 
 /// `a + b x + c x^2 + d x^3 + ..`
 #[derive(Debug, Clone, PartialEq)]
-pub enum Polynomial<T: LinearValue> {
+pub enum Polynomial<T: LinearValue> { // !!! Make generic using `Deg`
 	Constant ([T; 1]),
 	Linear   ([T; 2]),
 	Quadratic([T; 3]),
