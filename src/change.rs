@@ -17,6 +17,7 @@ use crate::degree::{Degree, Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
 #[derive(Debug, Clone)] // ??? Copy may be worth deriving
 pub struct Value<Iso: LinearIso, D: IsDeg> {
 	value: LinearFluxValue<Iso::Linear>,
+	// time_offset: Time,
 	degree: PhantomData<D>,
 }
 
@@ -24,14 +25,20 @@ impl<Iso: LinearIso> Value<Iso, Deg<0>> {
 	pub fn new(initial_value: impl Into<Iso>) -> Self {
 		Self {
 			value: LinearFluxValue::new(initial_value.into().inv_map()),
+			// time_offset: Time::default(),
 			degree: PhantomData,
 		}
 	}
 }
 
 impl<Iso: LinearIso, D: IsDeg> Value<Iso, D> {
-	fn at(&self, time: Time) -> Iso {
-		Iso::map(self.value.at(time /* - self.time_offset */))
+	pub fn at(&self, time: Time) -> Iso {
+		Iso::map(self.value.at(time /* - self.time_offset*/))
+	}
+	
+	pub fn update(&mut self, t: Time) {
+		self.value.update(t /* - self.time_offset*/);
+		// self.time_offset += t;
 	}
 }
 
@@ -50,6 +57,7 @@ where
 		self.value.add_change(change);
 		Value::<Iso, <D as AddChange<T>>::Sum> {
 			value: self.value,
+			// time_offset: self.time_offset,
 			degree: PhantomData
 		}
 	}
@@ -64,6 +72,7 @@ where
 		self.value.add_change(change);
 		Value::<Iso, <D as AddChange<T>>::Sum> {
 			value: self.value,
+			// time_offset: self.time_offset,
 			degree: PhantomData
 		}
 	}
@@ -79,7 +88,32 @@ where
 	where
 		T: IsDeg + IsBelowDeg<Deg<5>>
 	{
-		self.value.when_eq(&eq_value.value)
+		let polynomial = self.value.polynomial().clone()
+			- eq_value.value.polynomial().clone();
+		
+		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
+		
+		 // Constant Equality:
+		if real_roots.is_empty() {
+			if polynomial.iter().all(|&term| term == term*Scalar(0.0)) {
+				real_roots.push(0.0)
+			} else {
+				return vec![]
+			}
+		}
+		
+		 // Convert Roots to Times:
+		// let offset = (self.time_offset >> TimeUnit::Nanosecs) as f64;
+		real_roots.into_iter()
+			.filter_map(|t| {
+				// let t = t + offset;
+				if t < 0.0 || t > (u64::MAX as f64) {
+					None
+				} else {
+					Some((t as u64)*TimeUnit::Nanosecs)
+				}
+			})
+			.collect()
 	}
 }
 
@@ -93,7 +127,76 @@ where
 	where
 		T: IsDeg + IsBelowDeg<Deg<5>>
 	{
-		self.value.when(cmp_order, &cmp_value.value)
+		let polynomial = self.value.polynomial().clone()
+			- cmp_value.value.polynomial().clone();
+		
+		 // Find Initial Order:
+		let mut degree = polynomial.degree();
+		let mut initial_order = loop {
+			let coeff = *polynomial.term(degree).unwrap();
+			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
+			if degree == 0 || order != Some(Ordering::Equal) {
+				break if degree % 2 == 0 {
+					order
+				} else {
+					order.map(|o| o.reverse())
+				}
+			}
+			degree -= 1;
+		};
+		
+		 // Convert Roots to Ranges:
+		let range_list = match polynomial.real_roots() {
+			Ok(roots) => {
+				let mut list = Vec::with_capacity(
+					if cmp_order == Ordering::Equal {
+						roots.len()
+					} else {
+						1 + (roots.len() / 2)
+					}
+				);
+				let mut prev_point = if initial_order == Some(cmp_order) {
+					Some(f64::NEG_INFINITY)
+				} else {
+					None
+				};
+				for point in roots {
+					if let Some(prev) = prev_point {
+						if point != prev {
+							list.push((prev, point));
+						}
+						prev_point = None;
+					} else if cmp_order == Ordering::Equal {
+						list.push((point, point));
+					} else {
+						prev_point = Some(point);
+					}
+				}
+				if let Some(point) = prev_point {
+					list.push((point, f64::INFINITY));
+				}
+				list
+			},
+			Err(_) => vec![],
+		};
+		
+		 // Convert Ranges to Time:
+		// let offset = (self.time_offset >> TimeUnit::Nanosecs) as f64;
+		range_list.into_iter()
+			.filter_map(|(a, b)| {
+				assert!(a <= b);
+				// let a = a + offset;
+				// let b = b + offset;
+				if b < 0.0 || a > (u64::MAX as f64) {
+					None
+				} else {
+					Some((
+						(a as u64)*TimeUnit::Nanosecs,
+						(b as u64)*TimeUnit::Nanosecs
+					))
+				}
+			})
+			.collect()
 	}
 }
 
@@ -178,28 +281,6 @@ impl<T: LinearValue> LinearFluxValue<T> {
 		}
 	}
 	
-	fn roots(&self) -> Result<Vec<Time>, Vec<Time>> {
-		let offset = 0.0; // (time_offset >> TimeUnit::Nanosecs) as f64;
-		
-		let into_time = |roots: Vec<f64>| -> Vec<Time> {
-			 roots.into_iter()
-				.filter_map(|r| {
-					debug_assert!(!r.is_nan());
-					let r = r - offset;
-					if r < 0.0 || r > (u64::MAX as f64) {
-						None
-					} else {
-						Some((r as u64)*TimeUnit::Nanosecs)
-					}
-				})
-				.collect()
-		};
-		
-		self.polynomial().real_roots()
-			.map(into_time)
-			.map_err(into_time)
-	}
-	
 	fn update(&mut self, time: Time) {
 		self.initial_value = self.at(time);
 		for change in &mut self.change_list {
@@ -220,116 +301,6 @@ impl<T: LinearValue> LinearFluxValue<T> {
 impl<T: LinearValue> From<T> for LinearFluxValue<T> {
 	fn from(value: T) -> Self {
 		LinearFluxValue::new(value)
-	}
-}
-
-impl<T> LinearFluxValue<T>
-where
-	T: LinearValue + PartialEq,
-{
-	fn when_eq(&self, eq_value: &Self) -> Vec<Time> {
-		//! Will panic if used for a value over degree 4.
-		
-		let polynomial = self.polynomial().clone()
-			- eq_value.polynomial().clone();
-		
-		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
-		
-		 // Constant Equality:
-		if real_roots.is_empty() {
-			if polynomial.iter().all(|&term| term == term*Scalar(0.0)) {
-				real_roots.push(0.0)
-			} else {
-				return vec![]
-			}
-		}
-		
-		real_roots.into_iter()
-			.filter_map(|t| {
-				if t < 0.0 || t > (u64::MAX as f64) {
-					None
-				} else {
-					Some((t as u64)*TimeUnit::Nanosecs)
-				}
-			})
-			.collect()
-	}
-}
-
-impl<T> LinearFluxValue<T>
-where
-	T: LinearValue + PartialOrd,
-{
-	fn when(&self, cmp_order: Ordering, cmp_value: &Self) -> Vec<(Time, Time)> {
-		//! Will panic if used for a value over degree 4.
-		
-		let polynomial = self.polynomial().clone()
-			- cmp_value.polynomial().clone();
-		
-		 // Find Initial Order:
-		let mut degree = polynomial.degree();
-		let mut initial_order = loop {
-			let coeff = *polynomial.term(degree).unwrap();
-			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
-			if degree == 0 || order != Some(Ordering::Equal) {
-				break if degree % 2 == 0 {
-					order
-				} else {
-					order.map(|o| o.reverse())
-				}
-			}
-			degree -= 1;
-		};
-		
-		 // Convert Roots to Ranges:
-		let range_list = match polynomial.real_roots() {
-			Ok(roots) => {
-				let mut list = Vec::with_capacity(
-					if cmp_order == Ordering::Equal {
-						roots.len()
-					} else {
-						1 + (roots.len() / 2)
-					}
-				);
-				let mut prev_point = if initial_order == Some(cmp_order) {
-					Some(f64::NEG_INFINITY)
-				} else {
-					None
-				};
-				for point in roots {
-					if let Some(prev) = prev_point {
-						if prev != point {
-							list.push((prev, point));
-						}
-						prev_point = None;
-					} else if cmp_order == Ordering::Equal {
-						list.push((point, point));
-					} else {
-						prev_point = Some(point);
-					}
-				}
-				if let Some(point) = prev_point {
-					list.push((point, f64::INFINITY));
-				}
-				list
-			},
-			Err(_) => vec![],
-		};
-		
-		 // Convert Ranges to Time Ranges:
-		range_list.into_iter()
-			.filter_map(|(a, b)| {
-				assert!(a <= b);
-				if b < 0.0 || a > (u64::MAX as f64) {
-					None
-				} else {
-					Some((
-						(a as u64)*TimeUnit::Nanosecs,
-						(b as u64)*TimeUnit::Nanosecs
-					))
-				}
-			})
-			.collect()
 	}
 }
 
@@ -391,16 +362,12 @@ impl_op!{ a * b {
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
 pub trait LinearValue
-where
-	Self:
-		Sized + Copy + Clone
-		+ Add<Output=Self> + Mul<Scalar, Output=Self>
-		// + Sub<Output=Self> + Div<Scalar, Output=Self>
-		+ Sum
-		+ PartialEq + PartialOrd // !!! Temporary, wouldn't work for something like vectors
-		+ Debug // ??? Could be optional
-	// Scalar:
-	// 	Mul<Self, Output=Self>,
+where Self:
+	Sized + Copy + Clone
+	+ Add<Output=Self>
+	+ Mul<Scalar, Output=Self>
+	+ Sum // ??? Not really necessary
+	+ Debug // ??? Could be optional
 {
 	fn roots(polynomial: &Polynomial<Self>) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of the given polynomial. If not all
@@ -566,6 +533,7 @@ where
 	fn from(value: T) -> Self {
 		Self {
 			value: LinearFluxValue::new(Linear(value).inv_map()),
+			// time_offset: Time::default(),
 			degree: PhantomData,
 		}
 	}
@@ -611,6 +579,7 @@ where
 	fn from(value: T) -> Self {
 		Self {
 			value: LinearFluxValue::new(Exponential(value).inv_map()),
+			// time_offset: Time::default(),
 			degree: PhantomData,
 		}
 	}
@@ -641,6 +610,7 @@ mod value_tests {
 		Value<Linear<i64>, Deg<3>>,
 		Value<Linear<i64>, Deg<4>>,
 	) {
+		// !!! Change these polynomials to something more practical
 		let v0 = 3_i64 - 5.per(Nanosecs);
 		let v1 = 20 + v0.clone().per(Nanosecs) + v0.clone().per(Nanosecs);
 		let v2 = 52 + v1.clone().per(Nanosecs);
@@ -691,11 +661,27 @@ mod value_tests {
 	
 	#[test]
 	fn linear_roots() {
-		let (v0, v1, v2, v3) = linear();
+		let (mut v0, mut v1, mut v2, mut v3) = linear();
 		assert_eq!(v0.when_eq(&Value::new(0)), vec![0*Nanosecs]); // 0.6
 		assert_eq!(v1.when_eq(&Value::new(0)), vec![2*Nanosecs]); // -1.902, 2.102
 		assert_eq!(v2.when_eq(&Value::new(0)), vec![3*Nanosecs]); // 3.892
 		assert_eq!(v3.when_eq(&Value::new(0)), vec![5*Nanosecs]); // -3.687, 5.631
+		v0.update(1*Nanosecs);
+		v1.update(1*Nanosecs);
+		v2.update(1*Nanosecs);
+		v3.update(1*Nanosecs);
+		assert_eq!(v0.when_eq(&Value::new(0)), vec![]);
+		assert_eq!(v1.when_eq(&Value::new(0)), vec![1*Nanosecs]);
+		assert_eq!(v2.when_eq(&Value::new(0)), vec![2*Nanosecs]);
+		assert_eq!(v3.when_eq(&Value::new(0)), vec![4*Nanosecs]);
+		v0.update(2*Nanosecs);
+		v1.update(2*Nanosecs);
+		v2.update(2*Nanosecs);
+		v3.update(2*Nanosecs);
+		assert_eq!(v0.when_eq(&Value::new(0)), vec![]);
+		assert_eq!(v1.when_eq(&Value::new(0)), vec![]);
+		assert_eq!(v2.when_eq(&Value::new(0)), vec![0*Nanosecs]);
+		assert_eq!(v3.when_eq(&Value::new(0)), vec![2*Nanosecs]);
 	}
 	
 	fn exponential() -> (
@@ -704,6 +690,7 @@ mod value_tests {
 		Value<Exponential<f64>, Deg<3>>,
 		Value<Exponential<f64>, Deg<4>>,
 	) {
+		// !!! Change polynomial to something more practical
 		let v0 = 3.2 / 1.1.per(Nanosecs);
 		let v1 = 14.515 * v0.clone().per(Nanosecs) * v0.clone().per(Nanosecs);
 		let v2 = 30.4 * v1.clone().per(Nanosecs);
@@ -737,11 +724,27 @@ mod value_tests {
 	
 	#[test]
 	fn exponential_roots() {
-		let (v0, v1, v2, v3) = exponential();
+		let (mut v0, mut v1, mut v2, mut v3) = exponential();
 		assert_eq!(v0.when_eq(&Value::new(1.0)), vec![12*Nanosecs]); // 12.204
 		assert_eq!(v1.when_eq(&Value::new(1.0)), vec![24*Nanosecs]); // -1.143, 24.551
 		assert_eq!(v2.when_eq(&Value::new(1.0)), vec![36*Nanosecs]); // 36.91 
 		assert_eq!(v3.when_eq(&Value::new(1.0)), vec![49*Nanosecs]); // -4.752, 49.329
+		v0.update(6*Nanosecs);
+		v1.update(6*Nanosecs);
+		v2.update(6*Nanosecs);
+		v3.update(6*Nanosecs);
+		assert_eq!(v0.when_eq(&Value::new(1.0)), vec![6*Nanosecs]);
+		assert_eq!(v1.when_eq(&Value::new(1.0)), vec![18*Nanosecs]);
+		assert_eq!(v2.when_eq(&Value::new(1.0)), vec![30*Nanosecs]);
+		assert_eq!(v3.when_eq(&Value::new(1.0)), vec![43*Nanosecs]);
+		v0.update(20*Nanosecs);
+		v1.update(20*Nanosecs);
+		v2.update(20*Nanosecs);
+		v3.update(20*Nanosecs);
+		assert_eq!(v0.when_eq(&Value::new(1.0)), vec![]);
+		assert_eq!(v1.when_eq(&Value::new(1.0)), vec![]);
+		assert_eq!(v2.when_eq(&Value::new(1.0)), vec![10*Nanosecs]);
+		assert_eq!(v3.when_eq(&Value::new(1.0)), vec![23*Nanosecs]);
 	}
 	
 	#[test]
@@ -779,12 +782,12 @@ mod value_tests {
 	fn discrete_update() {
 		let (mut v0, _, _, mut v3) = linear();
 		
-		v0.value.update(10*Nanosecs);
+		v0.update(10*Nanosecs);
 		let new_v0 = v0.clone() + 7.per(Nanosecs);
 		assert_eq!(v0.at(0*Nanosecs), new_v0.at(0*Nanosecs));
 		assert_eq!(new_v0.when_eq(&Value::new(0)), vec![23*Nanosecs]); // 23.5
 		
-		v3.value.update(6*Nanosecs);
+		v3.update(6*Nanosecs);
 		let new_v3 = v3.clone() + 1000.per(Nanosecs);
 		assert_eq!(v3.at(0*Nanosecs), new_v3.at(0*Nanosecs));
 		assert_eq!(new_v3.when_eq(&Value::new(0)), vec![0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
@@ -812,9 +815,9 @@ mod value_tests {
 	fn when_eq() {
 		let (v0, v1, v2, v3) = linear();
 		let v: [Value<Linear<i64>, Deg<4>>; 4] = [
-			Value { value: v0.value, degree: PhantomData },
-			Value { value: v1.value, degree: PhantomData },
-			Value { value: v2.value, degree: PhantomData },
+			Value { value: v0.value, /*time_offset: v0.time_offset,*/ degree: PhantomData },
+			Value { value: v1.value, /*time_offset: v1.time_offset,*/ degree: PhantomData },
+			Value { value: v2.value, /*time_offset: v2.time_offset,*/ degree: PhantomData },
 			v3
 		];
 		for value in v {
