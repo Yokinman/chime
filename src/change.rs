@@ -236,9 +236,11 @@ where
 		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
 		
 		 // Constant Equality:
-		if real_roots.len() == 0 {
+		if real_roots.is_empty() {
 			if polynomial.iter().all(|&term| term == term*Scalar(0.0)) {
 				real_roots.push(0.0)
+			} else {
+				return vec![]
 			}
 		}
 		

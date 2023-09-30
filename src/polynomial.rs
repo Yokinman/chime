@@ -8,7 +8,6 @@ use crate::change::{LinearValue, Scalar};
 use time::{Time, TimeUnit};
 
 use std::slice::{Iter, IterMut};
-use std::vec::IntoIter;
 
 use crate::degree::Degree;
 
@@ -64,16 +63,6 @@ impl<T: LinearValue> Polynomial<T> {
 		}
 	}
 	
-	pub fn into_iter(self) -> IntoIter<T> {
-		match self {
-			Self::Constant (list) => list.to_vec().into_iter(),
-			Self::Linear   (list) => list.to_vec().into_iter(),
-			Self::Quadratic(list) => list.to_vec().into_iter(),
-			Self::Cubic    (list) => list.to_vec().into_iter(),
-			Self::Quartic  (list) => list.to_vec().into_iter(),
-		}
-	}
-	
 	pub fn real_roots(&self) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of this polynomial in ascending order.
 		//! If not all roots are known, `Err` is returned.
@@ -104,7 +93,7 @@ impl<T: LinearValue> Add for Polynomial<T> {
 		};
 		for (degree, term) in augend.iter_mut().enumerate() {
 			if let Some(&addend_term) = addend.term(degree) {
-				*term = term.clone() + addend_term;
+				*term = *term + addend_term;
 			} else {
 				break
 			}
@@ -124,7 +113,7 @@ impl<T: LinearValue> Mul<Scalar> for Polynomial<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		for term in self.iter_mut() {
-			*term = term.clone() * rhs
+			*term = *term * rhs
 		}
 		self
 	}
