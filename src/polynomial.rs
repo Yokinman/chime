@@ -10,7 +10,7 @@ use time::{Time, TimeUnit};
 use std::slice::{Iter, IterMut};
 use std::vec::IntoIter;
 
-pub type Degree = usize;
+use crate::degree::Degree;
 
 /// `a + b x + c x^2 + d x^3 + ..`
 #[derive(Debug, Clone, PartialEq)]

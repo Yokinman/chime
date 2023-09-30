@@ -2,9 +2,6 @@
 
 //! Change over time ...
 
-mod change;
-// mod comparison;
+pub mod change;
 mod polynomial;
-// mod time;
-// mod value;
-// mod when;
+pub mod degree;
