@@ -18,8 +18,8 @@ pub struct Deg<const DEG: Degree>;
 impl<const DEG: Degree> private::Sealed for Deg<DEG> {}
 
 /// Degree category.
-pub trait IsDeg: private::Sealed + Clone {}
-impl<const DEG: Degree> IsDeg for Deg<DEG> {}
+pub trait IsDeg: private::Sealed + Clone { const USIZE: Degree; }
+impl<const DEG: Degree> IsDeg for Deg<DEG> { const USIZE: Degree = DEG; }
 
 /// Degree increment.
 pub trait HasUpDeg: IsDeg {

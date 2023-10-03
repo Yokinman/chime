@@ -120,6 +120,8 @@ impl<T: LinearValue> Mul<Scalar> for Polynomial<T> {
 }
 
 impl LinearValue for f64 {
+	const ZERO: Self = 0.0;
+	
 	fn roots(poly: &Polynomial<f64>) -> Result<Vec<f64>, Vec<f64>> {
 		use Polynomial as P;
 		// !!! Are infinity coefficients handled properly (cubic, quartic)?

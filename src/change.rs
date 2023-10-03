@@ -369,6 +369,8 @@ where Self:
 	+ Sum // ??? Not really necessary
 	+ Debug // ??? Could be optional
 {
+	const ZERO: Self;
+	
 	fn roots(polynomial: &Polynomial<Self>) -> Result<Vec<f64>, Vec<f64>> {
 		//! Returns all real-valued roots of the given polynomial. If not all
 		//! roots are known, `Err` should be returned.
