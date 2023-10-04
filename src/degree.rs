@@ -10,20 +10,21 @@ use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
-pub(crate) type Degree = usize;
-
 mod private {
 	pub trait Sealed {}
 }
 
 /// Degree type.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Deg<const DEG: Degree>;
-impl<const DEG: Degree> private::Sealed for Deg<DEG> {}
+pub struct Deg<const DEG: usize>;
+impl<const DEG: usize> private::Sealed for Deg<DEG> {}
 
 /// Degree category.
 pub trait IsDeg: private::Sealed + Copy + Clone + Debug {
-	const USIZE: Degree;
+	// ??? Could name this "Degree", but that seems confusing and ambiguous with
+	// the `Deg` type. Similar to `Ord` vs `Ordering` or `Iterator` vs `Iter`. 
+	
+	const USIZE: usize;
 	
 	type Array<T: Copy + Clone + Debug>:
 		Copy + Clone + Debug
@@ -34,8 +35,8 @@ pub trait IsDeg: private::Sealed + Copy + Clone + Debug {
 	
 	fn array_from<T: Copy + Clone + Debug>(value: T) -> Self::Array<T>;
 }
-impl<const DEG: Degree> IsDeg for Deg<DEG> {
-	const USIZE: Degree = DEG;
+impl<const DEG: usize> IsDeg for Deg<DEG> {
+	const USIZE: usize = DEG;
 	
 	type Array<T: Copy + Clone + Debug> = [T; DEG];
 	
@@ -92,10 +93,7 @@ impl_deg_order!(1);
 pub trait IsBelowDeg<D: IsDeg>: IsDeg {}
 
  // 0 < D:
-impl<D> IsBelowDeg<D> for Deg<0>
-where
-	D: IsDeg + HasDownDeg
-{}
+impl<D> IsBelowDeg<D> for Deg<0> where D: IsDeg + HasDownDeg {}
 
  // A < B, if A-1 < B-1: 
 impl<A, B> IsBelowDeg<B> for A
