@@ -7,7 +7,7 @@ use std::ops::{Add, Mul, Sub, Div};
 use impl_op::impl_op;
 
 use time::{Time, TimeUnit};
-use crate::change_trait::{ChangeAccum, FluxValue};
+use crate::flux::{ChangeAccum, FluxValue};
 
 use crate::degree::{Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
 
