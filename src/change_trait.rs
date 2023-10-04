@@ -4,8 +4,8 @@ use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::vec::IntoIter;
 use time::{Time, TimeUnit};
-use crate::change::{Linear, LinearIso, LinearValue, Scalar};
-use crate::degree::{Deg, Degree, IsBelowDeg, IsDeg, MaxDeg};
+use crate::change::{LinearIso, LinearValue, Scalar};
+use crate::degree::{IsBelowDeg, IsDeg, MaxDeg};
 use crate::polynomial::{Poly, Roots};
 
  // Convenient implementations (Vec<T>, RefCell<T>, etc.):
@@ -111,13 +111,12 @@ where
 	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	fn time_iter(&self) -> IntoIter<(Time, Time)> {
-		let polynomial = self.value.polynomial().clone()
-			- self.cmp_value.polynomial().clone();
+		let poly = self.value.polynomial() - self.cmp_value.polynomial();
 		
 		 // Find Initial Order:
 		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
-		let mut initial_order = loop {
-			let coeff = polynomial.term(degree).unwrap();
+		let initial_order = loop {
+			let coeff = poly.term(degree).unwrap();
 			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
 			if degree == 0 || order != Some(Ordering::Equal) {
 				break if degree % 2 == 0 {
@@ -130,7 +129,7 @@ where
 		};
 		
 		 // Convert Roots to Ranges:
-		let range_list = match polynomial.real_roots() {
+		let range_list = match poly.real_roots() {
 			Ok(roots) => {
 				let mut list = Vec::with_capacity(
 					if self.cmp_order == Ordering::Equal {
@@ -218,9 +217,7 @@ where
 	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	fn time_iter(&self) -> IntoIter<Time> {
-		let poly = self.value.polynomial().clone()
-			- self.eq_value.polynomial().clone();
-		
+		let poly = self.value.polynomial() - self.eq_value.polynomial();
 		let mut real_roots = poly.real_roots().unwrap_or(vec![]);
 		
 		 // Constant Equality:
@@ -341,6 +338,8 @@ enum ChangeAccumArgs {
 mod tests {
 	use super::*;
 	use TimeUnit::*;
+	use crate::change::*;
+	use crate::degree::*;
 	
 	#[derive(Debug, Default)] struct Pos { value: f64, spd: Spd, misc: Vec<Spd> }
 	#[derive(Debug, Default)] struct Spd { value: f64, fric: Fric, accel: Accel }
@@ -388,7 +387,7 @@ mod tests {
 		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
+		fn change(&self, _changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
 		fn update(&mut self, time: Time) {
 			self.value = self.calc(time);
 		}
@@ -430,7 +429,7 @@ mod tests {
 		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
+		fn change(&self, _changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
 		fn update(&mut self, time: Time) {
 			self.value = self.calc(time);
 		}
@@ -518,8 +517,8 @@ mod tests {
 	fn when_refcell() {
 		use std::cell::RefCell;
 		
-		let mut a_pos = RefCell::new(position());
-		let mut b_pos = RefCell::new(position());
+		let a_pos = RefCell::new(position());
+		let b_pos = RefCell::new(position());
 		let wh = a_pos.when(Ordering::Greater, &b_pos);
 		let wh_eq = a_pos.when_eq(&b_pos);
 		

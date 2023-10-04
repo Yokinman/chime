@@ -6,7 +6,6 @@
 //! - `Deg<3>`: Cubic
 //! - etc.
 
-use std::array::IntoIter;
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};

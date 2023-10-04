@@ -1,8 +1,6 @@
 //! Change describing utilities ...
 
-use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::iter::Sum;
 use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub, Div};
 
@@ -11,11 +9,10 @@ use impl_op::impl_op;
 use time::{Time, TimeUnit};
 use crate::change_trait::{ChangeAccum, FluxValue};
 
-use crate::polynomial::Poly;
-use crate::degree::{Degree, Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
+use crate::degree::{Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
 
 /// A value with a dynamically-defined change over time.
-#[derive(Clone, Debug)] // ??? Copy may be worth deriving
+#[derive(Clone, Debug)]
 pub struct Value<I: LinearIso, D: IsDeg> {
 	value: LinearFluxValue<I::Linear>,
 	degree: PhantomData<D>,
@@ -72,8 +69,8 @@ impl<I: LinearIso> FluxValue for Value<I, Deg<0>> {
 	fn value(&self) -> <Self::Iso as LinearIso>::Linear {
 		self.value.initial_value
 	}
-	fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
-	fn update(&mut self, time: Time) {}
+	fn change(&self, _changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
+	fn update(&mut self, _time: Time) {}
 }
 
 macro_rules! impl_flux_value_for_value {
@@ -129,7 +126,7 @@ macro_rules! impl_cast_up {
 impl_cast_up!(0, 1, 2, 3, 4, 5, 6, 7);
 
 /// A value that linearly changes over time.
-#[derive(Clone, Debug)] // ??? Copy may be worth deriving
+#[derive(Clone, Debug)]
 struct LinearFluxValue<T: LinearValue> {
 	initial_value: T,
 	change_list: Vec<Change<T>>,
@@ -394,6 +391,8 @@ impl LinearIso for Exponential<u64> {
 mod value_tests {
 	use super::*;
 	use TimeUnit::*;
+	use std::cmp::Ordering;
+	use crate::polynomial::*;
 	
 	fn linear() -> (
 		Value<Linear<i64>, Deg<1>>,

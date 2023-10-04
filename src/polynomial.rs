@@ -17,7 +17,7 @@ impl<T: LinearValue, D: IsDeg> Poly<T, D> {
 	}
 	
 	pub fn coeff(&self, coeff_index: usize) -> Option<T> {
-		self.1.as_ref().get(coeff_index).map(|&c| c)
+		self.1.as_ref().get(coeff_index).copied()
 	}
 	
 	pub fn coeff_iter(&self) -> Iter<T> {
@@ -310,11 +310,11 @@ mod tests {
 		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
-	fn assert_roots<D: IsDeg>(p: Poly<f64, D>, mut expected_roots: Vec<f64>)
+	fn assert_roots<D: IsDeg>(p: Poly<f64, D>, expected_roots: Vec<f64>)
 	where
 		f64: Roots<D>
 	{
-		let mut r = p.real_roots().unwrap();
+		let r = p.real_roots().unwrap();
 		for i in 0..r.len() {
 			// println!("{:?} <> {:?}", r[i], expected_roots[i]);
 			assert!((r[i] - expected_roots[i]).abs() < 0.1);
