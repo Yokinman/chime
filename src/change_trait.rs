@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use std::vec::IntoIter;
 use time::{Time, TimeUnit};
 use crate::change::{Linear, LinearIso, LinearValue, Scalar};
-use crate::degree::{Deg, Degree, IsBelowDeg, IsDeg};
-use crate::polynomial::Polynomial;
+use crate::degree::{Deg, Degree, IsBelowDeg, IsDeg, MaxDeg};
+use crate::polynomial::{Poly, Roots};
 
  // Convenient implementations (Vec<T>, RefCell<T>, etc.):
 mod flux_impl;
@@ -53,24 +53,21 @@ pub trait FluxValue: Sized {
 		// https://www.desmos.com/calculator/tn0udn7swy
 	}
 	
-	fn polynomial(&self) -> Polynomial<<Self::Iso as LinearIso>::Linear> {
-		match Self::Degree::USIZE {
-			0 => Polynomial::Constant ([self.coeff_calc(0.0, 0.0)]),
-			1 => Polynomial::Linear   ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0)]),
-			2 => Polynomial::Quadratic([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0)]),
-			3 => Polynomial::Cubic    ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0)]),
-			4 => Polynomial::Quartic  ([self.coeff_calc(0.0, 0.0), self.coeff_calc(0.0, 1.0), self.coeff_calc(0.0, 2.0), self.coeff_calc(0.0, 3.0), self.coeff_calc(0.0, 4.0)]),
-			_ => unreachable!()
+	fn polynomial(&self) -> Poly<<Self::Iso as LinearIso>::Linear, Self::Degree> {
+		let constant = self.coeff_calc(0.0, 0.0);
+		let mut coeff_list = Self::Degree::array_from(<Self::Iso as LinearIso>::Linear::ZERO);
+		for degree in 1..=Self::Degree::USIZE {
+			coeff_list[degree - 1] = self.coeff_calc(0.0, degree as f64);
 		}
+		Poly(constant, coeff_list)
 	}
 	
 	fn when<'v, T>(&'v self, cmp_order: Ordering, cmp_value: &'v T)
 		-> When<'v, Self, T>
 	where
 		T: FluxValue<Iso=Self::Iso>,
-		T::Degree: IsBelowDeg<Deg<5>>,
-		Self::Degree: IsBelowDeg<Deg<5>>,
-		<Self::Iso as LinearIso>::Linear: PartialOrd,
+		Self::Degree: MaxDeg<T::Degree>,
+		<Self::Iso as LinearIso>::Linear: Roots<<Self::Degree as MaxDeg<T::Degree>>::Max> + PartialOrd,
 	{
 		When {
 			value: self,
@@ -83,9 +80,8 @@ pub trait FluxValue: Sized {
 		-> WhenEq<'v, Self, T>
 	where
 		T: FluxValue<Iso=Self::Iso>,
-		T::Degree: IsBelowDeg<Deg<5>>,
-		Self::Degree: IsBelowDeg<Deg<5>>,
-		<Self::Iso as LinearIso>::Linear: PartialEq,
+		Self::Degree: MaxDeg<T::Degree>,
+		<Self::Iso as LinearIso>::Linear: Roots<<Self::Degree as MaxDeg<T::Degree>>::Max> + PartialEq,
 	{
 		WhenEq {
 			value: self,
@@ -99,7 +95,8 @@ pub struct When<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialOrd
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	value: &'v A,
 	cmp_value: &'v B,
@@ -110,16 +107,17 @@ impl<'v, A, B> When<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialOrd
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	fn time_iter(&self) -> IntoIter<(Time, Time)> {
 		let polynomial = self.value.polynomial().clone()
 			- self.cmp_value.polynomial().clone();
 		
 		 // Find Initial Order:
-		let mut degree = polynomial.degree();
+		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
 		let mut initial_order = loop {
-			let coeff = *polynomial.term(degree).unwrap();
+			let coeff = polynomial.term(degree).unwrap();
 			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
 			if degree == 0 || order != Some(Ordering::Equal) {
 				break if degree % 2 == 0 {
@@ -189,7 +187,8 @@ impl<'v, A, B> IntoIterator for When<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialOrd
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	type Item = (Time, Time);
 	type IntoIter = std::vec::IntoIter<Self::Item>;
@@ -204,7 +203,8 @@ pub struct WhenEq<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialEq
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	value: &'v A,
 	eq_value: &'v B,
@@ -214,19 +214,22 @@ impl<'v, A, B> WhenEq<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialEq
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	fn time_iter(&self) -> IntoIter<Time> {
-		let polynomial = self.value.polynomial().clone()
+		let poly = self.value.polynomial().clone()
 			- self.eq_value.polynomial().clone();
 		
-		let mut real_roots = polynomial.real_roots().unwrap_or(vec![]);
+		let mut real_roots = poly.real_roots().unwrap_or(vec![]);
 		
 		 // Constant Equality:
-		if real_roots.is_empty() {
-			if polynomial.iter().all(|&term| term == term*Scalar(0.0)) {
-				real_roots.push(0.0)
-			}
+		if
+			real_roots.is_empty()
+			&& poly.constant() == <A::Iso as LinearIso>::Linear::ZERO
+			&& poly.coeff_iter().all(|&term| term == <A::Iso as LinearIso>::Linear::ZERO)
+		{
+			real_roots.push(0.0);
 		}
 		
 		 // Convert Roots to Times:
@@ -249,7 +252,8 @@ impl<'v, A, B> IntoIterator for WhenEq<'v, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
-	<A::Iso as LinearIso>::Linear: PartialEq
+	A::Degree: MaxDeg<B::Degree>,
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	type Item = Time;
 	type IntoIter = std::vec::IntoIter<Self::Item>;
@@ -476,12 +480,22 @@ mod tests {
 		let mut pos = position();
 		assert_eq!(
 			pos.polynomial(),
-			Polynomial::Quartic([32.0, -1.469166666666667e-9, -1.4045833333333335e-18, 0.06416666666666669e-27, -0.0004166666666666668e-36])
+			Poly(32.0, [
+				-1.469166666666667e-9,
+				-1.4045833333333335e-18,
+				0.06416666666666669e-27,
+				-0.0004166666666666668e-36
+			])
 		);
 		pos.update(20*Secs);
 		assert_eq!(
 			pos.polynomial(),
-			Polynomial::Quartic([-112.55000000000007, 6.0141666666666615e-9, 1.4454166666666668e-18, 0.030833333333333334e-27, -0.0004166666666666668e-36])
+			Poly(-112.55000000000007, [
+				6.0141666666666615e-9,
+				1.4454166666666668e-18,
+				0.030833333333333334e-27,
+				-0.0004166666666666668e-36
+			])
 		);
 	}
 	

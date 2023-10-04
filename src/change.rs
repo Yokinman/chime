@@ -11,11 +11,11 @@ use impl_op::impl_op;
 use time::{Time, TimeUnit};
 use crate::change_trait::{ChangeAccum, FluxValue};
 
-use crate::polynomial::Polynomial;
+use crate::polynomial::Poly;
 use crate::degree::{Degree, Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
 
 /// A value with a dynamically-defined change over time.
-#[derive(Debug, Clone)] // ??? Copy may be worth deriving
+#[derive(Clone, Debug)] // ??? Copy may be worth deriving
 pub struct Value<I: LinearIso, D: IsDeg> {
 	value: LinearFluxValue<I::Linear>,
 	degree: PhantomData<D>,
@@ -129,7 +129,7 @@ macro_rules! impl_cast_up {
 impl_cast_up!(0, 1, 2, 3, 4, 5, 6, 7);
 
 /// A value that linearly changes over time.
-#[derive(Debug, Clone)] // ??? Copy may be worth deriving
+#[derive(Clone, Debug)] // ??? Copy may be worth deriving
 struct LinearFluxValue<T: LinearValue> {
 	initial_value: T,
 	change_list: Vec<Change<T>>,
@@ -152,7 +152,7 @@ impl<T: LinearValue> LinearFluxValue<T> {
 }
 
 /// A linear change over time.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 struct Change<T: LinearValue> {
 	scalar: Scalar,
 	rate: LinearFluxValue<T>,
@@ -184,7 +184,7 @@ where
 }
 
 /// A scalar value, used for multiplication with any [`LinearValue`].
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Scalar(pub f64);
 
 impl_op!{ a * b {
@@ -211,21 +211,15 @@ impl_op!{ a * b {
 pub trait LinearValue
 where Self:
 	Sized
-	+ Copy + Clone
+	+ Copy + Clone + Debug
 	+ Add<Output=Self>
 	+ Mul<Scalar, Output=Self>
-	+ Debug // ??? Could be optional
 {
-	const ZERO: Self;
-	
-	fn roots(polynomial: &Polynomial<Self>) -> Result<Vec<f64>, Vec<f64>> {
-		//! Returns all real-valued roots of the given polynomial. If not all
-		//! roots are known, `Err` should be returned.
-		//! 
-		//! [`Polynomial::real_roots`] should generally be used instead.
-		
-		Err(vec![])
-	}
+	const ZERO: Self; // ??? Could use Default, but it isn't a guaranteed zero
+}
+
+impl LinearValue for f64 {
+	const ZERO: Self = 0.0;
 }
 
 /// A mapping of a vector space that preserves addition & multiplication.
@@ -321,7 +315,7 @@ impl_flux_ops!(Div::div, sub_change, Exponential<f64>);
 impl_flux_ops!(Div::div, sub_change, Exponential<u64>);
 
 /// A linear map that performs no change - pure addition.
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Linear<T>(T);
 
 impl<T> From<T> for Linear<T> {
@@ -363,7 +357,7 @@ impl LinearIso for Linear<i64> {
 /// A linear map that translates between addition and multiplication.
 /// 
 /// `map(inv_map(A) + inv_map(B)) <=> Exponential(A * B)`
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Exponential<T>(T);
 
 impl<T> From<T> for Exponential<T> {
@@ -447,8 +441,8 @@ mod value_tests {
 		let b = 10.0 + c.per(Microsecs) + c1.per(Mins);
 		let a = 30.0 + b.per(Microsecs);
 		
-		assert_eq!(a.polynomial(), Polynomial::Quartic([
-			30.0,
+		assert_eq!(a.polynomial(), Poly(
+			30.0, [
 			0.018166666666666664,
 			3.668167918055556e-6,
 			1.1764138889120372e-15,

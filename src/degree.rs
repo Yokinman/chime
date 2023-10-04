@@ -6,6 +6,11 @@
 //! - `Deg<3>`: Cubic
 //! - etc.
 
+use std::array::IntoIter;
+use std::borrow::{Borrow, BorrowMut};
+use std::fmt::Debug;
+use std::ops::{Index, IndexMut};
+
 pub(crate) type Degree = usize;
 
 mod private {
@@ -13,13 +18,32 @@ mod private {
 }
 
 /// Degree type.
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Deg<const DEG: Degree>;
 impl<const DEG: Degree> private::Sealed for Deg<DEG> {}
 
 /// Degree category.
-pub trait IsDeg: private::Sealed + Clone { const USIZE: Degree; }
-impl<const DEG: Degree> IsDeg for Deg<DEG> { const USIZE: Degree = DEG; }
+pub trait IsDeg: private::Sealed + Copy + Clone + Debug {
+	const USIZE: Degree;
+	
+	type Array<T: Copy + Clone + Debug>:
+		Copy + Clone + Debug
+		+ IntoIterator<Item=T>
+		+ AsRef<[T]> + AsMut<[T]>
+		+ Borrow<[T]> + BorrowMut<[T]>
+		+ Index<usize, Output=T> + IndexMut<usize>;
+	
+	fn array_from<T: Copy + Clone + Debug>(value: T) -> Self::Array<T>;
+}
+impl<const DEG: Degree> IsDeg for Deg<DEG> {
+	const USIZE: Degree = DEG;
+	
+	type Array<T: Copy + Clone + Debug> = [T; DEG];
+	
+	fn array_from<T: Copy + Clone + Debug>(value: T) -> Self::Array<T> {
+		[value; DEG]
+	}
+}
 
 /// Degree increment.
 pub trait HasUpDeg: IsDeg {
