@@ -27,7 +27,8 @@ pub trait FluxValue: Sized {
 	fn update(&mut self, time: Time); 
 	
 	fn calc(&self, time: Time) -> <Self::Iso as LinearIso>::Linear {
-		let mut changes = ChangeAccum::new(ChangeAccumArgs::Sum((time >> TimeUnit::Nanosecs) as f64));
+		let mut changes = ChangeAccum::new(
+			ChangeAccumArgs::Sum((time >> TimeUnit::Nanosecs) as f64));
 		self.change(&mut changes);
 		self.value() + changes.sum
 	}
@@ -36,29 +37,15 @@ pub trait FluxValue: Sized {
 		Self::Iso::map(self.calc(time))
 	}
 	
-	fn coeff_calc(&self, depth: f64, degree: f64) -> <Self::Iso as LinearIso>::Linear {
-		if depth == 0.0 && degree == 0.0 {
-			self.value()
-		} else {
-			let mut accum = ChangeAccum::new(ChangeAccumArgs::Coeff(degree));
-			accum.depth = depth;
-			self.change(&mut accum);
-			let coeff_sum = accum.sum * Scalar(1.0 / (depth + 1.0));
-			if depth >= degree {
-				self.value() + coeff_sum
-			} else {
-				coeff_sum
-			}
-		}
-		// https://www.desmos.com/calculator/tn0udn7swy
-	}
-	
-	fn polynomial(&self) -> Poly<<Self::Iso as LinearIso>::Linear, Self::Degree> {
-		let constant = self.coeff_calc(0.0, 0.0);
-		let mut coeff_list = Self::Degree::array_from(<Self::Iso as LinearIso>::Linear::ZERO);
+	fn poly(&self) -> Poly<<Self::Iso as LinearIso>::Linear, Self::Degree> {
+		let constant = coeff_calc(self, 0.0, 0.0);
+		let mut coeff_list = Self::Degree::array_from(
+			<Self::Iso as LinearIso>::Linear::ZERO);
+		
 		for degree in 1..=Self::Degree::USIZE {
-			coeff_list[degree - 1] = self.coeff_calc(0.0, degree as f64);
+			coeff_list[degree - 1] = coeff_calc(self, 0.0, degree as f64);
 		}
+		
 		Poly(constant, coeff_list)
 	}
 	
@@ -90,6 +77,25 @@ pub trait FluxValue: Sized {
 	}
 }
 
+fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
+	-> <T::Iso as LinearIso>::Linear
+{
+	if depth == 0.0 && degree == 0.0 {
+		value.value()
+	} else {
+		let mut accum = ChangeAccum::new(ChangeAccumArgs::Coeff(degree));
+		accum.depth = depth;
+		value.change(&mut accum);
+		let coeff_sum = accum.sum * Scalar(1.0 / (depth + 1.0));
+		if depth >= degree {
+			value.value() + coeff_sum
+		} else {
+			coeff_sum
+		}
+	}
+	// https://www.desmos.com/calculator/tn0udn7swy
+}
+
 /// [`FluxValue`] predictive comparison.
 pub struct When<'v, A, B>
 where
@@ -111,7 +117,7 @@ where
 	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	fn time_iter(&self) -> IntoIter<(Time, Time)> {
-		let poly = self.value.polynomial() - self.cmp_value.polynomial();
+		let poly = self.value.poly() - self.cmp_value.poly();
 		
 		 // Find Initial Order:
 		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
@@ -217,7 +223,7 @@ where
 	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	fn time_iter(&self) -> IntoIter<Time> {
-		let poly = self.value.polynomial() - self.eq_value.polynomial();
+		let poly = self.value.poly() - self.eq_value.poly();
 		let mut real_roots = poly.real_roots().unwrap_or(vec![]);
 		
 		 // Constant Equality:
@@ -312,13 +318,13 @@ impl<I: LinearIso, D: IsDeg> ChangeAccum<I, D> {
 				value * Scalar((time + self.depth) / (self.depth + 1.0)) * scalar
 			},
 			ChangeAccumArgs::Coeff(degree) => {
-				let coeff = change.coeff_calc(self.depth + 1.0, *degree);
+				let coeff = coeff_calc(change, self.depth + 1.0, *degree);
 				if self.depth < *degree {
 					let coeff = coeff * Scalar(((unit >> TimeUnit::Nanosecs) as f64).recip());
 					if self.depth == 0.0 {
 						coeff * scalar
 					} else {
-						(coeff + (change.coeff_calc(self.depth + 1.0, *degree + 1.0) * Scalar(self.depth))) * scalar
+						(coeff + (coeff_calc(change, self.depth + 1.0, *degree + 1.0) * Scalar(self.depth))) * scalar
 					}
 				} else {
 					coeff * Scalar(self.depth) * scalar
@@ -478,7 +484,7 @@ mod tests {
 	fn poly() {
 		let mut pos = position();
 		assert_eq!(
-			pos.polynomial(),
+			pos.poly(),
 			Poly(32.0, [
 				-1.469166666666667e-9,
 				-1.4045833333333335e-18,
@@ -488,7 +494,7 @@ mod tests {
 		);
 		pos.update(20*Secs);
 		assert_eq!(
-			pos.polynomial(),
+			pos.poly(),
 			Poly(-112.55000000000007, [
 				6.0141666666666615e-9,
 				1.4454166666666668e-18,

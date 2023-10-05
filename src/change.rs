@@ -220,12 +220,13 @@ impl LinearValue for f64 {
 }
 
 /// A mapping of a vector space that preserves addition & multiplication.
+/// ??? Maybe rename to LinearMap, since it's not *really* isomorphic.
 /// 
 /// # Properties
 /// 
-/// - Generally isomorphic  - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
-/// - Vector addition       - `map(A + B) = map(A) • map(B)`
-/// - Scalar multiplication - `map(A * S) = map(A) ^ S`
+/// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
+/// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
+/// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
 pub trait LinearIso {
 	type Linear: LinearValue;
 	fn map(value: Self::Linear) -> Self;
@@ -440,7 +441,7 @@ mod value_tests {
 		let b = 10.0 + c.per(Microsecs) + c1.per(Mins);
 		let a = 30.0 + b.per(Microsecs);
 		
-		assert_eq!(a.polynomial(), Poly(
+		assert_eq!(a.poly(), Poly(
 			30.0, [
 			0.018166666666666664,
 			3.668167918055556e-6,
