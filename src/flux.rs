@@ -97,6 +97,7 @@ fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
 }
 
 /// [`FluxValue`] predictive comparison.
+#[derive(Copy, Clone, Debug)]
 pub struct When<'v, A, B>
 where
 	A: FluxValue,
@@ -204,6 +205,7 @@ where
 }
 
 /// [`FluxValue`] predictive equality comparison.
+#[derive(Copy, Clone, Debug)]
 pub struct WhenEq<'v, A, B>
 where
 	A: FluxValue,
