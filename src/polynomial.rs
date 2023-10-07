@@ -36,17 +36,18 @@ impl<T: LinearValue, D: IsDeg> Poly<T, D> {
 		}
 	}
 	
-	pub fn real_roots(self) -> Result<Vec<f64>, Vec<f64>>
+	pub fn real_roots(self) -> Result<RootList, RootList>
 	where
 		T: Roots<D>
 	{
 		//! Returns all real-valued roots of this polynomial in ascending order.
 		//! If not all roots are known, `Err` is returned.
 		
-		let cleanup = |mut roots: Vec<f64>| {
+		let cleanup = |roots: RootList| {
+			let mut roots = roots.into_vec();
 			roots.retain(|r| !r.is_nan());
 			roots.sort_unstable_by(|a,b| a.total_cmp(b));
-			roots
+			roots.into_boxed_slice()
 		};
 		
 		T::roots(self)
@@ -96,66 +97,68 @@ impl<T: LinearValue, D: IsDeg> Mul<Scalar> for Poly<T, D> {
 	}
 }
 
+pub type RootList = Box<[f64]>;
+
 /// Roots of a [`Poly`]nomial.
 pub trait Roots<D: IsDeg>: LinearValue {
-	fn roots(poly: Poly<Self, D>) -> Result<Vec<f64>, Vec<f64>>;
+	fn roots(poly: Poly<Self, D>) -> Result<RootList, RootList>;
 }
 
 impl Roots<Deg<0>> for f64 {
-	fn roots(_: Poly<Self, Deg<0>>) -> Result<Vec<f64>, Vec<f64>> {
-		Ok(vec![])
+	fn roots(_: Poly<Self, Deg<0>>) -> Result<RootList, RootList> {
+		Ok([].into())
 	}
 }
 
 impl Roots<Deg<1>> for f64 {
-	fn roots(poly: Poly<Self, Deg<1>>) -> Result<Vec<f64>, Vec<f64>> {
+	fn roots(poly: Poly<Self, Deg<1>>) -> Result<RootList, RootList> {
 		let Poly(a,[b]) = poly;
 		if b == 0. {
 			return f64::roots(Poly::<f64, Deg<0>>(a,[]))
 		}
-		Ok(vec![-a / b])
+		Ok([-a / b].into())
 	}
 }
 
 impl Roots<Deg<2>> for f64 {
-	fn roots(poly: Poly<Self, Deg<2>>) -> Result<Vec<f64>, Vec<f64>> {
+	fn roots(poly: Poly<Self, Deg<2>>) -> Result<RootList, RootList> {
 		let Poly(a,[b,c]) = poly;
 		if c == 0. {
 			return f64::roots(Poly::<f64, Deg<1>>(a,[b]))
 		}
 		if a == 0. {
-			let roots = [vec![0.0], f64::roots(Poly::<f64, Deg<1>>(b,[c]))?];
-			return Ok(roots.concat())
+			let roots = [[0.].into(), f64::roots(Poly::<f64, Deg<1>>(b,[c]))?];
+			return Ok(roots.concat().into_boxed_slice())
 		}
 		
 		 // Pseudo-linear:
 		if b == 0. {
 			let r = (-a / c).sqrt();
-			return Ok(vec![r, -r])
+			return Ok([r, -r].into())
 		}
 		
 		 // General Quadratic:
 		let n = -b / (2.0 * c);
 		let n1 = (n*n - a/c).sqrt();
-		Ok(vec![n + n1, n - n1])
+		Ok([n + n1, n - n1].into())
 	}
 }
 
 impl Roots<Deg<3>> for f64 {
-	fn roots(poly: Poly<Self, Deg<3>>) -> Result<Vec<f64>, Vec<f64>> {
+	fn roots(poly: Poly<Self, Deg<3>>) -> Result<RootList, RootList> {
 		let Poly(a,[b,c,d]) = poly;
 		if d == 0. {
 			return f64::roots(Poly::<f64, Deg<2>>(a,[b,c]))
 		}
 		if a == 0. {
-			let roots = [vec![0.0], f64::roots(Poly::<f64, Deg<2>>(b,[c,d]))?];
-			return Ok(roots.concat())
+			let roots = [[0.].into(), f64::roots(Poly::<f64, Deg<2>>(b,[c,d]))?];
+			return Ok(roots.concat().into_boxed_slice())
 		}
 		
 		 // Pseudo-linear:
 		if (b,c) == (0.,0.) {
 			let r = (-a / d).cbrt();
-			return Ok(vec![r, r, r])
+			return Ok([r, r, r].into())
 		}
 		
 		 // Depressed Cubic:
@@ -170,18 +173,18 @@ impl Roots<Deg<3>> for f64 {
 					debug_assert!(!sqrt_q.is_nan());
 					let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
 					use std::f64::consts::TAU;
-					Ok(vec![
+					Ok([
 						2.0 * sqrt_q * f64::cos(angle + TAU*0.0/3.0),
 						2.0 * sqrt_q * f64::cos(angle + TAU*1.0/3.0),
 						2.0 * sqrt_q * f64::cos(angle + TAU*2.0/3.0),
-					])
+					].into())
 				},
 				
 				 // 1 Real Root:
 				Some(Ordering::Greater) => {
 					let n = discriminant.sqrt();
 					debug_assert!(!n.is_nan());
-					Ok(vec![(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN])
+					Ok([(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN].into())
 				},
 				
 				_ => unreachable!()
@@ -206,20 +209,20 @@ impl Roots<Deg<3>> for f64 {
 }
 
 impl Roots<Deg<4>> for f64 {
-	fn roots(poly: Poly<Self, Deg<4>>) -> Result<Vec<f64>, Vec<f64>> {
+	fn roots(poly: Poly<Self, Deg<4>>) -> Result<RootList, RootList> {
 		let Poly(a,[b,c,d,e]) = poly;
 		if e == 0. {
 			return f64::roots(Poly::<f64, Deg<3>>(a,[b,c,d]))
 		}
 		if a == 0. {
-			let roots = [vec![0.0], f64::roots(Poly::<f64, Deg<3>>(b,[c,d,e]))?];
-			return Ok(roots.concat())
+			let roots = [[0.].into(), f64::roots(Poly::<f64, Deg<3>>(b,[c,d,e]))?];
+			return Ok(roots.concat().into_boxed_slice())
 		}
 		
 		 // Pseudo-linear:
 		if (b,c,d) == (0.,0.,0.) {
 			let r = (-a / e).sqrt().sqrt();
-			return Ok(vec![r, r, -r, -r])
+			return Ok([r, r, -r, -r].into())
 		}
 		
 		 // Biquadratic:
@@ -249,7 +252,8 @@ impl Roots<Deg<4>> for f64 {
 			let sqrt_2m = (2.0 * m).sqrt();
 			let quad_a = Poly::<f64, Deg<2>>( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.0]);
 			let quad_b = Poly::<f64, Deg<2>>(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.0]);
-			return Ok([f64::roots(quad_a)?, f64::roots(quad_b)?].concat())
+			return Ok([f64::roots(quad_a)?, f64::roots(quad_b)?].concat()
+				.into_boxed_slice())
 		}
 		
 		 // General Quartic:
@@ -272,7 +276,7 @@ impl Roots<Deg<4>> for f64 {
 
 /*
 impl Roots for Poly<Vec2<f64>, D> {
-	fn roots(&self) -> Result<Vec<f64>, Vec<f64>> {
+	fn roots(&self) -> Result<RootList, RootList> {
 		let a = (Polynomial<f64, D> from Vec2 primary terms).roots();
 		let b = (Polynomial<f64, D> from Vec2 secondary terms).roots();
 		sort root lists, return pairs of a and b that match (or are close?)
@@ -310,7 +314,7 @@ mod tests {
 		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
-	fn assert_roots<D: IsDeg>(p: Poly<f64, D>, expected_roots: Vec<f64>)
+	fn assert_roots<D: IsDeg>(p: Poly<f64, D>, expected_roots: &[f64])
 	where
 		f64: Roots<D>
 	{
@@ -323,34 +327,34 @@ mod tests {
 	
 	#[test]
 	fn constant() {
-		assert_roots(Poly::<f64, Deg<0>>(2.0, []), vec![]);
-		assert_roots(Poly::<f64, Deg<0>>(0.0, []), vec![]);
+		assert_roots(Poly::<f64, Deg<0>>(2.0, []), &[]);
+		assert_roots(Poly::<f64, Deg<0>>(0.0, []), &[]);
 	}
 	
 	#[test]
 	fn linear() {
-		assert_roots(Poly::<f64, Deg<1>>(20.0, [-4.0]), vec![5.0]);
-		assert_roots(Poly::<f64, Deg<1>>(20.0, [4.0]), vec![-5.0]);
-		assert_roots(Poly::<f64, Deg<1>>(-0.0, [4.0/3.0]), vec![0.0]);
+		assert_roots(Poly::<f64, Deg<1>>(20.0, [-4.0]), &[5.0]);
+		assert_roots(Poly::<f64, Deg<1>>(20.0, [4.0]), &[-5.0]);
+		assert_roots(Poly::<f64, Deg<1>>(-0.0, [4.0/3.0]), &[0.0]);
 	}
 	
 	#[test]
 	fn quadratic() {
 		assert_roots(
 			Poly::<f64, Deg<2>>(20.0, [4.0, 7.0]),
-			vec![]
+			&[]
 		);
 		assert_roots(
 			Poly::<f64, Deg<2>>(20.0, [4.0, -7.0]),
-			vec![-10.0/7.0, 2.0]
+			&[-10.0/7.0, 2.0]
 		);
 		assert_roots(
 			Poly::<f64, Deg<2>>( 40.0/3.0, [ 2.0/3.0, -17.0/100.0]),
-			Poly::<f64, Deg<2>>(-40.0/3.0, [-2.0/3.0,  17.0/100.0]).real_roots().unwrap()
+			Poly::<f64, Deg<2>>(-40.0/3.0, [-2.0/3.0,  17.0/100.0]).real_roots().unwrap().as_ref()
 		);
 		assert_roots(
 			Poly::<f64, Deg<2>>(0.0, [4.0/6.0, -17.0/100.0]),
-			vec![0.0, 200.0/51.0]
+			&[0.0, 200.0/51.0]
 		);
 	}
 	
@@ -358,7 +362,7 @@ mod tests {
 	fn cubic() {
 		assert_roots(
 			Poly::<f64, Deg<3>>(6.0, [-2077.5, -17000.0/77.0, 6712.0/70.0]),
-			vec![-3.64550618348, 0.00288720188, 5.94514363216]
+			&[-3.64550618348, 0.00288720188, 5.94514363216]
 		);
 		
 		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Poly<f64, Deg<3>> {
@@ -370,19 +374,19 @@ mod tests {
 		}
 		assert_roots(
 			sum_poly(1000000000.0, 1.0, 1.0, 1.0, -1.0),
-			vec![4591405718.8520711602007]
+			&[4591405718.8520711602007]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0, 1.0, 1.0, 1.0, -1.0),
-			vec![275484343229.41354766068234]
+			&[275484343229.41354766068234]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 1.0, 1.0, 1.0, -1.0),
-			vec![16529060593863.10213769318]
+			&[16529060593863.10213769318]
 		);
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 1000.0, 300.0, 10.0, -4.0),
-			vec![
+			&[
 				-55432951711728.79099027553,
 				-13201315814560.382043758431976512,
 				95634267526286.173034033963943,
@@ -402,7 +406,7 @@ mod tests {
 		}
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 7.5, -6.4, -10.0, 7.8, 2.7),
-			vec![
+			&[
 				-51671989204288.265625,
 				-5830778969957.388671875,
 				2846556446843.169921875,
@@ -412,7 +416,7 @@ mod tests {
 		let t = 1000000000.0*60.0*60.0;
 		assert_roots(
 			Poly::<f64, Deg<4>>(7500.0, [0.0, -1000.0/(t*t), 0.0, 27.0/(t*t*t*t)]),
-			vec![
+			&[
 				-2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
 				-2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),
 				 2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),

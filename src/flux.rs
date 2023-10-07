@@ -150,7 +150,7 @@ where
 				} else {
 					None
 				};
-				for point in roots {
+				for &point in roots.into_iter() {
 					if let Some(prev) = prev_point {
 						if point != prev {
 							list.push((prev, point));
@@ -226,7 +226,8 @@ where
 {
 	fn time_iter(&self) -> IntoIter<Time> {
 		let poly = self.value.poly() - self.eq_value.poly();
-		let mut real_roots = poly.real_roots().unwrap_or(vec![]);
+		let mut real_roots = poly.real_roots().unwrap_or(Box::default())
+			.into_vec();
 		
 		 // Constant Equality:
 		if
