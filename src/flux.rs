@@ -2,7 +2,6 @@
 
 use std::cmp::Ordering;
 use std::marker::PhantomData;
-use std::vec::IntoIter;
 use time::{Time, TimeUnit};
 use crate::change::{LinearIso, LinearValue, Scalar};
 use crate::degree::{IsBelowDeg, IsDeg, MaxDeg};
@@ -49,12 +48,9 @@ pub trait FluxValue: Sized {
 		Poly(constant, coeff_list)
 	}
 	
-	fn when<'v, T>(&'v self, cmp_order: Ordering, cmp_value: &'v T)
-		-> When<'v, Self, T>
+	fn when<'a, B>(&'a self, cmp_order: Ordering, cmp_value: &'a B) -> When<'a, Self, B>
 	where
-		T: FluxValue<Iso=Self::Iso>,
-		Self::Degree: MaxDeg<T::Degree>,
-		<Self::Iso as LinearIso>::Linear: Roots<<Self::Degree as MaxDeg<T::Degree>>::Max> + PartialOrd,
+		When<'a, Self, B>: IntoIterator
 	{
 		When {
 			value: self,
@@ -63,12 +59,9 @@ pub trait FluxValue: Sized {
 		}
 	}
 	
-	fn when_eq<'v, T>(&'v self, eq_value: &'v T)
-		-> WhenEq<'v, Self, T>
+	fn when_eq<'a, B>(&'a self, eq_value: &'a B) -> WhenEq<'a, Self, B>
 	where
-		T: FluxValue<Iso=Self::Iso>,
-		Self::Degree: MaxDeg<T::Degree>,
-		<Self::Iso as LinearIso>::Linear: Roots<<Self::Degree as MaxDeg<T::Degree>>::Max> + PartialEq,
+		WhenEq<'a, Self, B>: IntoIterator
 	{
 		WhenEq {
 			value: self,
@@ -96,28 +89,71 @@ fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
 	// https://www.desmos.com/calculator/tn0udn7swy
 }
 
+/// Iterator of [`Time`] ranges.
+#[must_use]
+pub struct TimeRanges(std::vec::IntoIter<(Time, Time)>);
+
+impl Iterator for TimeRanges {
+	type Item = (Time, Time);
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next()
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.0.size_hint()
+	}
+	fn count(self) -> usize {
+		self.0.count()
+	}
+}
+
+/// Iterator of [`Time`] values.
+#[must_use]
+pub struct Times(std::vec::IntoIter<Time>);
+
+impl Iterator for Times {
+	type Item = Time;
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next()
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.0.size_hint()
+	}
+	fn count(self) -> usize {
+		self.0.count()
+	}
+}
+
 /// [`FluxValue`] predictive comparison.
-#[derive(Copy, Clone, Debug)]
-pub struct When<'v, A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
-	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
-{
-	value: &'v A,
-	cmp_value: &'v B,
+pub struct When<'a, A, B> {
+	value: &'a A,
+	cmp_value: &'a B,
 	cmp_order: Ordering,
 }
 
-impl<'v, A, B> When<'v, A, B>
+impl<A, B> Clone for When<'_, A, B> {
+	fn clone(&self) -> Self {
+		Self {
+			value: self.value,
+			cmp_value: self.cmp_value,
+			cmp_order: self.cmp_order,
+		}
+	}
+}
+
+impl<A, B> Copy for When<'_, A, B> {}
+
+impl<'a, A, B> IntoIterator for When<'a, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
 	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max>
+		+ PartialOrd
 {
-	fn time_iter(&self) -> IntoIter<(Time, Time)> {
+	type Item = (Time, Time);
+	type IntoIter = TimeRanges;
+	
+	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.value.poly() - self.cmp_value.poly();
 		
 		 // Find Initial Order:
@@ -165,13 +201,13 @@ where
 				if let Some(point) = prev_point {
 					list.push((point, f64::INFINITY));
 				}
-				list
+				list.into_iter()
 			},
-			Err(_) => vec![],
+			Err(_) => Default::default(),
 		};
 		
-		 // Convert Ranges to Time:
-		let vec: Vec<(Time, Time)> = range_list.into_iter()
+		 // Convert Ranges to Times:
+		let list: Vec<(Time, Time)> = range_list
 			.filter_map(|(a, b)| {
 				assert!(a <= b);
 				if b < 0.0 || a > (u64::MAX as f64) {
@@ -185,46 +221,39 @@ where
 			})
 			.collect();
 		
-		vec.into_iter()
-	}
-}
-
-impl<'v, A, B> IntoIterator for When<'v, A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
-	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
-{
-	type Item = (Time, Time);
-	type IntoIter = std::vec::IntoIter<Self::Item>;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		self.time_iter()
+		TimeRanges(list.into_iter())
 	}
 }
 
 /// [`FluxValue`] predictive equality comparison.
-#[derive(Copy, Clone, Debug)]
-pub struct WhenEq<'v, A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
-	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
-{
-	value: &'v A,
-	eq_value: &'v B,
+pub struct WhenEq<'a, A, B> {
+	value: &'a A,
+	eq_value: &'a B,
 }
 
-impl<'v, A, B> WhenEq<'v, A, B>
+impl<A, B> Clone for WhenEq<'_, A, B> {
+	fn clone(&self) -> Self {
+		Self {
+			value: self.value,
+			eq_value: self.eq_value,
+		}
+	}
+}
+
+impl<A, B> Copy for WhenEq<'_, A, B> {}
+
+impl<'a, A, B> IntoIterator for WhenEq<'a, A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
 	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
+	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max>
+		+ PartialEq
 {
-	fn time_iter(&self) -> IntoIter<Time> {
+	type Item = Time;
+	type IntoIter = Times;
+	
+	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.value.poly() - self.eq_value.poly();
 		let mut real_roots = poly.real_roots().unwrap_or(Box::default())
 			.into_vec();
@@ -250,22 +279,7 @@ where
 			})
 			.collect();
 		
-		vec.into_iter()
-	}
-}
-
-impl<'v, A, B> IntoIterator for WhenEq<'v, A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
-	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
-{
-	type Item = Time;
-	type IntoIter = std::vec::IntoIter<Self::Item>;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		self.time_iter()
+		Times(vec.into_iter())
 	}
 }
 
@@ -532,8 +546,8 @@ mod tests {
 		let wh_eq = a_pos.when_eq(&b_pos);
 		
 		 // Check Before:
-		let vec: Vec<(Time, Time)> = wh.time_iter().collect();
-		let vec_eq: Vec<Time> = wh_eq.time_iter().collect();
+		let vec: Vec<(Time, Time)> = wh.into_iter().collect();
+		let vec_eq: Vec<Time> = wh_eq.into_iter().collect();
 		assert_eq!(vec, []);
 		assert_eq!(vec_eq, [0*Nanosecs]);
 		
@@ -550,8 +564,8 @@ mod tests {
 		});
 		
 		 // Check After:
-		let vec: Vec<(Time, Time)> = wh.time_iter().collect();
-		let vec_eq: Vec<Time> = wh_eq.time_iter().collect();
+		let vec: Vec<(Time, Time)> = wh.into_iter().collect();
+		let vec_eq: Vec<Time> = wh_eq.into_iter().collect();
 		assert_eq!(vec, [(8517857837*Nanosecs, 90130683345*Nanosecs)]);
 		assert_eq!(vec_eq, [8517857837*Nanosecs, 90130683345*Nanosecs]);
 	}
