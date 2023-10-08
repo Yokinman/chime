@@ -124,6 +124,7 @@ impl Iterator for Times {
 }
 
 /// [`FluxValue`] predictive comparison.
+#[derive(Debug)]
 pub struct When<'a, A, B> {
 	value: &'a A,
 	cmp_value: &'a B,
@@ -226,6 +227,7 @@ where
 }
 
 /// [`FluxValue`] predictive equality comparison.
+#[derive(Debug)]
 pub struct WhenEq<'a, A, B> {
 	value: &'a A,
 	eq_value: &'a B,
