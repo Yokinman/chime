@@ -5,6 +5,11 @@
 //! - `Deg<2>`: Quadratic
 //! - `Deg<3>`: Cubic
 //! - etc.
+//! 
+//! !!! Later, this should be used to represent the actual structure of the
+//! polynomial. `MaxDeg` would represent the combination of two polynomial
+//! structures, `IsDeg::Array` would be used to represent the data structure.
+//! There would need to be a way to distribute time offsets across the terms. 
 
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;

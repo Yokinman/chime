@@ -1,13 +1,18 @@
 //! ...
 
+use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 use time::{Time, TimeUnit};
 use crate::change::{LinearIso, LinearValue, Scalar};
 use crate::degree::{IsBelowDeg, IsDeg, MaxDeg};
 use crate::polynomial::{Poly, Roots};
 
- // Convenient implementations (Vec<T>, RefCell<T>, etc.):
+ // Convenient implementations (Vec<T>, ??? tuples, etc.):
 mod flux_impl;
 pub use self::flux_impl::*;
 
@@ -47,27 +52,6 @@ pub trait FluxValue: Sized {
 		
 		Poly(constant, coeff_list)
 	}
-	
-	fn when<'a, B>(&'a self, cmp_order: Ordering, cmp_value: &'a B) -> When<'a, Self, B>
-	where
-		When<'a, Self, B>: IntoIterator
-	{
-		When {
-			value: self,
-			cmp_value,
-			cmp_order,
-		}
-	}
-	
-	fn when_eq<'a, B>(&'a self, eq_value: &'a B) -> WhenEq<'a, Self, B>
-	where
-		WhenEq<'a, Self, B>: IntoIterator
-	{
-		WhenEq {
-			value: self,
-			eq_value,
-		}
-	}
 }
 
 fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
@@ -87,6 +71,148 @@ fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
 		}
 	}
 	// https://www.desmos.com/calculator/tn0udn7swy
+}
+
+/// ...
+#[allow(type_alias_bounds)]
+type PredPoly<A: FluxValue> = Rc<RefCell<(
+	Time,
+	Poly<<A::Iso as LinearIso>::Linear, A::Degree>
+	// ??? It may be worth storing the original value so that the polynomial
+	// can be easily offset for comparison with the other value.
+)>>;
+
+/// A value with a predictable change over time.
+pub struct PredValue<A: FluxValue> {
+	value: A,
+	poly: PredPoly<A>,
+	time: Time,
+}
+
+impl<A: FluxValue> PredValue<A> {
+	pub fn new(value: A) -> Self {
+		let time = Time::default();
+		let poly = Rc::new(RefCell::new((time, value.poly())));
+		Self { value, poly, time }
+	}
+	
+	/// Compares to any [`FluxValue`] or [`PredValue`] reference. If compared to
+	/// a [`PredValue`], the returned [`When`] will update its predictions after
+	/// any modifications to its inner flux value. 
+	pub fn when<'a, B>(&'a self, cmp_order: Ordering, other: impl Into<PredValue<&'a B>>) -> When<A, B>
+	where
+		B: FluxValue<Iso=A::Iso> + 'a,
+		When<A, B>: IntoIterator
+	{
+		When {
+			a_poly: self.poly.clone(),
+			b_poly: other.into().poly,
+			cmp_order,
+		}
+	}
+	
+	/// Compares to any [`FluxValue`] or [`PredValue`] reference. If compared to
+	/// a [`PredValue`], the returned [`WhenEq`] will update its predictions
+	/// after any modifications to its inner flux value.
+	pub fn when_eq<'a, B>(&'a self, other: impl Into<PredValue<&'a B>>) -> WhenEq<A, B>
+	where
+		B: FluxValue<Iso=A::Iso> + 'a,
+		WhenEq<A, B>: IntoIterator
+	{
+		WhenEq {
+			a_poly: self.poly.clone(),
+			b_poly: other.into().poly,
+		}
+	}
+	
+	pub fn borrow_mut(&mut self) -> PredValueMut<A> {
+		PredValueMut(self)
+	}
+	
+	pub fn update(&mut self, time: Time) {
+		self.time += time;
+		self.value.update(time);
+		// let (last_time, _) = *RefCell::borrow(&self.poly).last().unwrap();
+		// self.poly.borrow_mut().push((last_time + time, self.value.poly()));
+	}
+}
+
+impl<A: FluxValue> From<A> for PredValue<A> {
+	fn from(value: A) -> Self {
+		Self::new(value)
+	}
+}
+
+impl<'a, A: FluxValue + 'a> From<&'a PredValue<A>> for PredValue<&'a A> {
+	fn from(value: &'a PredValue<A>) -> Self {
+		PredValue {
+			value: &value.value,
+			poly: value.poly.clone(),
+			time: value.time,
+		}
+	}
+}
+
+impl<A: FluxValue> Deref for PredValue<A> {
+	type Target = A;
+	fn deref(&self) -> &Self::Target {
+		&self.value
+	}
+}
+
+impl<A: FluxValue> Borrow<A> for PredValue<A> {
+	fn borrow(&self) -> &A {
+		&self.value
+	}
+}
+
+impl<A: FluxValue> Debug for PredValue<A> where A: Debug {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		self.value.fmt(f)
+	}
+}
+
+impl<A: FluxValue> Display for PredValue<A> where A: Display {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		self.value.fmt(f)
+	}
+}
+
+/// Borrowed mutable access to the value contained by [`PredValue`], which
+/// updates any `When` or `WhenEq` predictions on drop. 
+pub struct PredValueMut<'a, A: FluxValue>(&'a mut PredValue<A>);
+
+impl<A: FluxValue> Drop for PredValueMut<'_, A> {
+	fn drop(&mut self) {
+		let (ref mut time, ref mut poly) = *self.0.poly.borrow_mut();
+		*time = self.0.time;
+		*poly = self.0.value.poly();
+	}
+}
+
+impl<'a, A: FluxValue + 'a> Deref for PredValueMut<'a, A> {
+	type Target = A;
+	fn deref(&self) -> &Self::Target {
+		&self.0.value
+	}
+}
+
+impl<A: FluxValue> DerefMut for PredValueMut<'_, A> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0.value
+	}
+}
+
+impl<A: FluxValue> Debug for PredValueMut<'_, A> where A: Debug {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		self.0.value.fmt(f)
+	}
+}
+
+impl<A: FluxValue> Display for PredValueMut<'_, A> where A: Display {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		self.0.value.fmt(f)
+	}
 }
 
 /// Iterator of [`Time`] ranges.
@@ -125,25 +251,31 @@ impl Iterator for Times {
 
 /// [`FluxValue`] predictive comparison.
 #[derive(Debug)]
-pub struct When<'a, A, B> {
-	value: &'a A,
-	cmp_value: &'a B,
+pub struct When<A, B>
+where
+	A: FluxValue,
+	B: FluxValue<Iso=A::Iso>,
+{
+	a_poly: PredPoly<A>,
+	b_poly: PredPoly<B>,
 	cmp_order: Ordering,
 }
 
-impl<A, B> Clone for When<'_, A, B> {
+impl<A, B> Clone for When<A, B>
+where
+	A: FluxValue,
+	B: FluxValue<Iso=A::Iso>,
+{
 	fn clone(&self) -> Self {
 		Self {
-			value: self.value,
-			cmp_value: self.cmp_value,
+			a_poly: self.a_poly.clone(),
+			b_poly: self.b_poly.clone(),
 			cmp_order: self.cmp_order,
 		}
 	}
 }
 
-impl<A, B> Copy for When<'_, A, B> {}
-
-impl<'a, A, B> IntoIterator for When<'a, A, B>
+impl<A, B> IntoIterator for When<A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
@@ -155,7 +287,8 @@ where
 	type IntoIter = TimeRanges;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let poly = self.value.poly() - self.cmp_value.poly();
+		let poly = RefCell::borrow(&self.a_poly).1
+			- RefCell::borrow(&self.b_poly).1;
 		
 		 // Find Initial Order:
 		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
@@ -224,27 +357,216 @@ where
 		
 		TimeRanges(list.into_iter())
 	}
+	/*{
+		let mut a = RefCell::borrow(&self.a_poly).clone().into_iter();
+		let mut b = RefCell::borrow(&self.b_poly).clone().into_iter();
+		let (mut a_time, mut a_poly) = a.next().unwrap();
+		let (mut b_time, mut b_poly) = b.next().unwrap();
+		let mut next_a = a.next();
+		let mut next_b = b.next();
+		
+		let mut list: Vec<(Time, Time)> = Vec::new();
+		
+		let mut can_loop = true;
+		
+		while can_loop {
+		
+		 // Apply Time Offset: ??? Could just store the original value, which wouldn't need extra logic for time offsets.
+		fn binom(n: i32, k: i32) -> i32 {
+			if n == k || k == 0 {
+				return 1
+			}
+			binom(n - 1, k - 1) + binom(n - 1, k)
+		}
+		if a_time > b_time {
+			let offset = ((a_time - b_time) >> TimeUnit::Nanosecs) as f64;
+			let mut n = 1;
+			for &coeff in b_poly.clone().coeff_iter() {
+				let constant = &mut b_poly.0;
+				*constant = *constant + (coeff * Scalar(offset.powi(n)));
+				let mut k = 1;
+				for mut_coeff in b_poly.coeff_iter_mut() {
+					*mut_coeff = *mut_coeff + (coeff * Scalar(offset.powi(n - k) * (binom(n + 1, k) as f64)));
+					if n == k {
+						break
+					}
+					k += 1;
+				}
+				n += 1;
+			}
+		} else if b_time > a_time {
+			let offset = ((b_time - a_time) >> TimeUnit::Nanosecs) as f64;
+			let mut n = 1;
+			for &coeff in a_poly.clone().coeff_iter() {
+				let constant = &mut a_poly.0;
+				*constant = *constant + (coeff * Scalar(offset.powi(n)));
+				let mut k = 1;
+				for mut_coeff in a_poly.coeff_iter_mut() {
+					*mut_coeff = *mut_coeff + (coeff * Scalar(offset.powi(n - k) * (binom(n + 1, k) as f64)));
+					if n == k {
+						break
+					}
+					k += 1;
+				}
+				n += 1;
+			}
+		}
+		
+		let poly = a_poly - b_poly;
+		
+		 // Find Initial Order:
+		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
+		let initial_order = loop {
+			let coeff = poly.term(degree).unwrap();
+			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
+			if degree == 0 || order != Some(Ordering::Equal) {
+				break if degree % 2 == 0 {
+					order
+				} else {
+					order.map(|o| o.reverse())
+				}
+			}
+			degree -= 1;
+		};
+		
+		 // Convert Roots to Ranges:
+		let range_list = match poly.real_roots() {
+			Ok(roots) => {
+				let mut list = Vec::with_capacity(
+					if self.cmp_order == Ordering::Equal {
+						roots.len()
+					} else {
+						1 + (roots.len() / 2)
+					}
+				);
+				let mut prev_point = if initial_order == Some(self.cmp_order) {
+					Some(f64::NEG_INFINITY)
+				} else {
+					None
+				};
+				for &point in roots.into_iter() {
+					if let Some(prev) = prev_point {
+						if point != prev {
+							list.push((prev, point));
+						}
+						prev_point = None;
+					} else if self.cmp_order == Ordering::Equal {
+						list.push((point, point));
+					} else {
+						prev_point = Some(point);
+					}
+				}
+				if let Some(point) = prev_point {
+					list.push((point, f64::INFINITY));
+				}
+				list.into_iter()
+			},
+			Err(_) => Default::default(),
+		};
+		
+		let min_time = (a_time.max(b_time) >> TimeUnit::Nanosecs) as f64;
+		
+		match (next_a, next_b) {
+			(Some((next_a_time, next_a_poly)), Some((next_b_time, next_b_poly))) => {
+				match next_a_time.cmp(&next_b_time) {
+					Ordering::Equal => {
+						a_time = next_a_time;
+						a_poly = next_a_poly;
+						b_time = next_b_time;
+						b_poly = next_b_poly;
+						next_a = a.next();
+						next_b = b.next();
+					},
+					Ordering::Greater => {
+						b_time = next_b_time;
+						b_poly = next_b_poly;
+						next_b = b.next();
+					},
+					Ordering::Less => {
+						a_time = next_a_time;
+						a_poly = next_a_poly;
+						next_a = a.next();
+					},
+				}
+			},
+			(Some((next_a_time, next_a_poly)), None) => {
+				a_time = next_a_time;
+				a_poly = next_a_poly;
+				next_a = a.next();
+			},
+			(None, Some((next_b_time, next_b_poly))) => {
+				b_time = next_b_time;
+				b_poly = next_b_poly;
+				next_b = b.next();
+			},
+			(None, None) => can_loop = false,
+		}
+		
+		 // Convert Ranges to Times:
+		let max_time = if can_loop {
+			(a_time.max(b_time) >> TimeUnit::Nanosecs) as f64
+		} else {
+			(u64::MAX as f64) + 1.0
+		};
+		let mut append_list: Vec<(Time, Time)> = range_list
+			.filter_map(|(a, b)| {
+				assert!(a <= b);
+				let a = a + min_time;
+				let b = b + min_time;
+				if b < min_time || a >= max_time {
+					None
+				} else {
+					Some((
+						(a.max(min_time) as u64)*TimeUnit::Nanosecs,
+						(b.min(max_time) as u64)*TimeUnit::Nanosecs
+					))
+				}
+			})
+			.collect();
+			
+		if let Some((_, last_time)) = list.last_mut() {
+			if let Some(&(first_time, next_time)) = append_list.first() {
+				 // Merge adjacent ranges:
+				if *last_time == first_time {
+					*last_time = next_time;
+					append_list.remove(0);
+				}
+			}
+		}
+		
+		list.append(&mut append_list);
+		
+		}
+		
+		TimeRanges(list.into_iter())
+	}*/
 }
 
 /// [`FluxValue`] predictive equality comparison.
 #[derive(Debug)]
-pub struct WhenEq<'a, A, B> {
-	value: &'a A,
-	eq_value: &'a B,
+pub struct WhenEq<A, B>
+where
+	A: FluxValue,
+	B: FluxValue<Iso=A::Iso>,
+{
+	a_poly: PredPoly<A>,
+	b_poly: PredPoly<B>,
 }
 
-impl<A, B> Clone for WhenEq<'_, A, B> {
+impl<A, B> Clone for WhenEq<A, B>
+where
+	A: FluxValue,
+	B: FluxValue<Iso=A::Iso>,
+{
 	fn clone(&self) -> Self {
 		Self {
-			value: self.value,
-			eq_value: self.eq_value,
+			a_poly: self.a_poly.clone(),
+			b_poly: self.b_poly.clone(),
 		}
 	}
 }
 
-impl<A, B> Copy for WhenEq<'_, A, B> {}
-
-impl<'a, A, B> IntoIterator for WhenEq<'a, A, B>
+impl<A, B> IntoIterator for WhenEq<A, B>
 where
 	A: FluxValue,
 	B: FluxValue<Iso=A::Iso>,
@@ -256,7 +578,8 @@ where
 	type IntoIter = Times;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let poly = self.value.poly() - self.eq_value.poly();
+		let poly = RefCell::borrow(&self.a_poly).1
+			- RefCell::borrow(&self.b_poly).1;
 		let mut real_roots = poly.real_roots().unwrap_or(Box::default())
 			.into_vec();
 		
@@ -525,31 +848,50 @@ mod tests {
 	
 	#[test]
 	fn when() {
-		let mut pos = position();
-		pos.update(20*Secs);
+		let pos = PredValue::new(position());
+		let acc = position().spd.accel;
 		
-		let vec: Vec<(Time, Time)> = pos.when(Ordering::Greater, &position())
+		let pos_when = pos.when(Ordering::Greater, &acc);
+		let vec: Vec<(Time, Time)> = pos_when.clone().into_iter().collect();
+		
+		let vec_eq: Vec<Time> = pos.when_eq(&acc)
 			.into_iter().collect();
 		
-		let vec_eq: Vec<Time> = pos.when_eq(&position())
-			.into_iter().collect();
+		assert_eq!(vec, [
+			(0*Nanosecs, 4560099744*Nanosecs),
+			(26912076290*Nanosecs, 127394131312*Nanosecs)
+		]);
+		assert_eq!(vec_eq, [
+			4560099744*Nanosecs,
+			26912076290*Nanosecs,
+			127394131312*Nanosecs
+		]);
 		
-		assert_eq!(vec, [(6110872304*Nanosecs, 87499325334*Nanosecs)]);
-		assert_eq!(vec_eq, [6110872304*Nanosecs, 87499325334*Nanosecs]);
+		// pos.update(20*Secs);
+		// pos.borrow_mut().spd.value = -20.0;
+		// pos.borrow_mut().spd.accel.jerk.value = 0.3;
+		// 
+		// assert_eq!(pos_when.into_iter().collect::<Vec<(Time, Time)>>(), [
+		// 	(0*Nanosecs, 4560099744*Nanosecs),
+		// 	(33544693273*Nanosecs, 157824014330*Nanosecs)
+		// ]);
+		// assert_eq!(pos.when(Ordering::Greater, &Snap { value: -116.0 }).into_iter().collect::<Vec<(Time, Time)>>(), [
+		// 	(0*Nanosecs, 16114479737*Nanosecs),
+		// 	(19315363058*Nanosecs, 20188850711*Nanosecs),
+		// 	(29523688931*Nanosecs, 157716291466*Nanosecs)
+		// ]);
 	}
 	
 	#[test]
-	fn when_refcell() {
-		use std::cell::RefCell;
-		
-		let a_pos = RefCell::new(position());
-		let b_pos = RefCell::new(position());
+	fn when_borrow() {
+		let mut a_pos = PredValue::new(position());
+		let mut b_pos = PredValue::new(position());
 		let wh = a_pos.when(Ordering::Greater, &b_pos);
 		let wh_eq = a_pos.when_eq(&b_pos);
 		
 		 // Check Before:
-		let vec: Vec<(Time, Time)> = wh.into_iter().collect();
-		let vec_eq: Vec<Time> = wh_eq.into_iter().collect();
+		let vec: Vec<(Time, Time)> = wh.clone().into_iter().collect();
+		let vec_eq: Vec<Time> = wh_eq.clone().into_iter().collect();
 		assert_eq!(vec, []);
 		assert_eq!(vec_eq, [0*Nanosecs]);
 		
