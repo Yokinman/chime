@@ -35,7 +35,7 @@ pub trait FluxValue: Sized {
 	fn change(&self, changes: &mut Changes<Self>);
 	
 	/// Apply change over time.
-	fn update(&mut self, time: Time);
+	fn advance(&mut self, time: Time);
 	
 	fn calc_value(&self, time: Time) -> Self::Linear {
 		let mut changes = ChangeAccum::new(
@@ -133,9 +133,9 @@ impl<A: FluxValue> PredValue<A> {
 		PredValueMut(self)
 	}
 	
-	pub fn update(&mut self, time: Time) {
+	pub fn advance(&mut self, time: Time) {
 		self.time += time;
-		self.value.update(time);
+		self.value.advance(time);
 		// let (last_time, _) = *RefCell::borrow(&self.poly).last().unwrap();
 		// self.poly.borrow_mut().push((last_time + time, self.value.poly()));
 	}
@@ -716,9 +716,9 @@ mod tests {
 			changes.add(&self.spd, TimeUnit::Secs);
 			changes.add(&self.misc, TimeUnit::Secs);
 		}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.spd.update(time);
+			self.spd.advance(time);
 		}
 	}
 	
@@ -736,10 +736,10 @@ mod tests {
 			changes.sub(&self.fric, TimeUnit::Secs);
 			changes.add(&self.accel, TimeUnit::Secs);
 		}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.fric.update(time);
-			self.accel.update(time);
+			self.fric.advance(time);
+			self.accel.advance(time);
 		}
 	}
 	
@@ -754,7 +754,7 @@ mod tests {
 			self.value = value;
 		}
 		fn change(&self, _changes: &mut Changes<Self>) {}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
 		}
 	}
@@ -772,9 +772,9 @@ mod tests {
 		fn change(&self, changes: &mut Changes<Self>) {
 			changes.add(&self.jerk, TimeUnit::Secs);
 		}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.jerk.update(time);
+			self.jerk.advance(time);
 		}
 	}
 	
@@ -791,9 +791,9 @@ mod tests {
 		fn change(&self, changes: &mut Changes<Self>) {
 			changes.add(&self.snap, TimeUnit::Secs);
 		}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.snap.update(time);
+			self.snap.advance(time);
 		}
 	}
 	
@@ -808,7 +808,7 @@ mod tests {
 			self.value = value;
 		}
 		fn change(&self, _changes: &mut Changes<Self>) {}
-		fn update(&mut self, time: Time) {
+		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
 		}
 	}
@@ -843,11 +843,11 @@ mod tests {
 		assert_eq!(pos.at(200*Secs), -209779);
 		
 		 // Update:
-		pos.update(20*Secs);
+		pos.advance(20*Secs);
 		assert_eq!(pos.at(0*Secs), -113);
 		assert_eq!(pos.at(80*Secs), 8339);
 		assert_eq!(pos.at(180*Secs), -209779);
-		pos.update(55*Secs);
+		pos.advance(55*Secs);
 		assert_eq!(pos.at(25*Secs), 8339);
 		assert_eq!(pos.at(125*Secs), -209779);
 	}
@@ -864,7 +864,7 @@ mod tests {
 				-0.0004166666666666668e-36
 			])
 		);
-		pos.update(20*Secs);
+		pos.advance(20*Secs);
 		assert_eq!(
 			pos.poly(),
 			Poly(-112.55000000000007, [
@@ -897,7 +897,7 @@ mod tests {
 			127394131312*Nanosecs
 		]);
 		
-		// pos.update(20*Secs);
+		// pos.advance(20*Secs);
 		// pos.borrow_mut().spd.value = -20.0;
 		// pos.borrow_mut().spd.accel.jerk.value = 0.3;
 		// 
@@ -926,7 +926,7 @@ mod tests {
 		assert_eq!(vec_eq, [0*Nanosecs]);
 		
 		 // Apply Changes:
-		a_pos.borrow_mut().update(20*Secs);
+		a_pos.borrow_mut().advance(20*Secs);
 		b_pos.borrow_mut().misc.push(Spd {
 			value: 2.5,
 			..Default::default()

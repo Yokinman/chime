@@ -22,7 +22,7 @@ impl<A: FluxValue> FluxValue for &A {
 	fn change(&self, changes: &mut Changes<Self>) {
 		A::change(self, changes)
 	}
-	fn update(&mut self, _time: Time) {
+	fn advance(&mut self, _time: Time) {
 		unreachable!() // ??? Is it?
 	}
 }
@@ -40,8 +40,8 @@ impl<A: FluxValue> FluxValue for &mut A {
 	fn change(&self, changes: &mut Changes<Self>) {
 		A::change(self, changes)
 	}
-	fn update(&mut self, time: Time) {
-		A::update(self, time)
+	fn advance(&mut self, time: Time) {
+		A::advance(self, time)
 	}
 }
 
@@ -66,9 +66,9 @@ impl<T: FluxValue> FluxValue for Vec<T> {
 			item.change(changes);
 		}
 	}
-	fn update(&mut self, time: Time) {
+	fn advance(&mut self, time: Time) {
 		for item in self {
-			item.update(time);
+			item.advance(time);
 		}
 	}
 }

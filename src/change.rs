@@ -73,7 +73,7 @@ impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<0>> {
 		self.value.initial_value = value;
 	}
 	fn change(&self, _changes: &mut Changes<Self>) {}
-	fn update(&mut self, _time: Time) {}
+	fn advance(&mut self, _time: Time) {}
 }
 
 macro_rules! impl_flux_value_for_value {
@@ -111,7 +111,7 @@ macro_rules! impl_flux_value_for_value {
 					}
 				}
 			}
-			fn update(&mut self, time: Time) {
+			fn advance(&mut self, time: Time) {
 				self.value.initial_value = self.calc_value(time);
 				for change in &mut self.value.change_list {
 					let mut v = Value::<V, I, Deg<{ $degree - 1 }>> {
@@ -119,7 +119,7 @@ macro_rules! impl_flux_value_for_value {
 						degree: PhantomData,
 						mapped: PhantomData,
 					};
-					v.update(time);
+					v.advance(time);
 					change.rate = v.value;
 				}
 				// ??? Could probably reuse most of the initial_value calculation for
@@ -517,18 +517,18 @@ mod value_tests {
 		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]); // -1.902, 2.102
 		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [3*Nanosecs]); // 3.892
 		assert_eq!(v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [5*Nanosecs]); // -3.687, 5.631
-		v0.borrow_mut().update(1*Nanosecs);
-		v1.borrow_mut().update(1*Nanosecs);
-		v2.borrow_mut().update(1*Nanosecs);
-		v3.borrow_mut().update(1*Nanosecs);
+		v0.borrow_mut().advance(1*Nanosecs);
+		v1.borrow_mut().advance(1*Nanosecs);
+		v2.borrow_mut().advance(1*Nanosecs);
+		v3.borrow_mut().advance(1*Nanosecs);
 		assert_eq!(v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
 		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [1*Nanosecs]);
 		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
 		assert_eq!(v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [4*Nanosecs]);
-		v0.borrow_mut().update(2*Nanosecs);
-		v1.borrow_mut().update(2*Nanosecs);
-		v2.borrow_mut().update(2*Nanosecs);
-		v3.borrow_mut().update(2*Nanosecs);
+		v0.borrow_mut().advance(2*Nanosecs);
+		v1.borrow_mut().advance(2*Nanosecs);
+		v2.borrow_mut().advance(2*Nanosecs);
+		v3.borrow_mut().advance(2*Nanosecs);
 		assert_eq!(v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
 		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
 		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]);
@@ -586,18 +586,18 @@ mod value_tests {
 		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [24*Nanosecs]); // -1.143, 24.551
 		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [36*Nanosecs]); // 36.91 
 		assert_eq!(v3.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [49*Nanosecs]); // -4.752, 49.329
-		v0.borrow_mut().update(6*Nanosecs);
-		v1.borrow_mut().update(6*Nanosecs);
-		v2.borrow_mut().update(6*Nanosecs);
-		v3.borrow_mut().update(6*Nanosecs);
+		v0.borrow_mut().advance(6*Nanosecs);
+		v1.borrow_mut().advance(6*Nanosecs);
+		v2.borrow_mut().advance(6*Nanosecs);
+		v3.borrow_mut().advance(6*Nanosecs);
 		assert_eq!(v0.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [6*Nanosecs]);
 		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [18*Nanosecs]);
 		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [30*Nanosecs]);
 		assert_eq!(v3.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [43*Nanosecs]);
-		v0.borrow_mut().update(20*Nanosecs);
-		v1.borrow_mut().update(20*Nanosecs);
-		v2.borrow_mut().update(20*Nanosecs);
-		v3.borrow_mut().update(20*Nanosecs);
+		v0.borrow_mut().advance(20*Nanosecs);
+		v1.borrow_mut().advance(20*Nanosecs);
+		v2.borrow_mut().advance(20*Nanosecs);
+		v3.borrow_mut().advance(20*Nanosecs);
 		assert_eq!(v0.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
 		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
 		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [10*Nanosecs]);
@@ -639,12 +639,12 @@ mod value_tests {
 	fn discrete_update() {
 		let (mut v0, _, _, mut v3) = linear();
 		
-		v0.update(10*Nanosecs);
+		v0.advance(10*Nanosecs);
 		let new_v0 = PredValue::new(v0.clone() + 7.per(Nanosecs));
 		assert_eq!(v0.at(0*Nanosecs), new_v0.at(0*Nanosecs));
 		assert_eq!(new_v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]); // 23.5
 		
-		v3.update(6*Nanosecs);
+		v3.advance(6*Nanosecs);
 		let new_v3 = PredValue::new(v3.clone() + 1000.per(Nanosecs));
 		assert_eq!(v3.at(0*Nanosecs), new_v3.at(0*Nanosecs));
 		assert_eq!(new_v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
