@@ -20,12 +20,12 @@ mod private {
 }
 
 /// Degree type.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Deg<const DEG: usize>;
 impl<const DEG: usize> private::Sealed for Deg<DEG> {}
 
 /// Degree category.
-pub trait IsDeg: private::Sealed + Copy + Clone + Debug {
+pub trait IsDeg: private::Sealed + Copy + Clone + Default + Debug {
 	// ??? Could name this "Degree", but that seems confusing and ambiguous with
 	// the `Deg` type. Similar to `Ord` vs `Ordering` or `Iterator` vs `Iter`. 
 	

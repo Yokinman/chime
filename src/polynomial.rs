@@ -56,6 +56,12 @@ impl<T: LinearValue, D: IsDeg> Poly<T, D> {
 	}
 }
 
+impl<T: LinearValue, D: IsDeg> Default for Poly<T, D> {
+	fn default() -> Self {
+		Self(T::zero(), D::array_from(T::zero()))
+	}
+}
+
 impl<T: LinearValue, A, B> Add<Poly<T, B>> for Poly<T, A>
 where
 	A: IsDeg + MaxDeg<B>,
@@ -66,10 +72,10 @@ where
 		let constant = self.constant() + rhs.constant();
 		let mut a = self.coeff_iter();
 		let mut b = rhs.coeff_iter();
-		let mut coeff_list = <<A as MaxDeg<B>>::Max as IsDeg>::array_from(T::ZERO);
+		let mut coeff_list = <<A as MaxDeg<B>>::Max as IsDeg>::array_from(T::zero());
 		for i in 0..<<A as MaxDeg<B>>::Max as IsDeg>::USIZE {
-			coeff_list[i] = *a.next().unwrap_or(&T::ZERO)
-				+ *b.next().unwrap_or(&T::ZERO)
+			coeff_list[i] = *a.next().unwrap_or(&T::zero())
+				+ *b.next().unwrap_or(&T::zero())
 		}
 		Poly::<T, <A as MaxDeg<B>>::Max>(constant, coeff_list)
 	}

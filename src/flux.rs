@@ -18,33 +18,39 @@ pub use self::flux_impl::*;
 
 /// A value that can change over time.
 pub trait FluxValue: Sized {
-	type Iso: LinearIso;
+	/// The produced value.
+	type Value;
+	
+	/// The inner linear isomorphic value (linear (+), exponential (*), etc.).
+	type Linear: LinearValue + LinearIso<Self::Value>;
+	
+	/// The kind of change over time.
 	type Degree: IsDeg;
 	
 	/// Initial value.
-	fn value(&self) -> <Self::Iso as LinearIso>::Linear; // ??? Unsure if this should return a reference or not
+	fn value(&self) -> Self::Linear;
+	fn set_value(&mut self, value: Self::Linear);
 	
-	/// Accumulate change over time.
-	fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>);
+	/// Accumulates change over time.
+	fn change(&self, changes: &mut Changes<Self>);
 	
 	/// Apply change over time.
-	fn update(&mut self, time: Time); 
+	fn update(&mut self, time: Time);
 	
-	fn calc(&self, time: Time) -> <Self::Iso as LinearIso>::Linear {
+	fn calc_value(&self, time: Time) -> Self::Linear {
 		let mut changes = ChangeAccum::new(
-			ChangeAccumArgs::Sum((time >> TimeUnit::Nanosecs) as f64));
+			ChangeAccumArgs::Sum(time.as_nanos() as f64));
 		self.change(&mut changes);
 		self.value() + changes.sum
 	}
 	
-	fn at(&self, time: Time) -> Self::Iso {
-		Self::Iso::map(self.calc(time))
+	fn at(&self, time: Time) -> Self::Value {
+		self.calc_value(time).map()
 	}
 	
-	fn poly(&self) -> Poly<<Self::Iso as LinearIso>::Linear, Self::Degree> {
+	fn poly(&self) -> Poly<Self::Linear, Self::Degree> {
 		let constant = coeff_calc(self, 0.0, 0.0);
-		let mut coeff_list = Self::Degree::array_from(
-			<Self::Iso as LinearIso>::Linear::ZERO);
+		let mut coeff_list = Self::Degree::array_from(Self::Linear::zero());
 		
 		for degree in 1..=Self::Degree::USIZE {
 			coeff_list[degree - 1] = coeff_calc(self, 0.0, degree as f64);
@@ -54,9 +60,7 @@ pub trait FluxValue: Sized {
 	}
 }
 
-fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
-	-> <T::Iso as LinearIso>::Linear
-{
+fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64) -> T::Linear {
 	if depth == 0.0 && degree == 0.0 {
 		value.value()
 	} else {
@@ -77,7 +81,7 @@ fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64)
 #[allow(type_alias_bounds)]
 type PredPoly<A: FluxValue> = Rc<RefCell<(
 	Time,
-	Poly<<A::Iso as LinearIso>::Linear, A::Degree>
+	Poly<A::Linear, A::Degree>
 	// ??? It may be worth storing the original value so that the polynomial
 	// can be easily offset for comparison with the other value.
 )>>;
@@ -101,7 +105,7 @@ impl<A: FluxValue> PredValue<A> {
 	/// any modifications to its inner flux value. 
 	pub fn when<'a, B>(&'a self, cmp_order: Ordering, other: impl Into<PredValue<&'a B>>) -> When<A, B>
 	where
-		B: FluxValue<Iso=A::Iso> + 'a,
+		B: FluxValue<Linear=A::Linear> + 'a,
 		When<A, B>: IntoIterator
 	{
 		When {
@@ -116,7 +120,7 @@ impl<A: FluxValue> PredValue<A> {
 	/// after any modifications to its inner flux value.
 	pub fn when_eq<'a, B>(&'a self, other: impl Into<PredValue<&'a B>>) -> WhenEq<A, B>
 	where
-		B: FluxValue<Iso=A::Iso> + 'a,
+		B: FluxValue<Linear=A::Linear> + 'a,
 		WhenEq<A, B>: IntoIterator
 	{
 		WhenEq {
@@ -254,7 +258,7 @@ impl Iterator for Times {
 pub struct When<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 {
 	a_poly: PredPoly<A>,
 	b_poly: PredPoly<B>,
@@ -264,7 +268,7 @@ where
 impl<A, B> Clone for When<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -278,10 +282,9 @@ where
 impl<A, B> IntoIterator for When<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max>
-		+ PartialOrd
+	A::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
@@ -547,7 +550,7 @@ where
 pub struct WhenEq<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 {
 	a_poly: PredPoly<A>,
 	b_poly: PredPoly<B>,
@@ -556,7 +559,7 @@ where
 impl<A, B> Clone for WhenEq<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -569,10 +572,9 @@ where
 impl<A, B> IntoIterator for WhenEq<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Iso=A::Iso>,
+	B: FluxValue<Linear=A::Linear>,
 	A::Degree: MaxDeg<B::Degree>,
-	<A::Iso as LinearIso>::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max>
-		+ PartialEq
+	A::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
 {
 	type Item = Time;
 	type IntoIter = Times;
@@ -586,8 +588,8 @@ where
 		 // Constant Equality:
 		if
 			real_roots.is_empty()
-			&& poly.constant() == <A::Iso as LinearIso>::Linear::ZERO
-			&& poly.coeff_iter().all(|&term| term == <A::Iso as LinearIso>::Linear::ZERO)
+			&& poly.constant() == A::Linear::zero()
+			&& poly.coeff_iter().all(|&term| term == A::Linear::zero())
 		{
 			real_roots.push(0.0);
 		}
@@ -608,28 +610,33 @@ where
 	}
 }
 
+#[allow(type_alias_bounds)]
+pub type Changes<T: FluxValue> = ChangeAccum<T::Value, T::Linear, T::Degree>;
+
 /// Change accumulator.
 #[derive(Debug)]
-pub struct ChangeAccum<I: LinearIso, D: IsDeg> {
-	sum: I::Linear,
+pub struct ChangeAccum<M, I: LinearIso<M>, D: IsDeg> {
+	sum: I,
 	args: ChangeAccumArgs,
 	depth: f64,
 	degree: PhantomData<D>,
+	mapped: PhantomData<M>,
 }
 
-impl<I: LinearIso, D: IsDeg> ChangeAccum<I, D> {
+impl<M, I: LinearIso<M>, D: IsDeg> ChangeAccum<M, I, D> {
 	fn new(args: ChangeAccumArgs) -> Self {
 		Self {
-			sum: <I::Linear as LinearValue>::ZERO,
+			sum: I::zero(),
 			args,
 			depth: 0.0,
 			degree: PhantomData,
+			mapped: PhantomData,
 		}
 	}
 	
 	pub fn add<C>(&mut self, value: &C, unit: TimeUnit)
 	where
-		C: FluxValue<Iso=I>,
+		C: FluxValue<Value=M, Linear=I>,
 		C::Degree: IsBelowDeg<D>,
 	{
 		self.accum(Scalar(1.0), value, unit);
@@ -637,7 +644,7 @@ impl<I: LinearIso, D: IsDeg> ChangeAccum<I, D> {
 	
 	pub fn sub<C>(&mut self, value: &C, unit: TimeUnit)
 	where
-		C: FluxValue<Iso=I>,
+		C: FluxValue<Value=M, Linear=I>,
 		C::Degree: IsBelowDeg<D>,
 	{
 		self.accum(Scalar(-1.0), value, unit);
@@ -645,7 +652,7 @@ impl<I: LinearIso, D: IsDeg> ChangeAccum<I, D> {
 	
 	fn accum<C>(&mut self, scalar: Scalar, change: &C, unit: TimeUnit)
 	where
-		C: FluxValue<Iso=I>,
+		C: FluxValue<Value=M, Linear=I>,
 		C::Degree: IsBelowDeg<D>,
 	{
 		self.sum = self.sum + match &mut self.args {
@@ -686,7 +693,6 @@ enum ChangeAccumArgs {
 mod tests {
 	use super::*;
 	use TimeUnit::*;
-	use crate::change::*;
 	use crate::degree::*;
 	
 	#[derive(Debug, Default)] struct Pos { value: f64, spd: Spd, misc: Vec<Spd> }
@@ -697,89 +703,113 @@ mod tests {
 	#[derive(Debug, Default)] struct Snap { value: f64 }
 	
 	impl FluxValue for Pos {
-		type Iso = Linear<i64>; // ??? Iso could be generic, allowing different types of the same isomorphism to be compared
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<4>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, changes: &mut Changes<Self>) {
 			changes.add(&self.spd, TimeUnit::Secs);
 			changes.add(&self.misc, TimeUnit::Secs);
 		}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 			self.spd.update(time);
 		}
 	}
 	
 	impl FluxValue for Spd {
-		type Iso = Linear<i64>;
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<3>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, changes: &mut Changes<Self>) {
 			changes.sub(&self.fric, TimeUnit::Secs);
 			changes.add(&self.accel, TimeUnit::Secs);
 		}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 			self.fric.update(time);
 			self.accel.update(time);
 		}
 	}
 	
 	impl FluxValue for Fric {
-		type Iso = Linear<i64>;
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<0>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, _changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, _changes: &mut Changes<Self>) {}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 		}
 	}
 	
 	impl FluxValue for Accel {
-		type Iso = Linear<i64>;
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<2>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, changes: &mut Changes<Self>) {
 			changes.add(&self.jerk, TimeUnit::Secs);
 		}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 			self.jerk.update(time);
 		}
 	}
 	
 	impl FluxValue for Jerk {
-		type Iso = Linear<i64>;
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<1>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, changes: &mut Changes<Self>) {
 			changes.add(&self.snap, TimeUnit::Secs);
 		}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 			self.snap.update(time);
 		}
 	}
 	
 	impl FluxValue for Snap {
-		type Iso = Linear<i64>;
+		type Value = i64;
+		type Linear = f64;
 		type Degree = Deg<0>;
-		fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+		fn value(&self) -> Self::Linear {
 			self.value
 		}
-		fn change(&self, _changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {}
+		fn set_value(&mut self, value: Self::Linear) {
+			self.value = value;
+		}
+		fn change(&self, _changes: &mut Changes<Self>) {}
 		fn update(&mut self, time: Time) {
-			self.value = self.calc(time);
+			self.value = self.calc_value(time);
 		}
 	}
 	
@@ -806,20 +836,20 @@ mod tests {
 		let mut pos = position();
 		
 		 // Values:
-		assert_eq!(pos.at(0*Secs), Linear::from(32));
-		assert_eq!(pos.at(10*Secs), Linear::from(-63));
-		assert_eq!(pos.at(20*Secs), Linear::from(-113));
-		assert_eq!(pos.at(100*Secs), Linear::from(8339));
-		assert_eq!(pos.at(200*Secs), Linear::from(-209779));
+		assert_eq!(pos.at(0*Secs), 32);
+		assert_eq!(pos.at(10*Secs), -63);
+		assert_eq!(pos.at(20*Secs), -113);
+		assert_eq!(pos.at(100*Secs), 8339);
+		assert_eq!(pos.at(200*Secs), -209779);
 		
 		 // Update:
 		pos.update(20*Secs);
-		assert_eq!(pos.at(0*Secs), Linear::from(-113));
-		assert_eq!(pos.at(80*Secs), Linear::from(8339));
-		assert_eq!(pos.at(180*Secs), Linear::from(-209779));
+		assert_eq!(pos.at(0*Secs), -113);
+		assert_eq!(pos.at(80*Secs), 8339);
+		assert_eq!(pos.at(180*Secs), -209779);
 		pos.update(55*Secs);
-		assert_eq!(pos.at(25*Secs), Linear::from(8339));
-		assert_eq!(pos.at(125*Secs), Linear::from(-209779));
+		assert_eq!(pos.at(25*Secs), 8339);
+		assert_eq!(pos.at(125*Secs), -209779);
 	}
 	
 	#[test]

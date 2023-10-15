@@ -1,5 +1,5 @@
-use super::{FluxValue, ChangeAccum};
-use crate::change::{LinearIso, LinearValue};
+use super::{FluxValue, Changes};
+use crate::change::LinearValue;
 use time::Time;
 
 use std::vec::Vec;
@@ -10,12 +10,16 @@ use std::vec::Vec;
 // ??? Function pointers
 
 impl<A: FluxValue> FluxValue for &A {
-	type Iso = A::Iso;
+	type Value = A::Value;
+	type Linear = A::Linear;
 	type Degree = A::Degree;
-	fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+	fn value(&self) -> Self::Linear {
 		A::value(self)
 	}
-	fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+	fn set_value(&mut self, _value: Self::Linear) {
+		unreachable!() // ??? I think not
+	}
+	fn change(&self, changes: &mut Changes<Self>) {
 		A::change(self, changes)
 	}
 	fn update(&mut self, _time: Time) {
@@ -24,12 +28,16 @@ impl<A: FluxValue> FluxValue for &A {
 }
 
 impl<A: FluxValue> FluxValue for &mut A {
-	type Iso = A::Iso;
+	type Value = A::Value;
+	type Linear = A::Linear;
 	type Degree = A::Degree;
-	fn value(&self) -> <Self::Iso as LinearIso>::Linear {
+	fn value(&self) -> Self::Linear {
 		A::value(self)
 	}
-	fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+	fn set_value(&mut self, value: Self::Linear) {
+		A::set_value(self, value);
+	}
+	fn change(&self, changes: &mut Changes<Self>) {
 		A::change(self, changes)
 	}
 	fn update(&mut self, time: Time) {
@@ -38,16 +46,22 @@ impl<A: FluxValue> FluxValue for &mut A {
 }
 
 impl<T: FluxValue> FluxValue for Vec<T> {
-	type Iso = T::Iso;
+	type Value = T::Value;
+	type Linear = T::Linear;
 	type Degree = T::Degree;
-	fn value(&self) -> <Self::Iso as LinearIso>::Linear {
-		let mut value = <Self::Iso as LinearIso>::Linear::ZERO;
+	fn value(&self) -> Self::Linear {
+		let mut value = Self::Linear::zero();
 		for item in self {
 			value = value + item.value();
 		}
 		value
 	}
-	fn change(&self, changes: &mut ChangeAccum<Self::Iso, Self::Degree>) {
+	fn set_value(&mut self, value: Self::Linear) {
+		for item in self {
+			item.set_value(value); // ???
+		}
+	}
+	fn change(&self, changes: &mut Changes<Self>) {
 		for item in self {
 			item.change(changes);
 		}
