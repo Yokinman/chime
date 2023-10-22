@@ -1,9 +1,11 @@
-use super::{FluxValue, Changes};
-use crate::change::LinearValue;
-use time::Time;
+use super::*;
 
 use std::vec::Vec;
+
+use time::Time;
 use crate::kind::FluxKind;
+use crate::linear::LinearValue;
+
 // !!! Arrays
 // !!! Slices
 // ??? Other collections

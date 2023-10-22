@@ -6,9 +6,10 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Deref, DerefMut, Shr, Sub};
 use std::rc::Rc;
+
 use time::{Time, TimeUnit};
-use crate::change::{LinearIso, LinearValue, Scalar};
 use crate::kind::{DegShift, FluxKind};
+use crate::linear::*;
 use crate::polynomial::{Poly, Roots};
 
  // Convenient implementations (Vec<T>, ??? tuples, etc.):

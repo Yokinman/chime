@@ -3,8 +3,9 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::ops::{Add, Index, IndexMut, Mul, Shl, Shr};
-use crate::change::{LinearValue, Scalar};
+
 use crate::flux::{FluxAccum, SumAccum};
+use crate::linear::*;
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {

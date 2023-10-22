@@ -4,8 +4,8 @@ use std::cmp::Ordering;
 use std::ops::{Add, IndexMut, Mul, Shr, Sub};
 use std::slice::{Iter, IterMut};
 
-use crate::change::{LinearValue, Scalar};
 use crate::kind::{Deg, DegShift, FluxKind};
+use crate::linear::*;
 
 /// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
 #[derive(Copy, Clone, Debug, PartialEq)]
