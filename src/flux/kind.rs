@@ -1,11 +1,10 @@
-//! Compile-time assured degree of change over time.
+//! Defining a *kind* of change over time.
+
+use super::*;
 
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::ops::{Add, Index, IndexMut, Mul, Shl, Shr};
-
-use crate::flux::{FluxAccum, SumAccum};
-use crate::linear::*;
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
@@ -34,7 +33,7 @@ pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
 	fn zero_coeffs() -> Self::Coeffs;
 }
 
-/// Linear change type.
+/// Linear kind of change over time.
 /// 
 /// - `Deg<0>`: `a`
 /// - `Deg<1>`: `a + bx`
@@ -140,7 +139,6 @@ macro_rules! impl_deg_add {
 		impl_deg_add!($a, 1 $($num)+);
 	};
 }
-
 impl_deg_order!(1);
 impl<T: LinearValue> Add for Deg<T, 0> {
 	type Output = Self;

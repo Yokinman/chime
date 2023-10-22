@@ -1,11 +1,11 @@
-//! ...
+//! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
 use std::ops::{Add, Mul};
 
 use impl_op::impl_op;
 
-use crate::kind::{Deg, FluxKind};
+use crate::flux::{Deg, FluxKind};
 use crate::polynomial::{Poly, RootList, Roots};
 
 /// A scalar value, used for multiplication with any [`LinearValue`].

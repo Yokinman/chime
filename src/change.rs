@@ -1,12 +1,11 @@
-//! Change describing utilities ...
+//! A dynamically-definable value of change-over-time.
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub, Div, Shr};
 
 use time::{Time, TimeUnit};
-use crate::flux::{Changes, FluxValue};
-use crate::kind::{Deg, FluxKind, DegShift};
+use crate::flux::*;
 use crate::linear::*;
 
 /// A value with a dynamically-defined change over time.

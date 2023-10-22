@@ -1,4 +1,4 @@
-//! ...
+//! Utilities for describing how a type changes over time.
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -8,13 +8,13 @@ use std::ops::{Add, Deref, DerefMut, Shr, Sub};
 use std::rc::Rc;
 
 use time::{Time, TimeUnit};
-use crate::kind::{DegShift, FluxKind};
 use crate::linear::*;
 use crate::polynomial::{Poly, Roots};
 
- // Convenient implementations (Vec<T>, ??? tuples, etc.):
-mod flux_impl;
-pub use self::flux_impl::*;
+mod impls;
+mod kind;
+pub use self::impls::*;
+pub use self::kind::*;
 
 /// A value that can change over time.
 pub trait FluxValue: Sized {
@@ -506,7 +506,6 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 mod tests {
 	use super::*;
 	use TimeUnit::*;
-	use crate::kind::*;
 	
 	#[derive(Debug, Default)] struct Pos { value: f64, spd: Spd, misc: Vec<Spd> }
 	#[derive(Debug, Default)] struct Spd { value: f64, fric: Fric, accel: Accel }

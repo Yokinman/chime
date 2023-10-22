@@ -1,10 +1,10 @@
-//! ...
+//! Polynomials.
 
 use std::cmp::Ordering;
 use std::ops::{Add, IndexMut, Mul, Shr, Sub};
 use std::slice::{Iter, IterMut};
 
-use crate::kind::{Deg, DegShift, FluxKind};
+use crate::flux::{Deg, DegShift, FluxKind};
 use crate::linear::*;
 
 /// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
@@ -309,7 +309,6 @@ impl Roots for Deg<Vec2<f64>, K> {
 
 #[cfg(test)]
 mod tests {
-	use crate::kind::Deg;
 	use super::*;
 	
 	#[test]
