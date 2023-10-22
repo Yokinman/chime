@@ -33,35 +33,35 @@ pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
 	fn zero_coeffs() -> Self::Coeffs;
 }
 
-/// Linear kind of change over time.
+/// Summation over time.
 /// 
-/// - `Deg<0>`: `a`
-/// - `Deg<1>`: `a + bx`
-/// - `Deg<2>`: `a + bx + cx^2`
+/// - `Sum<0>`: `a`
+/// - `Sum<1>`: `a + bx`
+/// - `Sum<2>`: `a + bx + cx^2`
 /// - etc.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Deg<T: LinearValue, const DEG: usize>(pub T);
+pub struct Sum<T: LinearValue, const DEG: usize>(pub T);
 
-impl<T: LinearValue, const DEG: usize> From<T> for Deg<T, DEG> {
+impl<T: LinearValue, const DEG: usize> From<T> for Sum<T, DEG> {
 	fn from(value: T) -> Self {
 		Self(value)
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Default for Deg<T, DEG> {
+impl<T: LinearValue, const DEG: usize> Default for Sum<T, DEG> {
 	fn default() -> Self {
 		Self(T::zero())
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Mul<Scalar> for Deg<T, DEG> {
+impl<T: LinearValue, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 	type Output = Self;
 	fn mul(self, rhs: Scalar) -> Self::Output {
 		Self(self.0 * rhs)
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> FluxKind for Deg<T, DEG> {
+impl<T: LinearValue, const DEG: usize> FluxKind for Sum<T, DEG> {
 	const DEGREE: usize = DEG;
 	
 	type Linear = T;
@@ -75,6 +75,77 @@ impl<T: LinearValue, const DEG: usize> FluxKind for Deg<T, DEG> {
 	
 	fn zero_coeffs() -> Self::Coeffs {
 		[Self::zero(); DEG]
+	}
+}
+
+/// Nested summation change accumulator.
+pub struct SumAccum<'a, K: FluxKind>(FluxAccumKind<'a, K>);
+
+impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
+	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self {
+		Self(kind)
+	}
+}
+
+impl<K: FluxKind> SumAccum<'_, K>
+where
+	K: Add<Output=K>,
+{
+	pub fn add<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
+	where
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+	{
+		self.accum(Scalar(1.0), value, unit)
+	}
+	
+	pub fn sub<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
+	where
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+	{
+		self.accum(Scalar(-1.0), value, unit)
+	}
+	
+	fn accum<C: FluxValue>(mut self, scalar: Scalar, value: &C, unit: TimeUnit) -> Self
+	where
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+	{
+		match &mut self.0 {
+			FluxAccumKind::Sum { sum, depth, time } => {
+				let mut sub_sum = value.value();
+				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Sum {
+					sum: &mut sub_sum,
+					depth: *depth + 1,
+					time: *time,
+				}));
+				let depth = *depth as f64;
+				let time_scale = (time.as_nanos() as f64) / ((unit >> TimeUnit::Nanosecs) as f64);
+				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
+			},
+			FluxAccumKind::Poly { poly, depth } => {
+				let mut sub_poly = Poly::default();
+				sub_poly.0 = value.value();
+				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Poly {
+					poly: &mut sub_poly,
+					depth: *depth + 1,
+				}));
+				let depth = *depth as f64;
+				let unit_scale = ((unit >> TimeUnit::Nanosecs) as f64).recip();
+				**poly = **poly
+					+ (sub_poly * (Scalar(depth / (depth + 1.0)) * scalar))
+					+ ((sub_poly >> DegShift) * (Scalar(unit_scale / (depth + 1.0)) * scalar));
+				// https://www.desmos.com/calculator/mhlpjakz32
+			}
+		}
+		self
 	}
 }
 
@@ -93,19 +164,19 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(16) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: LinearValue> Shr<DegShift> for Deg<T, { $($num +)+ 0 - 1 }> {
-			type Output = Deg<T, { $($num +)+ 0 }>;
+		impl<T: LinearValue> Shr<DegShift> for Sum<T, { $($num +)+ 0 - 1 }> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn shr(self, _: DegShift) -> Self::Output {
 				self.0.into()
 			}
 		}
-		impl<T: LinearValue> Shl<DegShift> for Deg<T, { $($num +)+ 0 }> {
-			type Output = Deg<T, { $($num +)+ 0 - 1 }>;
+		impl<T: LinearValue> Shl<DegShift> for Sum<T, { $($num +)+ 0 }> {
+			type Output = Sum<T, { $($num +)+ 0 - 1 }>;
 			fn shl(self, _: DegShift) -> Self::Output {
 				self.0.into()
 			}
 		}
-		impl<T: LinearValue> Add for Deg<T, { $($num +)+ 0 }> {
+		impl<T: LinearValue> Add for Sum<T, { $($num +)+ 0 }> {
 			type Output = Self;
 			fn add(self, rhs: Self) -> Self {
 				Self(self.0 + rhs.0)
@@ -124,15 +195,15 @@ macro_rules! impl_deg_add {
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
 	($a:tt, 16) => {/* break */};
 	($a:tt, $($num:tt)+) => {
-		impl<T: LinearValue> Add<Deg<T, $a>> for Deg<T, { $($num +)+ 0 }> {
-			type Output = Deg<T, { $($num +)+ 0 }>;
-			fn add(self, rhs: Deg<T, $a>) -> Self::Output {
+		impl<T: LinearValue> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, $a>) -> Self::Output {
 				Self::Output::from(self.0 + rhs.0)
 			}
 		}
-		impl<T: LinearValue> Add<Deg<T, { $($num +)+ 0 }>> for Deg<T, $a> {
-			type Output = Deg<T, { $($num +)+ 0 }>;
-			fn add(self, rhs: Deg<T, { $($num +)+ 0 }>) -> Self::Output {
+		impl<T: LinearValue> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
 				Self::Output::from(self.0 + rhs.0)
 			}
 		}
@@ -140,7 +211,7 @@ macro_rules! impl_deg_add {
 	};
 }
 impl_deg_order!(1);
-impl<T: LinearValue> Add for Deg<T, 0> {
+impl<T: LinearValue> Add for Sum<T, 0> {
 	type Output = Self;
 	fn add(self, rhs: Self) -> Self {
 		Self(self.0 + rhs.0)

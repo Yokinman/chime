@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, IndexMut, Mul, Shr, Sub};
 use std::slice::{Iter, IterMut};
 
-use crate::flux::{Deg, DegShift, FluxKind};
+use crate::flux::{Sum, DegShift, FluxKind};
 use crate::linear::*;
 
 /// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
@@ -126,30 +126,30 @@ pub trait Roots: FluxKind {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList>;
 }
 
-impl Roots for Deg<f64, 0> {
+impl Roots for Sum<f64, 0> {
 	fn roots(_: Poly<Self>) -> Result<RootList, RootList> {
 		Ok([].into())
 	}
 }
 
-impl Roots for Deg<f64, 1> {
+impl Roots for Sum<f64, 1> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Deg(b)]) = poly;
+		let Poly(a,[Sum(b)]) = poly;
 		if b == 0. {
-			return Deg::<f64, 0>::roots(Poly(a,[]))
+			return Sum::<f64, 0>::roots(Poly(a,[]))
 		}
 		Ok([-a / b].into())
 	}
 }
 
-impl Roots for Deg<f64, 2> {
+impl Roots for Sum<f64, 2> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Deg(b),Deg(c)]) = poly;
+		let Poly(a,[Sum(b), Sum(c)]) = poly;
 		if c == 0. {
-			return Deg::<f64, 1>::roots(Poly(a,[Deg(b)]))
+			return Sum::<f64, 1>::roots(Poly(a,[Sum(b)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Deg::<f64, 1>::roots(Poly(b,[Deg(c)]))?];
+			let roots = [[0.].into(), Sum::<f64, 1>::roots(Poly(b,[Sum(c)]))?];
 			return Ok(roots.concat().into_boxed_slice())
 		}
 		
@@ -166,14 +166,14 @@ impl Roots for Deg<f64, 2> {
 	}
 }
 
-impl Roots for Deg<f64, 3> {
+impl Roots for Sum<f64, 3> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Deg(b),Deg(c),Deg(d)]) = poly;
+		let Poly(a,[Sum(b), Sum(c), Sum(d)]) = poly;
 		if d == 0. {
-			return Deg::<f64, 2>::roots(Poly(a,[Deg(b),Deg(c)]))
+			return Sum::<f64, 2>::roots(Poly(a,[Sum(b), Sum(c)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Deg::<f64, 2>::roots(Poly(b,[Deg(c),Deg(d)]))?];
+			let roots = [[0.].into(), Sum::<f64, 2>::roots(Poly(b,[Sum(c), Sum(d)]))?];
 			return Ok(roots.concat().into_boxed_slice())
 		}
 		
@@ -215,12 +215,12 @@ impl Roots for Deg<f64, 3> {
 		
 		 // General Cubic:
 		let n = -c / (3.0 * d);
-		let depressed_cubic = Poly::<Deg<f64, 3>>(
+		let depressed_cubic = Poly::<Sum<f64, 3>>(
 			a + (n * (b + (n * c * (2.0/3.0)))),
 			[
-				Deg(b + (n * c)),
-				Deg(0.0),
-				Deg(d),
+				Sum(b + (n * c)),
+				Sum(0.0),
+				Sum(d),
 			]
 		);
 		Ok(Roots::roots(depressed_cubic)?
@@ -230,14 +230,14 @@ impl Roots for Deg<f64, 3> {
 	}
 }
 
-impl Roots for Deg<f64, 4> {
+impl Roots for Sum<f64, 4> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Deg(b),Deg(c),Deg(d),Deg(e)]) = poly;
+		let Poly(a,[Sum(b), Sum(c), Sum(d), Sum(e)]) = poly;
 		if e == 0. {
-			return Deg::<f64, 3>::roots(Poly(a,[Deg(b),Deg(c),Deg(d)]))
+			return Sum::<f64, 3>::roots(Poly(a,[Sum(b), Sum(c), Sum(d)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Deg::<f64, 3>::roots(Poly(b,[Deg(c),Deg(d),Deg(e)]))?];
+			let roots = [[0.].into(), Sum::<f64, 3>::roots(Poly(b,[Sum(c), Sum(d), Sum(e)]))?];
 			return Ok(roots.concat().into_boxed_slice())
 		}
 		
@@ -249,7 +249,7 @@ impl Roots for Deg<f64, 4> {
 		
 		 // Biquadratic:
 		if (b,d) == (0.,0.) {
-			return Ok(Deg::<f64, 2>::roots(Poly(a,[Deg(c),Deg(e)]))?
+			return Ok(Sum::<f64, 2>::roots(Poly(a,[Sum(c), Sum(e)]))?
 				.into_iter()
 				.map(|r| r.sqrt())
 				.flat_map(|r| [r, -r])
@@ -261,32 +261,32 @@ impl Roots for Deg<f64, 4> {
 			let p = a / e;
 			let q = b / (2.0 * e);
 			let r = c / (2.0 * e);
-			let resolvent_cubic = Poly::<Deg<f64, 3>>(
+			let resolvent_cubic = Poly::<Sum<f64, 3>>(
 				-(q * q) / 2.0,
 				[
-					Deg((r * r) - p),
-					Deg(2.0 * r),
-					Deg(1.0),
+					Sum((r * r) - p),
+					Sum(2.0 * r),
+					Sum(1.0),
 				]
 			);
 			let m = *resolvent_cubic.real_roots()?.last().unwrap();
 			debug_assert!(m >= 0.0);
 			let sqrt_2m = (2.0 * m).sqrt();
-			let quad_a = Poly::<Deg<f64, 2>>( (q / sqrt_2m) + r + m, [Deg(-sqrt_2m), Deg(1.0)]);
-			let quad_b = Poly::<Deg<f64, 2>>(-(q / sqrt_2m) + r + m, [Deg( sqrt_2m), Deg(1.0)]);
+			let quad_a = Poly::<Sum<f64, 2>>( (q / sqrt_2m) + r + m, [Sum(-sqrt_2m), Sum(1.0)]);
+			let quad_b = Poly::<Sum<f64, 2>>(-(q / sqrt_2m) + r + m, [Sum( sqrt_2m), Sum(1.0)]);
 			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat()
 				.into_boxed_slice())
 		}
 		
 		 // General Quartic:
 		let n = -d / (4.0 * e);
-		let depressed_quartic = Poly::<Deg<f64, 4>>(
+		let depressed_quartic = Poly::<Sum<f64, 4>>(
 			a + (n * (b + (n * (c + (n * d * (3.0/4.0)))))),
 			[
-				Deg(b + (n * (c + (n * d)) * 2.0)),
-				Deg(c + (n * d * (3.0/2.0))),
-				Deg(0.0),
-				Deg(e),
+				Sum(b + (n * (c + (n * d)) * 2.0)),
+				Sum(c + (n * d * (3.0/2.0))),
+				Sum(0.0),
+				Sum(e),
 			]
 		);
 		Ok(Roots::roots(depressed_quartic)?
@@ -297,7 +297,7 @@ impl Roots for Deg<f64, 4> {
 }
 
 /*
-impl Roots for Deg<Vec2<f64>, K> {
+impl Roots for Sum<Vec2<f64>, K> {
 	fn roots(&self) -> Result<RootList, RootList> {
 		let a = (Poly from Vec2 primary terms).roots();
 		let b = (Poly from Vec2 secondary terms).roots();
@@ -313,26 +313,26 @@ mod tests {
 	
 	#[test]
 	fn add() {
-		let a = Poly::<Deg<f64, 4>>(1.5, [Deg(2.5), Deg(3.2), Deg(4.5), Deg(5.7)]);
-		let b = Poly::<Deg<f64, 2>>(7.1, [Deg(5.9), Deg(3.1)]);
-		assert_eq!(a + b, Poly(8.6, [Deg(8.4), Deg(6.300000000000001), Deg(4.5), Deg(5.7)]));
-		assert_eq!(b + a, Poly(8.6, [Deg(8.4), Deg(6.300000000000001), Deg(4.5), Deg(5.7)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
+		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
+		assert_eq!(a + b, Poly(8.6, [Sum(8.4), Sum(6.300000000000001), Sum(4.5), Sum(5.7)]));
+		assert_eq!(b + a, Poly(8.6, [Sum(8.4), Sum(6.300000000000001), Sum(4.5), Sum(5.7)]));
 	}
 	
 	#[test]
 	fn sub() {
-		let a = Poly::<Deg<f64, 4>>(1.5, [Deg(2.5), Deg(3.2), Deg(4.5), Deg(5.7)]);
-		let b = Poly::<Deg<f64, 2>>(7.1, [Deg(5.9), Deg(3.1)]);
-		assert_eq!(a - b, Poly(-5.6, [Deg(-3.4000000000000004), Deg(0.10000000000000009), Deg(4.5), Deg(5.7)]));
-		assert_eq!(b - a, Poly( 5.6, [Deg(3.4000000000000004), Deg(-0.10000000000000009), Deg(-4.5), Deg(-5.7)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
+		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
+		assert_eq!(a - b, Poly(-5.6, [Sum(-3.4000000000000004), Sum(0.10000000000000009), Sum(4.5), Sum(5.7)]));
+		assert_eq!(b - a, Poly( 5.6, [Sum(3.4000000000000004), Sum(-0.10000000000000009), Sum(-4.5), Sum(-5.7)]));
 	}
 	
 	#[test]
 	fn scalar_mul() {
-		let a = Poly::<Deg<f64, 4>>(1.5, [Deg(2.5), Deg(3.2), Deg(4.5), Deg(5.7)]);
-		let b = Poly::<Deg<f64, 2>>(7.1, [Deg(5.9), Deg(3.1)]);
-		assert_eq!(a * Scalar(1.5), Poly(2.25, [Deg(3.75), Deg(4.800000000000001), Deg(6.75), Deg(8.55)]));
-		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, [Deg(8.850000000000001), Deg(4.65)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
+		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
+		assert_eq!(a * Scalar(1.5), Poly(2.25, [Sum(3.75), Sum(4.800000000000001), Sum(6.75), Sum(8.55)]));
+		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, [Sum(8.850000000000001), Sum(4.65)]));
 	}
 	
 	fn assert_roots<K: FluxKind>(p: Poly<K>, expected_roots: &[f64])
@@ -348,33 +348,33 @@ mod tests {
 	
 	#[test]
 	fn constant() {
-		assert_roots(Poly::<Deg<f64, 0>>(2.0, []), &[]);
-		assert_roots(Poly::<Deg<f64, 0>>(0.0, []), &[]);
+		assert_roots(Poly::<Sum<f64, 0>>(2.0, []), &[]);
+		assert_roots(Poly::<Sum<f64, 0>>(0.0, []), &[]);
 	}
 	
 	#[test]
 	fn linear() {
-		assert_roots(Poly::<Deg<f64, 1>>(20.0, [Deg(-4.0)]), &[5.0]);
-		assert_roots(Poly::<Deg<f64, 1>>(20.0, [Deg(4.0)]), &[-5.0]);
-		assert_roots(Poly::<Deg<f64, 1>>(-0.0, [Deg(4.0/3.0)]), &[0.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(20.0, [Sum(-4.0)]), &[5.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(20.0, [Sum(4.0)]), &[-5.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(-0.0, [Sum(4.0/3.0)]), &[0.0]);
 	}
 	
 	#[test]
 	fn quadratic() {
 		assert_roots(
-			Poly::<Deg<f64, 2>>(20.0, [Deg(4.0), Deg(7.0)]),
+			Poly::<Sum<f64, 2>>(20.0, [Sum(4.0), Sum(7.0)]),
 			&[]
 		);
 		assert_roots(
-			Poly::<Deg<f64, 2>>(20.0, [Deg(4.0), Deg(-7.0)]),
+			Poly::<Sum<f64, 2>>(20.0, [Sum(4.0), Sum(-7.0)]),
 			&[-10.0/7.0, 2.0]
 		);
 		assert_roots(
-			Poly::<Deg<f64, 2>>( 40.0/3.0, [Deg( 2.0/3.0), Deg(-17.0/100.0)]),
-			Poly::<Deg<f64, 2>>(-40.0/3.0, [Deg(-2.0/3.0), Deg( 17.0/100.0)]).real_roots().unwrap().as_ref()
+			Poly::<Sum<f64, 2>>( 40.0/3.0, [Sum( 2.0/3.0), Sum(-17.0/100.0)]),
+			Poly::<Sum<f64, 2>>(-40.0/3.0, [Sum(-2.0/3.0), Sum( 17.0/100.0)]).real_roots().unwrap().as_ref()
 		);
 		assert_roots(
-			Poly::<Deg<f64, 2>>(0.0, [Deg(4.0/6.0), Deg(-17.0/100.0)]),
+			Poly::<Sum<f64, 2>>(0.0, [Sum(4.0/6.0), Sum(-17.0/100.0)]),
 			&[0.0, 200.0/51.0]
 		);
 	}
@@ -382,15 +382,15 @@ mod tests {
 	#[test]
 	fn cubic() {
 		assert_roots(
-			Poly::<Deg<f64, 3>>(6.0, [Deg(-2077.5), Deg(-17000.0/77.0), Deg(6712.0/70.0)]),
+			Poly::<Sum<f64, 3>>(6.0, [Sum(-2077.5), Sum(-17000.0/77.0), Sum(6712.0/70.0)]),
 			&[-3.64550618348, 0.00288720188, 5.94514363216]
 		);
 		
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Poly<Deg<f64, 3>> {
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Poly<Sum<f64, 3>> {
 			Poly(a, [
-				Deg(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s)),
-				Deg(c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + d/(2.0*3.0*s*s*s)),
-				Deg(d/(2.0*3.0*s*s*s))
+				Sum(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s)),
+				Sum(c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + d/(2.0*3.0*s*s*s)),
+				Sum(d/(2.0*3.0*s*s*s))
 			])
 		}
 		assert_roots(
@@ -417,12 +417,12 @@ mod tests {
 	
 	#[test]
 	fn quartic() {
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Poly<Deg<f64, 4>> {
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Poly<Sum<f64, 4>> {
 			Poly(a, [
-				Deg(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Deg(c/(2.0*s*s) + d/(2.0*3.0*s*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Deg(d/(2.0*3.0*s*s*s) + e/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Deg(e/(2.0*3.0*4.0*s*s*s*s)),
+				Sum(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
+				Sum(c/(2.0*s*s) + d/(2.0*3.0*s*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s)),
+				Sum(d/(2.0*3.0*s*s*s) + e/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
+				Sum(e/(2.0*3.0*4.0*s*s*s*s)),
 			])
 		}
 		assert_roots(
@@ -436,7 +436,7 @@ mod tests {
 		);
 		let t = 1000000000.0*60.0*60.0;
 		assert_roots(
-			Poly::<Deg<f64, 4>>(7500.0, [Deg(0.0), Deg(-1000.0/(t*t)), Deg(0.0), Deg(27.0/(t*t*t*t))]),
+			Poly::<Sum<f64, 4>>(7500.0, [Sum(0.0), Sum(-1000.0/(t*t)), Sum(0.0), Sum(27.0/(t*t*t*t))]),
 			&[
 				-2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
 				-2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),

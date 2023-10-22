@@ -5,7 +5,7 @@ use std::ops::{Add, Mul};
 
 use impl_op::impl_op;
 
-use crate::flux::{Deg, FluxKind};
+use crate::flux::{Sum, FluxKind};
 use crate::poly::*;
 
 /// A scalar value, used for multiplication with any [`LinearValue`].
@@ -126,15 +126,15 @@ impl<T: LinearValue> From<T> for Exp<T> {
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Roots for Deg<Exp<T>, DEG>
+impl<T: LinearValue, const DEG: usize> Roots for Sum<Exp<T>, DEG>
 where
-	Deg<T, DEG>: FluxKind<Linear=T> + Roots
+	Sum<T, DEG>: FluxKind<Linear=T> + Roots
 {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let mut b_poly = Poly::<Deg<T, DEG>>::default();
+		let mut b_poly = Poly::<Sum<T, DEG>>::default();
 		let mut b_coeff_iter = b_poly.coeff_iter_mut();
-		for &Deg(Exp(coeff)) in poly.coeff_iter() {
-			*b_coeff_iter.next().unwrap() = Deg(coeff);
+		for &Sum(Exp(coeff)) in poly.coeff_iter() {
+			*b_coeff_iter.next().unwrap() = Sum(coeff);
 		}
 		b_poly.0 = poly.constant().0;
 		Roots::roots(b_poly)

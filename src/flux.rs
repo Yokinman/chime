@@ -4,7 +4,7 @@ use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Deref, DerefMut, Shr, Sub};
+use std::ops::{Add, Sub, Deref, DerefMut};
 use std::rc::Rc;
 
 use time::{Time, TimeUnit};
@@ -417,77 +417,6 @@ pub trait FluxAccum<'a, K: FluxKind> {
 	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
 }
 
-/// Nested summation change accumulator.
-pub struct SumAccum<'a, K: FluxKind>(FluxAccumKind<'a, K>);
-
-impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
-	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self {
-		Self(kind)
-	}
-}
-
-impl<K: FluxKind> SumAccum<'_, K>
-where
-	K: Add<Output=K>,
-{
-	pub fn add<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
-	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
-	{
-		self.accum(Scalar(1.0), value, unit)
-	}
-	
-	pub fn sub<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
-	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
-	{
-		self.accum(Scalar(-1.0), value, unit)
-	}
-	
-	fn accum<C: FluxValue>(mut self, scalar: Scalar, value: &C, unit: TimeUnit) -> Self
-	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
-	{
-		match &mut self.0 {
-			FluxAccumKind::Sum { sum, depth, time } => {
-				let mut sub_sum = value.value();
-				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Sum {
-					sum: &mut sub_sum,
-					depth: *depth + 1,
-					time: *time,
-				}));
-				let depth = *depth as f64;
-				let time_scale = (time.as_nanos() as f64) / ((unit >> TimeUnit::Nanosecs) as f64);
-				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
-			},
-			FluxAccumKind::Poly { poly, depth } => {
-				let mut sub_poly = Poly::default();
-				sub_poly.0 = value.value();
-				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Poly {
-					poly: &mut sub_poly,
-					depth: *depth + 1,
-				}));
-				let depth = *depth as f64;
-				let unit_scale = ((unit >> TimeUnit::Nanosecs) as f64).recip();
-				**poly = **poly
-					+ (sub_poly * (Scalar(depth / (depth + 1.0)) * scalar))
-					+ ((sub_poly >> DegShift) * (Scalar(unit_scale / (depth + 1.0)) * scalar));
-				// https://www.desmos.com/calculator/mhlpjakz32
-			}
-		}
-		self
-	}
-}
-
 /// General accumulator arguments.
 #[non_exhaustive]
 pub enum FluxAccumKind<'a, K: FluxKind> {
@@ -516,7 +445,7 @@ mod tests {
 	
 	impl FluxValue for Pos {
 		type Value = i64;
-		type Kind = Deg<f64, 4>;
+		type Kind = Sum<f64, 4>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -537,7 +466,7 @@ mod tests {
 	
 	impl FluxValue for Spd {
 		type Value = i64;
-		type Kind = Deg<f64, 3>;
+		type Kind = Sum<f64, 3>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -559,7 +488,7 @@ mod tests {
 	
 	impl FluxValue for Fric {
 		type Value = i64;
-		type Kind = Deg<f64, 0>;
+		type Kind = Sum<f64, 0>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -577,7 +506,7 @@ mod tests {
 	
 	impl FluxValue for Accel {
 		type Value = i64;
-		type Kind = Deg<f64, 2>;
+		type Kind = Sum<f64, 2>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -596,7 +525,7 @@ mod tests {
 	
 	impl FluxValue for Jerk {
 		type Value = i64;
-		type Kind = Deg<f64, 1>;
+		type Kind = Sum<f64, 1>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -615,7 +544,7 @@ mod tests {
 	
 	impl FluxValue for Snap {
 		type Value = i64;
-		type Kind = Deg<f64, 0>;
+		type Kind = Sum<f64, 0>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
@@ -676,20 +605,20 @@ mod tests {
 		assert_eq!(
 			pos.poly(),
 			Poly(32.0, [
-				Deg(-1.469166666666667e-9),
-				Deg(-1.4045833333333335e-18),
-				Deg(0.06416666666666669e-27),
-				Deg(-0.00041666666666666684e-36),
+				Sum(-1.469166666666667e-9),
+				Sum(-1.4045833333333335e-18),
+				Sum(0.06416666666666669e-27),
+				Sum(-0.00041666666666666684e-36),
 			])
 		);
 		pos.advance(20*Secs);
 		assert_eq!(
 			pos.poly(),
 			Poly(-112.55000000000007, [
-				Deg(6.0141666666666615e-9),
-				Deg(1.445416666666667e-18),
-				Deg(0.03083333333333335e-27),
-				Deg(-0.00041666666666666684e-36),
+				Sum(6.0141666666666615e-9),
+				Sum(1.445416666666667e-18),
+				Sum(0.03083333333333335e-27),
+				Sum(-0.00041666666666666684e-36),
 			])
 		);
 	}
