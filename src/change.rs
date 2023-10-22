@@ -14,12 +14,12 @@ use crate::polynomial::{Poly, RootList, Roots};
 
 /// A value with a dynamically-defined change over time.
 #[derive(Clone, Debug)]
-pub struct Flux<V, I: LinearIso<V>, K: FluxKind> {
-	value: LinearFlux<I>,
-	phantom: PhantomData<(K, V)>,
+pub struct Flux<V, K: FluxKind> {
+	value: LinearFlux<K::Linear>,
+	phantom: PhantomData<V>,
 }
 
-impl<V, I: LinearIso<V>> Flux<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> Flux<V, Deg<I, 0>> {
 	pub fn new(initial_value: V) -> Self {
 		Self {
 			value: LinearFlux::new(I::inv_map(initial_value)),
@@ -28,37 +28,39 @@ impl<V, I: LinearIso<V>> Flux<V, I, Deg<I, 0>> {
 	}
 }
 
-impl<V, I: LinearIso<V>, K: FluxKind> Flux<V, I, K> {
-	pub fn add_change<T>(mut self, rate: impl Into<Flux<V, I, T>>, unit: TimeUnit)
-		-> Flux::<V, I, <K as AppendFluxKind<T>>::Output>
+impl<V, K: FluxKind> Flux<V, K> {
+	pub fn add_change<T>(mut self, rate: impl Into<Flux<V, T>>, unit: TimeUnit)
+		-> Flux::<V, <K as AppendFluxKind<T>>::Output>
 	where
-		T: FluxKind,
+		T: FluxKind<Linear=K::Linear>,
+		<K as AppendFluxKind<T>>::Output: FluxKind<Linear=K::Linear>,
 		K: AppendFluxKind<T>,
 	{
 		let change = Change::new(Scalar(1.0), rate.into().value, unit);
 		self.value.add_change(change);
-		Flux::<V, I, <K as AppendFluxKind<T>>::Output> {
+		Flux {
 			value: self.value,
 			phantom: PhantomData,
 		}
 	}
 	
-	pub fn sub_change<T>(mut self, rate: impl Into<Flux<V, I, T>>, unit: TimeUnit)
-		-> Flux::<V, I, <K as AppendFluxKind<T>>::Output>
+	pub fn sub_change<T>(mut self, rate: impl Into<Flux<V, T>>, unit: TimeUnit)
+		-> Flux::<V, <K as AppendFluxKind<T>>::Output>
 	where
-		T: FluxKind,
+		T: FluxKind<Linear=K::Linear>,
+		<K as AppendFluxKind<T>>::Output: FluxKind<Linear=K::Linear>,
 		K: AppendFluxKind<T>,
 	{
 		let change = Change::new(Scalar(-1.0), rate.into().value, unit);
 		self.value.add_change(change);
-		Flux::<V, I, <K as AppendFluxKind<T>>::Output> {
+		Flux {
 			value: self.value,
 			phantom: PhantomData,
 		}
 	}
 }
 
-impl<V, I: LinearIso<V>> FluxValue for Flux<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> FluxValue for Flux<V, Deg<I, 0>> {
 	type Value = V;
 	type Kind = Deg<I, 0>;
 	type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
@@ -76,7 +78,7 @@ impl<V, I: LinearIso<V>> FluxValue for Flux<V, I, Deg<I, 0>> {
 
 macro_rules! impl_flux_value_for_value {
 	($($degree:literal),+) => {$(
-		impl<V, I: LinearIso<V>> FluxValue for Flux<V, I, Deg<I, $degree>> {
+		impl<V, I: LinearIso<V>> FluxValue for Flux<V, Deg<I, $degree>> {
 			type Value = V;
 			type Kind = Deg<I, $degree>;
 			type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
@@ -90,7 +92,7 @@ macro_rules! impl_flux_value_for_value {
 				for change in self.value.change_list.clone() {
 					changes = if change.scalar.0 == 1.0 {
 						changes.add(
-							&Flux::<V, I, Deg<I, { $degree - 1 }>> {
+							&Flux::<V, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
 								phantom: PhantomData,
 							},
@@ -98,7 +100,7 @@ macro_rules! impl_flux_value_for_value {
 						)
 					} else {
 						changes.sub(
-							&Flux::<V, I, Deg<I, { $degree - 1 }>> {
+							&Flux::<V, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
 								phantom: PhantomData,
 							},
@@ -111,7 +113,7 @@ macro_rules! impl_flux_value_for_value {
 			fn advance(&mut self, time: Time) {
 				self.value.initial_value = self.calc_value(time);
 				for change in &mut self.value.change_list {
-					let mut v = Flux::<V, I, Deg<I, { $degree - 1 }>> {
+					let mut v = Flux::<V, Deg<I, { $degree - 1 }>> {
 						value: change.rate.clone(),
 						phantom: PhantomData,
 					};
@@ -282,9 +284,9 @@ pub trait Per: Sized {
 impl Per for f64 {}
 impl Per for u64 {}
 impl Per for i64 {}
-impl<V, I: LinearIso<V>, K: FluxKind> Per for Flux<V, I, K> {}
+impl<V, K: FluxKind> Per for Flux<V, K> {}
 
-/// A change over time used with arithmetic operators to construct [`Flux`]s.
+/// A change over time used with arithmetic operators to construct [`Flux`] values.
 pub struct FluxChange<T> {
 	rate: T,
 	unit: TimeUnit,
@@ -297,46 +299,49 @@ macro_rules! impl_flux_ops {
 		where
 			$iso: LinearIso<$map>
 		{
-			type Output = Flux<$map, $iso, Deg<$iso, 1>>;
+			type Output = Flux<$map, Deg<$iso, 1>>;
 			fn $op_fn(self, rhs: FluxChange<$map>) -> Self::Output {
 				Flux::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
 		 // Num + Flux.per(Unit)
-		impl<K> $op_trait<FluxChange<Flux<$map, $iso, K>>> for $map
+		impl<K> $op_trait<FluxChange<Flux<$map, K>>> for $map
 		where
-			K: FluxKind,
+			K: FluxKind<Linear=$iso>,
 			Deg<$iso, 0>: AppendFluxKind<K>,
+		    <Deg<$iso, 0> as AppendFluxKind<K>>::Output: FluxKind<Linear=K::Linear>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Flux<$map, $iso, <Deg<$iso, 0> as AppendFluxKind<K>>::Output>;
-			fn $op_fn(self, rhs: FluxChange<Flux<$map, $iso, K>>) -> Self::Output {
+			type Output = Flux<$map, <Deg<$iso, 0> as AppendFluxKind<K>>::Output>;
+			fn $op_fn(self, rhs: FluxChange<Flux<$map, K>>) -> Self::Output {
 				Flux::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
 		 // Flux + Num.per(Unit)
-		impl<K> $op_trait<FluxChange<$map >> for Flux<$map, $iso, K>
+		impl<K> $op_trait<FluxChange<$map >> for Flux<$map, K>
 		where
-			K: FluxKind + AppendFluxKind<Deg<$iso, 0>>,
+			K: FluxKind<Linear=$iso> + AppendFluxKind<Deg<$iso, 0>>,
+		    <K as AppendFluxKind<Deg<$iso, 0>>>::Output: FluxKind<Linear=K::Linear>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Flux<$map, $iso, <K as AppendFluxKind<Deg<$iso, 0>>>::Output>;
+			type Output = Flux<$map, <K as AppendFluxKind<Deg<$iso, 0>>>::Output>;
 			fn $op_fn(self, rhs: FluxChange<$map>) -> Self::Output {
 				self.$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
 		 // Flux + Flux.per(Unit)
-		impl<K, T> $op_trait<FluxChange<Flux<$map, $iso, T>>> for Flux<$map, $iso, K>
+		impl<K, T> $op_trait<FluxChange<Flux<$map, T>>> for Flux<$map, K>
 		where
 			K: FluxKind + AppendFluxKind<T>,
-			T: FluxKind,
+			T: FluxKind<Linear=K::Linear>,
+		    <K as AppendFluxKind<T>>::Output: FluxKind<Linear=K::Linear>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Flux<$map, $iso, <K as AppendFluxKind<T>>::Output>;
-			fn $op_fn(self, rhs: FluxChange<Flux<$map, $iso, T>>) -> Self::Output {
+			type Output = Flux<$map, <K as AppendFluxKind<T>>::Output>;
+			fn $op_fn(self, rhs: FluxChange<Flux<$map, T>>) -> Self::Output {
 				self.$change_fn(rhs.rate, rhs.unit)
 			}
 		}
@@ -353,7 +358,7 @@ impl_flux_ops!(Mul::mul, add_change, u64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, f64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, u64, Exp<f64>);
 
-impl<V, I: LinearIso<V>> From<V> for Flux<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> From<V> for Flux<V, Deg<I, 0>> {
 	fn from(value: V) -> Self {
 		Self::new(value)
 	}
@@ -433,10 +438,10 @@ mod value_tests {
 	use crate::polynomial::*;
 	
 	fn linear() -> (
-		Flux<i64, f64, Deg<f64, 1>>,
-		Flux<i64, f64, Deg<f64, 2>>,
-		Flux<i64, f64, Deg<f64, 3>>,
-		Flux<i64, f64, Deg<f64, 4>>,
+		Flux<i64, Deg<f64, 1>>,
+		Flux<i64, Deg<f64, 2>>,
+		Flux<i64, Deg<f64, 3>>,
+		Flux<i64, Deg<f64, 4>>,
 	) {
 		// !!! Change these polynomials to something more practical
 		let v0 = 3_i64 - 5.per(Nanosecs);
@@ -519,10 +524,10 @@ mod value_tests {
 	}
 	
 	fn exponential() -> (
-		Flux<f64, Exp<f64>, Deg<Exp<f64>, 1>>,
-		Flux<f64, Exp<f64>, Deg<Exp<f64>, 2>>,
-		Flux<f64, Exp<f64>, Deg<Exp<f64>, 3>>,
-		Flux<f64, Exp<f64>, Deg<Exp<f64>, 4>>,
+		Flux<f64, Deg<Exp<f64>, 1>>,
+		Flux<f64, Deg<Exp<f64>, 2>>,
+		Flux<f64, Deg<Exp<f64>, 3>>,
+		Flux<f64, Deg<Exp<f64>, 4>>,
 	) {
 		// !!! Change polynomial to something more practical
 		let v0 = 3.2 / 1.1.per(Nanosecs);
