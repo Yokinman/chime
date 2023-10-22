@@ -14,51 +14,51 @@ use crate::polynomial::{Poly, RootList, Roots};
 
 /// A value with a dynamically-defined change over time.
 #[derive(Clone, Debug)]
-pub struct Value<V, I: LinearIso<V>, D: FluxKind> {
-	value: LinearFluxValue<I>,
-	phantom: PhantomData<(D, V)>,
+pub struct Flux<V, I: LinearIso<V>, K: FluxKind> {
+	value: LinearFlux<I>,
+	phantom: PhantomData<(K, V)>,
 }
 
-impl<V, I: LinearIso<V>> Value<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> Flux<V, I, Deg<I, 0>> {
 	pub fn new(initial_value: V) -> Self {
 		Self {
-			value: LinearFluxValue::new(I::inv_map(initial_value)),
+			value: LinearFlux::new(I::inv_map(initial_value)),
 			phantom: PhantomData,
 		}
 	}
 }
 
-impl<V, I: LinearIso<V>, D: FluxKind> Value<V, I, D> {
-	pub fn add_change<T>(mut self, rate: impl Into<Value<V, I, T>>, unit: TimeUnit)
-		-> Value::<V, I, <D as AddChange<T>>::Sum>
+impl<V, I: LinearIso<V>, K: FluxKind> Flux<V, I, K> {
+	pub fn add_change<T>(mut self, rate: impl Into<Flux<V, I, T>>, unit: TimeUnit)
+		-> Flux::<V, I, <K as AppendFluxKind<T>>::Output>
 	where
 		T: FluxKind,
-		D: AddChange<T>,
+		K: AppendFluxKind<T>,
 	{
 		let change = Change::new(Scalar(1.0), rate.into().value, unit);
 		self.value.add_change(change);
-		Value::<V, I, <D as AddChange<T>>::Sum> {
+		Flux::<V, I, <K as AppendFluxKind<T>>::Output> {
 			value: self.value,
 			phantom: PhantomData,
 		}
 	}
 	
-	pub fn sub_change<T>(mut self, rate: impl Into<Value<V, I, T>>, unit: TimeUnit)
-		-> Value::<V, I, <D as AddChange<T>>::Sum>
+	pub fn sub_change<T>(mut self, rate: impl Into<Flux<V, I, T>>, unit: TimeUnit)
+		-> Flux::<V, I, <K as AppendFluxKind<T>>::Output>
 	where
 		T: FluxKind,
-		D: AddChange<T>,
+		K: AppendFluxKind<T>,
 	{
 		let change = Change::new(Scalar(-1.0), rate.into().value, unit);
 		self.value.add_change(change);
-		Value::<V, I, <D as AddChange<T>>::Sum> {
+		Flux::<V, I, <K as AppendFluxKind<T>>::Output> {
 			value: self.value,
 			phantom: PhantomData,
 		}
 	}
 }
 
-impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> FluxValue for Flux<V, I, Deg<I, 0>> {
 	type Value = V;
 	type Kind = Deg<I, 0>;
 	type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
@@ -76,7 +76,7 @@ impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<I, 0>> {
 
 macro_rules! impl_flux_value_for_value {
 	($($degree:literal),+) => {$(
-		impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<I, $degree>> {
+		impl<V, I: LinearIso<V>> FluxValue for Flux<V, I, Deg<I, $degree>> {
 			type Value = V;
 			type Kind = Deg<I, $degree>;
 			type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
@@ -90,7 +90,7 @@ macro_rules! impl_flux_value_for_value {
 				for change in self.value.change_list.clone() {
 					changes = if change.scalar.0 == 1.0 {
 						changes.add(
-							&Value::<V, I, Deg<I, { $degree - 1 }>> {
+							&Flux::<V, I, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
 								phantom: PhantomData,
 							},
@@ -98,7 +98,7 @@ macro_rules! impl_flux_value_for_value {
 						)
 					} else {
 						changes.sub(
-							&Value::<V, I, Deg<I, { $degree - 1 }>> {
+							&Flux::<V, I, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
 								phantom: PhantomData,
 							},
@@ -111,7 +111,7 @@ macro_rules! impl_flux_value_for_value {
 			fn advance(&mut self, time: Time) {
 				self.value.initial_value = self.calc_value(time);
 				for change in &mut self.value.change_list {
-					let mut v = Value::<V, I, Deg<I, { $degree - 1 }>> {
+					let mut v = Flux::<V, I, Deg<I, { $degree - 1 }>> {
 						value: change.rate.clone(),
 						phantom: PhantomData,
 					};
@@ -126,34 +126,14 @@ macro_rules! impl_flux_value_for_value {
 }
 impl_flux_value_for_value!(1, 2, 3, 4, 5, 6, 7);
 
-// /// Implements `From` for casting a [`Value`] to a higher degree.
-// macro_rules! impl_cast_up {
-// 	($($degree:literal),+) => {$(
-// 		impl<V, I, D> From<Value<V, I, Deg<I, { $degree }>>> for Value<V, I, D>
-// 		where
-// 			I: LinearIso<V>,
-// 			D: FluxKind,
-// 			Deg<I, { $degree }>: Add<D, Output=D>,
-// 		{
-// 			fn from(value: Value<V, I, Deg<I, { $degree }>>) -> Self {
-// 				Self {
-// 					value: value.value,
-// 					phantom: PhantomData,
-// 				}
-// 			}
-// 		}
-// 	)+}
-// }
-// impl_cast_up!(0, 1, 2, 3, 4, 5, 6, 7);
-
 /// A value that linearly changes over time.
 #[derive(Clone, Debug)]
-struct LinearFluxValue<T: LinearValue> {
+struct LinearFlux<T: LinearValue> {
 	initial_value: T,
 	change_list: Vec<Change<T>>,
 }
 
-impl<T: LinearValue> LinearFluxValue<T> {
+impl<T: LinearValue> LinearFlux<T> {
 	fn new(initial_value: T) -> Self {
 		Self {
 			initial_value,
@@ -173,12 +153,12 @@ impl<T: LinearValue> LinearFluxValue<T> {
 #[derive(Clone, Debug)]
 struct Change<T: LinearValue> {
 	scalar: Scalar,
-	rate: LinearFluxValue<T>,
+	rate: LinearFlux<T>,
 	unit: TimeUnit,
 }
 
 impl<T: LinearValue> Change<T> {
-	pub fn new(scalar: Scalar, rate: LinearFluxValue<T>, unit: TimeUnit) -> Self {
+	pub fn new(scalar: Scalar, rate: LinearFlux<T>, unit: TimeUnit) -> Self {
 		Self {
 			scalar,
 			rate,
@@ -188,18 +168,18 @@ impl<T: LinearValue> Change<T> {
 }
 
 /// Produces the degree of the resulting change, à la: `max(A, B+1)`. 
-pub trait AddChange<K: FluxKind>: FluxKind {
-	type Sum: FluxKind;
+pub trait AppendFluxKind<K: FluxKind>: FluxKind {
+	type Output: FluxKind;
 }
 
-impl<A, B> AddChange<B> for A
+impl<A, B> AppendFluxKind<B> for A
 where
 	A: FluxKind,
 	B: FluxKind + Shr<DegShift>,
 	<B as Shr<DegShift>>::Output: FluxKind + Add<A>,
 	<<B as Shr<DegShift>>::Output as Add<A>>::Output: FluxKind,
 {
-	type Sum = <<B as Shr<DegShift>>::Output as Add<A>>::Output;
+	type Output = <<B as Shr<DegShift>>::Output as Add<A>>::Output;
 }
 
 /// A scalar value, used for multiplication with any [`LinearValue`].
@@ -288,12 +268,12 @@ macro_rules! impl_iso_for_int {
 impl_iso_for_int!(f32: u8, u16, u32, u64, i8, i16, i32, i64);
 impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 
-/// Used to construct a [`Flux`] for convenient change-over-time operations.
+/// Used to construct a [`FluxChange`] for convenient change-over-time operations.
 /// 
 /// `1 + 2.per(TimeUnit::Secs)` 
 pub trait Per: Sized {
-	fn per(self, unit: TimeUnit) -> Flux<Self> {
-		Flux {
+	fn per(self, unit: TimeUnit) -> FluxChange<Self> {
+		FluxChange {
 			rate: self,
 			unit
 		}
@@ -302,10 +282,10 @@ pub trait Per: Sized {
 impl Per for f64 {}
 impl Per for u64 {}
 impl Per for i64 {}
-impl<V, I: LinearIso<V>, D: FluxKind> Per for Value<V, I, D> {}
+impl<V, I: LinearIso<V>, K: FluxKind> Per for Flux<V, I, K> {}
 
-/// A change over time used with arithmetic operators to construct [`Value`]s.
-pub struct Flux<T> {
+/// A change over time used with arithmetic operators to construct [`Flux`]s.
+pub struct FluxChange<T> {
 	rate: T,
 	unit: TimeUnit,
 }
@@ -313,50 +293,50 @@ pub struct Flux<T> {
 macro_rules! impl_flux_ops {
 	($op_trait:ident::$op_fn:ident, $change_fn:ident, $map:ty, $iso:ty) => {
 		 // Num + Num.per(Unit)
-		impl $op_trait<Flux<$map>> for $map
+		impl $op_trait<FluxChange<$map>> for $map
 		where
 			$iso: LinearIso<$map>
 		{
-			type Output = Value<$map, $iso, Deg<$iso, 1>>;
-			fn $op_fn(self, rhs: Flux<$map>) -> Self::Output {
-				Value::new(self).$change_fn(rhs.rate, rhs.unit)
+			type Output = Flux<$map, $iso, Deg<$iso, 1>>;
+			fn $op_fn(self, rhs: FluxChange<$map>) -> Self::Output {
+				Flux::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
-		 // Num + Value.per(Unit)
-		impl<D> $op_trait<Flux<Value<$map, $iso, D>>> for $map
+		 // Num + Flux.per(Unit)
+		impl<K> $op_trait<FluxChange<Flux<$map, $iso, K>>> for $map
 		where
-			D: FluxKind,
-			Deg<$iso, 0>: AddChange<D>,
+			K: FluxKind,
+			Deg<$iso, 0>: AppendFluxKind<K>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Value<$map, $iso, <Deg<$iso, 0> as AddChange<D>>::Sum>;
-			fn $op_fn(self, rhs: Flux<Value<$map, $iso, D>>) -> Self::Output {
-				Value::new(self).$change_fn(rhs.rate, rhs.unit)
+			type Output = Flux<$map, $iso, <Deg<$iso, 0> as AppendFluxKind<K>>::Output>;
+			fn $op_fn(self, rhs: FluxChange<Flux<$map, $iso, K>>) -> Self::Output {
+				Flux::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
-		 // Value + Num.per(Unit)
-		impl<D> $op_trait<Flux<$map >> for Value<$map, $iso, D>
+		 // Flux + Num.per(Unit)
+		impl<K> $op_trait<FluxChange<$map >> for Flux<$map, $iso, K>
 		where
-			D: FluxKind + AddChange<Deg<$iso, 0>>,
+			K: FluxKind + AppendFluxKind<Deg<$iso, 0>>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Value<$map, $iso, <D as AddChange<Deg<$iso, 0>>>::Sum>;
-			fn $op_fn(self, rhs: Flux<$map>) -> Self::Output {
+			type Output = Flux<$map, $iso, <K as AppendFluxKind<Deg<$iso, 0>>>::Output>;
+			fn $op_fn(self, rhs: FluxChange<$map>) -> Self::Output {
 				self.$change_fn(rhs.rate, rhs.unit)
 			}
 		}
 		
-		 // Value + Value.per(Unit)
-		impl<D, T> $op_trait<Flux<Value<$map, $iso, T>>> for Value<$map, $iso, D>
+		 // Flux + Flux.per(Unit)
+		impl<K, T> $op_trait<FluxChange<Flux<$map, $iso, T>>> for Flux<$map, $iso, K>
 		where
-			D: FluxKind + AddChange<T>,
+			K: FluxKind + AppendFluxKind<T>,
 			T: FluxKind,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Value<$map, $iso, <D as AddChange<T>>::Sum>;
-			fn $op_fn(self, rhs: Flux<Value<$map, $iso, T>>) -> Self::Output {
+			type Output = Flux<$map, $iso, <K as AppendFluxKind<T>>::Output>;
+			fn $op_fn(self, rhs: FluxChange<Flux<$map, $iso, T>>) -> Self::Output {
 				self.$change_fn(rhs.rate, rhs.unit)
 			}
 		}
@@ -373,7 +353,7 @@ impl_flux_ops!(Mul::mul, add_change, u64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, f64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, u64, Exp<f64>);
 
-impl<V, I: LinearIso<V>> From<V> for Value<V, I, Deg<I, 0>> {
+impl<V, I: LinearIso<V>> From<V> for Flux<V, I, Deg<I, 0>> {
 	fn from(value: V) -> Self {
 		Self::new(value)
 	}
@@ -453,10 +433,10 @@ mod value_tests {
 	use crate::polynomial::*;
 	
 	fn linear() -> (
-		Value<i64, f64, Deg<f64, 1>>,
-		Value<i64, f64, Deg<f64, 2>>,
-		Value<i64, f64, Deg<f64, 3>>,
-		Value<i64, f64, Deg<f64, 4>>,
+		Flux<i64, f64, Deg<f64, 1>>,
+		Flux<i64, f64, Deg<f64, 2>>,
+		Flux<i64, f64, Deg<f64, 3>>,
+		Flux<i64, f64, Deg<f64, 4>>,
 	) {
 		// !!! Change these polynomials to something more practical
 		let v0 = 3_i64 - 5.per(Nanosecs);
@@ -516,33 +496,33 @@ mod value_tests {
 			PredValue::new(v2),
 			PredValue::new(v3),
 		);
-		assert_eq!(v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]); // 0.6
-		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]); // -1.902, 2.102
-		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [3*Nanosecs]); // 3.892
-		assert_eq!(v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [5*Nanosecs]); // -3.687, 5.631
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]); // 0.6
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]); // -1.902, 2.102
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [3*Nanosecs]); // 3.892
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [5*Nanosecs]); // -3.687, 5.631
 		v0.borrow_mut().advance(1*Nanosecs);
 		v1.borrow_mut().advance(1*Nanosecs);
 		v2.borrow_mut().advance(1*Nanosecs);
 		v3.borrow_mut().advance(1*Nanosecs);
-		assert_eq!(v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [1*Nanosecs]);
-		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
-		assert_eq!(v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [4*Nanosecs]);
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [1*Nanosecs]);
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [4*Nanosecs]);
 		v0.borrow_mut().advance(2*Nanosecs);
 		v1.borrow_mut().advance(2*Nanosecs);
 		v2.borrow_mut().advance(2*Nanosecs);
 		v3.borrow_mut().advance(2*Nanosecs);
-		assert_eq!(v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v2.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]);
-		assert_eq!(v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
 	}
 	
 	fn exponential() -> (
-		Value<f64, Exp<f64>, Deg<Exp<f64>, 1>>,
-		Value<f64, Exp<f64>, Deg<Exp<f64>, 2>>,
-		Value<f64, Exp<f64>, Deg<Exp<f64>, 3>>,
-		Value<f64, Exp<f64>, Deg<Exp<f64>, 4>>,
+		Flux<f64, Exp<f64>, Deg<Exp<f64>, 1>>,
+		Flux<f64, Exp<f64>, Deg<Exp<f64>, 2>>,
+		Flux<f64, Exp<f64>, Deg<Exp<f64>, 3>>,
+		Flux<f64, Exp<f64>, Deg<Exp<f64>, 4>>,
 	) {
 		// !!! Change polynomial to something more practical
 		let v0 = 3.2 / 1.1.per(Nanosecs);
@@ -585,26 +565,26 @@ mod value_tests {
 			PredValue::new(v2),
 			PredValue::new(v3),
 		);
-		assert_eq!(v0.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [12*Nanosecs]); // 12.204
-		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [24*Nanosecs]); // -1.143, 24.551
-		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [36*Nanosecs]); // 36.91 
-		assert_eq!(v3.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [49*Nanosecs]); // -4.752, 49.329
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [12*Nanosecs]); // 12.204
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [24*Nanosecs]); // -1.143, 24.551
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [36*Nanosecs]); // 36.91 
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [49*Nanosecs]); // -4.752, 49.329
 		v0.borrow_mut().advance(6*Nanosecs);
 		v1.borrow_mut().advance(6*Nanosecs);
 		v2.borrow_mut().advance(6*Nanosecs);
 		v3.borrow_mut().advance(6*Nanosecs);
-		assert_eq!(v0.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [6*Nanosecs]);
-		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [18*Nanosecs]);
-		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [30*Nanosecs]);
-		assert_eq!(v3.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [43*Nanosecs]);
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [6*Nanosecs]);
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [18*Nanosecs]);
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [30*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [43*Nanosecs]);
 		v0.borrow_mut().advance(20*Nanosecs);
 		v1.borrow_mut().advance(20*Nanosecs);
 		v2.borrow_mut().advance(20*Nanosecs);
 		v3.borrow_mut().advance(20*Nanosecs);
-		assert_eq!(v0.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v2.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [10*Nanosecs]);
-		assert_eq!(v3.when_eq(&Value::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]);
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [10*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]);
 	}
 	
 	#[test]
@@ -645,30 +625,30 @@ mod value_tests {
 		v0.advance(10*Nanosecs);
 		let new_v0 = PredValue::new(v0.clone() + 7.per(Nanosecs));
 		assert_eq!(v0.at(0*Nanosecs), new_v0.at(0*Nanosecs));
-		assert_eq!(new_v0.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]); // 23.5
+		assert_eq!(new_v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]); // 23.5
 		
 		v3.advance(6*Nanosecs);
 		let new_v3 = PredValue::new(v3.clone() + 1000.per(Nanosecs));
 		assert_eq!(v3.at(0*Nanosecs), new_v3.at(0*Nanosecs));
-		assert_eq!(new_v3.when_eq(&Value::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
+		assert_eq!(new_v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
 	}
 	
 	#[test]
 	fn when() {
 		use Ordering::*;
 		let (v0, v1, v2, v3) = linear();
-		assert_eq!(PredValue::new(v0.clone()).when(Equal,   &Value::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v0.clone()).when(Less,    &Value::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v0.clone()).when(Greater, &Value::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(0*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Equal,   &Value::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, 2*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Less,    &Value::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Greater, &Value::new(-25_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 3*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Equal,   &Value::new(71_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs), (1*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Less,    &Value::new(20_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(3*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Greater, &Value::new(69_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 2*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Equal,   &Value::new(140_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(5*Nanosecs, 5*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Less,    &Value::new(160_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 0*Nanosecs), (5*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Greater, &Value::new(280_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(2*Nanosecs, 4*Nanosecs)]);
+		assert_eq!(PredValue::new(v0.clone()).when(Equal,   &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(PredValue::new(v0.clone()).when(Less,    &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(PredValue::new(v0.clone()).when(Greater, &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(0*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(PredValue::new(v1.clone()).when(Equal,   &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(PredValue::new(v1.clone()).when(Less,    &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(PredValue::new(v1.clone()).when(Greater, &Flux::new(-25_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 3*Nanosecs)]);
+		assert_eq!(PredValue::new(v2.clone()).when(Equal,   &Flux::new(71_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs), (1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(PredValue::new(v2.clone()).when(Less,    &Flux::new(20_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(3*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(PredValue::new(v2.clone()).when(Greater, &Flux::new(69_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(PredValue::new(v3.clone()).when(Equal,   &Flux::new(140_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(5*Nanosecs, 5*Nanosecs)]);
+		assert_eq!(PredValue::new(v3.clone()).when(Less,    &Flux::new(160_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 0*Nanosecs), (5*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(PredValue::new(v3.clone()).when(Greater, &Flux::new(280_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(2*Nanosecs, 4*Nanosecs)]);
 	}
 	
 	#[test]
@@ -681,26 +661,26 @@ mod value_tests {
 			PredValue::new(v3),
 		);
 		assert_eq!(
-			v0.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v0.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+			v0.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v0.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v1.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v1.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+			v1.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v1.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v2.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v2.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+			v2.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v2.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v3.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v3.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+			v3.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v3.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);

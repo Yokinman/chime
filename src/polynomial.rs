@@ -297,7 +297,7 @@ impl Roots for Deg<f64, 4> {
 }
 
 /*
-impl Roots for Deg<Vec2<f64>, D> {
+impl Roots for Deg<Vec2<f64>, K> {
 	fn roots(&self) -> Result<RootList, RootList> {
 		let a = (Poly from Vec2 primary terms).roots();
 		let b = (Poly from Vec2 secondary terms).roots();
