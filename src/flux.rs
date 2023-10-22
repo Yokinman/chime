@@ -4,12 +4,11 @@ use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Add, Deref, DerefMut, Shr, Sub};
 use std::rc::Rc;
 use time::{Time, TimeUnit};
 use crate::change::{LinearIso, LinearValue, Scalar};
-use crate::degree::{IsBelowDeg, IsDeg, MaxDeg};
+use crate::degree::{DegShift, FluxKind};
 use crate::polynomial::{Poly, Roots};
 
  // Convenient implementations (Vec<T>, ??? tuples, etc.):
@@ -21,67 +20,51 @@ pub trait FluxValue: Sized {
 	/// The produced value.
 	type Value;
 	
-	/// The inner linear isomorphic value (linear (+), exponential (*), etc.).
-	type Linear: LinearValue + LinearIso<Self::Value>;
-	
 	/// The kind of change over time.
-	type Degree: IsDeg;
+	type Kind: FluxKind;
+	
+	/// The output accumulator of [`FluxValue::change`].
+	type OutAccum<'a>: FluxAccum<'a, Self::Kind>
+	where <Self::Kind as FluxKind>::Linear: 'a;
 	
 	/// Initial value.
-	fn value(&self) -> Self::Linear;
-	fn set_value(&mut self, value: Self::Linear);
+	fn value(&self) -> <Self::Kind as FluxKind>::Linear;
+	fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear);
 	
 	/// Accumulates change over time.
-	fn change(&self, changes: &mut Changes<Self>);
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a>;
 	
 	/// Apply change over time.
 	fn advance(&mut self, time: Time);
 	
-	fn calc_value(&self, time: Time) -> Self::Linear {
-		let mut changes = ChangeAccum::new(
-			ChangeAccumArgs::Sum(time.as_nanos() as f64));
-		self.change(&mut changes);
-		self.value() + changes.sum
+	fn calc_value(&self, time: Time) -> <Self::Kind as FluxKind>::Linear {
+		let mut value = self.value();
+		let value_accum = FluxAccumKind::Sum { sum: &mut value, depth: 0, time };
+		self.change(<Self::Kind as FluxKind>::Accum::from_kind(value_accum));
+		value
 	}
 	
-	fn at(&self, time: Time) -> Self::Value {
+	fn at(&self, time: Time) -> Self::Value
+	where
+		<Self::Kind as FluxKind>::Linear: LinearIso<Self::Value>,
+	{
 		self.calc_value(time).map()
 	}
 	
-	fn poly(&self) -> Poly<Self::Linear, Self::Degree> {
-		let constant = coeff_calc(self, 0.0, 0.0);
-		let mut coeff_list = Self::Degree::array_from(Self::Linear::zero());
-		
-		for degree in 1..=Self::Degree::USIZE {
-			coeff_list[degree - 1] = coeff_calc(self, 0.0, degree as f64);
-		}
-		
-		Poly(constant, coeff_list)
+	fn poly(&self) -> Poly<Self::Kind> {
+		let mut poly = Poly::default();
+		poly.0 = self.value();
+		let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
+		self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
+		poly
 	}
-}
-
-fn coeff_calc<T: FluxValue>(value: &T, depth: f64, degree: f64) -> T::Linear {
-	if depth == 0.0 && degree == 0.0 {
-		value.value()
-	} else {
-		let mut accum = ChangeAccum::new(ChangeAccumArgs::Coeff(degree));
-		accum.depth = depth;
-		value.change(&mut accum);
-		let coeff_sum = accum.sum * Scalar(1.0 / (depth + 1.0));
-		if depth >= degree {
-			value.value() + coeff_sum
-		} else {
-			coeff_sum
-		}
-	}
-	// https://www.desmos.com/calculator/tn0udn7swy
 }
 
 /// ...
 #[allow(type_alias_bounds)]
 type PredPoly<A: FluxValue> = Rc<RefCell<(
 	Time,
-	Poly<A::Linear, A::Degree>
+	Poly<A::Kind>
 	// ??? It may be worth storing the original value so that the polynomial
 	// can be easily offset for comparison with the other value.
 )>>;
@@ -105,7 +88,7 @@ impl<A: FluxValue> PredValue<A> {
 	/// any modifications to its inner flux value. 
 	pub fn when<'a, B>(&'a self, cmp_order: Ordering, other: impl Into<PredValue<&'a B>>) -> When<A, B>
 	where
-		B: FluxValue<Linear=A::Linear> + 'a,
+		B: FluxValue + 'a,
 		When<A, B>: IntoIterator
 	{
 		When {
@@ -120,7 +103,7 @@ impl<A: FluxValue> PredValue<A> {
 	/// after any modifications to its inner flux value.
 	pub fn when_eq<'a, B>(&'a self, other: impl Into<PredValue<&'a B>>) -> WhenEq<A, B>
 	where
-		B: FluxValue<Linear=A::Linear> + 'a,
+		B: FluxValue + 'a,
 		WhenEq<A, B>: IntoIterator
 	{
 		WhenEq {
@@ -255,21 +238,13 @@ impl Iterator for Times {
 
 /// [`FluxValue`] predictive comparison.
 #[derive(Debug)]
-pub struct When<A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
-{
+pub struct When<A: FluxValue, B: FluxValue> {
 	a_poly: PredPoly<A>,
 	b_poly: PredPoly<B>,
 	cmp_order: Ordering,
 }
 
-impl<A, B> Clone for When<A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
-{
+impl<A: FluxValue, B: FluxValue> Clone for When<A, B> {
 	fn clone(&self) -> Self {
 		Self {
 			a_poly: self.a_poly.clone(),
@@ -282,9 +257,12 @@ where
 impl<A, B> IntoIterator for When<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
-	A::Degree: MaxDeg<B::Degree>,
-	A::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialOrd
+	B: FluxValue,
+	B::Kind: FluxKind<Linear = <A::Kind as FluxKind>::Linear>,
+	A::Kind: Add<B::Kind>,
+	<A::Kind as FluxKind>::Linear: PartialOrd,
+	<A::Kind as Add<B::Kind>>::Output: FluxKind<Linear = <A::Kind as FluxKind>::Linear> + Roots + PartialOrd,
+	Poly<A::Kind>: Sub<Poly<B::Kind>, Output=Poly<<A::Kind as Add<B::Kind>>::Output>>,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
@@ -294,18 +272,22 @@ where
 			- RefCell::borrow(&self.b_poly).1;
 		
 		 // Find Initial Order:
-		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
+		let mut degree = <<A::Kind as Add<B::Kind>>::Output as FluxKind>::DEGREE;
 		let initial_order = loop {
-			let coeff = poly.term(degree).unwrap();
-			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
-			if degree == 0 || order != Some(Ordering::Equal) {
-				break if degree % 2 == 0 {
-					order
-				} else {
-					order.map(|o| o.reverse())
+			if degree == 0 {
+				break poly.constant().partial_cmp(&<A::Kind as FluxKind>::Linear::zero());
+			} else {
+				let coeff = poly.coeff(degree - 1).unwrap();
+				let order = coeff.partial_cmp(&FluxKind::zero());
+				if order != Some(Ordering::Equal) {
+					break if degree % 2 == 0 {
+						order
+					} else {
+						order.map(|o| o.reverse())
+					}
 				}
+				degree -= 1;
 			}
-			degree -= 1;
 		};
 		
 		 // Convert Roots to Ranges:
@@ -360,198 +342,11 @@ where
 		
 		TimeRanges(list.into_iter())
 	}
-	/*{
-		let mut a = RefCell::borrow(&self.a_poly).clone().into_iter();
-		let mut b = RefCell::borrow(&self.b_poly).clone().into_iter();
-		let (mut a_time, mut a_poly) = a.next().unwrap();
-		let (mut b_time, mut b_poly) = b.next().unwrap();
-		let mut next_a = a.next();
-		let mut next_b = b.next();
-		
-		let mut list: Vec<(Time, Time)> = Vec::new();
-		
-		let mut can_loop = true;
-		
-		while can_loop {
-		
-		 // Apply Time Offset: ??? Could just store the original value, which wouldn't need extra logic for time offsets.
-		fn binom(n: i32, k: i32) -> i32 {
-			if n == k || k == 0 {
-				return 1
-			}
-			binom(n - 1, k - 1) + binom(n - 1, k)
-		}
-		if a_time > b_time {
-			let offset = ((a_time - b_time) >> TimeUnit::Nanosecs) as f64;
-			let mut n = 1;
-			for &coeff in b_poly.clone().coeff_iter() {
-				let constant = &mut b_poly.0;
-				*constant = *constant + (coeff * Scalar(offset.powi(n)));
-				let mut k = 1;
-				for mut_coeff in b_poly.coeff_iter_mut() {
-					*mut_coeff = *mut_coeff + (coeff * Scalar(offset.powi(n - k) * (binom(n + 1, k) as f64)));
-					if n == k {
-						break
-					}
-					k += 1;
-				}
-				n += 1;
-			}
-		} else if b_time > a_time {
-			let offset = ((b_time - a_time) >> TimeUnit::Nanosecs) as f64;
-			let mut n = 1;
-			for &coeff in a_poly.clone().coeff_iter() {
-				let constant = &mut a_poly.0;
-				*constant = *constant + (coeff * Scalar(offset.powi(n)));
-				let mut k = 1;
-				for mut_coeff in a_poly.coeff_iter_mut() {
-					*mut_coeff = *mut_coeff + (coeff * Scalar(offset.powi(n - k) * (binom(n + 1, k) as f64)));
-					if n == k {
-						break
-					}
-					k += 1;
-				}
-				n += 1;
-			}
-		}
-		
-		let poly = a_poly - b_poly;
-		
-		 // Find Initial Order:
-		let mut degree = <<A::Degree as MaxDeg<B::Degree>>::Max as IsDeg>::USIZE;
-		let initial_order = loop {
-			let coeff = poly.term(degree).unwrap();
-			let order = coeff.partial_cmp(&(coeff * Scalar(0.0)));
-			if degree == 0 || order != Some(Ordering::Equal) {
-				break if degree % 2 == 0 {
-					order
-				} else {
-					order.map(|o| o.reverse())
-				}
-			}
-			degree -= 1;
-		};
-		
-		 // Convert Roots to Ranges:
-		let range_list = match poly.real_roots() {
-			Ok(roots) => {
-				let mut list = Vec::with_capacity(
-					if self.cmp_order == Ordering::Equal {
-						roots.len()
-					} else {
-						1 + (roots.len() / 2)
-					}
-				);
-				let mut prev_point = if initial_order == Some(self.cmp_order) {
-					Some(f64::NEG_INFINITY)
-				} else {
-					None
-				};
-				for &point in roots.into_iter() {
-					if let Some(prev) = prev_point {
-						if point != prev {
-							list.push((prev, point));
-						}
-						prev_point = None;
-					} else if self.cmp_order == Ordering::Equal {
-						list.push((point, point));
-					} else {
-						prev_point = Some(point);
-					}
-				}
-				if let Some(point) = prev_point {
-					list.push((point, f64::INFINITY));
-				}
-				list.into_iter()
-			},
-			Err(_) => Default::default(),
-		};
-		
-		let min_time = (a_time.max(b_time) >> TimeUnit::Nanosecs) as f64;
-		
-		match (next_a, next_b) {
-			(Some((next_a_time, next_a_poly)), Some((next_b_time, next_b_poly))) => {
-				match next_a_time.cmp(&next_b_time) {
-					Ordering::Equal => {
-						a_time = next_a_time;
-						a_poly = next_a_poly;
-						b_time = next_b_time;
-						b_poly = next_b_poly;
-						next_a = a.next();
-						next_b = b.next();
-					},
-					Ordering::Greater => {
-						b_time = next_b_time;
-						b_poly = next_b_poly;
-						next_b = b.next();
-					},
-					Ordering::Less => {
-						a_time = next_a_time;
-						a_poly = next_a_poly;
-						next_a = a.next();
-					},
-				}
-			},
-			(Some((next_a_time, next_a_poly)), None) => {
-				a_time = next_a_time;
-				a_poly = next_a_poly;
-				next_a = a.next();
-			},
-			(None, Some((next_b_time, next_b_poly))) => {
-				b_time = next_b_time;
-				b_poly = next_b_poly;
-				next_b = b.next();
-			},
-			(None, None) => can_loop = false,
-		}
-		
-		 // Convert Ranges to Times:
-		let max_time = if can_loop {
-			(a_time.max(b_time) >> TimeUnit::Nanosecs) as f64
-		} else {
-			(u64::MAX as f64) + 1.0
-		};
-		let mut append_list: Vec<(Time, Time)> = range_list
-			.filter_map(|(a, b)| {
-				assert!(a <= b);
-				let a = a + min_time;
-				let b = b + min_time;
-				if b < min_time || a >= max_time {
-					None
-				} else {
-					Some((
-						(a.max(min_time) as u64)*TimeUnit::Nanosecs,
-						(b.min(max_time) as u64)*TimeUnit::Nanosecs
-					))
-				}
-			})
-			.collect();
-			
-		if let Some((_, last_time)) = list.last_mut() {
-			if let Some(&(first_time, next_time)) = append_list.first() {
-				 // Merge adjacent ranges:
-				if *last_time == first_time {
-					*last_time = next_time;
-					append_list.remove(0);
-				}
-			}
-		}
-		
-		list.append(&mut append_list);
-		
-		}
-		
-		TimeRanges(list.into_iter())
-	}*/
 }
 
 /// [`FluxValue`] predictive equality comparison.
 #[derive(Debug)]
-pub struct WhenEq<A, B>
-where
-	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
-{
+pub struct WhenEq<A: FluxValue, B: FluxValue> {
 	a_poly: PredPoly<A>,
 	b_poly: PredPoly<B>,
 }
@@ -559,7 +354,7 @@ where
 impl<A, B> Clone for WhenEq<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
+	B: FluxValue,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -572,9 +367,12 @@ where
 impl<A, B> IntoIterator for WhenEq<A, B>
 where
 	A: FluxValue,
-	B: FluxValue<Linear=A::Linear>,
-	A::Degree: MaxDeg<B::Degree>,
-	A::Linear: Roots<<A::Degree as MaxDeg<B::Degree>>::Max> + PartialEq
+	B: FluxValue,
+	B::Kind: FluxKind<Linear = <A::Kind as FluxKind>::Linear>,
+	A::Kind: Add<B::Kind>,
+	<A::Kind as FluxKind>::Linear: PartialEq,
+	<A::Kind as Add<B::Kind>>::Output: FluxKind<Linear = <A::Kind as FluxKind>::Linear> + Roots + PartialEq,
+	Poly<A::Kind>: Sub<Poly<B::Kind>, Output=Poly<<A::Kind as Add<B::Kind>>::Output>>,
 {
 	type Item = Time;
 	type IntoIter = Times;
@@ -588,8 +386,8 @@ where
 		 // Constant Equality:
 		if
 			real_roots.is_empty()
-			&& poly.constant() == A::Linear::zero()
-			&& poly.coeff_iter().all(|&term| term == A::Linear::zero())
+			&& poly.constant().is_zero()
+			&& poly.coeff_iter().all(FluxKind::is_zero)
 		{
 			real_roots.push(0.0);
 		}
@@ -611,82 +409,96 @@ where
 }
 
 #[allow(type_alias_bounds)]
-pub type Changes<T: FluxValue> = ChangeAccum<T::Value, T::Linear, T::Degree>;
+pub type Changes<'a, T: FluxValue> = <T::Kind as FluxKind>::Accum<'a>;
 
 /// Change accumulator.
-#[derive(Debug)]
-pub struct ChangeAccum<M, I: LinearIso<M>, D: IsDeg> {
-	sum: I,
-	args: ChangeAccumArgs,
-	depth: f64,
-	degree: PhantomData<D>,
-	mapped: PhantomData<M>,
+pub trait FluxAccum<'a, K: FluxKind> {
+	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
 }
 
-impl<M, I: LinearIso<M>, D: IsDeg> ChangeAccum<M, I, D> {
-	fn new(args: ChangeAccumArgs) -> Self {
-		Self {
-			sum: I::zero(),
-			args,
-			depth: 0.0,
-			degree: PhantomData,
-			mapped: PhantomData,
-		}
+/// Nested summation change accumulator.
+pub struct SumAccum<'a, K: FluxKind>(FluxAccumKind<'a, K>);
+
+impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
+	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self {
+		Self(kind)
+	}
+}
+
+impl<K: FluxKind> SumAccum<'_, K>
+where
+	K: Add<Output=K>,
+{
+	pub fn add<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
+	where
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+	{
+		self.accum(Scalar(1.0), value, unit)
 	}
 	
-	pub fn add<C>(&mut self, value: &C, unit: TimeUnit)
+	pub fn sub<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
 	where
-		C: FluxValue<Value=M, Linear=I>,
-		C::Degree: IsBelowDeg<D>,
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
 	{
-		self.accum(Scalar(1.0), value, unit);
+		self.accum(Scalar(-1.0), value, unit)
 	}
 	
-	pub fn sub<C>(&mut self, value: &C, unit: TimeUnit)
+	fn accum<C: FluxValue>(mut self, scalar: Scalar, value: &C, unit: TimeUnit) -> Self
 	where
-		C: FluxValue<Value=M, Linear=I>,
-		C::Degree: IsBelowDeg<D>,
+		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
+		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
+		C::Kind: From<<C::Kind as FluxKind>::Linear>,
+		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
 	{
-		self.accum(Scalar(-1.0), value, unit);
-	}
-	
-	fn accum<C>(&mut self, scalar: Scalar, change: &C, unit: TimeUnit)
-	where
-		C: FluxValue<Value=M, Linear=I>,
-		C::Degree: IsBelowDeg<D>,
-	{
-		self.sum = self.sum + match &mut self.args {
-			ChangeAccumArgs::Sum(time) => {
-				 // Fetch Value of Change:
-				let mut changes = ChangeAccum::new(ChangeAccumArgs::Sum(*time));
-				changes.depth = self.depth + 1.0;
-				change.change(&mut changes);
-				let value = change.value() + changes.sum;
-				
-				let time = *time * ((unit >> TimeUnit::Nanosecs) as f64).recip();
-				value * Scalar((time + self.depth) / (self.depth + 1.0)) * scalar
+		match &mut self.0 {
+			FluxAccumKind::Sum { sum, depth, time } => {
+				let mut sub_sum = value.value();
+				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Sum {
+					sum: &mut sub_sum,
+					depth: *depth + 1,
+					time: *time,
+				}));
+				let depth = *depth as f64;
+				let time_scale = (time.as_nanos() as f64) / ((unit >> TimeUnit::Nanosecs) as f64);
+				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
 			},
-			ChangeAccumArgs::Coeff(degree) => {
-				let coeff = coeff_calc(change, self.depth + 1.0, *degree);
-				if self.depth < *degree {
-					let coeff = coeff * Scalar(((unit >> TimeUnit::Nanosecs) as f64).recip());
-					if self.depth == 0.0 {
-						coeff * scalar
-					} else {
-						(coeff + (coeff_calc(change, self.depth + 1.0, *degree + 1.0) * Scalar(self.depth))) * scalar
-					}
-				} else {
-					coeff * Scalar(self.depth) * scalar
-				}
+			FluxAccumKind::Poly { poly, depth } => {
+				let mut sub_poly = Poly::default();
+				sub_poly.0 = value.value();
+				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Poly {
+					poly: &mut sub_poly,
+					depth: *depth + 1,
+				}));
+				let depth = *depth as f64;
+				let unit_scale = ((unit >> TimeUnit::Nanosecs) as f64).recip();
+				**poly = **poly
+					+ (sub_poly * (Scalar(depth / (depth + 1.0)) * scalar))
+					+ ((sub_poly >> DegShift) * (Scalar(unit_scale / (depth + 1.0)) * scalar));
+				// https://www.desmos.com/calculator/mhlpjakz32
 			}
-		};
+		}
+		self
 	}
 }
 
-#[derive(Debug)]
-enum ChangeAccumArgs {
-	Sum(f64),
-	Coeff(f64),
+/// General accumulator arguments.
+#[non_exhaustive]
+pub enum FluxAccumKind<'a, K: FluxKind> {
+	Sum {
+		sum: &'a mut K::Linear,
+		depth: usize,
+		time: Time,
+	},
+	Poly {
+		poly: &'a mut Poly<K>,
+		depth: usize,
+	},
 }
 
 #[cfg(test)]
@@ -704,17 +516,18 @@ mod tests {
 	
 	impl FluxValue for Pos {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<4>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 4>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, changes: &mut Changes<Self>) {
-			changes.add(&self.spd, TimeUnit::Secs);
-			changes.add(&self.misc, TimeUnit::Secs);
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes
+				.add(&self.spd, TimeUnit::Secs)
+				.add(&self.misc, TimeUnit::Secs)
 		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
@@ -724,17 +537,18 @@ mod tests {
 	
 	impl FluxValue for Spd {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<3>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 3>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, changes: &mut Changes<Self>) {
-			changes.sub(&self.fric, TimeUnit::Secs);
-			changes.add(&self.accel, TimeUnit::Secs);
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes
+				.sub(&self.fric, TimeUnit::Secs)
+				.add(&self.accel, TimeUnit::Secs)
 		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
@@ -745,15 +559,17 @@ mod tests {
 	
 	impl FluxValue for Fric {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<0>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 0>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, _changes: &mut Changes<Self>) {}
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes
+		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
 		}
@@ -761,16 +577,16 @@ mod tests {
 	
 	impl FluxValue for Accel {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<2>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 2>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, changes: &mut Changes<Self>) {
-			changes.add(&self.jerk, TimeUnit::Secs);
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes.add(&self.jerk, TimeUnit::Secs)
 		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
@@ -780,16 +596,16 @@ mod tests {
 	
 	impl FluxValue for Jerk {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<1>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 1>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, changes: &mut Changes<Self>) {
-			changes.add(&self.snap, TimeUnit::Secs);
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes.add(&self.snap, TimeUnit::Secs)
 		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
@@ -799,15 +615,17 @@ mod tests {
 	
 	impl FluxValue for Snap {
 		type Value = i64;
-		type Linear = f64;
-		type Degree = Deg<0>;
-		fn value(&self) -> Self::Linear {
+		type Kind = Deg<f64, 0>;
+		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
+		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 			self.value
 		}
-		fn set_value(&mut self, value: Self::Linear) {
+		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 			self.value = value;
 		}
-		fn change(&self, _changes: &mut Changes<Self>) {}
+		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+			changes
+		}
 		fn advance(&mut self, time: Time) {
 			self.value = self.calc_value(time);
 		}
@@ -858,20 +676,20 @@ mod tests {
 		assert_eq!(
 			pos.poly(),
 			Poly(32.0, [
-				-1.469166666666667e-9,
-				-1.4045833333333335e-18,
-				0.06416666666666669e-27,
-				-0.0004166666666666668e-36
+				Deg(-1.469166666666667e-9),
+				Deg(-1.4045833333333335e-18),
+				Deg(0.06416666666666669e-27),
+				Deg(-0.00041666666666666684e-36),
 			])
 		);
 		pos.advance(20*Secs);
 		assert_eq!(
 			pos.poly(),
 			Poly(-112.55000000000007, [
-				6.0141666666666615e-9,
-				1.4454166666666668e-18,
-				0.030833333333333334e-27,
-				-0.0004166666666666668e-36
+				Deg(6.0141666666666615e-9),
+				Deg(1.445416666666667e-18),
+				Deg(0.03083333333333335e-27),
+				Deg(-0.00041666666666666684e-36),
 			])
 		);
 	}

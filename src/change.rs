@@ -2,122 +2,118 @@
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::ops::{Add, Mul, Sub, Div};
+use std::ops::{Add, Mul, Sub, Div, Shr};
 
 use impl_op::impl_op;
 
 use time::{Time, TimeUnit};
 use crate::flux::{Changes, FluxValue};
 
-use crate::degree::{Deg, IsDeg, IsBelowDeg, HasUpDeg, MaxDeg};
+use crate::degree::{Deg, FluxKind, DegShift};
 use crate::polynomial::{Poly, RootList, Roots};
 
 /// A value with a dynamically-defined change over time.
 #[derive(Clone, Debug)]
-pub struct Value<V, I: LinearIso<V>, D: IsDeg> {
+pub struct Value<V, I: LinearIso<V>, D: FluxKind> {
 	value: LinearFluxValue<I>,
-	degree: PhantomData<D>,
-	mapped: PhantomData<V>,
+	phantom: PhantomData<(D, V)>,
 }
 
-impl<V, I: LinearIso<V>> Value<V, I, Deg<0>> {
+impl<V, I: LinearIso<V>> Value<V, I, Deg<I, 0>> {
 	pub fn new(initial_value: V) -> Self {
 		Self {
 			value: LinearFluxValue::new(I::inv_map(initial_value)),
-			degree: PhantomData,
-			mapped: PhantomData,
+			phantom: PhantomData,
 		}
 	}
 }
 
-impl<V, I: LinearIso<V>, D: IsDeg> Value<V, I, D> {
+impl<V, I: LinearIso<V>, D: FluxKind> Value<V, I, D> {
 	pub fn add_change<T>(mut self, rate: impl Into<Value<V, I, T>>, unit: TimeUnit)
 		-> Value::<V, I, <D as AddChange<T>>::Sum>
 	where
-		T: IsDeg,
+		T: FluxKind,
 		D: AddChange<T>,
 	{
 		let change = Change::new(Scalar(1.0), rate.into().value, unit);
 		self.value.add_change(change);
 		Value::<V, I, <D as AddChange<T>>::Sum> {
 			value: self.value,
-			degree: PhantomData,
-			mapped: PhantomData,
+			phantom: PhantomData,
 		}
 	}
 	
 	pub fn sub_change<T>(mut self, rate: impl Into<Value<V, I, T>>, unit: TimeUnit)
 		-> Value::<V, I, <D as AddChange<T>>::Sum>
 	where
-		T: IsDeg,
+		T: FluxKind,
 		D: AddChange<T>,
 	{
 		let change = Change::new(Scalar(-1.0), rate.into().value, unit);
 		self.value.add_change(change);
 		Value::<V, I, <D as AddChange<T>>::Sum> {
 			value: self.value,
-			degree: PhantomData,
-			mapped: PhantomData,
+			phantom: PhantomData,
 		}
 	}
 }
 
-impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<0>> {
+impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<I, 0>> {
 	type Value = V;
-	type Linear = I;
-	type Degree = Deg<0>;
-	fn value(&self) -> Self::Linear {
+	type Kind = Deg<I, 0>;
+	type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
+	fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 		self.value.initial_value
 	}
-	fn set_value(&mut self, value: Self::Linear) {
+	fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 		self.value.initial_value = value;
 	}
-	fn change(&self, _changes: &mut Changes<Self>) {}
+	fn change<'v>(&self, changes: Changes<'v, Self>) -> Self::OutAccum<'v> {
+		changes
+	}
 	fn advance(&mut self, _time: Time) {}
 }
 
 macro_rules! impl_flux_value_for_value {
 	($($degree:literal),+) => {$(
-		impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<$degree>> {
+		impl<V, I: LinearIso<V>> FluxValue for Value<V, I, Deg<I, $degree>> {
 			type Value = V;
-			type Linear = I;
-			type Degree = Deg<$degree>;
-			fn value(&self) -> Self::Linear {
+			type Kind = Deg<I, $degree>;
+			type OutAccum<'v> = <Self::Kind as FluxKind>::Accum<'v> where I: 'v;
+			fn value(&self) -> <Self::Kind as FluxKind>::Linear {
 				self.value.initial_value
 			}
-			fn set_value(&mut self, value: Self::Linear) {
+			fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
 				self.value.initial_value = value;
 			}
-			fn change(&self, changes: &mut Changes<Self>) {
+			fn change<'v>(&self, mut changes: Changes<'v, Self>) -> Self::OutAccum<'v> {
 				for change in self.value.change_list.clone() {
-					if change.scalar.0 == 1.0 {
+					changes = if change.scalar.0 == 1.0 {
 						changes.add(
-							&Value::<V, I, Deg<{ $degree - 1 }>> {
+							&Value::<V, I, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
-								degree: PhantomData,
-								mapped: PhantomData,
+								phantom: PhantomData,
 							},
 							change.unit
-						);
+						)
 					} else {
 						changes.sub(
-							&Value::<V, I, Deg<{ $degree - 1 }>> {
+							&Value::<V, I, Deg<I, { $degree - 1 }>> {
 								value: change.rate,
-								degree: PhantomData,
-								mapped: PhantomData,
+								phantom: PhantomData,
 							},
 							change.unit
-						);
-					}
+						)
+					};
 				}
+				changes
 			}
 			fn advance(&mut self, time: Time) {
 				self.value.initial_value = self.calc_value(time);
 				for change in &mut self.value.change_list {
-					let mut v = Value::<V, I, Deg<{ $degree - 1 }>> {
+					let mut v = Value::<V, I, Deg<I, { $degree - 1 }>> {
 						value: change.rate.clone(),
-						degree: PhantomData,
-						mapped: PhantomData,
+						phantom: PhantomData,
 					};
 					v.advance(time);
 					change.rate = v.value;
@@ -130,26 +126,25 @@ macro_rules! impl_flux_value_for_value {
 }
 impl_flux_value_for_value!(1, 2, 3, 4, 5, 6, 7);
 
-/// Implements `From` for casting a [`Value`] to a higher degree.
-macro_rules! impl_cast_up {
-	($($degree:literal),+) => {$(
-		impl<V, I, D> From<Value<V, I, Deg<{ $degree }>>> for Value<V, I, D>
-		where
-			I: LinearIso<V>,
-			D: IsDeg,
-			Deg<{ $degree }>: IsBelowDeg<D>,
-		{
-			fn from(value: Value<V, I, Deg<{ $degree }>>) -> Self {
-				Self {
-					value: value.value,
-					degree: PhantomData,
-					mapped: PhantomData,
-				}
-			}
-		}
-	)+}
-}
-impl_cast_up!(0, 1, 2, 3, 4, 5, 6, 7);
+// /// Implements `From` for casting a [`Value`] to a higher degree.
+// macro_rules! impl_cast_up {
+// 	($($degree:literal),+) => {$(
+// 		impl<V, I, D> From<Value<V, I, Deg<I, { $degree }>>> for Value<V, I, D>
+// 		where
+// 			I: LinearIso<V>,
+// 			D: FluxKind,
+// 			Deg<I, { $degree }>: Add<D, Output=D>,
+// 		{
+// 			fn from(value: Value<V, I, Deg<I, { $degree }>>) -> Self {
+// 				Self {
+// 					value: value.value,
+// 					phantom: PhantomData,
+// 				}
+// 			}
+// 		}
+// 	)+}
+// }
+// impl_cast_up!(0, 1, 2, 3, 4, 5, 6, 7);
 
 /// A value that linearly changes over time.
 #[derive(Clone, Debug)]
@@ -193,17 +188,18 @@ impl<T: LinearValue> Change<T> {
 }
 
 /// Produces the degree of the resulting change, à la: `max(A, B+1)`. 
-pub trait AddChange<D: IsDeg>: IsDeg {
-	type Sum: IsDeg;
+pub trait AddChange<K: FluxKind>: FluxKind {
+	type Sum: FluxKind;
 }
 
 impl<A, B> AddChange<B> for A
 where
-	A: IsDeg,
-	B: IsDeg + HasUpDeg,
-	B::Up: MaxDeg<A>,
+	A: FluxKind,
+	B: FluxKind + Shr<DegShift>,
+	<B as Shr<DegShift>>::Output: FluxKind + Add<A>,
+	<<B as Shr<DegShift>>::Output as Add<A>>::Output: FluxKind,
 {
-	type Sum = <B::Up as MaxDeg<A>>::Max;
+	type Sum = <<B as Shr<DegShift>>::Output as Add<A>>::Output;
 }
 
 /// A scalar value, used for multiplication with any [`LinearValue`].
@@ -231,6 +227,13 @@ pub trait LinearValue:
 	+ Mul<Scalar, Output=Self>
 {
 	fn zero() -> Self;
+	
+	fn is_zero(&self) -> bool
+	where
+		Self: PartialEq
+	{
+		self.eq(&Self::zero())
+	}
 }
 
 impl<T> LinearValue for T
@@ -299,7 +302,7 @@ pub trait Per: Sized {
 impl Per for f64 {}
 impl Per for u64 {}
 impl Per for i64 {}
-impl<V, I: LinearIso<V>, D: IsDeg> Per for Value<V, I, D> {}
+impl<V, I: LinearIso<V>, D: FluxKind> Per for Value<V, I, D> {}
 
 /// A change over time used with arithmetic operators to construct [`Value`]s.
 pub struct Flux<T> {
@@ -310,11 +313,11 @@ pub struct Flux<T> {
 macro_rules! impl_flux_ops {
 	($op_trait:ident::$op_fn:ident, $change_fn:ident, $map:ty, $iso:ty) => {
 		 // Num + Num.per(Unit)
-		impl $op_trait<Flux<$map >> for $map
+		impl $op_trait<Flux<$map>> for $map
 		where
 			$iso: LinearIso<$map>
 		{
-			type Output = Value<$map, $iso, Deg<1>>;
+			type Output = Value<$map, $iso, Deg<$iso, 1>>;
 			fn $op_fn(self, rhs: Flux<$map>) -> Self::Output {
 				Value::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
@@ -323,11 +326,11 @@ macro_rules! impl_flux_ops {
 		 // Num + Value.per(Unit)
 		impl<D> $op_trait<Flux<Value<$map, $iso, D>>> for $map
 		where
-			D: IsDeg,
-			Deg<0>: AddChange<D>,
+			D: FluxKind,
+			Deg<$iso, 0>: AddChange<D>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Value<$map, $iso, <Deg<0> as AddChange<D>>::Sum>;
+			type Output = Value<$map, $iso, <Deg<$iso, 0> as AddChange<D>>::Sum>;
 			fn $op_fn(self, rhs: Flux<Value<$map, $iso, D>>) -> Self::Output {
 				Value::new(self).$change_fn(rhs.rate, rhs.unit)
 			}
@@ -336,10 +339,10 @@ macro_rules! impl_flux_ops {
 		 // Value + Num.per(Unit)
 		impl<D> $op_trait<Flux<$map >> for Value<$map, $iso, D>
 		where
-			D: IsDeg + AddChange<Deg<0>>,
+			D: FluxKind + AddChange<Deg<$iso, 0>>,
 			$iso: LinearIso<$map>,
 		{
-			type Output = Value<$map, $iso, <D as AddChange<Deg<0>>>::Sum>;
+			type Output = Value<$map, $iso, <D as AddChange<Deg<$iso, 0>>>::Sum>;
 			fn $op_fn(self, rhs: Flux<$map>) -> Self::Output {
 				self.$change_fn(rhs.rate, rhs.unit)
 			}
@@ -348,8 +351,8 @@ macro_rules! impl_flux_ops {
 		 // Value + Value.per(Unit)
 		impl<D, T> $op_trait<Flux<Value<$map, $iso, T>>> for Value<$map, $iso, D>
 		where
-			D: IsDeg + AddChange<T>,
-			T: IsDeg,
+			D: FluxKind + AddChange<T>,
+			T: FluxKind,
 			$iso: LinearIso<$map>,
 		{
 			type Output = Value<$map, $iso, <D as AddChange<T>>::Sum>;
@@ -370,7 +373,7 @@ impl_flux_ops!(Mul::mul, add_change, u64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, f64, Exp<f64>);
 impl_flux_ops!(Div::div, sub_change, u64, Exp<f64>);
 
-impl<V, I: LinearIso<V>> From<V> for Value<V, I, Deg<0>> {
+impl<V, I: LinearIso<V>> From<V> for Value<V, I, Deg<I, 0>> {
 	fn from(value: V) -> Self {
 		Self::new(value)
 	}
@@ -408,18 +411,18 @@ impl<T: LinearValue> From<T> for Exp<T> {
 	}
 }
 
-impl<T: LinearValue, D: IsDeg> Roots<D> for Exp<T>
+impl<T: LinearValue, const DEG: usize> Roots for Deg<Exp<T>, DEG>
 where
-	T: Roots<D>
+	Deg<T, DEG>: FluxKind<Linear=T> + Roots
 {
-	fn roots(poly: Poly<Exp<T>, D>) -> Result<RootList, RootList> {
-		let mut b_poly = Poly::<T, D>::default();
+	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
+		let mut b_poly = Poly::<Deg<T, DEG>>::default();
 		let mut b_coeff_iter = b_poly.coeff_iter_mut();
-		for coeff in poly.coeff_iter() {
-			*b_coeff_iter.next().unwrap() = coeff.0;
+		for &Deg(Exp(coeff)) in poly.coeff_iter() {
+			*b_coeff_iter.next().unwrap() = Deg(coeff);
 		}
 		b_poly.0 = poly.constant().0;
-		T::roots(b_poly)
+		Roots::roots(b_poly)
 	}
 }
 
@@ -450,10 +453,10 @@ mod value_tests {
 	use crate::polynomial::*;
 	
 	fn linear() -> (
-		Value<i64, f64, Deg<1>>,
-		Value<i64, f64, Deg<2>>,
-		Value<i64, f64, Deg<3>>,
-		Value<i64, f64, Deg<4>>,
+		Value<i64, f64, Deg<f64, 1>>,
+		Value<i64, f64, Deg<f64, 2>>,
+		Value<i64, f64, Deg<f64, 3>>,
+		Value<i64, f64, Deg<f64, 4>>,
 	) {
 		// !!! Change these polynomials to something more practical
 		let v0 = 3_i64 - 5.per(Nanosecs);
@@ -497,10 +500,10 @@ mod value_tests {
 		
 		assert_eq!(a.poly(), Poly(
 			30.0, [
-			0.018166666666666664,
-			3.668167918055556e-6,
-			1.1764138889120372e-15,
-			2.314814814814815e-29
+			Deg(0.018166666666666664),
+			Deg(3.668167918055556e-6),
+			Deg(1.1764138889120372e-15),
+			Deg(2.3148148148148152e-29),
 		]));
 	}
 	
@@ -536,10 +539,10 @@ mod value_tests {
 	}
 	
 	fn exponential() -> (
-		Value<f64, Exp<f64>, Deg<1>>,
-		Value<f64, Exp<f64>, Deg<2>>,
-		Value<f64, Exp<f64>, Deg<3>>,
-		Value<f64, Exp<f64>, Deg<4>>,
+		Value<f64, Exp<f64>, Deg<Exp<f64>, 1>>,
+		Value<f64, Exp<f64>, Deg<Exp<f64>, 2>>,
+		Value<f64, Exp<f64>, Deg<Exp<f64>, 3>>,
+		Value<f64, Exp<f64>, Deg<Exp<f64>, 4>>,
 	) {
 		// !!! Change polynomial to something more practical
 		let v0 = 3.2 / 1.1.per(Nanosecs);
@@ -671,19 +674,35 @@ mod value_tests {
 	#[test]
 	fn when_eq() {
 		let (v0, v1, v2, v3) = linear();
-		let v: [PredValue<Value<i64, f64, Deg<4>>>; 4] = [
-			PredValue::new(v0.into()),
-			PredValue::new(v1.into()),
-			PredValue::new(v2.into()),
-			PredValue::new(v3.into())
-		];
-		for value in v {
-			assert_eq!(
-				value.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-				value.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
-					.map(|(a, _)| a)
-					.collect::<Vec<Time>>()
-			)
-		}
+		let (v0, v1, v2, v3) = (
+			PredValue::new(v0),
+			PredValue::new(v1),
+			PredValue::new(v2),
+			PredValue::new(v3),
+		);
+		assert_eq!(
+			v0.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v0.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+				.map(|(a, _)| a)
+				.collect::<Vec<Time>>()
+		);
+		assert_eq!(
+			v1.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v1.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+				.map(|(a, _)| a)
+				.collect::<Vec<Time>>()
+		);
+		assert_eq!(
+			v2.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v2.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+				.map(|(a, _)| a)
+				.collect::<Vec<Time>>()
+		);
+		assert_eq!(
+			v3.when_eq(&Value::new(3_i64)).into_iter().collect::<Vec<Time>>(),
+			v3.when(Ordering::Equal, &Value::new(3_i64)).into_iter()
+				.map(|(a, _)| a)
+				.collect::<Vec<Time>>()
+		);
 	}
 }
