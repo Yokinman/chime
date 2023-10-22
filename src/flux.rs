@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use time::{Time, TimeUnit};
 use crate::linear::*;
-use crate::polynomial::{Poly, Roots};
+use crate::poly::*;
 
 mod impls;
 mod kind;

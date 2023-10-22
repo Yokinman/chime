@@ -1,6 +1,6 @@
 //! Change over time ...
 
 pub mod linear;
-pub mod polynomial;
+pub mod poly;
 pub mod flux;
 pub mod change;

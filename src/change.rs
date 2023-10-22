@@ -278,10 +278,6 @@ impl<V, I: LinearIso<V>> From<V> for Flux<V, Deg<I, 0>> {
 mod value_tests {
 	use super::*;
 	use TimeUnit::*;
-	use std::cmp::Ordering;
-	use crate::flux::PredValue;
-	use crate::linear::Exp;
-	use crate::polynomial::*;
 	
 	fn linear() -> (
 		Flux<i64, Deg<f64, 1>>,
@@ -329,7 +325,7 @@ mod value_tests {
 		let b = 10.0 + c.per(Microsecs) + c1.per(Mins);
 		let a = 30.0 + b.per(Microsecs);
 		
-		assert_eq!(a.poly(), Poly(
+		assert_eq!(a.poly(), crate::poly::Poly(
 			30.0, [
 			Deg(0.018166666666666664),
 			Deg(3.668167918055556e-6),
@@ -486,7 +482,7 @@ mod value_tests {
 	
 	#[test]
 	fn when() {
-		use Ordering::*;
+		use std::cmp::Ordering::*;
 		let (v0, v1, v2, v3) = linear();
 		assert_eq!(PredValue::new(v0.clone()).when(Equal,   &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs)]);
 		assert_eq!(PredValue::new(v0.clone()).when(Less,    &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, u64::MAX*Nanosecs)]);
@@ -504,6 +500,7 @@ mod value_tests {
 	
 	#[test]
 	fn when_eq() {
+		use std::cmp::Ordering::*;
 		let (v0, v1, v2, v3) = linear();
 		let (v0, v1, v2, v3) = (
 			PredValue::new(v0),
@@ -513,25 +510,25 @@ mod value_tests {
 		);
 		assert_eq!(
 			v0.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v0.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
+			v0.when(Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
 			v1.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v1.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
+			v1.when(Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
 			v2.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v2.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
+			v2.when(Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
 			v3.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v3.when(Ordering::Equal, &Flux::new(3_i64)).into_iter()
+			v3.when(Equal, &Flux::new(3_i64)).into_iter()
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);

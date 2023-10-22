@@ -6,7 +6,7 @@ use std::ops::{Add, Mul};
 use impl_op::impl_op;
 
 use crate::flux::{Deg, FluxKind};
-use crate::polynomial::{Poly, RootList, Roots};
+use crate::poly::*;
 
 /// A scalar value, used for multiplication with any [`LinearValue`].
 #[derive(Copy, Clone, Debug)]
