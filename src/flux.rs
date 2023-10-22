@@ -8,7 +8,7 @@ use std::ops::{Add, Deref, DerefMut, Shr, Sub};
 use std::rc::Rc;
 use time::{Time, TimeUnit};
 use crate::change::{LinearIso, LinearValue, Scalar};
-use crate::degree::{DegShift, FluxKind};
+use crate::kind::{DegShift, FluxKind};
 use crate::polynomial::{Poly, Roots};
 
  // Convenient implementations (Vec<T>, ??? tuples, etc.):
@@ -505,7 +505,7 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 mod tests {
 	use super::*;
 	use TimeUnit::*;
-	use crate::degree::*;
+	use crate::kind::*;
 	
 	#[derive(Debug, Default)] struct Pos { value: f64, spd: Spd, misc: Vec<Spd> }
 	#[derive(Debug, Default)] struct Spd { value: f64, fric: Fric, accel: Accel }

@@ -3,7 +3,7 @@ use crate::change::LinearValue;
 use time::Time;
 
 use std::vec::Vec;
-use crate::degree::FluxKind;
+use crate::kind::FluxKind;
 // !!! Arrays
 // !!! Slices
 // ??? Other collections

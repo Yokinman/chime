@@ -9,7 +9,7 @@ use impl_op::impl_op;
 use time::{Time, TimeUnit};
 use crate::flux::{Changes, FluxValue};
 
-use crate::degree::{Deg, FluxKind, DegShift};
+use crate::kind::{Deg, FluxKind, DegShift};
 use crate::polynomial::{Poly, RootList, Roots};
 
 /// A value with a dynamically-defined change over time.
