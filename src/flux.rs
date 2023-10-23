@@ -32,11 +32,17 @@ pub trait FluxValue: Sized {
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a>;
 	
 	/// Apply change over time.
-	fn advance(&mut self, time: Time);
+	fn time(&self) -> Time;
+	fn set_time(&mut self, time: Time);
 	
 	fn calc_value(&self, time: Time) -> <Self::Kind as FluxKind>::Linear {
 		let mut value = self.value();
-		let value_accum = FluxAccumKind::Sum { sum: &mut value, depth: 0, time };
+		let value_accum = FluxAccumKind::Sum {
+			sum: &mut value,
+			depth: 0,
+			time,
+			offset: self.time(),
+		};
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(value_accum));
 		value
 	}
@@ -59,23 +65,59 @@ pub trait FluxValue: Sized {
 	/// ...
 	fn when<B: FluxValue>(&self, cmp_order: Ordering, other: &B) -> TimeRanges
 	where
+		Self: Clone,
+		B: Clone,
 		When<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
+		let a_time = self.time();
+		let b_time = other.time();
+		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
+			Ordering::Less => {
+				let mut a = self.clone();
+				a.set_time(b_time);
+				(a.poly(), other.poly())
+			},
+			Ordering::Greater => {
+				let mut b = other.clone();
+				b.set_time(a_time);
+				(self.poly(), b.poly())
+			},
+			Ordering::Equal => (self.poly(), other.poly()),
+		};
 		When {
-			a_poly: self.poly(),
-			b_poly: other.poly(),
+			a_poly,
+			b_poly,
 			cmp_order,
+			time: a_time.max(b_time),
 		}.into_iter()
 	}
 	
 	/// ...
 	fn when_eq<B: FluxValue>(&self, other: &B) -> Times
 	where
+		Self: Clone,
+		B: Clone,
 		WhenEq<Self::Kind, B::Kind>: IntoIterator<IntoIter=Times>
 	{
+		let a_time = self.time();
+		let b_time = other.time();
+		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
+			Ordering::Less => {
+				let mut a = self.clone();
+				a.set_time(b_time);
+				(a.poly(), other.poly())
+			},
+			Ordering::Greater => {
+				let mut b = other.clone();
+				b.set_time(a_time);
+				(self.poly(), b.poly())
+			},
+			Ordering::Equal => (self.poly(), other.poly()),
+		};
 		WhenEq {
-			a_poly: self.poly(),
-			b_poly: other.poly(),
+			a_poly,
+			b_poly,
+			time: a_time.max(b_time),
 		}.into_iter()
 	}
 }
@@ -119,6 +161,7 @@ pub struct When<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
 	b_poly: Poly<B>,
 	cmp_order: Ordering,
+	time: Time,
 }
 
 impl<A, B> IntoIterator for When<A, B>
@@ -190,15 +233,19 @@ where
 		};
 		
 		 // Convert Ranges to Times:
+		let time = self.time.as_secs_f64();
+		let max_time = Time::MAX.as_secs_f64();
 		let list: Vec<(Time, Time)> = range_list
 			.filter_map(|(a, b)| {
-				assert!(a <= b);
-				if b < 0.0 || a > (u64::MAX as f64) {
+				debug_assert!(a <= b);
+				let a = a + time;
+				let b = b + time;
+				if b < 0.0 || a >= max_time {
 					None
 				} else {
 					Some((
-						(a as u64)*TimeUnit::Nanosecs,
-						(b as u64)*TimeUnit::Nanosecs
+						Time::try_from_secs_f64(a).unwrap_or(Time::ZERO),
+						Time::try_from_secs_f64(b).unwrap_or(Time::MAX)
 					))
 				}
 			})
@@ -213,6 +260,7 @@ where
 pub struct WhenEq<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
 	b_poly: Poly<B>,
+	time: Time,
 }
 
 impl<A, B> IntoIterator for WhenEq<A, B>
@@ -241,13 +289,15 @@ where
 		}
 		
 		 // Convert Roots to Times:
+		let time = self.time.as_secs_f64();
+		let max_time = Time::MAX.as_secs_f64();
 		let vec: Vec<Time> = real_roots.into_iter()
 			.filter_map(|t| {
-				// let t = t + offset;
-				if t < 0.0 || t > (u64::MAX as f64) {
+				let t = t + time;
+				if t < 0.0 || t >= max_time {
 					None
 				} else {
-					Some((t as u64)*TimeUnit::Nanosecs)
+					Some(Time::from_secs_f64(t))
 				}
 			})
 			.collect();
@@ -260,6 +310,8 @@ where
 pub type Changes<'a, T: FluxValue> = <T::Kind as FluxKind>::Accum<'a>;
 
 /// Change accumulator.
+/// 
+/// Converts a discrete pattern of change into a desired form.
 pub trait FluxAccum<'a, K: FluxKind> {
 	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
 }
@@ -271,6 +323,7 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 		sum: &'a mut K::Linear,
 		depth: usize,
 		time: Time,
+		offset: Time,
 	},
 	Poly {
 		poly: &'a mut Poly<K>,
@@ -283,12 +336,12 @@ mod tests {
 	use super::*;
 	use TimeUnit::*;
 	
-	#[derive(Debug, Default)] struct Pos { value: f64, spd: Spd, misc: Vec<Spd> }
-	#[derive(Debug, Default)] struct Spd { value: f64, fric: Fric, accel: Accel }
-	#[derive(Debug, Default)] struct Fric { value: f64 }
-	#[derive(Debug, Default)] struct Accel { value: f64, jerk: Jerk }
-	#[derive(Debug, Default)] struct Jerk { value: f64, snap: Snap }
-	#[derive(Debug, Default)] struct Snap { value: f64 }
+	#[derive(Debug, Default, Clone)] struct Pos   { time: Time, value: f64, spd: Spd, misc: Vec<Spd> }
+	#[derive(Debug, Default, Clone)] struct Spd   { time: Time, value: f64, fric: Fric, accel: Accel }
+	#[derive(Debug, Default, Clone)] struct Fric  { time: Time, value: f64 }
+	#[derive(Debug, Default, Clone)] struct Accel { time: Time, value: f64, jerk: Jerk }
+	#[derive(Debug, Default, Clone)] struct Jerk  { time: Time, value: f64, snap: Snap }
+	#[derive(Debug, Default, Clone)] struct Snap  { time: Time, value: f64 }
 	
 	impl FluxValue for Pos {
 		type Value = i64;
@@ -305,9 +358,14 @@ mod tests {
 				.add(&self.spd, TimeUnit::Secs)
 				.add(&self.misc, TimeUnit::Secs)
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.spd.advance(time);
+			self.time = time;
+			self.spd.set_time(time);
+			self.misc.set_time(time);
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
@@ -326,10 +384,14 @@ mod tests {
 				.sub(&self.fric, TimeUnit::Secs)
 				.add(&self.accel, TimeUnit::Secs)
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.fric.advance(time);
-			self.accel.advance(time);
+			self.time = time;
+			self.fric.set_time(time);
+			self.accel.set_time(time);
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
@@ -346,8 +408,12 @@ mod tests {
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
+			self.time = time;
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
@@ -364,9 +430,13 @@ mod tests {
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes.add(&self.jerk, TimeUnit::Secs)
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.jerk.advance(time);
+			self.time = time;
+			self.jerk.set_time(time);
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
@@ -383,9 +453,13 @@ mod tests {
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes.add(&self.snap, TimeUnit::Secs)
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
-			self.snap.advance(time);
+			self.time = time;
+			self.snap.set_time(time);
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
@@ -402,22 +476,36 @@ mod tests {
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 		}
-		fn advance(&mut self, time: Time) {
+		fn set_time(&mut self, time: Time) {
 			self.value = self.calc_value(time);
+			self.time = time;
+		}
+		fn time(&self) -> Time {
+			self.time
 		}
 	}
 	
 	fn position() -> Pos {
 		Pos {
+			time: Time::default(),
 			value: 32.0, 
 			spd: Spd {
+				time: Time::default(),
 				value: 0.0,
-				fric: Fric { value: 3.5, },
+				fric: Fric {
+					time: Time::default(),
+					value: 3.5,
+				},
 				accel: Accel {
+					time: Time::default(),
 					value: 0.3,
 					jerk: Jerk {
+						time: Time::default(),
 						value: 0.4,
-						snap: Snap { value: -0.01 },
+						snap: Snap {
+							time: Time::default(),
+							value: -0.01
+						},
 					},
 				},
 			},
@@ -437,13 +525,13 @@ mod tests {
 		assert_eq!(pos.at(200*Secs), -209779);
 		
 		 // Update:
-		pos.advance(20*Secs);
-		assert_eq!(pos.at(0*Secs), -113);
-		assert_eq!(pos.at(80*Secs), 8339);
-		assert_eq!(pos.at(180*Secs), -209779);
-		pos.advance(55*Secs);
-		assert_eq!(pos.at(25*Secs), 8339);
-		assert_eq!(pos.at(125*Secs), -209779);
+		pos.set_time(20*Secs);
+		assert_eq!(pos.at(20*Secs), -113);
+		assert_eq!(pos.at(100*Secs), 8339);
+		assert_eq!(pos.at(200*Secs), -209779);
+		pos.set_time(55*Secs);
+		assert_eq!(pos.at(100*Secs), 8339);
+		assert_eq!(pos.at(200*Secs), -209779);
 	}
 	
 	#[test]
@@ -452,20 +540,32 @@ mod tests {
 		assert_eq!(
 			pos.poly(),
 			Poly(32.0, [
-				Sum(-1.469166666666667e-9),
-				Sum(-1.4045833333333335e-18),
-				Sum(0.06416666666666669e-27),
-				Sum(-0.00041666666666666684e-36),
+				Sum(-1.4691666666666667),
+				Sum(-1.4045833333333335),
+				Sum(0.06416666666666666),
+				Sum(-0.00041666666666666664),
 			])
 		);
-		pos.advance(20*Secs);
+		for _ in 0..2 {
+			pos.set_time(20*Secs);
+			assert_eq!(
+				pos.poly(),
+				Poly(-112.55000000000007, [
+					Sum(6.014166666666661),
+					Sum(1.44541666666666666),
+					Sum(0.030833333333333334),
+					Sum(-0.00041666666666666664),
+				])
+			);
+		}
+		pos.set_time(0*Secs);
 		assert_eq!(
 			pos.poly(),
-			Poly(-112.55000000000007, [
-				Sum(6.0141666666666615e-9),
-				Sum(1.445416666666667e-18),
-				Sum(0.03083333333333335e-27),
-				Sum(-0.00041666666666666684e-36),
+			Poly(32.00000000000006, [
+				Sum(-1.4691666666666667),
+				Sum(-1.4045833333333335),
+				Sum(0.06416666666666666),
+				Sum(-0.00041666666666666664),
 			])
 		);
 	}
@@ -480,15 +580,15 @@ mod tests {
 		
 		assert_eq!(pos_when, [
 			(0*Nanosecs, 4560099744*Nanosecs),
-			(26912076290*Nanosecs, 127394131312*Nanosecs)
+			(26912076291*Nanosecs, 127394131312*Nanosecs)
 		]);
 		assert_eq!(pos_when_eq, [
 			4560099744*Nanosecs,
-			26912076290*Nanosecs,
+			26912076291*Nanosecs,
 			127394131312*Nanosecs
 		]);
 		
-		// pos.advance(20*Secs);
+		// pos.set_time(20*Secs);
 		// pos.borrow_mut().spd.value = -20.0;
 		// pos.borrow_mut().spd.accel.jerk.value = 0.3;
 		// 
@@ -515,21 +615,24 @@ mod tests {
 		assert_eq!(vec_eq, [0*Nanosecs]);
 		
 		 // Apply Changes:
-		a_pos.advance(20*Secs);
+		a_pos.set_time(20*Secs);
 		b_pos.misc.push(Spd {
 			value: 2.5,
 			..Default::default()
 		});
 		b_pos.misc.push(Spd {
 			value: 12.25,
-			fric: Fric { value: 0.5 },
+			fric: Fric {
+				time: Time::default(),
+				value: 0.5,
+			},
 			..Default::default()
 		});
 		
 		 // Check After:
 		let vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
 		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
-		assert_eq!(vec, [(8517857837*Nanosecs, 90130683345*Nanosecs)]);
-		assert_eq!(vec_eq, [8517857837*Nanosecs, 90130683345*Nanosecs]);
+		assert_eq!(vec, [(0*Secs, 0*Secs), (58*Secs, Time::MAX)]);
+		assert_eq!(vec_eq, [0*Secs, 58*Secs]);
 	}
 }

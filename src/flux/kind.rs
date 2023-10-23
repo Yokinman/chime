@@ -87,65 +87,83 @@ impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
 	}
 }
 
-impl<K: FluxKind> SumAccum<'_, K>
-where
-	K: Add<Output=K>,
-{
-	pub fn add<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
+impl<K: FluxKind> SumAccum<'_, K> {
+	pub fn add<V: FluxValue>(self, value: &V, unit: TimeUnit) -> Self
 	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+		(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	{
 		self.accum(Scalar(1.0), value, unit)
 	}
 	
-	pub fn sub<C: FluxValue>(self, value: &C, unit: TimeUnit) -> Self
+	pub fn sub<V: FluxValue>(self, value: &V, unit: TimeUnit) -> Self
 	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+		(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	{
 		self.accum(Scalar(-1.0), value, unit)
 	}
 	
-	fn accum<C: FluxValue>(mut self, scalar: Scalar, value: &C, unit: TimeUnit) -> Self
+	fn accum<V: FluxValue>(mut self, scalar: Scalar, value: &V, unit: TimeUnit) -> Self
 	where
-		C::Kind: FluxKind<Linear=K::Linear> + Add<K, Output=K> + Shr<DegShift>,
-		<C::Kind as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-		C::Kind: From<<C::Kind as FluxKind>::Linear>,
-		K: Add<C::Kind, Output=K> + Add<<C::Kind as Shr<DegShift>>::Output, Output=K>,
+		(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	{
-		match &mut self.0 {
-			FluxAccumKind::Sum { sum, depth, time } => {
+		<(K, V::Kind)>::eval(&mut self.0, scalar, value, unit);
+		self
+	}
+}
+
+/// Used to remove redundant trait bounds.
+#[doc(hidden)]
+pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
+	fn eval<C: FluxValue<Kind=B>>(
+		kind: &mut FluxAccumKind<'_, A>,
+		scalar: Scalar,
+		value: &C,
+		unit: TimeUnit,
+	);
+}
+
+impl<A, B> SumAccumHelper<A, B> for (A, B)
+where
+	A: FluxKind,
+	B: FluxKind<Linear=A::Linear>,
+	A: Add<B, Output=A> + Add<<B as Shr<DegShift>>::Output, Output=A>,
+	B: Add<A, Output=A> + Shr<DegShift> + From<B::Linear>,
+	<B as Shr<DegShift>>::Output: FluxKind<Linear=A::Linear>,
+{
+	fn eval<V: FluxValue<Kind=B>>(
+		kind: &mut FluxAccumKind<'_, A>,
+		scalar: Scalar,
+		value: &V,
+		unit: TimeUnit,
+	) {
+		match kind {
+			FluxAccumKind::Sum { sum, depth, time, offset } => {
 				let mut sub_sum = value.value();
-				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Sum {
+				value.change(B::Accum::from_kind(FluxAccumKind::Sum {
 					sum: &mut sub_sum,
 					depth: *depth + 1,
 					time: *time,
+					offset: value.time(),
 				}));
 				let depth = *depth as f64;
-				let time_scale = (time.as_nanos() as f64) / ((unit >> TimeUnit::Nanosecs) as f64);
+				let time_scale = (time.as_secs_f64() - offset.as_secs_f64()) / (1*unit).as_secs_f64();
 				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
 			},
 			FluxAccumKind::Poly { poly, depth } => {
 				let mut sub_poly = Poly::default();
 				sub_poly.0 = value.value();
-				value.change(<C::Kind as FluxKind>::Accum::from_kind(FluxAccumKind::Poly {
+				value.change(B::Accum::from_kind(FluxAccumKind::Poly {
 					poly: &mut sub_poly,
 					depth: *depth + 1,
 				}));
 				let depth = *depth as f64;
-				let unit_scale = ((unit >> TimeUnit::Nanosecs) as f64).recip();
+				let time_scale = (1*unit).as_secs_f64().recip();
 				**poly = **poly
 					+ (sub_poly * (Scalar(depth / (depth + 1.0)) * scalar))
-					+ ((sub_poly >> DegShift) * (Scalar(unit_scale / (depth + 1.0)) * scalar));
+					+ ((sub_poly >> DegShift) * (Scalar(time_scale / (depth + 1.0)) * scalar));
 				// https://www.desmos.com/calculator/mhlpjakz32
-			}
+			},
 		}
-		self
 	}
 }
 

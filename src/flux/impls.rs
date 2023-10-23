@@ -13,42 +13,6 @@ use crate::linear::LinearValue;
 // ??? Tuples
 // ??? Function pointers
 
-impl<A: FluxValue> FluxValue for &A {
-	type Value = A::Value;
-	type Kind = A::Kind;
-	type OutAccum<'a> = A::OutAccum<'a> where <Self::Kind as FluxKind>::Linear: 'a;
-	fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-		A::value(self)
-	}
-	fn set_value(&mut self, _value: <Self::Kind as FluxKind>::Linear) {
-		unreachable!() // ??? I think not
-	}
-	fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-		A::change(self, changes)
-	}
-	fn advance(&mut self, _time: Time) {
-		unreachable!() // ??? Is it?
-	}
-}
-
-impl<A: FluxValue> FluxValue for &mut A {
-	type Value = A::Value;
-	type Kind = A::Kind;
-	type OutAccum<'a> = A::OutAccum<'a> where <Self::Kind as FluxKind>::Linear: 'a;
-	fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-		A::value(self)
-	}
-	fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-		A::set_value(self, value)
-	}
-	fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-		A::change(self, changes)
-	}
-	fn advance(&mut self, time: Time) {
-		A::advance(self, time)
-	}
-}
-
 impl<T: FluxValue> FluxValue for Vec<T>
 where
 	for<'t> T::Kind: FluxKind<Accum<'t> = T::OutAccum<'t>>,
@@ -75,9 +39,15 @@ where
 		}
 		changes
 	}
-	fn advance(&mut self, time: Time) {
+	fn time(&self) -> Time {
+		self.iter()
+			.map(|x| x.time())
+			.min()
+			.unwrap_or_default()
+	}
+	fn set_time(&mut self, time: Time) {
 		for item in self {
-			item.advance(time);
+			item.set_time(time);
 		}
 	}
 }
