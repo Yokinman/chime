@@ -1,11 +1,7 @@
 //! Utilities for describing how a type changes over time.
 
-use std::borrow::Borrow;
-use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Sub, Deref, DerefMut};
-use std::rc::Rc;
+use std::ops::{Add, Sub};
 
 use time::{Time, TimeUnit};
 use crate::linear::*;
@@ -59,147 +55,28 @@ pub trait FluxValue: Sized {
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
 		poly
 	}
-}
-
-/// ...
-#[allow(type_alias_bounds)]
-type PredPoly<A: FluxValue> = Rc<RefCell<(
-	Time,
-	Poly<A::Kind>
-	// ??? It may be worth storing the original value so that the polynomial
-	// can be easily offset for comparison with the other value.
-)>>;
-
-/// A value with a predictable change over time.
-pub struct PredValue<A: FluxValue> {
-	value: A,
-	poly: PredPoly<A>,
-	time: Time,
-}
-
-impl<A: FluxValue> PredValue<A> {
-	pub fn new(value: A) -> Self {
-		let time = Time::default();
-		let poly = Rc::new(RefCell::new((time, value.poly())));
-		Self { value, poly, time }
-	}
 	
-	/// Compares to any [`FluxValue`] or [`PredValue`] reference. If compared to
-	/// a [`PredValue`], the returned [`When`] will update its predictions after
-	/// any modifications to its inner flux value. 
-	pub fn when<'a, B>(&'a self, cmp_order: Ordering, other: impl Into<PredValue<&'a B>>) -> When<A, B>
+	/// ...
+	fn when<B: FluxValue>(&self, cmp_order: Ordering, other: &B) -> TimeRanges
 	where
-		B: FluxValue + 'a,
-		When<A, B>: IntoIterator
+		When<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
 		When {
-			a_poly: self.poly.clone(),
-			b_poly: other.into().poly,
+			a_poly: self.poly(),
+			b_poly: other.poly(),
 			cmp_order,
-		}
+		}.into_iter()
 	}
 	
-	/// Compares to any [`FluxValue`] or [`PredValue`] reference. If compared to
-	/// a [`PredValue`], the returned [`WhenEq`] will update its predictions
-	/// after any modifications to its inner flux value.
-	pub fn when_eq<'a, B>(&'a self, other: impl Into<PredValue<&'a B>>) -> WhenEq<A, B>
+	/// ...
+	fn when_eq<B: FluxValue>(&self, other: &B) -> Times
 	where
-		B: FluxValue + 'a,
-		WhenEq<A, B>: IntoIterator
+		WhenEq<Self::Kind, B::Kind>: IntoIterator<IntoIter=Times>
 	{
 		WhenEq {
-			a_poly: self.poly.clone(),
-			b_poly: other.into().poly,
-		}
-	}
-	
-	pub fn borrow_mut(&mut self) -> PredValueMut<A> {
-		PredValueMut(self)
-	}
-	
-	pub fn advance(&mut self, time: Time) {
-		self.time += time;
-		self.value.advance(time);
-		// let (last_time, _) = *RefCell::borrow(&self.poly).last().unwrap();
-		// self.poly.borrow_mut().push((last_time + time, self.value.poly()));
-	}
-}
-
-impl<A: FluxValue> From<A> for PredValue<A> {
-	fn from(value: A) -> Self {
-		Self::new(value)
-	}
-}
-
-impl<'a, A: FluxValue + 'a> From<&'a PredValue<A>> for PredValue<&'a A> {
-	fn from(value: &'a PredValue<A>) -> Self {
-		PredValue {
-			value: &value.value,
-			poly: value.poly.clone(),
-			time: value.time,
-		}
-	}
-}
-
-impl<A: FluxValue> Deref for PredValue<A> {
-	type Target = A;
-	fn deref(&self) -> &Self::Target {
-		&self.value
-	}
-}
-
-impl<A: FluxValue> Borrow<A> for PredValue<A> {
-	fn borrow(&self) -> &A {
-		&self.value
-	}
-}
-
-impl<A: FluxValue> Debug for PredValue<A> where A: Debug {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		self.value.fmt(f)
-	}
-}
-
-impl<A: FluxValue> Display for PredValue<A> where A: Display {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		self.value.fmt(f)
-	}
-}
-
-/// Borrowed mutable access to the value contained by [`PredValue`], which
-/// updates any `When` or `WhenEq` predictions on drop. 
-pub struct PredValueMut<'a, A: FluxValue>(&'a mut PredValue<A>);
-
-impl<A: FluxValue> Drop for PredValueMut<'_, A> {
-	fn drop(&mut self) {
-		let (ref mut time, ref mut poly) = *self.0.poly.borrow_mut();
-		*time = self.0.time;
-		*poly = self.0.value.poly();
-	}
-}
-
-impl<'a, A: FluxValue + 'a> Deref for PredValueMut<'a, A> {
-	type Target = A;
-	fn deref(&self) -> &Self::Target {
-		&self.0.value
-	}
-}
-
-impl<A: FluxValue> DerefMut for PredValueMut<'_, A> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0.value
-	}
-}
-
-impl<A: FluxValue> Debug for PredValueMut<'_, A> where A: Debug {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		self.0.value.fmt(f)
-	}
-}
-
-impl<A: FluxValue> Display for PredValueMut<'_, A> where A: Display {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		self.0.value.fmt(f)
+			a_poly: self.poly(),
+			b_poly: other.poly(),
+		}.into_iter()
 	}
 }
 
@@ -237,46 +114,32 @@ impl Iterator for Times {
 	}
 }
 
-/// [`FluxValue`] predictive comparison.
-#[derive(Debug)]
-pub struct When<A: FluxValue, B: FluxValue> {
-	a_poly: PredPoly<A>,
-	b_poly: PredPoly<B>,
+#[derive(Copy, Clone, Debug)]
+pub struct When<A: FluxKind, B: FluxKind> {
+	a_poly: Poly<A>,
+	b_poly: Poly<B>,
 	cmp_order: Ordering,
-}
-
-impl<A: FluxValue, B: FluxValue> Clone for When<A, B> {
-	fn clone(&self) -> Self {
-		Self {
-			a_poly: self.a_poly.clone(),
-			b_poly: self.b_poly.clone(),
-			cmp_order: self.cmp_order,
-		}
-	}
 }
 
 impl<A, B> IntoIterator for When<A, B>
 where
-	A: FluxValue,
-	B: FluxValue,
-	B::Kind: FluxKind<Linear = <A::Kind as FluxKind>::Linear>,
-	A::Kind: Add<B::Kind>,
-	<A::Kind as FluxKind>::Linear: PartialOrd,
-	<A::Kind as Add<B::Kind>>::Output: FluxKind<Linear = <A::Kind as FluxKind>::Linear> + Roots + PartialOrd,
-	Poly<A::Kind>: Sub<Poly<B::Kind>, Output=Poly<<A::Kind as Add<B::Kind>>::Output>>,
+	A: FluxKind + Add<B>,
+	B: FluxKind<Linear=A::Linear>,
+	A::Linear: PartialOrd,
+	<A as Add<B>>::Output: FluxKind<Linear=A::Linear> + Roots + PartialOrd,
+	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let poly = RefCell::borrow(&self.a_poly).1
-			- RefCell::borrow(&self.b_poly).1;
+		let poly = self.a_poly - self.b_poly;
 		
 		 // Find Initial Order:
-		let mut degree = <<A::Kind as Add<B::Kind>>::Output as FluxKind>::DEGREE;
+		let mut degree = <<A as Add<B>>::Output as FluxKind>::DEGREE;
 		let initial_order = loop {
 			if degree == 0 {
-				break poly.constant().partial_cmp(&<A::Kind as FluxKind>::Linear::zero());
+				break poly.constant().partial_cmp(&A::Linear::zero());
 			} else {
 				let coeff = poly.coeff(degree - 1).unwrap();
 				let order = coeff.partial_cmp(&FluxKind::zero());
@@ -346,41 +209,25 @@ where
 }
 
 /// [`FluxValue`] predictive equality comparison.
-#[derive(Debug)]
-pub struct WhenEq<A: FluxValue, B: FluxValue> {
-	a_poly: PredPoly<A>,
-	b_poly: PredPoly<B>,
-}
-
-impl<A, B> Clone for WhenEq<A, B>
-where
-	A: FluxValue,
-	B: FluxValue,
-{
-	fn clone(&self) -> Self {
-		Self {
-			a_poly: self.a_poly.clone(),
-			b_poly: self.b_poly.clone(),
-		}
-	}
+#[derive(Copy, Clone, Debug)]
+pub struct WhenEq<A: FluxKind, B: FluxKind> {
+	a_poly: Poly<A>,
+	b_poly: Poly<B>,
 }
 
 impl<A, B> IntoIterator for WhenEq<A, B>
 where
-	A: FluxValue,
-	B: FluxValue,
-	B::Kind: FluxKind<Linear = <A::Kind as FluxKind>::Linear>,
-	A::Kind: Add<B::Kind>,
-	<A::Kind as FluxKind>::Linear: PartialEq,
-	<A::Kind as Add<B::Kind>>::Output: FluxKind<Linear = <A::Kind as FluxKind>::Linear> + Roots + PartialEq,
-	Poly<A::Kind>: Sub<Poly<B::Kind>, Output=Poly<<A::Kind as Add<B::Kind>>::Output>>,
+	A: FluxKind + Add<B>,
+	B: FluxKind<Linear=A::Linear>,
+	A::Linear: PartialEq,
+	<A as Add<B>>::Output: FluxKind<Linear=A::Linear> + Roots + PartialEq,
+	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = Time;
 	type IntoIter = Times;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let poly = RefCell::borrow(&self.a_poly).1
-			- RefCell::borrow(&self.b_poly).1;
+		let poly = self.a_poly - self.b_poly;
 		let mut real_roots = poly.real_roots().unwrap_or(Box::default())
 			.into_vec();
 		
@@ -625,20 +472,17 @@ mod tests {
 	
 	#[test]
 	fn when() {
-		let pos = PredValue::new(position());
+		let pos = position();
 		let acc = position().spd.accel;
 		
-		let pos_when = pos.when(Ordering::Greater, &acc);
-		let vec: Vec<(Time, Time)> = pos_when.clone().into_iter().collect();
+		let pos_when: Vec<(Time, Time)> = pos.when(Ordering::Greater, &acc).collect();
+		let pos_when_eq: Vec<Time> = pos.when_eq(&acc).collect();
 		
-		let vec_eq: Vec<Time> = pos.when_eq(&acc)
-			.into_iter().collect();
-		
-		assert_eq!(vec, [
+		assert_eq!(pos_when, [
 			(0*Nanosecs, 4560099744*Nanosecs),
 			(26912076290*Nanosecs, 127394131312*Nanosecs)
 		]);
-		assert_eq!(vec_eq, [
+		assert_eq!(pos_when_eq, [
 			4560099744*Nanosecs,
 			26912076290*Nanosecs,
 			127394131312*Nanosecs
@@ -661,32 +505,30 @@ mod tests {
 	
 	#[test]
 	fn when_borrow() {
-		let mut a_pos = PredValue::new(position());
-		let mut b_pos = PredValue::new(position());
-		let wh = a_pos.when(Ordering::Greater, &b_pos);
-		let wh_eq = a_pos.when_eq(&b_pos);
+		let mut a_pos = position();
+		let mut b_pos = position();
 		
 		 // Check Before:
-		let vec: Vec<(Time, Time)> = wh.clone().into_iter().collect();
-		let vec_eq: Vec<Time> = wh_eq.clone().into_iter().collect();
+		let vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
+		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
 		assert_eq!(vec, []);
 		assert_eq!(vec_eq, [0*Nanosecs]);
 		
 		 // Apply Changes:
-		a_pos.borrow_mut().advance(20*Secs);
-		b_pos.borrow_mut().misc.push(Spd {
+		a_pos.advance(20*Secs);
+		b_pos.misc.push(Spd {
 			value: 2.5,
 			..Default::default()
 		});
-		b_pos.borrow_mut().misc.push(Spd {
+		b_pos.misc.push(Spd {
 			value: 12.25,
 			fric: Fric { value: 0.5 },
 			..Default::default()
 		});
 		
 		 // Check After:
-		let vec: Vec<(Time, Time)> = wh.into_iter().collect();
-		let vec_eq: Vec<Time> = wh_eq.into_iter().collect();
+		let vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
+		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
 		assert_eq!(vec, [(8517857837*Nanosecs, 90130683345*Nanosecs)]);
 		assert_eq!(vec_eq, [8517857837*Nanosecs, 90130683345*Nanosecs]);
 	}

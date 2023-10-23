@@ -336,33 +336,27 @@ mod value_tests {
 	
 	#[test]
 	fn linear_roots() {
-		let (v0, v1, v2, v3) = linear();
-		let (mut v0, mut v1, mut v2, mut v3) = (
-			PredValue::new(v0),
-			PredValue::new(v1),
-			PredValue::new(v2),
-			PredValue::new(v3),
-		);
-		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]); // 0.6
-		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]); // -1.902, 2.102
-		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [3*Nanosecs]); // 3.892
-		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [5*Nanosecs]); // -3.687, 5.631
-		v0.borrow_mut().advance(1*Nanosecs);
-		v1.borrow_mut().advance(1*Nanosecs);
-		v2.borrow_mut().advance(1*Nanosecs);
-		v3.borrow_mut().advance(1*Nanosecs);
-		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [1*Nanosecs]);
-		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
-		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [4*Nanosecs]);
-		v0.borrow_mut().advance(2*Nanosecs);
-		v1.borrow_mut().advance(2*Nanosecs);
-		v2.borrow_mut().advance(2*Nanosecs);
-		v3.borrow_mut().advance(2*Nanosecs);
-		assert_eq!(v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v2.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs]);
-		assert_eq!(v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [2*Nanosecs]);
+		let (mut v0, mut v1, mut v2, mut v3) = linear();
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [0*Nanosecs]); // 0.6
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [2*Nanosecs]); // -1.902, 2.102
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [3*Nanosecs]); // 3.892
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [5*Nanosecs]); // -3.687, 5.631
+		v0.advance(1*Nanosecs);
+		v1.advance(1*Nanosecs);
+		v2.advance(1*Nanosecs);
+		v3.advance(1*Nanosecs);
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [1*Nanosecs]);
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [2*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [4*Nanosecs]);
+		v0.advance(2*Nanosecs);
+		v1.advance(2*Nanosecs);
+		v2.advance(2*Nanosecs);
+		v3.advance(2*Nanosecs);
+		assert_eq!(v0.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), []);
+		assert_eq!(v2.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [0*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [2*Nanosecs]);
 	}
 	
 	fn exponential() -> (
@@ -405,33 +399,27 @@ mod value_tests {
 	
 	#[test]
 	fn exponential_roots() {
-		let (v0, v1, v2, v3) = exponential();
-		let (mut v0, mut v1, mut v2, mut v3) = (
-			PredValue::new(v0),
-			PredValue::new(v1),
-			PredValue::new(v2),
-			PredValue::new(v3),
-		);
-		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [12*Nanosecs]); // 12.204
-		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [24*Nanosecs]); // -1.143, 24.551
-		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [36*Nanosecs]); // 36.91 
-		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [49*Nanosecs]); // -4.752, 49.329
-		v0.borrow_mut().advance(6*Nanosecs);
-		v1.borrow_mut().advance(6*Nanosecs);
-		v2.borrow_mut().advance(6*Nanosecs);
-		v3.borrow_mut().advance(6*Nanosecs);
-		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [6*Nanosecs]);
-		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [18*Nanosecs]);
-		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [30*Nanosecs]);
-		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [43*Nanosecs]);
-		v0.borrow_mut().advance(20*Nanosecs);
-		v1.borrow_mut().advance(20*Nanosecs);
-		v2.borrow_mut().advance(20*Nanosecs);
-		v3.borrow_mut().advance(20*Nanosecs);
-		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), []);
-		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [10*Nanosecs]);
-		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]);
+		let (mut v0, mut v1, mut v2, mut v3) = exponential();
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [12*Nanosecs]); // 12.204
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [24*Nanosecs]); // -1.143, 24.551
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [36*Nanosecs]); // 36.91 
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [49*Nanosecs]); // -4.752, 49.329
+		v0.advance(6*Nanosecs);
+		v1.advance(6*Nanosecs);
+		v2.advance(6*Nanosecs);
+		v3.advance(6*Nanosecs);
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [6*Nanosecs]);
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [18*Nanosecs]);
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [30*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [43*Nanosecs]);
+		v0.advance(20*Nanosecs);
+		v1.advance(20*Nanosecs);
+		v2.advance(20*Nanosecs);
+		v3.advance(20*Nanosecs);
+		assert_eq!(v0.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), []);
+		assert_eq!(v1.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), []);
+		assert_eq!(v2.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [10*Nanosecs]);
+		assert_eq!(v3.when_eq(&Flux::new(1.0_f64)).collect::<Vec<Time>>(), [23*Nanosecs]);
 	}
 	
 	#[test]
@@ -470,65 +458,59 @@ mod value_tests {
 		let (mut v0, _, _, mut v3) = linear();
 		
 		v0.advance(10*Nanosecs);
-		let new_v0 = PredValue::new(v0.clone() + 7.per(Nanosecs));
+		let new_v0 = v0.clone() + 7.per(Nanosecs);
 		assert_eq!(v0.at(0*Nanosecs), new_v0.at(0*Nanosecs));
-		assert_eq!(new_v0.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [23*Nanosecs]); // 23.5
+		assert_eq!(new_v0.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [23*Nanosecs]); // 23.5
 		
 		v3.advance(6*Nanosecs);
-		let new_v3 = PredValue::new(v3.clone() + 1000.per(Nanosecs));
+		let new_v3 = v3.clone() + 1000.per(Nanosecs);
 		assert_eq!(v3.at(0*Nanosecs), new_v3.at(0*Nanosecs));
-		assert_eq!(new_v3.when_eq(&Flux::new(0_i64)).into_iter().collect::<Vec<Time>>(), [0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
+		assert_eq!(new_v3.when_eq(&Flux::new(0_i64)).collect::<Vec<Time>>(), [0*Nanosecs, 3*Nanosecs]); // 0.22, 3.684
 	}
 	
 	#[test]
 	fn when() {
 		use std::cmp::Ordering::*;
 		let (v0, v1, v2, v3) = linear();
-		assert_eq!(PredValue::new(v0.clone()).when(Equal,   &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v0.clone()).when(Less,    &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v0.clone()).when(Greater, &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(0*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Equal,   &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, 2*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Less,    &Flux::new(-5_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v1.clone()).when(Greater, &Flux::new(-25_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 3*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Equal,   &Flux::new(71_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs), (1*Nanosecs, 1*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Less,    &Flux::new(20_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(3*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v2.clone()).when(Greater, &Flux::new(69_i64)).into_iter().collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 2*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Equal,   &Flux::new(140_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(5*Nanosecs, 5*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Less,    &Flux::new(160_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 0*Nanosecs), (5*Nanosecs, u64::MAX*Nanosecs)]);
-		assert_eq!(PredValue::new(v3.clone()).when(Greater, &Flux::new(280_i64)).into_iter().collect::<Vec<(Time, Time)>>(), [(2*Nanosecs, 4*Nanosecs)]);
+		assert_eq!(v0.clone().when(Equal,   &Flux::new(-5_i64)).collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v0.clone().when(Less,    &Flux::new(-5_i64)).collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v0.clone().when(Greater, &Flux::new(-5_i64)).collect::<Vec<(Time, Time)>>(),  [(0*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v1.clone().when(Equal,   &Flux::new(-5_i64)).collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(v1.clone().when(Less,    &Flux::new(-5_i64)).collect::<Vec<(Time, Time)>>(),  [(2*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v1.clone().when(Greater, &Flux::new(-25_i64)).collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 3*Nanosecs)]);
+		assert_eq!(v2.clone().when(Equal,   &Flux::new(71_i64)).collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 1*Nanosecs), (1*Nanosecs, 1*Nanosecs)]);
+		assert_eq!(v2.clone().when(Less,    &Flux::new(20_i64)).collect::<Vec<(Time, Time)>>(),  [(3*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v2.clone().when(Greater, &Flux::new(69_i64)).collect::<Vec<(Time, Time)>>(),  [(1*Nanosecs, 2*Nanosecs)]);
+		assert_eq!(v3.clone().when(Equal,   &Flux::new(140_i64)).collect::<Vec<(Time, Time)>>(), [(5*Nanosecs, 5*Nanosecs)]);
+		assert_eq!(v3.clone().when(Less,    &Flux::new(160_i64)).collect::<Vec<(Time, Time)>>(), [(0*Nanosecs, 0*Nanosecs), (5*Nanosecs, u64::MAX*Nanosecs)]);
+		assert_eq!(v3.clone().when(Greater, &Flux::new(280_i64)).collect::<Vec<(Time, Time)>>(), [(2*Nanosecs, 4*Nanosecs)]);
 	}
 	
 	#[test]
 	fn when_eq() {
 		use std::cmp::Ordering::*;
 		let (v0, v1, v2, v3) = linear();
-		let (v0, v1, v2, v3) = (
-			PredValue::new(v0),
-			PredValue::new(v1),
-			PredValue::new(v2),
-			PredValue::new(v3),
-		);
 		assert_eq!(
-			v0.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v0.when(Equal, &Flux::new(3_i64)).into_iter()
+			v0.when_eq(&Flux::new(3_i64)).collect::<Vec<Time>>(),
+			v0.when(Equal, &Flux::new(3_i64))
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v1.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v1.when(Equal, &Flux::new(3_i64)).into_iter()
+			v1.when_eq(&Flux::new(3_i64)).collect::<Vec<Time>>(),
+			v1.when(Equal, &Flux::new(3_i64))
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v2.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v2.when(Equal, &Flux::new(3_i64)).into_iter()
+			v2.when_eq(&Flux::new(3_i64)).collect::<Vec<Time>>(),
+			v2.when(Equal, &Flux::new(3_i64))
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
 		assert_eq!(
-			v3.when_eq(&Flux::new(3_i64)).into_iter().collect::<Vec<Time>>(),
-			v3.when(Equal, &Flux::new(3_i64)).into_iter()
+			v3.when_eq(&Flux::new(3_i64)).collect::<Vec<Time>>(),
+			v3.when(Equal, &Flux::new(3_i64))
 				.map(|(a, _)| a)
 				.collect::<Vec<Time>>()
 		);
