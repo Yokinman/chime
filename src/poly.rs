@@ -126,6 +126,8 @@ pub trait Roots: FluxKind {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList>;
 }
 
+const LIMIT: f64 = 0.01;
+
 impl Roots for Sum<f64, 0> {
 	fn roots(_: Poly<Self>) -> Result<RootList, RootList> {
 		Ok([].into())
@@ -134,9 +136,9 @@ impl Roots for Sum<f64, 0> {
 
 impl Roots for Sum<f64, 1> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Sum(b)]) = poly;
+		let Poly(a, [Sum(b)]) = poly;
 		if b == 0. {
-			return Sum::<f64, 0>::roots(Poly(a,[]))
+			return Sum::<f64, 0>::roots(Poly(a, []))
 		}
 		Ok([-a / b].into())
 	}
@@ -144,19 +146,32 @@ impl Roots for Sum<f64, 1> {
 
 impl Roots for Sum<f64, 2> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Sum(b), Sum(c)]) = poly;
+		let Poly(a, [Sum(b), Sum(c)]) = poly;
 		if c == 0. {
-			return Sum::<f64, 1>::roots(Poly(a,[Sum(b)]))
+			return Sum::<f64, 1>::roots(Poly(a, [Sum(b)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Sum::<f64, 1>::roots(Poly(b,[Sum(c)]))?];
-			return Ok(roots.concat().into_boxed_slice())
+			let roots = [
+				[0.].into(),
+				Sum::<f64, 1>::roots(Poly(b, [Sum(c)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // Pseudo-linear:
 		if b == 0. {
 			let r = (-a / c).sqrt();
 			return Ok([r, -r].into())
+		}
+		
+		 // Precision Breakdown:
+		if (4.0 * a * c/(b*b)).abs() < LIMIT {
+			// https://www.desmos.com/calculator/coxloe79ea
+			let roots = [
+				[-b / c].into(),
+				Sum::<f64, 1>::roots(Poly(a, [Sum(b)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // General Quadratic:
@@ -168,13 +183,16 @@ impl Roots for Sum<f64, 2> {
 
 impl Roots for Sum<f64, 3> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Sum(b), Sum(c), Sum(d)]) = poly;
+		let Poly(a, [Sum(b), Sum(c), Sum(d)]) = poly;
 		if d == 0. {
-			return Sum::<f64, 2>::roots(Poly(a,[Sum(b), Sum(c)]))
+			return Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Sum::<f64, 2>::roots(Poly(b,[Sum(c), Sum(d)]))?];
-			return Ok(roots.concat().into_boxed_slice())
+			let roots = [
+				[0.].into(),
+				Sum::<f64, 2>::roots(Poly(b, [Sum(c), Sum(d)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // Pseudo-linear:
@@ -209,8 +227,28 @@ impl Roots for Sum<f64, 3> {
 					Ok([(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN].into())
 				},
 				
-				_ => unreachable!()
+				 // This shouldn't really ever run, but just in case:
+				_ => {
+					let roots = [
+						[0.].into(),
+						Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))?
+					];
+					return Ok(roots.concat().into())
+				}
 			}
+		}
+		
+		 // Precision Breakdown:
+		if
+			(4.0  * b *   d/(c*c))   .abs() < LIMIT &&
+			(27.0 * a * d*d/(c*c*c)) .abs() < LIMIT
+			// https://www.desmos.com/calculator/4kgmefjtqz
+		{
+			let roots = [
+				[-c / d].into(),
+				Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // General Cubic:
@@ -232,13 +270,16 @@ impl Roots for Sum<f64, 3> {
 
 impl Roots for Sum<f64, 4> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a,[Sum(b), Sum(c), Sum(d), Sum(e)]) = poly;
+		let Poly(a, [Sum(b), Sum(c), Sum(d), Sum(e)]) = poly;
 		if e == 0. {
-			return Sum::<f64, 3>::roots(Poly(a,[Sum(b), Sum(c), Sum(d)]))
+			return Sum::<f64, 3>::roots(Poly(a, [Sum(b), Sum(c), Sum(d)]))
 		}
 		if a == 0. {
-			let roots = [[0.].into(), Sum::<f64, 3>::roots(Poly(b,[Sum(c), Sum(d), Sum(e)]))?];
-			return Ok(roots.concat().into_boxed_slice())
+			let roots = [
+				[0.].into(),
+				Sum::<f64, 3>::roots(Poly(b, [Sum(c), Sum(d), Sum(e)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // Pseudo-linear:
@@ -249,7 +290,7 @@ impl Roots for Sum<f64, 4> {
 		
 		 // Biquadratic:
 		if (b,d) == (0.,0.) {
-			return Ok(Sum::<f64, 2>::roots(Poly(a,[Sum(c), Sum(e)]))?
+			return Ok(Sum::<f64, 2>::roots(Poly(a, [Sum(c), Sum(e)]))?
 				.into_iter()
 				.map(|r| r.sqrt())
 				.flat_map(|r| [r, -r])
@@ -269,13 +310,27 @@ impl Roots for Sum<f64, 4> {
 					Sum(1.0),
 				]
 			);
-			let m = *resolvent_cubic.real_roots()?.last().unwrap();
-			debug_assert!(m >= 0.0);
+			let m = *resolvent_cubic.real_roots().unwrap_or_default() 
+				.iter().find(|&r| *r >= 0.0)
+				.expect("this shouldn't happen, probably a precision issue");
 			let sqrt_2m = (2.0 * m).sqrt();
 			let quad_a = Poly::<Sum<f64, 2>>( (q / sqrt_2m) + r + m, [Sum(-sqrt_2m), Sum(1.0)]);
 			let quad_b = Poly::<Sum<f64, 2>>(-(q / sqrt_2m) + r + m, [Sum( sqrt_2m), Sum(1.0)]);
-			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat()
-				.into_boxed_slice())
+			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat().into())
+		}
+		
+		 // Precision Breakdown:
+		if
+			(4.0   * c *     e/(d*d))     .abs() < LIMIT &&
+			(27.0  * b *   e*e/(d*d*d))   .abs() < LIMIT &&
+			(256.0 * a * e*e*e/(d*d*d*d)) .abs() < LIMIT
+			// https://www.desmos.com/calculator/09upa4bqod
+		{
+			let roots = [
+				[-d / e].into(),
+				Sum::<f64, 3>::roots(Poly(a, [Sum(b), Sum(c), Sum(d)]))?
+			];
+			return Ok(roots.concat().into())
 		}
 		
 		 // General Quartic:
@@ -339,10 +394,18 @@ mod tests {
 	where
 		K: Roots
 	{
-		let r = p.real_roots().unwrap();
+		let r = p.real_roots().unwrap_or_default();
+		assert_eq!(
+			r.len(), expected_roots.len(),
+			"{:?} vs {:?}",
+			r, expected_roots
+		);
 		for i in 0..r.len() {
-			// println!("{:?} <> {:?}", r[i], expected_roots[i]);
-			assert!((r[i] - expected_roots[i]).abs() < 0.1);
+			assert!(
+				(r[i] - expected_roots[i]).abs() < 0.1,
+				"{:?} vs {:?}",
+				r[i], expected_roots[i]
+			);
 		}
 	}
 	
