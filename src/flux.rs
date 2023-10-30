@@ -449,6 +449,26 @@ impl<T: LinearValue> DerefMut for Flux<T> {
 	}
 }
 
+/// Used to construct a [`FluxChange`] for convenient change-over-time operations.
+/// 
+/// `1 + 2.per(TimeUnit::Secs)` 
+pub trait Per: Sized {
+	fn per(&self, unit: TimeUnit) -> FluxChange<Self> {
+		FluxChange {
+			rate: self,
+			unit
+		}
+	}
+}
+
+impl<T: FluxValue> Per for T {}
+
+/// A description of a change over time for use with arithmetic operators.
+pub struct FluxChange<'t, T> {
+	pub rate: &'t T,
+	pub unit: TimeUnit,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -496,8 +516,8 @@ mod tests {
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
-				.add(&self.spd, TimeUnit::Secs)
-				.add(&self.misc, TimeUnit::Secs)
+				+ self.spd.per(TimeUnit::Secs)
+				+ self.misc.per(TimeUnit::Secs)
 		}
 		fn at(&self, time: Time) -> Self::Moment {
 			Pos {
@@ -529,8 +549,8 @@ mod tests {
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
-				.sub(&self.fric, TimeUnit::Secs)
-				.add(&self.accel, TimeUnit::Secs)
+				- self.fric.per(TimeUnit::Secs)
+				+ self.accel.per(TimeUnit::Secs)
 		}
 		fn at(&self, time: Time) -> Self::Moment {
 			Spd {
@@ -588,7 +608,7 @@ mod tests {
 			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes.add(&self.jerk, TimeUnit::Secs)
+			changes + self.jerk.per(TimeUnit::Secs)
 		}
 		fn at(&self, time: Time) -> Self::Moment {
 			Accel {
@@ -617,7 +637,7 @@ mod tests {
 			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes.add(&self.snap, TimeUnit::Secs)
+			changes + self.snap.per(TimeUnit::Secs)
 		}
 		fn at(&self, time: Time) -> Self::Moment {
 			Jerk {

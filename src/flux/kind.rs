@@ -88,26 +88,32 @@ impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
 }
 
 impl<K: FluxKind> SumAccum<'_, K> {
-	pub fn add<V: FluxValue>(self, value: &V, unit: TimeUnit) -> Self
+	fn accum<V: FluxValue>(mut self, scalar: Scalar, change: FluxChange<'_, V>) -> Self
 	where
 		(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	{
-		self.accum(Scalar(1.0), value, unit)
-	}
-	
-	pub fn sub<V: FluxValue>(self, value: &V, unit: TimeUnit) -> Self
-	where
-		(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	{
-		self.accum(Scalar(-1.0), value, unit)
-	}
-	
-	fn accum<V: FluxValue>(mut self, scalar: Scalar, value: &V, unit: TimeUnit) -> Self
-	where
-		(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	{
-		<(K, V::Kind)>::eval(&mut self.0, scalar, value, unit);
+		<(K, V::Kind)>::eval(&mut self.0, scalar, change.rate, change.unit);
 		self
+	}
+}
+
+impl<K: FluxKind, V: FluxValue> Add<FluxChange<'_, V>> for SumAccum<'_, K>
+where
+	(K, V::Kind): SumAccumHelper<K, V::Kind>
+{
+	type Output = Self;
+	fn add(self, rhs: FluxChange<'_, V>) -> Self {
+		self.accum(Scalar(1.0), rhs)
+	}
+}
+
+impl<K: FluxKind, V: FluxValue> Sub<FluxChange<'_, V>> for SumAccum<'_, K>
+where
+	(K, V::Kind): SumAccumHelper<K, V::Kind>
+{
+	type Output = Self;
+	fn sub(self, rhs: FluxChange<'_, V>) -> Self {
+		self.accum(Scalar(-1.0), rhs)
 	}
 }
 
