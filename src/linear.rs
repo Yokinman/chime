@@ -55,27 +55,29 @@ where T:
 }
 
 /// A mapping of a vector space that preserves addition & multiplication.
-/// ??? Maybe rename to LinearMap, since it's not *really* isomorphic.
 /// 
 /// # Properties
 /// 
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<Mapped>: LinearValue {
-	fn map(self) -> Mapped;
-	fn inv_map(value: Mapped) -> Self;
-	fn set(&mut self, value: Mapped) {
-		*self = Self::inv_map(value);
-	}
+pub trait LinearIso<T: InvLinearIso<Self> + ?Sized>: LinearValue {
+	fn map(self) -> T;
+}
+
+pub trait InvLinearIso<T: LinearIso<Self>> {
+	fn inv_map(self) -> T;
 }
 
 impl<T: LinearValue> LinearIso<T> for T {
 	fn map(self) -> T {
 		self
 	}
-	fn inv_map(value: T) -> Self {
-		value
+}
+
+impl<T: LinearValue> InvLinearIso<T> for T {
+	fn inv_map(self) -> T {
+		self
 	}
 }
 
@@ -85,8 +87,10 @@ macro_rules! impl_iso_for_int {
 			fn map(self) -> $b {
 				self.round() as $b
 			}
-			fn inv_map(value: $b) -> Self {
-				value as $a
+		}
+		impl InvLinearIso<$a> for $b {
+			fn inv_map(self) -> $a {
+				self as $a
 			}
 		}
 	)+}
@@ -145,8 +149,11 @@ impl LinearIso<f64> for Exp<f64> {
 	fn map(self) -> f64 {
 		self.0.exp()
 	}
-	fn inv_map(value: f64) -> Self {
-		Self(value.ln())
+}
+
+impl InvLinearIso<Exp<f64>> for f64 {
+	fn inv_map(self) -> Exp<f64> {
+		Exp(self.ln())
 	}
 }
 
@@ -154,7 +161,10 @@ impl LinearIso<u64> for Exp<f64> {
 	fn map(self) -> u64 {
 		self.0.exp().round() as u64
 	}
-	fn inv_map(value: u64) -> Self {
-		Self((value as f64).ln())
+}
+
+impl InvLinearIso<Exp<f64>> for u64 {
+	fn inv_map(self) -> Exp<f64> {
+		Exp((self as f64).ln())
 	}
 }

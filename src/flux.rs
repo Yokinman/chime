@@ -1,7 +1,8 @@
 //! Utilities for describing how a type changes over time.
 
 use std::cmp::Ordering;
-use std::ops::{Add, Sub};
+use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Add, Deref, DerefMut, Sub};
 
 use time::{Time, TimeUnit};
 use crate::linear::*;
@@ -14,8 +15,7 @@ pub use self::kind::*;
 
 /// A value that can change over time.
 pub trait FluxValue: Sized {
-	/// The produced value.
-	type Value;
+	type Moment: FluxMoment<Self>;
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
@@ -26,16 +26,46 @@ pub trait FluxValue: Sized {
 	
 	/// Initial value.
 	fn value(&self) -> <Self::Kind as FluxKind>::Linear;
-	fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear);
+	
+	/// ...
+	fn time(&self) -> Time;
 	
 	/// Accumulates change over time.
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a>;
 	
-	/// Apply change over time.
-	fn time(&self) -> Time;
-	fn set_time(&mut self, time: Time);
+	/// The moment of this value at the given time.
+	fn at(&self, time: Time) -> Self::Moment;
 	
-	fn calc_value(&self, time: Time) -> <Self::Kind as FluxKind>::Linear {
+	/// Sets the moment of this value at the given time (affects all moments).
+	fn set_at(&mut self, time: Time, moment: Self::Moment) {
+		*self = moment.to_value(time);
+	}
+	
+	/// Returns a mutable moment in time.
+	/// 
+	/// ```text
+	/// let mut moment = self.at_mut(time);
+	/// // modifications
+	/// ```
+	/// 
+	/// equivalent to:
+	/// 
+	/// ```text
+	/// let mut moment = self.at(time);
+	/// // modifications
+	/// self.set_moment(time, moment);
+	/// ```
+	fn at_mut(&mut self, time: Time) -> FluxMut<Self> {
+		let moment = Some(self.at(time));
+		FluxMut {
+			inner: self,
+			time,
+			moment,
+		}
+	}
+	
+	/// The evaluation of this value at the given time.
+	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Linear {
 		let mut value = self.value();
 		let value_accum = FluxAccumKind::Sum {
 			sum: &mut value,
@@ -47,13 +77,7 @@ pub trait FluxValue: Sized {
 		value
 	}
 	
-	fn at(&self, time: Time) -> Self::Value
-	where
-		<Self::Kind as FluxKind>::Linear: LinearIso<Self::Value>,
-	{
-		self.calc_value(time).map()
-	}
-	
+	/// A polynomial description of this flux value relative to `self.time()`.
 	fn poly(&self) -> Poly<Self::Kind> {
 		let mut poly = Poly::default();
 		poly.0 = self.value();
@@ -62,26 +86,22 @@ pub trait FluxValue: Sized {
 		poly
 	}
 	
-	/// ...
-	fn when<B: FluxValue>(&self, cmp_order: Ordering, other: &B) -> TimeRanges
+	/// Ranges of time when this value will be above/below/equal to the given value.
+	fn when<O: FluxValue>(&self, cmp_order: Ordering, other: &O) -> TimeRanges
 	where
-		Self: Clone,
-		B: Clone,
-		When<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
+		When<Self::Kind, O::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
 		let a_time = self.time();
 		let b_time = other.time();
 		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
-			Ordering::Less => {
-				let mut a = self.clone();
-				a.set_time(b_time);
-				(a.poly(), other.poly())
-			},
-			Ordering::Greater => {
-				let mut b = other.clone();
-				b.set_time(a_time);
-				(self.poly(), b.poly())
-			},
+			Ordering::Less => (
+				self.at(b_time).to_value(b_time).poly(), // !!! This may be lossy
+				other.poly()
+			),
+			Ordering::Greater => (
+				self.poly(),
+				other.at(a_time).to_value(a_time).poly()
+			),
 			Ordering::Equal => (self.poly(), other.poly()),
 		};
 		When {
@@ -92,26 +112,22 @@ pub trait FluxValue: Sized {
 		}.into_iter()
 	}
 	
-	/// ...
-	fn when_eq<B: FluxValue>(&self, other: &B) -> Times
+	/// Times when this value will be equal to the given value.
+	fn when_eq<O: FluxValue>(&self, other: &O) -> Times
 	where
-		Self: Clone,
-		B: Clone,
-		WhenEq<Self::Kind, B::Kind>: IntoIterator<IntoIter=Times>
+		WhenEq<Self::Kind, O::Kind>: IntoIterator<IntoIter=Times>
 	{
 		let a_time = self.time();
 		let b_time = other.time();
 		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
-			Ordering::Less => {
-				let mut a = self.clone();
-				a.set_time(b_time);
-				(a.poly(), other.poly())
-			},
-			Ordering::Greater => {
-				let mut b = other.clone();
-				b.set_time(a_time);
-				(self.poly(), b.poly())
-			},
+			Ordering::Less => (
+				self.at(b_time).to_value(b_time).poly(),
+				other.poly()
+			),
+			Ordering::Greater => (
+				self.poly(),
+				other.at(a_time).to_value(a_time).poly()
+			),
 			Ordering::Equal => (self.poly(), other.poly()),
 		};
 		WhenEq {
@@ -119,6 +135,66 @@ pub trait FluxValue: Sized {
 			b_poly,
 			time: a_time.max(b_time),
 		}.into_iter()
+	}
+}
+
+/// Moment-in-time interface for [`FluxValue::at`] / [`FluxValue::at_mut`].
+pub trait FluxMoment<V: FluxValue<Moment=Self>> {
+	/// Constructs the entirety of a [`FluxValue`] from a single moment.
+	fn to_value(self, time: Time) -> V;
+}
+
+/// Mutable moment-in-time interface for [`FluxValue::at_mut`].
+pub struct FluxMut<'v, V: FluxValue> {
+	inner: &'v mut V,
+	time: Time,
+	moment: Option<V::Moment>,
+}
+
+impl<V: FluxValue> Drop for FluxMut<'_, V> {
+	fn drop(&mut self) {
+		if let Some(moment) = std::mem::take(&mut self.moment) {
+			self.inner.set_at(self.time, moment);
+		}
+	}
+}
+
+impl<V: FluxValue> Deref for FluxMut<'_, V> {
+	type Target = V::Moment;
+	fn deref(&self) -> &Self::Target {
+		if let Some(moment) = self.moment.as_ref() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<V: FluxValue> DerefMut for FluxMut<'_, V> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		if let Some(moment) = self.moment.as_mut() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<V: FluxValue> Debug for FluxMut<'_, V>
+where
+	V::Moment: Debug
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<V::Moment as Debug>::fmt(self, f)
+	}
+}
+
+impl<V: FluxValue> Display for FluxMut<'_, V>
+where
+	V::Moment: Display
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<V::Moment as Display>::fmt(self, f)
 	}
 }
 
@@ -156,6 +232,7 @@ impl Iterator for Times {
 	}
 }
 
+/// [`FluxValue::when`] predictive comparison.
 #[derive(Copy, Clone, Debug)]
 pub struct When<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
@@ -255,7 +332,7 @@ where
 	}
 }
 
-/// [`FluxValue`] predictive equality comparison.
+/// [`FluxValue::when_eq`] predictive equality comparison.
 #[derive(Copy, Clone, Debug)]
 pub struct WhenEq<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
@@ -331,186 +408,277 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 	},
 }
 
+/// Convenience for defining a generic self-isomorphic type.
+pub trait Iso<A: LinearIso<B>, B: InvLinearIso<A> = A> {
+	type Value;
+}
+
+impl<A: LinearIso<B>, B: LinearValue + InvLinearIso<A>> Iso<A, B> for Flux<A> {
+	type Value = Self;
+}
+
+impl<A: LinearIso<B>, B: LinearValue + InvLinearIso<A>> Iso<A, B> for B {
+	type Value = Self;
+}
+
+/// Convenience for encapsulating the unmapped values of a [`FluxValue`] type
+/// with their time.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Flux<T: LinearValue>(Time, T);
+
+impl<T: LinearValue> Flux<T> {
+	pub fn new(time: Time, value: T) -> Self {
+		Self(time, value)
+	}
+	
+	pub fn time(&self) -> Time {
+		self.0
+	}
+}
+
+impl<T: LinearValue> Deref for Flux<T> {
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.1
+	}
+}
+
+impl<T: LinearValue> DerefMut for Flux<T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.1
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use TimeUnit::*;
 	
-	#[derive(Debug, Default, Clone)] struct Pos   { time: Time, value: f64, spd: Spd, misc: Vec<Spd> }
-	#[derive(Debug, Default, Clone)] struct Spd   { time: Time, value: f64, fric: Fric, accel: Accel }
-	#[derive(Debug, Default, Clone)] struct Fric  { time: Time, value: f64 }
-	#[derive(Debug, Default, Clone)] struct Accel { time: Time, value: f64, jerk: Jerk }
-	#[derive(Debug, Default, Clone)] struct Jerk  { time: Time, value: f64, snap: Snap }
-	#[derive(Debug, Default, Clone)] struct Snap  { time: Time, value: f64 }
+	macro_rules! make {
+		($name:ident<$t:ident> { $($sub_name:ident: $sub_type:ty),* }) => {
+			#[derive(Debug, Default, Clone)]
+			struct $name<$t: Iso<f64>> {
+				value: $t::Value,
+				$($sub_name: $sub_type),*
+			}
+			
+			impl Deref for $name<f64> {
+				type Target = f64;
+				fn deref(&self) -> &Self::Target {
+					&self.value
+				}
+			}
+			
+			impl DerefMut for $name<f64> {
+				fn deref_mut(&mut self) -> &mut Self::Target {
+					&mut self.value
+				}
+			}
+		}
+	}
 	
-	impl FluxValue for Pos {
-		type Value = i64;
+	make!(Pos   <I> { spd: Spd<I>, misc: Vec<Spd<I>> });
+	make!(Spd   <I> { fric: Fric<I>, accel: Accel<I> });
+	make!(Fric  <I> { });
+	make!(Accel <I> { jerk: Jerk<I> });
+	make!(Jerk  <I> { snap: Snap<I> });
+	make!(Snap  <I> { });
+	
+	impl FluxValue for Pos<Flux<f64>> {
+		type Moment = Pos<f64>;
 		type Kind = Sum<f64, 4>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 				.add(&self.spd, TimeUnit::Secs)
 				.add(&self.misc, TimeUnit::Secs)
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
-			self.spd.set_time(time);
-			self.misc.set_time(time);
+		fn at(&self, time: Time) -> Self::Moment {
+			Pos {
+				value: self.value_at(time).inv_map(),
+				spd: self.spd.at(time),
+				misc: self.misc.at(time),
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Pos<Flux<f64>>> for Pos<f64> {
+		fn to_value(self, time: Time) -> Pos<Flux<f64>> {
+			Pos {
+				value: Flux::new(time, self.value.inv_map()),
+				spd: self.spd.to_value(time),
+				misc: self.misc.to_value(time),
+			}
 		}
 	}
 	
-	impl FluxValue for Spd {
-		type Value = i64;
+	impl FluxValue for Spd<Flux<f64>> {
+		type Moment = Spd<f64>;
 		type Kind = Sum<f64, 3>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 				.sub(&self.fric, TimeUnit::Secs)
 				.add(&self.accel, TimeUnit::Secs)
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
-			self.fric.set_time(time);
-			self.accel.set_time(time);
+		fn at(&self, time: Time) -> Self::Moment {
+			Spd {
+				value: self.value_at(time).inv_map(),
+				fric: self.fric.at(time),
+				accel: self.accel.at(time),
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Spd<Flux<f64>>> for Spd<f64> {
+		fn to_value(self, time: Time) -> Spd<Flux<f64>> {
+			Spd {
+				value: Flux::new(time, self.value.inv_map()),
+				fric: self.fric.to_value(time),
+				accel: self.accel.to_value(time),
+			}
 		}
 	}
 	
-	impl FluxValue for Fric {
-		type Value = i64;
+	impl FluxValue for Fric<Flux<f64>> {
+		type Moment = Fric<f64>;
 		type Kind = Sum<f64, 0>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
+		fn at(&self, time: Time) -> Self::Moment {
+			Fric {
+				value: self.value_at(time).inv_map(),
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Fric<Flux<f64>>> for Fric<f64> {
+		fn to_value(self, time: Time) -> Fric<Flux<f64>> {
+			Fric {
+				value: Flux::new(time, self.value.inv_map()),
+			}
 		}
 	}
 	
-	impl FluxValue for Accel {
-		type Value = i64;
+	impl FluxValue for Accel<Flux<f64>> {
+		type Moment = Accel<f64>;
 		type Kind = Sum<f64, 2>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes.add(&self.jerk, TimeUnit::Secs)
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
-			self.jerk.set_time(time);
+		fn at(&self, time: Time) -> Self::Moment {
+			Accel {
+				value: self.value_at(time).inv_map(),
+				jerk: self.jerk.at(time)
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Accel<Flux<f64>>> for Accel<f64> {
+		fn to_value(self, time: Time) -> Accel<Flux<f64>> {
+			Accel {
+				value: Flux::new(time, self.value.inv_map()),
+				jerk: self.jerk.to_value(time),
+			}
 		}
 	}
 	
-	impl FluxValue for Jerk {
-		type Value = i64;
+	impl FluxValue for Jerk<Flux<f64>> {
+		type Moment = Jerk<f64>;
 		type Kind = Sum<f64, 1>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes.add(&self.snap, TimeUnit::Secs)
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
-			self.snap.set_time(time);
+		fn at(&self, time: Time) -> Self::Moment {
+			Jerk {
+				value: self.value_at(time).inv_map(),
+				snap: self.snap.at(time),
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Jerk<Flux<f64>>> for Jerk<f64> {
+		fn to_value(self, time: Time) -> Jerk<Flux<f64>> {
+			Jerk {
+				value: Flux::new(time, self.value.inv_map()),
+				snap: self.snap.to_value(time),
+			}
 		}
 	}
 	
-	impl FluxValue for Snap {
-		type Value = i64;
+	impl FluxValue for Snap<Flux<f64>> {
+		type Moment = Snap<f64>;
 		type Kind = Sum<f64, 0>;
 		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
 		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			self.value
+			*self.value
 		}
-		fn set_value(&mut self, value: <Self::Kind as FluxKind>::Linear) {
-			self.value = value;
+		fn time(&self) -> Time {
+			self.value.time()
 		}
 		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
 			changes
 		}
-		fn set_time(&mut self, time: Time) {
-			self.value = self.calc_value(time);
-			self.time = time;
+		fn at(&self, time: Time) -> Self::Moment {
+			Snap {
+				value: self.value_at(time).inv_map(),
+			}
 		}
-		fn time(&self) -> Time {
-			self.time
+	}
+	impl FluxMoment<Snap<Flux<f64>>> for Snap<f64> {
+		fn to_value(self, time: Time) -> Snap<Flux<f64>> {
+			Snap {
+				value: Flux::new(time, self.value.inv_map()),
+			}
 		}
 	}
 	
-	fn position() -> Pos {
-		Pos {
-			time: Time::default(),
+	fn position() -> Pos<Flux<f64>> {
+		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
-				time: Time::default(),
 				value: 0.0,
-				fric: Fric {
-					time: Time::default(),
-					value: 3.5,
-				},
+				fric: Fric { value: 3.5 },
 				accel: Accel {
-					time: Time::default(),
 					value: 0.3,
 					jerk: Jerk {
-						time: Time::default(),
 						value: 0.4,
-						snap: Snap {
-							time: Time::default(),
-							value: -0.01
-						},
+						snap: Snap { value: -0.01 },
 					},
 				},
 			},
 			misc: Vec::new(),
-		}
+		};
+		pos.to_value(Time::default())
 	}
 	
 	#[test]
@@ -518,20 +686,18 @@ mod tests {
 		let mut pos = position();
 		
 		 // Values:
-		assert_eq!(pos.at(0*Secs), 32);
-		assert_eq!(pos.at(10*Secs), -63);
-		assert_eq!(pos.at(20*Secs), -113);
-		assert_eq!(pos.at(100*Secs), 8339);
-		assert_eq!(pos.at(200*Secs), -209779);
+		assert_eq!(pos.at(0*Secs).round(), 32.);
+		assert_eq!(pos.at(10*Secs).round(), -63.);
+		assert_eq!(pos.at(20*Secs).round(), -113.);
+		assert_eq!(pos.at(100*Secs).round(), 8339.);
+		assert_eq!(pos.at(200*Secs).round(), -209779.);
 		
 		 // Update:
-		pos.set_time(20*Secs);
-		assert_eq!(pos.at(20*Secs), -113);
-		assert_eq!(pos.at(100*Secs), 8339);
-		assert_eq!(pos.at(200*Secs), -209779);
-		pos.set_time(55*Secs);
-		assert_eq!(pos.at(100*Secs), 8339);
-		assert_eq!(pos.at(200*Secs), -209779);
+		assert_eq!(pos.at_mut(20*Secs).round(), -113.);
+		assert_eq!(pos.at(100*Secs).round(), 8339.);
+		assert_eq!(pos.at(200*Secs).round(), -209779.);
+		assert_eq!(pos.at_mut(100*Secs).round(), 8339.);
+		assert_eq!(pos.at(200*Secs).round(), -209779.);
 	}
 	
 	#[test]
@@ -547,7 +713,7 @@ mod tests {
 			])
 		);
 		for _ in 0..2 {
-			pos.set_time(20*Secs);
+			pos.at_mut(20*Secs);
 			assert_eq!(
 				pos.poly(),
 				Poly(-112.55000000000007, [
@@ -558,7 +724,7 @@ mod tests {
 				])
 			);
 		}
-		pos.set_time(0*Secs);
+		pos.at_mut(0*Secs);
 		assert_eq!(
 			pos.poly(),
 			Poly(32.00000000000006, [
@@ -588,7 +754,7 @@ mod tests {
 			127394131312*Nanosecs
 		]);
 		
-		// pos.set_time(20*Secs);
+		// pos.at_mut(20*Secs);
 		// pos.borrow_mut().spd.value = -20.0;
 		// pos.borrow_mut().spd.accel.jerk.value = 0.3;
 		// 
@@ -604,7 +770,7 @@ mod tests {
 	}
 	
 	#[test]
-	fn when_borrow() {
+	fn when_at_mut() {
 		let mut a_pos = position();
 		let mut b_pos = position();
 		
@@ -613,26 +779,33 @@ mod tests {
 		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
 		assert_eq!(vec, []);
 		assert_eq!(vec_eq, [0*Nanosecs]);
+		a_pos.at_mut(20*Secs);
 		
 		 // Apply Changes:
-		a_pos.set_time(20*Secs);
-		b_pos.misc.push(Spd {
+		b_pos.at_mut(0*Secs).misc.push(Spd {
 			value: 2.5,
 			..Default::default()
 		});
-		b_pos.misc.push(Spd {
+		b_pos.at_mut(0*Secs).misc.push(Spd {
 			value: 12.25,
-			fric: Fric {
-				time: Time::default(),
-				value: 0.5,
-			},
+			fric: Fric { value: 0.5 },
 			..Default::default()
 		});
+		b_pos.at_mut(10*Secs).value -= 100.0;
 		
 		 // Check After:
-		let vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
-		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
-		assert_eq!(vec, [(0*Secs, 0*Secs), (58*Secs, Time::MAX)]);
-		assert_eq!(vec_eq, [0*Secs, 58*Secs]);
+		let mut vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
+		let mut vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
+		for (a, b) in &mut vec {
+			*a = Time::from_secs(a.as_secs_f64().round() as u64);
+			*b = Time::from_secs(b.as_secs_f64().round() as u64);
+		}
+		for t in &mut vec_eq {
+			*t = Time::from_secs(t.as_secs_f64().round() as u64);
+		}
+		assert_eq!(vec, [(0*Secs, 8*Secs), (50*Secs, vec[1].1)]);
+		assert_eq!(vec_eq[0..2], [8*Secs, 50*Secs]);
+		assert!(vec[1].1 > 2_u64.pow(53)*Secs);
+		// https://www.desmos.com/calculator
 	}
 }
