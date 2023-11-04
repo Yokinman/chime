@@ -2,5 +2,7 @@
 
 pub mod linear;
 pub mod poly;
-pub mod flux;
 // mod change;
+
+mod flux;
+pub use flux::*;
