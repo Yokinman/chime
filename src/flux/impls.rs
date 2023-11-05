@@ -42,17 +42,17 @@ where
 	}
 	fn at(&self, time: Time) -> Self::Moment {
 		self.into_iter()
-			.map(|x| T::at(x, time))
+			.map(|x| x.at(time))
 			.collect()
 	}
 }
 
-impl<T: FluxValue> FluxMoment<Vec<T>> for Vec<T::Moment>
+impl<T: Moment> Moment for Vec<T>
 where
-	for<'t> T::Kind: FluxKind<Accum<'t> = T::OutAccum<'t>>,
-	for<'t> <T::Kind as FluxKind>::Linear: 't, // !!! I think this gives T::Linear a static lifetime, not good
+	Vec<T::Flux>: FluxValue<Moment=Vec<T>>
 {
-	fn to_value(self, time: Time) -> Vec<T> {
+	type Flux = Vec<T::Flux>;
+	fn to_value(self, time: Time) -> Self::Flux {
 		self.into_iter()
 			.map(|x| x.to_value(time))
 			.collect()

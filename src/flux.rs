@@ -4,7 +4,6 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Deref, DerefMut, Sub};
 
-use time::{Time, TimeUnit};
 use crate::linear::*;
 use crate::poly::*;
 
@@ -13,9 +12,21 @@ mod kind;
 pub use self::impls::*;
 pub use self::kind::*;
 
+pub use time::{Time, TimeUnit};
+
+pub use flux_proc_macro::flux;
+
+/// Moment-in-time interface for [`FluxValue::at`] / [`FluxValue::at_mut`].
+pub trait Moment {
+	type Flux: FluxValue<Moment=Self>;
+	
+	/// Constructs the entirety of a [`FluxValue`] from a single moment.
+	fn to_value(self, time: Time) -> Self::Flux;
+}
+
 /// A value that can change over time.
 pub trait FluxValue: Sized {
-	type Moment: FluxMoment<Self>;
+	type Moment: Moment<Flux=Self>;
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
@@ -136,12 +147,6 @@ pub trait FluxValue: Sized {
 			time: a_time.max(b_time),
 		}.into_iter()
 	}
-}
-
-/// Moment-in-time interface for [`FluxValue::at`] / [`FluxValue::at_mut`].
-pub trait FluxMoment<V: FluxValue<Moment=Self>> {
-	/// Constructs the entirety of a [`FluxValue`] from a single moment.
-	fn to_value(self, time: Time) -> V;
 }
 
 /// Mutable moment-in-time interface for [`FluxValue::at_mut`].
@@ -471,218 +476,61 @@ pub struct FluxChange<'t, T> {
 
 #[cfg(test)]
 mod tests {
+	use impl_op::impl_op;
 	use super::*;
 	use TimeUnit::*;
 	
-	macro_rules! make {
-		($name:ident<$t:ident> { $($sub_name:ident: $sub_type:ty),* }) => {
-			#[derive(Debug, Default, Clone)]
-			struct $name<$t: Iso<f64>> {
-				value: $t::Value,
-				$($sub_name: $sub_type),*
-			}
-			
-			impl Deref for $name<f64> {
-				type Target = f64;
-				fn deref(&self) -> &Self::Target {
-					&self.value
-				}
-			}
-			
-			impl DerefMut for $name<f64> {
-				fn deref_mut(&mut self) -> &mut Self::Target {
-					&mut self.value
-				}
-			}
-		}
+	mod flux {
+		pub use crate::*;
 	}
 	
-	make!(Pos   <I> { spd: Spd<I>, misc: Vec<Spd<I>> });
-	make!(Spd   <I> { fric: Fric<I>, accel: Accel<I> });
-	make!(Fric  <I> { });
-	make!(Accel <I> { jerk: Jerk<I> });
-	make!(Jerk  <I> { snap: Snap<I> });
-	make!(Snap  <I> { });
-	
-	impl FluxValue for Pos<Flux<f64>> {
-		type Moment = Pos<f64>;
-		type Kind = Sum<f64, 4>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes
-				+ self.spd.per(TimeUnit::Secs)
-				+ self.misc.per(TimeUnit::Secs)
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Pos {
-				value: self.value_at(time).inv_map(),
-				spd: self.spd.at(time),
-				misc: self.misc.at(time),
-			}
-		}
-	}
-	impl FluxMoment<Pos<Flux<f64>>> for Pos<f64> {
-		fn to_value(self, time: Time) -> Pos<Flux<f64>> {
-			Pos {
-				value: Flux::new(time, self.value.inv_map()),
-				spd: self.spd.to_value(time),
-				misc: self.misc.to_value(time),
-			}
-		}
+	#[flux(Sum<f64, 4> = {value} + spd.per(Secs) + misc.per(Secs))]
+	#[derive(Clone, Debug, Default)]
+	struct Pos {
+		value: f64,
+		spd: Spd,
+		misc: Vec<Spd>,
 	}
 	
-	impl FluxValue for Spd<Flux<f64>> {
-		type Moment = Spd<f64>;
-		type Kind = Sum<f64, 3>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes
-				- self.fric.per(TimeUnit::Secs)
-				+ self.accel.per(TimeUnit::Secs)
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Spd {
-				value: self.value_at(time).inv_map(),
-				fric: self.fric.at(time),
-				accel: self.accel.at(time),
-			}
-		}
-	}
-	impl FluxMoment<Spd<Flux<f64>>> for Spd<f64> {
-		fn to_value(self, time: Time) -> Spd<Flux<f64>> {
-			Spd {
-				value: Flux::new(time, self.value.inv_map()),
-				fric: self.fric.to_value(time),
-				accel: self.accel.to_value(time),
-			}
-		}
+	#[flux(Sum<f64, 3> = {value} - fric.per(Secs) + accel.per(Secs))]
+	#[derive(Clone, Debug, Default)]
+	struct Spd {
+		value: f64,
+		fric: Fric,
+		accel: Accel,
 	}
 	
-	impl FluxValue for Fric<Flux<f64>> {
-		type Moment = Fric<f64>;
-		type Kind = Sum<f64, 0>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Fric {
-				value: self.value_at(time).inv_map(),
-			}
-		}
-	}
-	impl FluxMoment<Fric<Flux<f64>>> for Fric<f64> {
-		fn to_value(self, time: Time) -> Fric<Flux<f64>> {
-			Fric {
-				value: Flux::new(time, self.value.inv_map()),
-			}
-		}
+	#[flux(Sum<f64, 0> = {value})]
+	#[derive(Clone, Debug, Default)]
+	struct Fric {
+		value: f64,
 	}
 	
-	impl FluxValue for Accel<Flux<f64>> {
-		type Moment = Accel<f64>;
-		type Kind = Sum<f64, 2>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes + self.jerk.per(TimeUnit::Secs)
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Accel {
-				value: self.value_at(time).inv_map(),
-				jerk: self.jerk.at(time)
-			}
-		}
-	}
-	impl FluxMoment<Accel<Flux<f64>>> for Accel<f64> {
-		fn to_value(self, time: Time) -> Accel<Flux<f64>> {
-			Accel {
-				value: Flux::new(time, self.value.inv_map()),
-				jerk: self.jerk.to_value(time),
-			}
-		}
+	#[flux(Sum<f64, 2> = {value} + jerk.per(Secs))]
+	#[derive(Clone, Debug, Default)]
+	struct Accel {
+		value: f64,
+		jerk: Jerk,
 	}
 	
-	impl FluxValue for Jerk<Flux<f64>> {
-		type Moment = Jerk<f64>;
-		type Kind = Sum<f64, 1>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes + self.snap.per(TimeUnit::Secs)
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Jerk {
-				value: self.value_at(time).inv_map(),
-				snap: self.snap.at(time),
-			}
-		}
-	}
-	impl FluxMoment<Jerk<Flux<f64>>> for Jerk<f64> {
-		fn to_value(self, time: Time) -> Jerk<Flux<f64>> {
-			Jerk {
-				value: Flux::new(time, self.value.inv_map()),
-				snap: self.snap.to_value(time),
-			}
-		}
+	#[flux(Sum<f64, 1> = {value} + snap.per(Secs))]
+	#[derive(Clone, Debug, Default)]
+	struct Jerk {
+		value: f64,
+		snap: Snap,
 	}
 	
-	impl FluxValue for Snap<Flux<f64>> {
-		type Moment = Snap<f64>;
-		type Kind = Sum<f64, 0>;
-		type OutAccum<'a> = SumAccum<'a, Self::Kind>;
-		fn value(&self) -> <Self::Kind as FluxKind>::Linear {
-			*self.value
-		}
-		fn time(&self) -> Time {
-			self.value.time()
-		}
-		fn change<'a>(&self, changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
-			changes
-		}
-		fn at(&self, time: Time) -> Self::Moment {
-			Snap {
-				value: self.value_at(time).inv_map(),
-			}
-		}
-	}
-	impl FluxMoment<Snap<Flux<f64>>> for Snap<f64> {
-		fn to_value(self, time: Time) -> Snap<Flux<f64>> {
-			Snap {
-				value: Flux::new(time, self.value.inv_map()),
-			}
-		}
+	#[flux(Sum<f64, 0> = {value})]
+	#[derive(Clone, Debug, Default)]
+	struct Snap {
+		value: f64,
 	}
 	
-	fn position() -> Pos<Flux<f64>> {
+	impl_op!{ *a -> f64 {
+		Pos | Spd | Fric | Accel | Jerk | Snap => a.value
+	}}
+	
+	fn position() -> <Pos as Moment>::Flux {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
@@ -826,6 +674,5 @@ mod tests {
 		assert_eq!(vec, [(0*Secs, 8*Secs), (50*Secs, vec[1].1)]);
 		assert_eq!(vec_eq[0..2], [8*Secs, 50*Secs]);
 		assert!(vec[1].1 > 2_u64.pow(53)*Secs);
-		// https://www.desmos.com/calculator
 	}
 }

@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+flux-proc-macro = { path = "flux-proc-macro" }
 impl_op = { path = "../impl_op" }
 time = { path = "../time" }
