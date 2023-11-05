@@ -454,12 +454,12 @@ impl<T: LinearValue> DerefMut for Flux<T> {
 	}
 }
 
-/// Used to construct a [`FluxChange`] for convenient change-over-time operations.
+/// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
 /// `1 + 2.per(TimeUnit::Secs)` 
 pub trait Per: Sized {
-	fn per(&self, unit: TimeUnit) -> FluxChange<Self> {
-		FluxChange {
+	fn per(&self, unit: TimeUnit) -> Change<Self> {
+		Change {
 			rate: self,
 			unit
 		}
@@ -469,7 +469,7 @@ pub trait Per: Sized {
 impl<T: FluxValue> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
-pub struct FluxChange<'t, T> {
+pub struct Change<'t, T> {
 	rate: &'t T,
 	unit: TimeUnit,
 }

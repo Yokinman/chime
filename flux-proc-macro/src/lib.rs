@@ -87,7 +87,7 @@ fn contextualize(
 			};
 			call.attrs = std::mem::take(attrs);
 			*expr = syn::Expr::Call(call);
-			*out_accum = quote::quote!(FluxChange<'a, <#ty as flux::Moment>::Flux>);
+			*out_accum = quote::quote!(flux::Change<'a, <#ty as flux::Moment>::Flux>);
 		},
 		
 		 // Retrieve Value Expression (`{value}`):
