@@ -52,9 +52,9 @@ where
 	Vec<T::Flux>: FluxValue<Moment=Vec<T>>
 {
 	type Flux = Vec<T::Flux>;
-	fn to_value(self, time: Time) -> Self::Flux {
+	fn to_flux(self, time: Time) -> Self::Flux {
 		self.into_iter()
-			.map(|x| x.to_value(time))
+			.map(|x| x.to_flux(time))
 			.collect()
 	}
 }

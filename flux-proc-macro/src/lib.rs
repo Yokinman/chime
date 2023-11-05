@@ -231,7 +231,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: flux::Moment::to_value(self.#ident, time),
+				#ident: flux::Moment::to_flux(self.#ident, time),
 			};
 		}
 	}
@@ -244,7 +244,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux_ident #ty_generics;
-			fn to_value(self, time: flux::Time) -> Self::Flux {
+			fn to_flux(self, time: flux::Time) -> Self::Flux {
 				#flux_ident { #flux_fields }
 			}
 		}

@@ -21,7 +21,7 @@ pub trait Moment {
 	type Flux: FluxValue<Moment=Self>;
 	
 	/// Constructs the entirety of a [`FluxValue`] from a single moment.
-	fn to_value(self, time: Time) -> Self::Flux;
+	fn to_flux(self, time: Time) -> Self::Flux;
 }
 
 /// A value that can change over time.
@@ -49,7 +49,7 @@ pub trait FluxValue: Sized {
 	
 	/// Sets the moment of this value at the given time (affects all moments).
 	fn set_at(&mut self, time: Time, moment: Self::Moment) {
-		*self = moment.to_value(time);
+		*self = moment.to_flux(time);
 	}
 	
 	/// Returns a mutable moment in time.
@@ -106,12 +106,12 @@ pub trait FluxValue: Sized {
 		let b_time = other.time();
 		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
 			Ordering::Less => (
-				self.at(b_time).to_value(b_time).poly(), // !!! This may be lossy
+				self.at(b_time).to_flux(b_time).poly(), // !!! This may be lossy
 				other.poly()
 			),
 			Ordering::Greater => (
 				self.poly(),
-				other.at(a_time).to_value(a_time).poly()
+				other.at(a_time).to_flux(a_time).poly()
 			),
 			Ordering::Equal => (self.poly(), other.poly()),
 		};
@@ -132,12 +132,12 @@ pub trait FluxValue: Sized {
 		let b_time = other.time();
 		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
 			Ordering::Less => (
-				self.at(b_time).to_value(b_time).poly(),
+				self.at(b_time).to_flux(b_time).poly(),
 				other.poly()
 			),
 			Ordering::Greater => (
 				self.poly(),
-				other.at(a_time).to_value(a_time).poly()
+				other.at(a_time).to_flux(a_time).poly()
 			),
 			Ordering::Equal => (self.poly(), other.poly()),
 		};
@@ -546,7 +546,7 @@ mod tests {
 			},
 			misc: Vec::new(),
 		};
-		pos.to_value(Time::default())
+		pos.to_flux(Time::default())
 	}
 	
 	#[test]
