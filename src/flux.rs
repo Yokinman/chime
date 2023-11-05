@@ -416,19 +416,6 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 	},
 }
 
-/// Convenience for defining a generic self-isomorphic type.
-pub trait Iso<A: LinearIso<B>, B: InvLinearIso<A> = A> {
-	type Value;
-}
-
-impl<A: LinearIso<B>, B: Linear + InvLinearIso<A>> Iso<A, B> for Flux<A> {
-	type Value = Self;
-}
-
-impl<A: LinearIso<B>, B: Linear + InvLinearIso<A>> Iso<A, B> for B {
-	type Value = Self;
-}
-
 /// Convenience for encapsulating the unmapped values of a [`FluxValue`] type
 /// with their time.
 #[derive(Copy, Clone, Debug, Default)]
