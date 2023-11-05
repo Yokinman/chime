@@ -156,8 +156,10 @@ where
 				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
 			},
 			FluxAccumKind::Poly { poly, depth } => {
-				let mut sub_poly = Poly::default();
-				sub_poly.0 = value.value();
+				let mut sub_poly = Poly {
+					0: value.value(),
+					..Default::default()
+				};
 				value.change(B::Accum::from_kind(FluxAccumKind::Poly {
 					poly: &mut sub_poly,
 					depth: *depth + 1,

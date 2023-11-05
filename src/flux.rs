@@ -90,8 +90,10 @@ pub trait FluxValue: Sized {
 	
 	/// A polynomial description of this flux value relative to `self.time()`.
 	fn poly(&self) -> Poly<Self::Kind> {
-		let mut poly = Poly::default();
-		poly.0 = self.value();
+		let mut poly = Poly {
+			0: self.value(),
+			..Default::default()
+		};
 		let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
 		poly
@@ -294,7 +296,7 @@ where
 				} else {
 					None
 				};
-				for &point in roots.into_iter() {
+				for &point in roots.iter() {
 					if let Some(prev) = prev_point {
 						if point != prev {
 							list.push((prev, point));
@@ -358,7 +360,8 @@ where
 	
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
-		let mut real_roots = poly.real_roots().unwrap_or(Box::default())
+		let mut real_roots = poly.real_roots()
+			.unwrap_or_default()
 			.into_vec();
 		
 		 // Constant Equality:

@@ -41,7 +41,7 @@ where
 		changes
 	}
 	fn at(&self, time: Time) -> Self::Moment {
-		self.into_iter()
+		self.iter()
 			.map(|x| x.at(time))
 			.collect()
 	}

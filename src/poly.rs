@@ -50,7 +50,7 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
-		Self(K::Linear::zero(), K::zero_coeffs())
+		Self(Linear::zero(), K::zero_coeffs())
 	}
 }
 
@@ -63,8 +63,10 @@ where
 {
 	type Output = Poly<<A as Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
-		let mut poly = Poly::default();
-		poly.0 = self.constant() + rhs.constant();
+		let mut poly = Poly {
+			0: self.constant() + rhs.constant(),
+			..Default::default()
+		};
 		let mut a = self.coeff_iter();
 		let mut b = rhs.coeff_iter();
 		for i in 0..<<A as Add<B>>::Output as FluxKind>::DEGREE {
@@ -262,7 +264,7 @@ impl Roots for Sum<f64, 3> {
 			]
 		);
 		Ok(Roots::roots(depressed_cubic)?
-			.into_iter()
+			.iter()
 			.map(|x| x + n)
 			.collect())
 	}
@@ -291,7 +293,7 @@ impl Roots for Sum<f64, 4> {
 		 // Biquadratic:
 		if (b,d) == (0.,0.) {
 			return Ok(Sum::<f64, 2>::roots(Poly(a, [Sum(c), Sum(e)]))?
-				.into_iter()
+				.iter()
 				.map(|r| r.sqrt())
 				.flat_map(|r| [r, -r])
 				.collect())
@@ -345,7 +347,7 @@ impl Roots for Sum<f64, 4> {
 			]
 		);
 		Ok(Roots::roots(depressed_quartic)?
-			.into_iter()
+			.iter()
 			.map(|x| x + n)
 			.collect())
 	}
