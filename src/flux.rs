@@ -418,20 +418,20 @@ pub trait Iso<A: LinearIso<B>, B: InvLinearIso<A> = A> {
 	type Value;
 }
 
-impl<A: LinearIso<B>, B: LinearValue + InvLinearIso<A>> Iso<A, B> for Flux<A> {
+impl<A: LinearIso<B>, B: Linear + InvLinearIso<A>> Iso<A, B> for Flux<A> {
 	type Value = Self;
 }
 
-impl<A: LinearIso<B>, B: LinearValue + InvLinearIso<A>> Iso<A, B> for B {
+impl<A: LinearIso<B>, B: Linear + InvLinearIso<A>> Iso<A, B> for B {
 	type Value = Self;
 }
 
 /// Convenience for encapsulating the unmapped values of a [`FluxValue`] type
 /// with their time.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Flux<T: LinearValue>(Time, T);
+pub struct Flux<T: Linear>(Time, T);
 
-impl<T: LinearValue> Flux<T> {
+impl<T: Linear> Flux<T> {
 	pub fn new(time: Time, value: T) -> Self {
 		Self(time, value)
 	}
@@ -441,14 +441,14 @@ impl<T: LinearValue> Flux<T> {
 	}
 }
 
-impl<T: LinearValue> Deref for Flux<T> {
+impl<T: Linear> Deref for Flux<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		&self.1
 	}
 }
 
-impl<T: LinearValue> DerefMut for Flux<T> {
+impl<T: Linear> DerefMut for Flux<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.1
 	}

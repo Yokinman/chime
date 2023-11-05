@@ -5,7 +5,7 @@ use super::*;
 use std::vec::Vec;
 
 use time::Time;
-use crate::linear::LinearValue;
+use crate::linear::Linear;
 
 // !!! Arrays
 // !!! Slices

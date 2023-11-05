@@ -8,7 +8,7 @@ use impl_op::impl_op;
 use crate::flux::{Sum, FluxKind};
 use crate::poly::*;
 
-/// A scalar value, used for multiplication with any [`LinearValue`].
+/// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug)]
 pub struct Scalar(pub f64);
 
@@ -27,7 +27,7 @@ impl_op!{ a * b {
 }}
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
-pub trait LinearValue:
+pub trait Linear:
 	Sized + Copy + Clone + Debug
 	+ Add<Output=Self>
 	+ Mul<Scalar, Output=Self>
@@ -42,7 +42,7 @@ pub trait LinearValue:
 	}
 }
 
-impl<T> LinearValue for T
+impl<T> Linear for T
 where T:
 	Sized + Copy + Clone + Debug
 	+ Add<Output=T>
@@ -61,7 +61,7 @@ where T:
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: InvLinearIso<Self> + ?Sized>: LinearValue {
+pub trait LinearIso<T: InvLinearIso<Self> + ?Sized>: Linear {
 	fn map(self) -> T;
 }
 
@@ -69,13 +69,13 @@ pub trait InvLinearIso<T: LinearIso<Self>> {
 	fn inv_map(self) -> T;
 }
 
-impl<T: LinearValue> LinearIso<T> for T {
+impl<T: Linear> LinearIso<T> for T {
 	fn map(self) -> T {
 		self
 	}
 }
 
-impl<T: LinearValue> InvLinearIso<T> for T {
+impl<T: Linear> InvLinearIso<T> for T {
 	fn inv_map(self) -> T {
 		self
 	}
@@ -102,35 +102,35 @@ impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 /// 
 /// `map(inv_map(A) + inv_map(B)) <=> Exp(A * B)`
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
-pub struct Exp<T: LinearValue>(T);
+pub struct Exp<T: Linear>(T);
 
-impl<T: LinearValue> Add for Exp<T> {
+impl<T: Linear> Add for Exp<T> {
 	type Output = Self;
 	fn add(self, rhs: Self) -> Self {
 		Self(self.0 + rhs.0)
 	}
 }
 
-impl<T: LinearValue> Mul<Scalar> for Exp<T> {
+impl<T: Linear> Mul<Scalar> for Exp<T> {
 	type Output = Self;
 	fn mul(self, rhs: Scalar) -> Self {
 		Self(self.0 * rhs)
 	}
 }
 
-impl<T: LinearValue> Default for Exp<T> {
+impl<T: Linear> Default for Exp<T> {
 	fn default() -> Self {
 		Self(T::zero())
 	}
 }
 
-impl<T: LinearValue> From<T> for Exp<T> {
+impl<T: Linear> From<T> for Exp<T> {
 	fn from(value: T) -> Exp<T> {
 		Exp(value)
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Roots for Sum<Exp<T>, DEG>
+impl<T: Linear, const DEG: usize> Roots for Sum<Exp<T>, DEG>
 where
 	Sum<T, DEG>: FluxKind<Linear=T> + Roots
 {

@@ -132,12 +132,12 @@ impl_flux_value_for_value!(1, 2, 3, 4, 5, 6, 7);
 
 /// A value that linearly changes over time.
 #[derive(Clone, Debug)]
-struct LinearFlux<T: LinearValue> {
+struct LinearFlux<T: Linear> {
 	initial_value: T,
 	change_list: Vec<Change<T>>,
 }
 
-impl<T: LinearValue> LinearFlux<T> {
+impl<T: Linear> LinearFlux<T> {
 	fn new(initial_value: T) -> Self {
 		Self {
 			initial_value,
@@ -155,13 +155,13 @@ impl<T: LinearValue> LinearFlux<T> {
 
 /// A linear change over time.
 #[derive(Clone, Debug)]
-struct Change<T: LinearValue> {
+struct Change<T: Linear> {
 	scalar: Scalar,
 	rate: LinearFlux<T>,
 	unit: TimeUnit,
 }
 
-impl<T: LinearValue> Change<T> {
+impl<T: Linear> Change<T> {
 	pub fn new(scalar: Scalar, rate: LinearFlux<T>, unit: TimeUnit) -> Self {
 		Self {
 			scalar,

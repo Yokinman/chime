@@ -10,7 +10,7 @@ use std::ops::{Add, Index, IndexMut, Mul, Shl, Shr};
 pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
 	const DEGREE: usize;
 	
-	type Linear: LinearValue;
+	type Linear: Linear;
 	
 	type Accum<'a>: FluxAccum<'a, Self> where Self::Linear: 'a;
 	
@@ -40,28 +40,28 @@ pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
 /// - `Sum<2>`: `a + bx + cx^2`
 /// - etc.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Sum<T: LinearValue, const DEG: usize>(pub T);
+pub struct Sum<T: Linear, const DEG: usize>(pub T);
 
-impl<T: LinearValue, const DEG: usize> From<T> for Sum<T, DEG> {
+impl<T: Linear, const DEG: usize> From<T> for Sum<T, DEG> {
 	fn from(value: T) -> Self {
 		Self(value)
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Default for Sum<T, DEG> {
+impl<T: Linear, const DEG: usize> Default for Sum<T, DEG> {
 	fn default() -> Self {
 		Self(T::zero())
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
+impl<T: Linear, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 	type Output = Self;
 	fn mul(self, rhs: Scalar) -> Self::Output {
 		Self(self.0 * rhs)
 	}
 }
 
-impl<T: LinearValue, const DEG: usize> FluxKind for Sum<T, DEG> {
+impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
 	const DEGREE: usize = DEG;
 	
 	type Linear = T;
@@ -188,19 +188,19 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(16) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: LinearValue> Shr<DegShift> for Sum<T, { $($num +)+ 0 - 1 }> {
+		impl<T: Linear> Shr<DegShift> for Sum<T, { $($num +)+ 0 - 1 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn shr(self, _: DegShift) -> Self::Output {
 				self.0.into()
 			}
 		}
-		impl<T: LinearValue> Shl<DegShift> for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Linear> Shl<DegShift> for Sum<T, { $($num +)+ 0 }> {
 			type Output = Sum<T, { $($num +)+ 0 - 1 }>;
 			fn shl(self, _: DegShift) -> Self::Output {
 				self.0.into()
 			}
 		}
-		impl<T: LinearValue> Add for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Linear> Add for Sum<T, { $($num +)+ 0 }> {
 			type Output = Self;
 			fn add(self, rhs: Self) -> Self {
 				Self(self.0 + rhs.0)
@@ -219,13 +219,13 @@ macro_rules! impl_deg_add {
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
 	($a:tt, 16) => {/* break */};
 	($a:tt, $($num:tt)+) => {
-		impl<T: LinearValue> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Linear> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<T, $a>) -> Self::Output {
 				Self::Output::from(self.0 + rhs.0)
 			}
 		}
-		impl<T: LinearValue> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
+		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
 				Self::Output::from(self.0 + rhs.0)
@@ -235,7 +235,7 @@ macro_rules! impl_deg_add {
 	};
 }
 impl_deg_order!(1);
-impl<T: LinearValue> Add for Sum<T, 0> {
+impl<T: Linear> Add for Sum<T, 0> {
 	type Output = Self;
 	fn add(self, rhs: Self) -> Self {
 		Self(self.0 + rhs.0)
