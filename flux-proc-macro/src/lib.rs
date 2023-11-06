@@ -205,7 +205,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let flux = flux.to_token_stream();
 			let mut value_ident = None;
 			let mut out_accum = quote::quote!{
-				<Self::Kind as #flux::FluxKind>::Accum<'a>
+				<Self::Kind as #flux::kind::FluxKind>::Accum<'a>
 			};
 			
 			contextualize(&mut change_expr, &mut value_ident, &mut out_accum, &item.fields, &flux);
@@ -241,7 +241,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		let ident = field.ident.as_ref();
 		if ident == Some(&value_ident) {
 			field.ty = syn::parse_quote!{
-				#flux::FluxValue<<<Self as #flux::Flux>::Kind as #flux::FluxKind>::Value>
+				#flux::FluxValue<<<Self as #flux::Flux>::Kind as #flux::kind::FluxKind>::Value>
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
@@ -292,13 +292,13 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Moment = self::#ident #ty_generics;
 			type Kind = #kind_type;
 			type OutAccum<'a> = #out_accum;
-			fn value(&self) -> <Self::Kind as #flux::FluxKind>::Value {
+			fn value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
 				*self.#value_ident
 			}
 			fn time(&self) -> #flux::Time {
 				self.#value_ident.time()
 			}
-			fn change<'a>(&self, accum: <Self::Kind as #flux::FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {
+			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {
 				#change_expr
 			}
 			fn at(&self, time: #flux::Time) -> Self::Moment {

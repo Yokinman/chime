@@ -1,7 +1,7 @@
 //! Summation over time.
 
 use std::ops::{Add, Mul, Sub, Shl, Shr};
-use crate::{*, linear::*, poly::*};
+use crate::{*, kind::*, linear::*};
 
 /// Summation over time.
 /// 

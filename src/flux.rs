@@ -1,16 +1,18 @@
 //! Utilities for describing how a type changes over time.
 
+pub mod kind;
+mod impls;
+
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Deref, DerefMut, Sub};
 
-use crate::linear::*;
-use crate::poly::*;
+use crate::{
+	linear::*,
+	kind::*,
+};
 
-mod impls;
-mod kind;
 pub use self::impls::*;
-pub use self::kind::{FluxKind, DegShift};
 
 pub use time::{Time, TimeUnit};
 
@@ -388,28 +390,6 @@ where
 		
 		Times(vec.into_iter())
 	}
-}
-
-/// Change accumulator.
-/// 
-/// Converts a discrete pattern of change into a desired form.
-pub trait FluxAccum<'a, K: FluxKind> {
-	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
-}
-
-/// General accumulator arguments.
-#[non_exhaustive]
-pub enum FluxAccumKind<'a, K: FluxKind> {
-	Value {
-		value: &'a mut K::Value,
-		depth: usize,
-		time: Time,
-		offset: Time,
-	},
-	Poly {
-		poly: &'a mut Poly<K>,
-		depth: usize,
-	},
 }
 
 /// Convenience for grouping the unmapped value & time in a [`Flux`] type.
