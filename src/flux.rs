@@ -455,8 +455,8 @@ impl<T: Flux> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
 pub struct Change<'t, T> {
-	rate: &'t T,
-	unit: TimeUnit,
+	pub rate: &'t T,
+	pub unit: TimeUnit,
 }
 
 #[cfg(test)]
