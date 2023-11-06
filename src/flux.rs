@@ -10,7 +10,7 @@ use crate::poly::*;
 mod impls;
 mod kind;
 pub use self::impls::*;
-pub use self::kind::*;
+pub use self::kind::{FluxKind, DegShift};
 
 pub use time::{Time, TimeUnit};
 
@@ -464,6 +464,7 @@ mod tests {
 	use impl_op::impl_op;
 	use super::*;
 	use TimeUnit::*;
+	use crate::sum::Sum;
 	
 	#[flux(Sum<f64, 4> = {value} + spd.per(Secs) + misc.per(Secs), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
