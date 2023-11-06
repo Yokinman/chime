@@ -34,7 +34,9 @@ where
 			.min() // ??? or maximum
 			.unwrap_or_default()
 	}
-	fn change<'a>(&self, mut changes: Changes<'a, Self>) -> Self::OutAccum<'a> {
+	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
+		-> Self::OutAccum<'a>
+	{
 		for item in self {
 			changes = item.change(changes);
 		}

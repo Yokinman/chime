@@ -391,9 +391,6 @@ where
 	}
 }
 
-#[allow(type_alias_bounds)]
-pub type Changes<'a, T: Flux> = <T::Kind as FluxKind>::Accum<'a>;
-
 /// Change accumulator.
 /// 
 /// Converts a discrete pattern of change into a desired form.
