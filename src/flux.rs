@@ -33,10 +33,10 @@ pub trait Flux: Sized {
 	
 	/// The output accumulator of [`Flux::change`].
 	type OutAccum<'a>: FluxAccum<'a, Self::Kind>
-	where <Self::Kind as FluxKind>::Linear: 'a;
+	where <Self::Kind as FluxKind>::Value: 'a;
 	
 	/// Initial value.
-	fn value(&self) -> <Self::Kind as FluxKind>::Linear;
+	fn value(&self) -> <Self::Kind as FluxKind>::Value;
 	
 	/// ...
 	fn time(&self) -> Time;
@@ -76,7 +76,7 @@ pub trait Flux: Sized {
 	}
 	
 	/// The evaluation of this value at the given time.
-	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Linear {
+	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
 		let mut value = self.value();
 		let value_accum = FluxAccumKind::Sum {
 			sum: &mut value,
@@ -251,9 +251,9 @@ pub struct When<A: FluxKind, B: FluxKind> {
 impl<A, B> IntoIterator for When<A, B>
 where
 	A: FluxKind + Add<B>,
-	B: FluxKind<Linear=A::Linear>,
-	A::Linear: PartialOrd,
-	<A as Add<B>>::Output: FluxKind<Linear=A::Linear> + Roots + PartialOrd,
+	B: FluxKind<Value=A::Value>,
+	A::Value: PartialOrd,
+	<A as Add<B>>::Output: FluxKind<Value=A::Value> + Roots + PartialOrd,
 	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = (Time, Time);
@@ -266,7 +266,7 @@ where
 		let mut degree = <<A as Add<B>>::Output as FluxKind>::DEGREE;
 		let initial_order = loop {
 			if degree == 0 {
-				break poly.constant().partial_cmp(&A::Linear::zero());
+				break poly.constant().partial_cmp(&A::Value::zero());
 			} else {
 				let coeff = poly.coeff(degree - 1).unwrap();
 				let order = coeff.partial_cmp(&FluxKind::zero());
@@ -350,9 +350,9 @@ pub struct WhenEq<A: FluxKind, B: FluxKind> {
 impl<A, B> IntoIterator for WhenEq<A, B>
 where
 	A: FluxKind + Add<B>,
-	B: FluxKind<Linear=A::Linear>,
-	A::Linear: PartialEq,
-	<A as Add<B>>::Output: FluxKind<Linear=A::Linear> + Roots + PartialEq,
+	B: FluxKind<Value=A::Value>,
+	A::Value: PartialEq,
+	<A as Add<B>>::Output: FluxKind<Value=A::Value> + Roots + PartialEq,
 	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = Time;
@@ -402,7 +402,7 @@ pub trait FluxAccum<'a, K: FluxKind> {
 #[non_exhaustive]
 pub enum FluxAccumKind<'a, K: FluxKind> {
 	Sum {
-		sum: &'a mut K::Linear,
+		sum: &'a mut K::Value,
 		depth: usize,
 		time: Time,
 		offset: Time,

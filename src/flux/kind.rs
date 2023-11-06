@@ -10,9 +10,10 @@ use std::ops::{Add, Index, IndexMut, Mul, Shl, Shr};
 pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
 	const DEGREE: usize;
 	
-	type Linear: Linear;
+	type Value: Linear;
 	
-	type Accum<'a>: FluxAccum<'a, Self> where Self::Linear: 'a;
+	type Accum<'a>: FluxAccum<'a, Self> where Self::Value: 'a;
+	// !!! I don't really understand why this `where` clause is necessary ^
 	
 	type Coeffs:
 		Copy + Clone + Debug
@@ -64,7 +65,7 @@ impl<T: Linear, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
 	const DEGREE: usize = DEG;
 	
-	type Linear = T;
+	type Value = T;
 	type Accum<'a> = SumAccum<'a, Self> where T: 'a;
 	
 	type Coeffs = [Self; DEG];
@@ -131,10 +132,10 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
-	B: FluxKind<Linear=A::Linear>,
+	B: FluxKind<Value=A::Value>,
 	A: Add<B, Output=A> + Add<<B as Shr<DegShift>>::Output, Output=A>,
-	B: Add<A, Output=A> + Shr<DegShift> + From<B::Linear>,
-	<B as Shr<DegShift>>::Output: FluxKind<Linear=A::Linear>,
+	B: Add<A, Output=A> + Shr<DegShift> + From<B::Value>,
+	<B as Shr<DegShift>>::Output: FluxKind<Value=A::Value>,
 {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,

@@ -208,7 +208,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		let ident = field.ident.as_ref();
 		if ident == Some(&value_ident) {
 			field.ty = syn::parse_quote!{
-				flux::FluxValue<<<Self as flux::Flux>::Kind as flux::FluxKind>::Linear>
+				flux::FluxValue<<<Self as flux::Flux>::Kind as flux::FluxKind>::Value>
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
@@ -258,8 +258,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		impl #impl_generics flux::Flux for #flux_ident #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
-			type OutAccum<'a> = #out_accum where <Self::Kind as flux::FluxKind>::Linear: 'a;
-			fn value(&self) -> <Self::Kind as flux::FluxKind>::Linear {
+			type OutAccum<'a> = #out_accum where <Self::Kind as flux::FluxKind>::Value: 'a;
+			fn value(&self) -> <Self::Kind as flux::FluxKind>::Value {
 				*self.#value_ident
 			}
 			fn time(&self) -> Time {

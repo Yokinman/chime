@@ -132,7 +132,7 @@ impl<T: Linear> From<T> for Exp<T> {
 
 impl<T: Linear, const DEG: usize> Roots for Sum<Exp<T>, DEG>
 where
-	Sum<T, DEG>: FluxKind<Linear=T> + Roots
+	Sum<T, DEG>: FluxKind<Value=T> + Roots
 {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
 		let mut b_poly = Poly::<Sum<T, DEG>>::default();

@@ -9,10 +9,10 @@ use crate::linear::*;
 
 /// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Poly<K: FluxKind>(pub K::Linear, pub K::Coeffs);
+pub struct Poly<K: FluxKind>(pub K::Value, pub K::Coeffs);
 
 impl<K: FluxKind> Poly<K> {
-	pub fn constant(&self) -> K::Linear {
+	pub fn constant(&self) -> K::Value {
 		self.0
 	}
 	
@@ -57,9 +57,9 @@ impl<K: FluxKind> Default for Poly<K> {
 impl<A, B> Add<Poly<B>> for Poly<A>
 where
 	A: FluxKind + Add<B>,
-	B: FluxKind<Linear=A::Linear>,
-	<A as Add<B>>::Output: FluxKind<Linear=A::Linear>,
-	A::Linear: Add<B::Linear, Output=A::Linear>,
+	B: FluxKind<Value=A::Value>,
+	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
+	A::Value: Add<B::Value, Output=A::Value>,
 {
 	type Output = Poly<<A as Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
@@ -81,9 +81,9 @@ where
 impl<A, B> Sub<Poly<B>> for Poly<A>
 where
 	A: FluxKind + Add<B>,
-	B: FluxKind<Linear=A::Linear>,
-	<A as Add<B>>::Output: FluxKind<Linear=A::Linear>,
-	A::Linear: Add<B::Linear, Output=A::Linear>,
+	B: FluxKind<Value=A::Value>,
+	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
+	A::Value: Add<B::Value, Output=A::Value>,
 {
 	type Output = Poly<<A as Add<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
@@ -105,8 +105,8 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 impl<K: FluxKind> Shr<DegShift> for Poly<K>
 where
 	K: Shr<DegShift>,
-	<K as Shr<DegShift>>::Output: FluxKind<Linear=K::Linear>,
-	K: From<K::Linear>,
+	<K as Shr<DegShift>>::Output: FluxKind<Value=K::Value>,
+	K: From<K::Value>,
 {
 	type Output = Poly<<K as Shr<DegShift>>::Output>;
 	fn shr(self, rhs: DegShift) -> Self::Output {
