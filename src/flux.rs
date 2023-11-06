@@ -16,22 +16,22 @@ pub use time::{Time, TimeUnit};
 
 pub use flux_proc_macro::flux;
 
-/// Moment-in-time interface for [`FluxValue::at`] / [`FluxValue::at_mut`].
+/// Moment-in-time interface for [`Flux::at`] / [`Flux::at_mut`].
 pub trait Moment {
-	type Flux: FluxValue<Moment=Self>;
+	type Flux: Flux<Moment=Self>;
 	
-	/// Constructs the entirety of a [`FluxValue`] from a single moment.
+	/// Constructs the entirety of a [`Flux`] from a single moment.
 	fn to_flux(self, time: Time) -> Self::Flux;
 }
 
 /// A value that can change over time.
-pub trait FluxValue: Sized {
+pub trait Flux: Sized {
 	type Moment: Moment<Flux=Self>;
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
 	
-	/// The output accumulator of [`FluxValue::change`].
+	/// The output accumulator of [`Flux::change`].
 	type OutAccum<'a>: FluxAccum<'a, Self::Kind>
 	where <Self::Kind as FluxKind>::Linear: 'a;
 	
@@ -100,7 +100,7 @@ pub trait FluxValue: Sized {
 	}
 	
 	/// Ranges of time when this value will be above/below/equal to the given value.
-	fn when<O: FluxValue>(&self, cmp_order: Ordering, other: &O) -> TimeRanges
+	fn when<O: Flux>(&self, cmp_order: Ordering, other: &O) -> TimeRanges
 	where
 		When<Self::Kind, O::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
@@ -126,7 +126,7 @@ pub trait FluxValue: Sized {
 	}
 	
 	/// Times when this value will be equal to the given value.
-	fn when_eq<O: FluxValue>(&self, other: &O) -> Times
+	fn when_eq<O: Flux>(&self, other: &O) -> Times
 	where
 		WhenEq<Self::Kind, O::Kind>: IntoIterator<IntoIter=Times>
 	{
@@ -151,14 +151,14 @@ pub trait FluxValue: Sized {
 	}
 }
 
-/// Mutable moment-in-time interface for [`FluxValue::at_mut`].
-pub struct FluxMut<'v, V: FluxValue> {
+/// Mutable moment-in-time interface for [`Flux::at_mut`].
+pub struct FluxMut<'v, V: Flux> {
 	inner: &'v mut V,
 	time: Time,
 	moment: Option<V::Moment>,
 }
 
-impl<V: FluxValue> Drop for FluxMut<'_, V> {
+impl<V: Flux> Drop for FluxMut<'_, V> {
 	fn drop(&mut self) {
 		if let Some(moment) = std::mem::take(&mut self.moment) {
 			self.inner.set_at(self.time, moment);
@@ -166,7 +166,7 @@ impl<V: FluxValue> Drop for FluxMut<'_, V> {
 	}
 }
 
-impl<V: FluxValue> Deref for FluxMut<'_, V> {
+impl<V: Flux> Deref for FluxMut<'_, V> {
 	type Target = V::Moment;
 	fn deref(&self) -> &Self::Target {
 		if let Some(moment) = self.moment.as_ref() {
@@ -177,7 +177,7 @@ impl<V: FluxValue> Deref for FluxMut<'_, V> {
 	}
 }
 
-impl<V: FluxValue> DerefMut for FluxMut<'_, V> {
+impl<V: Flux> DerefMut for FluxMut<'_, V> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		if let Some(moment) = self.moment.as_mut() {
 			moment
@@ -187,7 +187,7 @@ impl<V: FluxValue> DerefMut for FluxMut<'_, V> {
 	}
 }
 
-impl<V: FluxValue> Debug for FluxMut<'_, V>
+impl<V: Flux> Debug for FluxMut<'_, V>
 where
 	V::Moment: Debug
 {
@@ -196,7 +196,7 @@ where
 	}
 }
 
-impl<V: FluxValue> Display for FluxMut<'_, V>
+impl<V: Flux> Display for FluxMut<'_, V>
 where
 	V::Moment: Display
 {
@@ -239,7 +239,7 @@ impl Iterator for Times {
 	}
 }
 
-/// [`FluxValue::when`] predictive comparison.
+/// [`Flux::when`] predictive comparison.
 #[derive(Copy, Clone, Debug)]
 pub struct When<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
@@ -339,7 +339,7 @@ where
 	}
 }
 
-/// [`FluxValue::when_eq`] predictive equality comparison.
+/// [`Flux::when_eq`] predictive equality comparison.
 #[derive(Copy, Clone, Debug)]
 pub struct WhenEq<A: FluxKind, B: FluxKind> {
 	a_poly: Poly<A>,
@@ -392,7 +392,7 @@ where
 }
 
 #[allow(type_alias_bounds)]
-pub type Changes<'a, T: FluxValue> = <T::Kind as FluxKind>::Accum<'a>;
+pub type Changes<'a, T: Flux> = <T::Kind as FluxKind>::Accum<'a>;
 
 /// Change accumulator.
 /// 
@@ -416,12 +416,11 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 	},
 }
 
-/// Convenience for encapsulating the unmapped values of a [`FluxValue`] type
-/// with their time.
+/// Convenience for grouping the unmapped value & time in a [`Flux`] type.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Flux<T: Linear>(Time, T);
+pub struct FluxValue<T: Linear>(Time, T);
 
-impl<T: Linear> Flux<T> {
+impl<T: Linear> FluxValue<T> {
 	pub fn new(time: Time, value: T) -> Self {
 		Self(time, value)
 	}
@@ -431,14 +430,14 @@ impl<T: Linear> Flux<T> {
 	}
 }
 
-impl<T: Linear> Deref for Flux<T> {
+impl<T: Linear> Deref for FluxValue<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		&self.1
 	}
 }
 
-impl<T: Linear> DerefMut for Flux<T> {
+impl<T: Linear> DerefMut for FluxValue<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.1
 	}
@@ -456,7 +455,7 @@ pub trait Per: Sized {
 	}
 }
 
-impl<T: FluxValue> Per for T {}
+impl<T: Flux> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
 pub struct Change<'t, T> {

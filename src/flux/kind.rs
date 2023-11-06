@@ -88,7 +88,7 @@ impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
 }
 
 impl<K: FluxKind> SumAccum<'_, K> {
-	fn accum<V: FluxValue>(mut self, scalar: Scalar, change: Change<'_, V>) -> Self
+	fn accum<V: Flux>(mut self, scalar: Scalar, change: Change<'_, V>) -> Self
 	where
 		(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	{
@@ -97,7 +97,7 @@ impl<K: FluxKind> SumAccum<'_, K> {
 	}
 }
 
-impl<K: FluxKind, V: FluxValue> Add<Change<'_, V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Add<Change<'_, V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
@@ -107,7 +107,7 @@ where
 	}
 }
 
-impl<K: FluxKind, V: FluxValue> Sub<Change<'_, V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Sub<Change<'_, V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
@@ -120,7 +120,7 @@ where
 /// Used to remove redundant trait bounds.
 #[doc(hidden)]
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
-	fn eval<C: FluxValue<Kind=B>>(
+	fn eval<C: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
 		value: &C,
@@ -136,7 +136,7 @@ where
 	B: Add<A, Output=A> + Shr<DegShift> + From<B::Linear>,
 	<B as Shr<DegShift>>::Output: FluxKind<Linear=A::Linear>,
 {
-	fn eval<V: FluxValue<Kind=B>>(
+	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
 		value: &V,

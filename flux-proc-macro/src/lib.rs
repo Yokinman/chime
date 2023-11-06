@@ -208,7 +208,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		let ident = field.ident.as_ref();
 		if ident == Some(&value_ident) {
 			field.ty = syn::parse_quote!{
-				flux::Flux<<<Self as flux::FluxValue>::Kind as flux::FluxKind>::Linear>
+				flux::FluxValue<<<Self as flux::Flux>::Kind as flux::FluxKind>::Linear>
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
@@ -216,7 +216,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: Flux::new(
+				#ident: flux::FluxValue::new(
 					time,
 					flux::linear::InvLinearIso::inv_map(self.#ident)
 				),
@@ -227,7 +227,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: flux::FluxValue::at(&self.#ident, time),
+				#ident: flux::Flux::at(&self.#ident, time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -255,7 +255,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		// it's only accessible through `flux::Moment::Flux`.
 		#flux_item
 		
-		impl #impl_generics flux::FluxValue for #flux_ident #ty_generics #where_clause {
+		impl #impl_generics flux::Flux for #flux_ident #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			type OutAccum<'a> = #out_accum where <Self::Kind as flux::FluxKind>::Linear: 'a;

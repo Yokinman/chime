@@ -1,4 +1,4 @@
-//! Convenient [`FluxValue`] implementations (Vec<T>, ??? tuples, etc.).
+//! Convenient [`Flux`] implementations (Vec<T>, ??? tuples, etc.).
 
 use super::*;
 
@@ -13,7 +13,7 @@ use crate::linear::Linear;
 // ??? Tuples
 // ??? Function pointers
 
-impl<T: FluxValue> FluxValue for Vec<T>
+impl<T: Flux> Flux for Vec<T>
 where
 	for<'t> T::Kind: FluxKind<Accum<'t> = T::OutAccum<'t>>,
 	for<'t> <T::Kind as FluxKind>::Linear: 't, // !!! I think this gives T::Linear a static lifetime, not good
@@ -49,7 +49,7 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	Vec<T::Flux>: FluxValue<Moment=Vec<T>>
+	Vec<T::Flux>: Flux<Moment=Vec<T>>
 {
 	type Flux = Vec<T::Flux>;
 	fn to_flux(self, time: Time) -> Self::Flux {
