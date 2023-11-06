@@ -135,28 +135,28 @@ where
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
-		value: &V,
+		flux: &V,
 		unit: TimeUnit,
 	) {
 		match kind {
-			FluxAccumKind::Sum { sum, depth, time, offset } => {
-				let mut sub_sum = value.value();
-				value.change(B::Accum::from_kind(FluxAccumKind::Sum {
-					sum: &mut sub_sum,
+			FluxAccumKind::Value { value, depth, time, offset } => {
+				let mut sub_value = flux.value();
+				flux.change(B::Accum::from_kind(FluxAccumKind::Value {
+					value: &mut sub_value,
 					depth: *depth + 1,
 					time: *time,
-					offset: value.time(),
+					offset: flux.time(),
 				}));
 				let depth = *depth as f64;
 				let time_scale = (time.as_secs_f64() - offset.as_secs_f64()) / (1*unit).as_secs_f64();
-				**sum = **sum + (sub_sum * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
-			},
+				**value = **value + (sub_value * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
+			}
 			FluxAccumKind::Poly { poly, depth } => {
 				let mut sub_poly = Poly {
-					0: value.value(),
+					0: flux.value(),
 					..Default::default()
 				};
-				value.change(B::Accum::from_kind(FluxAccumKind::Poly {
+				flux.change(B::Accum::from_kind(FluxAccumKind::Poly {
 					poly: &mut sub_poly,
 					depth: *depth + 1,
 				}));

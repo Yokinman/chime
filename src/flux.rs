@@ -77,8 +77,8 @@ pub trait Flux: Sized {
 	/// The evaluation of this value at the given time.
 	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
 		let mut value = self.value();
-		let value_accum = FluxAccumKind::Sum {
-			sum: &mut value,
+		let value_accum = FluxAccumKind::Value {
+			value: &mut value,
 			depth: 0,
 			time,
 			offset: self.time(),
@@ -400,8 +400,8 @@ pub trait FluxAccum<'a, K: FluxKind> {
 /// General accumulator arguments.
 #[non_exhaustive]
 pub enum FluxAccumKind<'a, K: FluxKind> {
-	Sum {
-		sum: &'a mut K::Value,
+	Value {
+		value: &'a mut K::Value,
 		depth: usize,
 		time: Time,
 		offset: Time,
