@@ -465,11 +465,7 @@ mod tests {
 	use super::*;
 	use TimeUnit::*;
 	
-	mod flux {
-		pub use crate::*;
-	}
-	
-	#[flux(Sum<f64, 4> = {value} + spd.per(Secs) + misc.per(Secs))]
+	#[flux(Sum<f64, 4> = {value} + spd.per(Secs) + misc.per(Secs), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Pos {
 		value: f64,
@@ -477,7 +473,7 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	#[flux(Sum<f64, 3> = {value} - fric.per(Secs) + accel.per(Secs))]
+	#[flux(Sum<f64, 3> = {value} - fric.per(Secs) + accel.per(Secs), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Spd {
 		value: f64,
@@ -485,27 +481,27 @@ mod tests {
 		accel: Accel,
 	}
 	
-	#[flux(Sum<f64, 0> = {value})]
+	#[flux(Sum<f64, 0> = {value}, crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Fric {
 		value: f64,
 	}
 	
-	#[flux(Sum<f64, 2> = {value} + jerk.per(Secs))]
+	#[flux(Sum<f64, 2> = {value} + jerk.per(Secs), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Accel {
 		value: f64,
 		jerk: Jerk,
 	}
 	
-	#[flux(Sum<f64, 1> = {value} + snap.per(Secs))]
+	#[flux(Sum<f64, 1> = {value} + snap.per(Secs), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Jerk {
 		value: f64,
 		snap: Snap,
 	}
 	
-	#[flux(Sum<f64, 0> = {value})]
+	#[flux(Sum<f64, 0> = {value}, crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Snap {
 		value: f64,
