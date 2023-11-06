@@ -32,8 +32,7 @@ pub trait Flux: Sized {
 	type Kind: FluxKind;
 	
 	/// The output accumulator of [`Flux::change`].
-	type OutAccum<'a>: FluxAccum<'a, Self::Kind>
-	where <Self::Kind as FluxKind>::Value: 'a;
+	type OutAccum<'a>: FluxAccum<'a, Self::Kind>;
 	
 	/// Initial value.
 	fn value(&self) -> <Self::Kind as FluxKind>::Value;

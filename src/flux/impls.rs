@@ -15,12 +15,11 @@ use crate::linear::Linear;
 
 impl<T: Flux> Flux for Vec<T>
 where
-	for<'t> T::Kind: FluxKind<Accum<'t> = T::OutAccum<'t>>,
-	for<'t> <T::Kind as FluxKind>::Value: 't, // !!! I think this gives T::Linear a static lifetime, not good
+	T::Kind: for<'t> FluxKind<Accum<'t> = T::OutAccum<'t>>
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
-	type OutAccum<'a> = T::OutAccum<'a> where <Self::Kind as FluxKind>::Value: 'a;
+	type OutAccum<'a> = T::OutAccum<'a>;
 	fn value(&self) -> <Self::Kind as FluxKind>::Value {
 		let mut value = <Self::Kind as FluxKind>::Value::zero();
 		for item in self {

@@ -7,13 +7,15 @@ use std::fmt::Debug;
 use std::ops::{Add, Index, IndexMut, Mul, Shl, Shr};
 
 /// Defines a kind of change as the structure of a polynomial.
-pub trait FluxKind: Copy + Clone + Default + Debug + Mul<Scalar, Output=Self> {
+pub trait FluxKind:
+	'static + Copy + Clone + Debug
+	+ Mul<Scalar, Output=Self>
+{
 	const DEGREE: usize;
 	
 	type Value: Linear;
 	
-	type Accum<'a>: FluxAccum<'a, Self> where Self::Value: 'a;
-	// !!! I don't really understand why this `where` clause is necessary ^
+	type Accum<'a>: FluxAccum<'a, Self>;
 	
 	type Coeffs:
 		Copy + Clone + Debug
@@ -49,12 +51,6 @@ impl<T: Linear, const DEG: usize> From<T> for Sum<T, DEG> {
 	}
 }
 
-impl<T: Linear, const DEG: usize> Default for Sum<T, DEG> {
-	fn default() -> Self {
-		Self(T::zero())
-	}
-}
-
 impl<T: Linear, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 	type Output = Self;
 	fn mul(self, rhs: Scalar) -> Self::Output {
@@ -66,7 +62,7 @@ impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
 	const DEGREE: usize = DEG;
 	
 	type Value = T;
-	type Accum<'a> = SumAccum<'a, Self> where T: 'a;
+	type Accum<'a> = SumAccum<'a, Self>;
 	
 	type Coeffs = [Self; DEG];
 	

@@ -258,7 +258,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		impl #impl_generics flux::Flux for #flux_ident #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
-			type OutAccum<'a> = #out_accum where <Self::Kind as flux::FluxKind>::Value: 'a;
+			type OutAccum<'a> = #out_accum;
 			fn value(&self) -> <Self::Kind as flux::FluxKind>::Value {
 				*self.#value_ident
 			}
