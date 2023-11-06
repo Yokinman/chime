@@ -15,7 +15,7 @@ use crate::linear::Linear;
 
 impl<T: Flux> Flux for Vec<T>
 where
-	T::Kind: for<'t> FluxKind<Accum<'t> = T::OutAccum<'t>>
+	T::Kind: for<'a> FluxKind<Accum<'a> = T::OutAccum<'a>>
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
@@ -28,10 +28,11 @@ where
 		value
 	}
 	fn time(&self) -> Time {
-		self.iter()
-			.map(|x| x.time())
-			.min() // ??? or maximum
-			.unwrap_or_default()
+		if let Some(item) = self.first() {
+			item.time()
+		} else {
+			Time::default()
+		}
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
 		-> Self::OutAccum<'a>
