@@ -11,11 +11,7 @@ pub trait FluxKind:
 	'static + Copy + Clone + Debug
 	+ Mul<Scalar, Output=Self>
 {
-	const DEGREE: usize;
-	
 	type Value: Linear;
-	
-	type Accum<'a>: FluxAccum<'a, Self>;
 	
 	type Coeffs:
 		Copy + Clone + Debug
@@ -24,7 +20,13 @@ pub trait FluxKind:
 		+ Borrow<[Self]> + BorrowMut<[Self]>
 		+ Index<usize, Output=Self> + IndexMut<usize>;
 	
+	type Accum<'a>: FluxAccum<'a, Self>;
+	
+	const DEGREE: usize;
+	
 	fn zero() -> Self;
+	
+	fn zero_coeffs() -> Self::Coeffs;
 	
 	fn is_zero(&self) -> bool
 	where
@@ -32,8 +34,6 @@ pub trait FluxKind:
 	{
 		self.eq(&Self::zero())
 	}
-	
-	fn zero_coeffs() -> Self::Coeffs;
 }
 
 /// Summation over time.
@@ -59,12 +59,11 @@ impl<T: Linear, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 }
 
 impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
-	const DEGREE: usize = DEG;
-	
 	type Value = T;
+	type Coeffs = [Self; DEG];
 	type Accum<'a> = SumAccum<'a, Self>;
 	
-	type Coeffs = [Self; DEG];
+	const DEGREE: usize = DEG;
 	
 	fn zero() -> Self {
 		Self(T::zero())
