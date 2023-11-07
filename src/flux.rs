@@ -29,6 +29,8 @@ pub trait Moment {
 /// A value that can change over time.
 pub trait Flux: Sized {
 	type Moment: Moment<Flux=Self>;
+	// !!! Might be worth making Flux generic over the Moment, so something like
+	// a `Position` type can represent its x & y parts separately if desired.
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;

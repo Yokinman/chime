@@ -331,6 +331,62 @@ impl Roots for Sum<f64, 4> {
 	}
 }
 
+#[cfg(feature = "glam")]
+impl<const DEG: usize> Roots for Sum<glam::DVec2, DEG>
+where
+	Sum<f64, DEG>: FluxKind<Value=f64> + Roots
+{
+	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
+		let mut x_poly = Poly::<Sum<f64, DEG>> {
+			0: poly.0.x,
+			..Default::default()
+		};
+		let mut y_poly = Poly::<Sum<f64, DEG>> {
+			0: poly.0.y,
+			..Default::default()
+		};
+		for (index, coeff) in poly.coeff_iter().enumerate() {
+			x_poly.1[index].0 = coeff.0.x;
+			y_poly.1[index].0 = coeff.0.y;
+		}
+		
+		type Output = fn(RootList) -> Result<RootList, RootList>;
+		let (output, mut x_roots, mut y_roots): (Output, _, _) = match (
+			Roots::roots(x_poly),
+			Roots::roots(y_poly)
+		) {
+			(Ok(x),        Ok(y)       ) => (Ok,  x.to_vec(), y.to_vec()),
+			(Ok(x)|Err(x), Ok(y)|Err(y)) => (Err, x.to_vec(), y.to_vec()),
+		};
+		x_roots.sort_unstable_by(f64::total_cmp);
+		y_roots.sort_unstable_by(f64::total_cmp);
+		
+		let mut x_iter = x_roots.into_iter();
+		let mut y_iter = y_roots.into_iter();
+		
+		let mut x = x_iter.next();
+		let mut y = y_iter.next();
+		
+		let mut root_list = Vec::new();
+		
+		while let (Some(a), Some(b)) = (x.as_ref(), y.as_ref()) {
+			match a.total_cmp(b) {
+				std::cmp::Ordering::Less    => x = x_iter.next(),
+				std::cmp::Ordering::Greater => y = y_iter.next(),
+				std::cmp::Ordering::Equal   => {
+					root_list.push(*a);
+					x = x_iter.next();
+					y = y_iter.next();
+					// !!! What if the next value(s) are equal to the current?
+					// Should only one of these be advanced?
+				}
+			}
+		}
+		
+		output(root_list.into())
+	}
+}
+
 impl<T: Linear, const DEG: usize> Roots for Sum<Exp<T>, DEG>
 where
 	Sum<T, DEG>: FluxKind<Value=T> + Roots
@@ -444,17 +500,6 @@ where
 		}
 	}
 }
-
-/*
-impl Roots for Sum<Vec2<f64>, K> {
-	fn roots(&self) -> Result<RootList, RootList> {
-		let a = (Poly from Vec2 primary terms).roots();
-		let b = (Poly from Vec2 secondary terms).roots();
-		sort root lists, return pairs of a and b that match (or are close?)
-		// https://www.desmos.com/calculator/usraewodwz
-	}
-}
-*/
 
 #[cfg(test)]
 mod tests {
@@ -601,5 +646,44 @@ mod tests {
 				 2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
 			]
 		);
+	}
+	
+	#[cfg(feature = "glam")]
+	#[test]
+	fn vec() {
+		#[derive(PartialEq)]
+		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(TimeUnit::Secs), crate = "crate")]
+		struct Pos {
+			value: glam::IVec2,
+			spd: Spd,
+		}
+		
+		#[derive(PartialEq)]
+		#[flux(Sum<glam::DVec2, 0> = {value}, crate = "crate")]
+		struct Spd {
+			value: glam::IVec2
+		}
+		
+		let a_pos = Pos {
+			value: glam::IVec2::new(10, 10),
+			spd: Spd {
+				value: glam::IVec2::new(6, 4)
+			}
+		}.to_flux(Time::default());
+		
+		let b_pos = Pos {
+			value: glam::IVec2::new(14, 18),
+			spd: Spd {
+				value: glam::IVec2::new(4, 0)
+			}
+		}.to_flux(Time::default());
+		
+		// println!("{:?}", a_pos.poly() - b_pos.poly());
+		
+		assert_eq!(
+			a_pos.when_eq(&b_pos).collect::<Vec<Time>>(),
+			[2*TimeUnit::Secs]
+		);
+		// https://www.desmos.com/calculator/usraewodwz
 	}
 }

@@ -5,5 +5,9 @@ edition = "2021"
 
 [dependencies]
 flux-proc-macro = { path = "flux-proc-macro" }
+glam = { version = "0.24.2", optional = true }
 impl_op = { path = "../impl_op" }
 time = { path = "../time" }
+
+[features]
+glam = ["dep:glam"]
