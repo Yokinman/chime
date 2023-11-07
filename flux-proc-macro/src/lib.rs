@@ -275,10 +275,10 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	let flux_value_impl = quote::quote!{
 		#item
 		
-		impl #impl_generics #flux::Moment for self::#ident #ty_generics #where_clause {
-			type Flux = self::#flux_ident #ty_generics;
+		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
+			type Flux = #flux_ident #ty_generics;
 			fn to_flux(self, time: #flux::Time) -> Self::Flux {
-				self::#flux_ident { #flux_fields }
+				#flux_ident { #flux_fields }
 			}
 		}
 		
@@ -288,8 +288,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		// it's only accessible through `flux::Moment::Flux`.
 		#flux_item
 		
-		impl #impl_generics #flux::Flux for self::#flux_ident #ty_generics #where_clause {
-			type Moment = self::#ident #ty_generics;
+		impl #impl_generics #flux::Flux for #flux_ident #ty_generics #where_clause {
+			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			type OutAccum<'a> = #out_accum;
 			fn value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
@@ -302,7 +302,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#change_expr
 			}
 			fn at(&self, time: #flux::Time) -> Self::Moment {
-				self::#ident { #moment_fields }
+				#ident { #moment_fields }
 			}
 		}
 	};
