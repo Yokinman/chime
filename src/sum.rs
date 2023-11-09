@@ -1,6 +1,7 @@
 //! Summation over time.
 
-use std::ops::{Add, Mul, Sub, Shl, Shr};
+use std::cmp::Ordering;
+use std::ops::{Add, Mul, Sub, Shr};
 use crate::{*, kind::*, linear::*, exp::*};
 
 /// Summation over time.
@@ -10,36 +11,53 @@ use crate::{*, kind::*, linear::*, exp::*};
 /// - `Sum<2>`: `a + bx + cx^2`
 /// - etc.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Sum<T: Linear, const DEG: usize>(pub T);
-
-impl<T: Linear, const DEG: usize> From<T> for Sum<T, DEG> {
-	fn from(value: T) -> Self {
-		Self(value)
-	}
-}
+pub struct Sum<T: Linear, const DEG: usize>(pub [T; DEG]);
 
 impl<T: Linear, const DEG: usize> Mul<Scalar> for Sum<T, DEG> {
 	type Output = Self;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		Self(self.0 * rhs)
+	fn mul(mut self, rhs: Scalar) -> Self::Output {
+		for item in &mut self.0 {
+			*item = *item * rhs;
+		}
+		self
 	}
 }
 
 impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
 	type Value = T;
-	type Coeffs = [Self; DEG];
+	
 	type Accum<'a> = SumAccum<'a, Self>;
 	
-	const DEGREE: usize = DEG;
+	fn initial_order(&self) -> Option<Ordering>
+	where
+		Self::Value: PartialOrd
+	{
+		let mut degree = DEG;
+		loop {
+			if degree == 0 {
+				break Some(Ordering::Equal)
+			}
+			let coeff = self.0[degree - 1];
+			let order = coeff.partial_cmp(&T::zero());
+			if order != Some(Ordering::Equal) {
+				break if degree % 2 == 0 {
+					order
+				} else {
+					order.map(|o| o.reverse())
+				}
+			}
+			degree -= 1;
+		}
+	}
 	
 	fn zero() -> Self {
-		Self(T::zero())
-	}
-	
-	fn zero_coeffs() -> Self::Coeffs {
-		[Self::zero(); DEG]
+		Self(std::array::from_fn(|_| T::zero()))
 	}
 }
+
+/// Used with `Shr` for upgrading a [`Sum`].
+#[derive(Copy, Clone, Debug)]
+struct DegShift<T: Linear>(pub T);
 
 /// Degree sequential ordering.
 macro_rules! impl_deg_order {
@@ -51,22 +69,26 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(16) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: Linear> Shr<DegShift> for Sum<T, { $($num +)+ 0 - 1 }> {
+		impl<T: Linear> Shr<DegShift<T>> for Sum<T, { $($num +)+ 0 - 1 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn shr(self, _: DegShift) -> Self::Output {
-				self.0.into()
-			}
-		}
-		impl<T: Linear> Shl<DegShift> for Sum<T, { $($num +)+ 0 }> {
-			type Output = Sum<T, { $($num +)+ 0 - 1 }>;
-			fn shl(self, _: DegShift) -> Self::Output {
-				self.0.into()
+			fn shr(self, shift: DegShift<T>) -> Self::Output {
+				let mut sum = Sum::zero();
+				let mut iter = self.0.into_iter();
+				sum.0[0] = shift.0;
+				for item in &mut sum.0[1..($($num +)+ 0)] {
+					*item = iter.next().unwrap();
+				}
+				sum
 			}
 		}
 		impl<T: Linear> Add for Sum<T, { $($num +)+ 0 }> {
 			type Output = Self;
-			fn add(self, rhs: Self) -> Self {
-				Self(self.0 + rhs.0)
+			fn add(mut self, rhs: Self) -> Self {
+				let mut iter = rhs.0.into_iter();
+				for item in &mut self.0 {
+					*item = *item + iter.next().unwrap_or_else(T::zero);
+				}
+				self
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
@@ -85,13 +107,27 @@ macro_rules! impl_deg_add {
 		impl<T: Linear> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<T, $a>) -> Self::Output {
-				Self::Output::from(self.0 + rhs.0)
+				let mut sum = Sum::zero();
+				let mut iter1 = self.0.into_iter();
+				let mut iter2 = rhs.0.into_iter();
+				for item in &mut sum.0 {
+					*item = iter1.next().unwrap_or_else(T::zero)
+						+ iter2.next().unwrap_or_else(T::zero);
+				}
+				sum
 			}
 		}
 		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
-				Self::Output::from(self.0 + rhs.0)
+				let mut sum = Sum::zero();
+				let mut iter1 = self.0.into_iter();
+				let mut iter2 = rhs.0.into_iter();
+				for item in &mut sum.0 {
+					*item = iter1.next().unwrap_or_else(T::zero)
+						+ iter2.next().unwrap_or_else(T::zero);
+				}
+				sum
 			}
 		}
 		impl_deg_add!($a, 1 $($num)+);
@@ -100,8 +136,12 @@ macro_rules! impl_deg_add {
 impl_deg_order!(1);
 impl<T: Linear> Add for Sum<T, 0> {
 	type Output = Self;
-	fn add(self, rhs: Self) -> Self {
-		Self(self.0 + rhs.0)
+	fn add(mut self, rhs: Self) -> Self {
+		let mut iter = rhs.0.into_iter();
+		for item in &mut self.0 {
+			*item = *item + iter.next().unwrap();
+		}
+		self
 	}
 }
 impl_deg_add!(0, 1);
@@ -116,9 +156,9 @@ impl Roots for Sum<f64, 0> {
 
 impl Roots for Sum<f64, 1> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a, [Sum(b)]) = poly;
+		let Poly(a, Sum([b])) = poly;
 		if b == 0. {
-			return Sum::<f64, 0>::roots(Poly(a, []))
+			return Sum::<f64, 0>::roots(Poly(a, Sum([])))
 		}
 		Ok([-a / b].into())
 	}
@@ -126,14 +166,14 @@ impl Roots for Sum<f64, 1> {
 
 impl Roots for Sum<f64, 2> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a, [Sum(b), Sum(c)]) = poly;
+		let Poly(a, Sum([b, c])) = poly;
 		if c == 0. {
-			return Sum::<f64, 1>::roots(Poly(a, [Sum(b)]))
+			return Sum::<f64, 1>::roots(Poly(a, Sum([b])))
 		}
 		if a == 0. {
 			let roots = [
 				[0.].into(),
-				Sum::<f64, 1>::roots(Poly(b, [Sum(c)]))?
+				Sum::<f64, 1>::roots(Poly(b, Sum([c])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -149,7 +189,7 @@ impl Roots for Sum<f64, 2> {
 			// https://www.desmos.com/calculator/coxloe79ea
 			let roots = [
 				[-b / c].into(),
-				Sum::<f64, 1>::roots(Poly(a, [Sum(b)]))?
+				Sum::<f64, 1>::roots(Poly(a, Sum([b])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -163,14 +203,14 @@ impl Roots for Sum<f64, 2> {
 
 impl Roots for Sum<f64, 3> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a, [Sum(b), Sum(c), Sum(d)]) = poly;
+		let Poly(a, Sum([b, c, d])) = poly;
 		if d == 0. {
-			return Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))
+			return Sum::<f64, 2>::roots(Poly(a, Sum([b, c])))
 		}
 		if a == 0. {
 			let roots = [
 				[0.].into(),
-				Sum::<f64, 2>::roots(Poly(b, [Sum(c), Sum(d)]))?
+				Sum::<f64, 2>::roots(Poly(b, Sum([c, d])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -188,7 +228,7 @@ impl Roots for Sum<f64, 3> {
 			let discriminant = p*p - q*q*q;
 			return match discriminant.partial_cmp(&0.0) {
 				 // 3 Real Roots:
-				Some(std::cmp::Ordering::Less) => {
+				Some(Ordering::Less) => {
 					let sqrt_q = q.sqrt();
 					debug_assert!(!sqrt_q.is_nan());
 					let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
@@ -201,7 +241,7 @@ impl Roots for Sum<f64, 3> {
 				},
 				
 				 // 1 Real Root:
-				Some(std::cmp::Ordering::Greater) => {
+				Some(Ordering::Greater) => {
 					let n = discriminant.sqrt();
 					debug_assert!(!n.is_nan());
 					Ok([(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN].into())
@@ -211,7 +251,7 @@ impl Roots for Sum<f64, 3> {
 				_ => {
 					let roots = [
 						[0.].into(),
-						Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))?
+						Sum::<f64, 2>::roots(Poly(a, Sum([b, c])))?
 					];
 					return Ok(roots.concat().into())
 				}
@@ -226,7 +266,7 @@ impl Roots for Sum<f64, 3> {
 		{
 			let roots = [
 				[-c / d].into(),
-				Sum::<f64, 2>::roots(Poly(a, [Sum(b), Sum(c)]))?
+				Sum::<f64, 2>::roots(Poly(a, Sum([b, c])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -235,11 +275,11 @@ impl Roots for Sum<f64, 3> {
 		let n = -c / (3.0 * d);
 		let depressed_cubic = Poly::<Sum<f64, 3>>(
 			a + (n * (b + (n * c * (2.0/3.0)))),
-			[
-				Sum(b + (n * c)),
-				Sum(0.0),
-				Sum(d),
-			]
+			Sum([
+				b + (n * c),
+				0.0,
+				d,
+			])
 		);
 		Ok(Roots::roots(depressed_cubic)?
 			.iter()
@@ -250,14 +290,14 @@ impl Roots for Sum<f64, 3> {
 
 impl Roots for Sum<f64, 4> {
 	fn roots(poly: Poly<Self>) -> Result<RootList, RootList> {
-		let Poly(a, [Sum(b), Sum(c), Sum(d), Sum(e)]) = poly;
+		let Poly(a, Sum([b, c, d, e])) = poly;
 		if e == 0. {
-			return Sum::<f64, 3>::roots(Poly(a, [Sum(b), Sum(c), Sum(d)]))
+			return Sum::<f64, 3>::roots(Poly(a, Sum([b, c, d])))
 		}
 		if a == 0. {
 			let roots = [
 				[0.].into(),
-				Sum::<f64, 3>::roots(Poly(b, [Sum(c), Sum(d), Sum(e)]))?
+				Sum::<f64, 3>::roots(Poly(b, Sum([c, d, e])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -270,7 +310,7 @@ impl Roots for Sum<f64, 4> {
 		
 		 // Biquadratic:
 		if (b,d) == (0.,0.) {
-			return Ok(Sum::<f64, 2>::roots(Poly(a, [Sum(c), Sum(e)]))?
+			return Ok(Sum::<f64, 2>::roots(Poly(a, Sum([c, e])))?
 				.iter()
 				.map(|r| r.sqrt())
 				.flat_map(|r| [r, -r])
@@ -284,18 +324,18 @@ impl Roots for Sum<f64, 4> {
 			let r = c / (2.0 * e);
 			let resolvent_cubic = Poly::<Sum<f64, 3>>(
 				-(q * q) / 2.0,
-				[
-					Sum((r * r) - p),
-					Sum(2.0 * r),
-					Sum(1.0),
-				]
+				Sum([
+					(r * r) - p,
+					2.0 * r,
+					1.0,
+				])
 			);
 			let m = *resolvent_cubic.real_roots().unwrap_or_default() 
 				.iter().find(|&r| *r >= 0.0)
 				.expect("this shouldn't happen, probably a precision issue");
 			let sqrt_2m = (2.0 * m).sqrt();
-			let quad_a = Poly::<Sum<f64, 2>>( (q / sqrt_2m) + r + m, [Sum(-sqrt_2m), Sum(1.0)]);
-			let quad_b = Poly::<Sum<f64, 2>>(-(q / sqrt_2m) + r + m, [Sum( sqrt_2m), Sum(1.0)]);
+			let quad_a = Poly::<Sum<f64, 2>>( (q / sqrt_2m) + r + m, Sum([-sqrt_2m, 1.0]));
+			let quad_b = Poly::<Sum<f64, 2>>(-(q / sqrt_2m) + r + m, Sum([ sqrt_2m, 1.0]));
 			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat().into())
 		}
 		
@@ -308,7 +348,7 @@ impl Roots for Sum<f64, 4> {
 		{
 			let roots = [
 				[-d / e].into(),
-				Sum::<f64, 3>::roots(Poly(a, [Sum(b), Sum(c), Sum(d)]))?
+				Sum::<f64, 3>::roots(Poly(a, Sum([b, c, d])))?
 			];
 			return Ok(roots.concat().into())
 		}
@@ -317,12 +357,12 @@ impl Roots for Sum<f64, 4> {
 		let n = -d / (4.0 * e);
 		let depressed_quartic = Poly::<Sum<f64, 4>>(
 			a + (n * (b + (n * (c + (n * d * (3.0/4.0)))))),
-			[
-				Sum(b + (n * (c + (n * d)) * 2.0)),
-				Sum(c + (n * d * (3.0/2.0))),
-				Sum(0.0),
-				Sum(e),
-			]
+			Sum([
+				b + (n * (c + (n * d)) * 2.0),
+				c + (n * d * (3.0/2.0)),
+				0.0,
+				e,
+			])
 		);
 		Ok(Roots::roots(depressed_quartic)?
 			.iter()
@@ -345,9 +385,9 @@ where
 			0: poly.0.y,
 			..Default::default()
 		};
-		for (index, coeff) in poly.coeff_iter().enumerate() {
-			x_poly.1[index].0 = coeff.0.x;
-			y_poly.1[index].0 = coeff.0.y;
+		for (index, coeff) in poly.1.0.into_iter().enumerate() {
+			x_poly.1.0[index] = coeff.x;
+			y_poly.1.0[index] = coeff.y;
 		}
 		
 		type Output = fn(RootList) -> Result<RootList, RootList>;
@@ -371,9 +411,9 @@ where
 		
 		while let (Some(a), Some(b)) = (x.as_ref(), y.as_ref()) {
 			match a.total_cmp(b) {
-				std::cmp::Ordering::Less    => x = x_iter.next(),
-				std::cmp::Ordering::Greater => y = y_iter.next(),
-				std::cmp::Ordering::Equal   => {
+				Ordering::Less    => x = x_iter.next(),
+				Ordering::Greater => y = y_iter.next(),
+				Ordering::Equal   => {
 					root_list.push(*a);
 					x = x_iter.next();
 					y = y_iter.next();
@@ -396,9 +436,9 @@ where
 			0: poly.constant().0,
 			..Default::default()
 		};
-		let mut b_coeff_iter = b_poly.coeff_iter_mut();
-		for &Sum(Exp(coeff)) in poly.coeff_iter() {
-			*b_coeff_iter.next().unwrap() = Sum(coeff);
+		let mut iter = poly.1.0.into_iter();
+		for item in &mut b_poly.1.0 {
+			*item = iter.next().unwrap().0;
 		}
 		Roots::roots(b_poly)
 	}
@@ -458,9 +498,9 @@ impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
 	B: FluxKind<Value=A::Value>,
-	A: Add<B, Output=A> + Add<<B as Shr<DegShift>>::Output, Output=A>,
-	B: Add<A, Output=A> + Shr<DegShift> + From<B::Value>,
-	<B as Shr<DegShift>>::Output: FluxKind<Value=A::Value>,
+	A: Add<B, Output=A> + Add<<B as Shr<DegShift<A::Value>>>::Output, Output=A>,
+	B: Add<A, Output=A> + Shr<DegShift<A::Value>>,
+	<B as Shr<DegShift<A::Value>>>::Output: FluxKind<Value=A::Value>,
 {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
@@ -490,11 +530,12 @@ where
 					poly: &mut sub_poly,
 					depth: *depth + 1,
 				}));
+				let shr_poly = Poly(A::Value::zero(), sub_poly.1 >> DegShift(sub_poly.0));
 				let depth = *depth as f64;
 				let time_scale = (1*unit).as_secs_f64().recip();
 				**poly = **poly
 					+ (sub_poly * (Scalar(depth / (depth + 1.0)) * scalar))
-					+ ((sub_poly >> DegShift) * (Scalar(time_scale / (depth + 1.0)) * scalar));
+					+ (shr_poly * (Scalar(time_scale / (depth + 1.0)) * scalar));
 				// https://www.desmos.com/calculator/mhlpjakz32
 			},
 		}
@@ -507,26 +548,26 @@ mod tests {
 	
 	#[test]
 	fn add() {
-		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
-		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
-		assert_eq!(a + b, Poly(8.6, [Sum(8.4), Sum(6.300000000000001), Sum(4.5), Sum(5.7)]));
-		assert_eq!(b + a, Poly(8.6, [Sum(8.4), Sum(6.300000000000001), Sum(4.5), Sum(5.7)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, Sum([2.5, 3.2, 4.5, 5.7]));
+		let b = Poly::<Sum<f64, 2>>(7.1, Sum([5.9, 3.1]));
+		assert_eq!(a + b, Poly(8.6, Sum([8.4, 6.300000000000001, 4.5, 5.7])));
+		assert_eq!(b + a, Poly(8.6, Sum([8.4, 6.300000000000001, 4.5, 5.7])));
 	}
 	
 	#[test]
 	fn sub() {
-		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
-		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
-		assert_eq!(a - b, Poly(-5.6, [Sum(-3.4000000000000004), Sum(0.10000000000000009), Sum(4.5), Sum(5.7)]));
-		assert_eq!(b - a, Poly( 5.6, [Sum(3.4000000000000004), Sum(-0.10000000000000009), Sum(-4.5), Sum(-5.7)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, Sum([2.5, 3.2, 4.5, 5.7]));
+		let b = Poly::<Sum<f64, 2>>(7.1, Sum([5.9, 3.1]));
+		assert_eq!(a - b, Poly(-5.6, Sum([-3.4000000000000004, 0.10000000000000009, 4.5, 5.7])));
+		assert_eq!(b - a, Poly( 5.6, Sum([3.4000000000000004, -0.10000000000000009, -4.5, -5.7])));
 	}
 	
 	#[test]
 	fn scalar_mul() {
-		let a = Poly::<Sum<f64, 4>>(1.5, [Sum(2.5), Sum(3.2), Sum(4.5), Sum(5.7)]);
-		let b = Poly::<Sum<f64, 2>>(7.1, [Sum(5.9), Sum(3.1)]);
-		assert_eq!(a * Scalar(1.5), Poly(2.25, [Sum(3.75), Sum(4.800000000000001), Sum(6.75), Sum(8.55)]));
-		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, [Sum(8.850000000000001), Sum(4.65)]));
+		let a = Poly::<Sum<f64, 4>>(1.5, Sum([2.5, 3.2, 4.5, 5.7]));
+		let b = Poly::<Sum<f64, 2>>(7.1, Sum([5.9, 3.1]));
+		assert_eq!(a * Scalar(1.5), Poly(2.25, Sum([3.75, 4.800000000000001, 6.75, 8.55])));
+		assert_eq!(b * Scalar(1.5), Poly(10.649999999999999, Sum([8.850000000000001, 4.65])));
 	}
 	
 	fn assert_roots<K: FluxKind>(p: Poly<K>, expected_roots: &[f64])
@@ -550,33 +591,33 @@ mod tests {
 	
 	#[test]
 	fn constant() {
-		assert_roots(Poly::<Sum<f64, 0>>(2.0, []), &[]);
-		assert_roots(Poly::<Sum<f64, 0>>(0.0, []), &[]);
+		assert_roots(Poly::<Sum<f64, 0>>(2.0, Sum([])), &[]);
+		assert_roots(Poly::<Sum<f64, 0>>(0.0, Sum([])), &[]);
 	}
 	
 	#[test]
 	fn linear() {
-		assert_roots(Poly::<Sum<f64, 1>>(20.0, [Sum(-4.0)]), &[5.0]);
-		assert_roots(Poly::<Sum<f64, 1>>(20.0, [Sum(4.0)]), &[-5.0]);
-		assert_roots(Poly::<Sum<f64, 1>>(-0.0, [Sum(4.0/3.0)]), &[0.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(20.0, Sum([-4.0])), &[5.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(20.0, Sum([4.0])), &[-5.0]);
+		assert_roots(Poly::<Sum<f64, 1>>(-0.0, Sum([4.0/3.0])), &[0.0]);
 	}
 	
 	#[test]
 	fn quadratic() {
 		assert_roots(
-			Poly::<Sum<f64, 2>>(20.0, [Sum(4.0), Sum(7.0)]),
+			Poly::<Sum<f64, 2>>(20.0, Sum([4.0, 7.0])),
 			&[]
 		);
 		assert_roots(
-			Poly::<Sum<f64, 2>>(20.0, [Sum(4.0), Sum(-7.0)]),
+			Poly::<Sum<f64, 2>>(20.0, Sum([4.0, -7.0])),
 			&[-10.0/7.0, 2.0]
 		);
 		assert_roots(
-			Poly::<Sum<f64, 2>>( 40.0/3.0, [Sum( 2.0/3.0), Sum(-17.0/100.0)]),
-			Poly::<Sum<f64, 2>>(-40.0/3.0, [Sum(-2.0/3.0), Sum( 17.0/100.0)]).real_roots().unwrap().as_ref()
+			Poly::<Sum<f64, 2>>( 40.0/3.0, Sum([ 2.0/3.0, -17.0/100.0])),
+			Poly::<Sum<f64, 2>>(-40.0/3.0, Sum([-2.0/3.0,  17.0/100.0])).real_roots().unwrap().as_ref()
 		);
 		assert_roots(
-			Poly::<Sum<f64, 2>>(0.0, [Sum(4.0/6.0), Sum(-17.0/100.0)]),
+			Poly::<Sum<f64, 2>>(0.0, Sum([4.0/6.0, -17.0/100.0])),
 			&[0.0, 200.0/51.0]
 		);
 	}
@@ -584,16 +625,16 @@ mod tests {
 	#[test]
 	fn cubic() {
 		assert_roots(
-			Poly::<Sum<f64, 3>>(6.0, [Sum(-2077.5), Sum(-17000.0/77.0), Sum(6712.0/70.0)]),
+			Poly::<Sum<f64, 3>>(6.0, Sum([-2077.5, -17000.0/77.0, 6712.0/70.0])),
 			&[-3.64550618348, 0.00288720188, 5.94514363216]
 		);
 		
 		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Poly<Sum<f64, 3>> {
-			Poly(a, [
-				Sum(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s)),
-				Sum(c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + d/(2.0*3.0*s*s*s)),
-				Sum(d/(2.0*3.0*s*s*s))
-			])
+			Poly(a, Sum([
+				b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s),
+				c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + d/(2.0*3.0*s*s*s),
+				d/(2.0*3.0*s*s*s),
+			]))
 		}
 		assert_roots(
 			sum_poly(1000000000.0, 1.0, 1.0, 1.0, -1.0),
@@ -620,12 +661,12 @@ mod tests {
 	#[test]
 	fn quartic() {
 		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Poly<Sum<f64, 4>> {
-			Poly(a, [
-				Sum(b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Sum(c/(2.0*s*s) + d/(2.0*3.0*s*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Sum(d/(2.0*3.0*s*s*s) + e/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s)),
-				Sum(e/(2.0*3.0*4.0*s*s*s*s)),
-			])
+			Poly(a, Sum([
+				b/s + c/(2.0*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s),
+				c/(2.0*s*s) + d/(2.0*3.0*s*s*s) + (2.0*d)/(2.0*3.0*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*3.0*e)/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s),
+				d/(2.0*3.0*s*s*s) + e/(2.0*3.0*4.0*s*s*s*s) + (2.0*e)/(2.0*3.0*4.0*s*s*s*s) + (3.0*e)/(2.0*3.0*4.0*s*s*s*s),
+				e/(2.0*3.0*4.0*s*s*s*s),
+			]))
 		}
 		assert_roots(
 			sum_poly(1000000000.0*60.0*60.0, 7.5, -6.4, -10.0, 7.8, 2.7),
@@ -638,7 +679,7 @@ mod tests {
 		);
 		let t = 1000000000.0*60.0*60.0;
 		assert_roots(
-			Poly::<Sum<f64, 4>>(7500.0, [Sum(0.0), Sum(-1000.0/(t*t)), Sum(0.0), Sum(27.0/(t*t*t*t))]),
+			Poly::<Sum<f64, 4>>(7500.0, Sum([0.0, -1000.0/(t*t), 0.0, 27.0/(t*t*t*t)])),
 			&[
 				-2000000000000.0 * f64::sqrt(60.0 + 6.0*f64::sqrt(19.0)),
 				-2000000000000.0 * f64::sqrt(60.0 - 6.0*f64::sqrt(19.0)),
@@ -684,6 +725,5 @@ mod tests {
 			a_pos.when_eq(&b_pos).collect::<Vec<Time>>(),
 			[2*TimeUnit::Secs]
 		);
-		// https://www.desmos.com/calculator/usraewodwz
 	}
 }

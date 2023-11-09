@@ -264,81 +264,7 @@ where
 	
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
-		
-		 // Find Initial Order:
-		let mut degree = <<A as Add<B>>::Output as FluxKind>::DEGREE;
-		let initial_order = loop {
-			if degree == 0 {
-				break poly.constant().partial_cmp(&A::Value::zero());
-			} else {
-				let coeff = poly.coeff(degree - 1).unwrap();
-				let order = coeff.partial_cmp(&FluxKind::zero());
-				if order != Some(Ordering::Equal) {
-					break if degree % 2 == 0 {
-						order
-					} else {
-						order.map(|o| o.reverse())
-					}
-				}
-				degree -= 1;
-			}
-		};
-		
-		 // Convert Roots to Ranges:
-		let range_list = match poly.real_roots() {
-			Ok(roots) => {
-				let mut list = Vec::with_capacity(
-					if self.cmp_order == Ordering::Equal {
-						roots.len()
-					} else {
-						1 + (roots.len() / 2)
-					}
-				);
-				let mut prev_point = if initial_order == Some(self.cmp_order) {
-					Some(f64::NEG_INFINITY)
-				} else {
-					None
-				};
-				for &point in roots.iter() {
-					if let Some(prev) = prev_point {
-						if point != prev {
-							list.push((prev, point));
-						}
-						prev_point = None;
-					} else if self.cmp_order == Ordering::Equal {
-						list.push((point, point));
-					} else {
-						prev_point = Some(point);
-					}
-				}
-				if let Some(point) = prev_point {
-					list.push((point, f64::INFINITY));
-				}
-				list.into_iter()
-			},
-			Err(_) => Default::default(),
-		};
-		
-		 // Convert Ranges to Times:
-		let time = self.time.as_secs_f64();
-		let max_time = Time::MAX.as_secs_f64();
-		let list: Vec<(Time, Time)> = range_list
-			.filter_map(|(a, b)| {
-				debug_assert!(a <= b);
-				let a = a + time;
-				let b = b + time;
-				if b < 0.0 || a >= max_time {
-					None
-				} else {
-					Some((
-						Time::try_from_secs_f64(a).unwrap_or(Time::ZERO),
-						Time::try_from_secs_f64(b).unwrap_or(Time::MAX)
-					))
-				}
-			})
-			.collect();
-		
-		TimeRanges(list.into_iter())
+		poly.when(self.cmp_order, self.time)
 	}
 }
 
@@ -363,34 +289,7 @@ where
 	
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
-		let mut real_roots = poly.real_roots()
-			.unwrap_or_default()
-			.into_vec();
-		
-		 // Constant Equality:
-		if
-			real_roots.is_empty()
-			&& poly.constant().is_zero()
-			&& poly.coeff_iter().all(FluxKind::is_zero)
-		{
-			real_roots.push(0.0);
-		}
-		
-		 // Convert Roots to Times:
-		let time = self.time.as_secs_f64();
-		let max_time = Time::MAX.as_secs_f64();
-		let vec: Vec<Time> = real_roots.into_iter()
-			.filter_map(|t| {
-				let t = t + time;
-				if t < 0.0 || t >= max_time {
-					None
-				} else {
-					Some(Time::from_secs_f64(t))
-				}
-			})
-			.collect();
-		
-		Times(vec.into_iter())
+		poly.when_eq(self.time)
 	}
 }
 
@@ -537,34 +436,34 @@ mod tests {
 		let mut pos = position();
 		assert_eq!(
 			pos.poly(),
-			Poly(32.0, [
-				Sum(-1.4691666666666667),
-				Sum(-1.4045833333333335),
-				Sum(0.06416666666666666),
-				Sum(-0.00041666666666666664),
-			])
+			Poly(32.0, Sum([
+				-1.4691666666666667,
+				-1.4045833333333335,
+				0.06416666666666666,
+				-0.00041666666666666664,
+			]))
 		);
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
 			assert_eq!(
 				pos.poly(),
-				Poly(-112.55000000000007, [
-					Sum(6.014166666666661),
-					Sum(1.44541666666666666),
-					Sum(0.030833333333333334),
-					Sum(-0.00041666666666666664),
-				])
+				Poly(-112.55000000000007, Sum([
+					6.014166666666661,
+					1.44541666666666666,
+					0.030833333333333334,
+					-0.00041666666666666664,
+				]))
 			);
 		}
 		pos.at_mut(0*Secs);
 		assert_eq!(
 			pos.poly(),
-			Poly(32.00000000000006, [
-				Sum(-1.4691666666666667),
-				Sum(-1.4045833333333335),
-				Sum(0.06416666666666666),
-				Sum(-0.00041666666666666664),
-			])
+			Poly(32.00000000000006, Sum([
+				-1.4691666666666667,
+				-1.4045833333333335,
+				0.06416666666666666,
+				-0.00041666666666666664,
+			]))
 		);
 	}
 	
