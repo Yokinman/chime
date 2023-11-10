@@ -92,13 +92,18 @@ pub trait Flux: Sized {
 	}
 	
 	/// A polynomial description of this flux value relative to `self.time()`.
-	fn poly(&self) -> Poly<Self::Kind> {
-		let mut poly = Poly {
-			0: self.value(),
-			..Default::default()
-		};
-		let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
-		self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
+	fn poly(&self, time: Time) -> Poly<Self::Kind> {
+		let mut poly = Poly::default();
+		if self.time() == time {
+			poly.0 = self.value();
+			let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
+			self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
+		} else {
+			let new = self.at(time).to_flux(time); // !!! This may be lossy
+			poly.0 = new.value();
+			let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
+			new.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
+		}
 		poly
 	}
 	
@@ -107,24 +112,12 @@ pub trait Flux: Sized {
 	where
 		When<Self::Kind, O::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
-		let a_time = self.time();
-		let b_time = other.time();
-		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
-			Ordering::Less => (
-				self.at(b_time).to_flux(b_time).poly(), // !!! This may be lossy
-				other.poly()
-			),
-			Ordering::Greater => (
-				self.poly(),
-				other.at(a_time).to_flux(a_time).poly()
-			),
-			Ordering::Equal => (self.poly(), other.poly()),
-		};
+		let time = self.time().max(other.time());
 		When {
-			a_poly,
-			b_poly,
+			a_poly: self.poly(time),
+			b_poly: other.poly(time),
 			cmp_order,
-			time: a_time.max(b_time),
+			time,
 		}.into_iter()
 	}
 	
@@ -133,23 +126,11 @@ pub trait Flux: Sized {
 	where
 		WhenEq<Self::Kind, O::Kind>: IntoIterator<IntoIter=Times>
 	{
-		let a_time = self.time();
-		let b_time = other.time();
-		let (a_poly, b_poly) = match a_time.cmp(&b_time) {
-			Ordering::Less => (
-				self.at(b_time).to_flux(b_time).poly(),
-				other.poly()
-			),
-			Ordering::Greater => (
-				self.poly(),
-				other.at(a_time).to_flux(a_time).poly()
-			),
-			Ordering::Equal => (self.poly(), other.poly()),
-		};
+		let time = self.time().max(other.time());
 		WhenEq {
-			a_poly,
-			b_poly,
-			time: a_time.max(b_time),
+			a_poly: self.poly(time),
+			b_poly: other.poly(time),
+			time,
 		}.into_iter()
 	}
 }
@@ -435,7 +416,7 @@ mod tests {
 	fn poly() {
 		let mut pos = position();
 		assert_eq!(
-			pos.poly(),
+			pos.poly(pos.time()),
 			Poly(32.0, Sum([
 				-1.4691666666666667,
 				-1.4045833333333335,
@@ -446,7 +427,7 @@ mod tests {
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
 			assert_eq!(
-				pos.poly(),
+				pos.poly(pos.time()),
 				Poly(-112.55000000000007, Sum([
 					6.014166666666661,
 					1.44541666666666666,
@@ -457,7 +438,7 @@ mod tests {
 		}
 		pos.at_mut(0*Secs);
 		assert_eq!(
-			pos.poly(),
+			pos.poly(pos.time()),
 			Poly(32.00000000000006, Sum([
 				-1.4691666666666667,
 				-1.4045833333333335,
