@@ -75,7 +75,7 @@ macro_rules! impl_deg_order {
 				let mut sum = Sum::zero();
 				let mut iter = self.0.into_iter();
 				sum.0[0] = shift.0;
-				for item in &mut sum.0[1..($($num +)+ 0)] {
+				for item in sum.0.iter_mut().skip(1) {
 					*item = iter.next().unwrap();
 				}
 				sum
@@ -87,6 +87,33 @@ macro_rules! impl_deg_order {
 				let mut iter = rhs.0.into_iter();
 				for item in &mut self.0 {
 					*item = *item + iter.next().unwrap_or_else(T::zero);
+				}
+				self
+			}
+		}
+		impl<T: Linear> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
+		where
+			T: Mul<Output = T>
+		{
+			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
+			fn mul(self, rhs: Self) -> Self::Output {
+				const SIZE: usize = $($num +)+ 0;
+				let mut sum = Sum::zero();
+				for i in 0..SIZE {
+				for j in 0..SIZE {
+					sum.0[1+i+j] = sum.0[1+i+j] + self.0[i]*rhs.0[j];
+				}}
+				sum
+			}
+		}
+		impl<T: Linear> Mul<T> for Sum<T, { $($num +)+ 0 }> // Squaring
+		where
+			T: Mul<Output = T>
+		{
+			type Output = Self;
+			fn mul(mut self, rhs: T) -> Self::Output {
+				for item in &mut self.0 {
+					*item = (*item) * rhs;
 				}
 				self
 			}

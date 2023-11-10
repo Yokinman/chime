@@ -5,7 +5,7 @@ mod impls;
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Deref, DerefMut, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::{
 	linear::*,
@@ -130,6 +130,29 @@ pub trait Flux: Sized {
 		WhenEq {
 			a_poly: self.poly(time),
 			b_poly: other.poly(time),
+			time,
+		}.into_iter()
+	}
+	
+	/// Ranges of time when a vector is within a distance from another vector.
+	fn when_dis<B: Flux>(
+		vec: &[Self], // ??? Use self that implements Index or a "FluxVec" trait
+		cmp_order: Ordering,
+		dis: <Self::Kind as FluxKind>::Value, // !!! This can be a Flux too
+		other: &[B],
+	) -> TimeRanges
+	where
+		WhenDis<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
+	{
+		let time = vec.iter().map(|x| x.time())
+			.chain(other.iter().map(|x| x.time()))
+			.max().unwrap_or_default();
+		
+		WhenDis {
+			a_poly: vec.iter().map(|x| x.poly(time)).collect(),
+			b_poly: other.iter().map(|x| x.poly(time)).collect(),
+			cmp_order,
+			dis,
 			time,
 		}.into_iter()
 	}
@@ -271,6 +294,55 @@ where
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
 		poly.when_eq(self.time)
+	}
+}
+
+/// [`Flux::when_dis`] predictive distance comparison.
+pub struct WhenDis<A: FluxKind, B: FluxKind> {
+	a_poly: Vec<Poly<A>>,
+	b_poly: Vec<Poly<B>>,
+	cmp_order: Ordering,
+	dis: A::Value,
+	time: Time,
+}
+
+impl<A, B> IntoIterator for WhenDis<A, B>
+where
+	A: FluxKind + Add<B>,
+	B: FluxKind<Value=A::Value>,
+	A::Value:
+		Mul<Output = A::Value>
+		+ Add<B::Value, Output=A::Value>
+		+ PartialOrd,
+	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
+	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
+	Poly<<A as Add<B>>::Output>: PolySqr,
+	<Poly<<A as Add<B>>::Output> as PolySqr>::Output:
+		FluxKind<Value=A::Value>
+		+ Add<Output = <Poly<<A as Add<B>>::Output> as PolySqr>::Output>
+		+ Roots
+		+ PartialOrd,
+{
+	type Item = (Time, Time);
+	type IntoIter = TimeRanges;
+	
+	fn into_iter(self) -> Self::IntoIter {
+		let mut sum = Poly::<<<Poly<A> as Sub<Poly<B>>>::Output as PolySqr>::Output> {
+			0: Mul::<Scalar>::mul(self.dis*self.dis, Scalar(-1.0)),
+			..Default::default()
+		};
+		
+		let count = self.a_poly.len().max(self.b_poly.len());
+		let mut a_iter = self.a_poly.into_iter();
+		let mut b_iter = self.b_poly.into_iter();
+		
+		for _ in 0..count {
+			let a = a_iter.next().unwrap_or_default();
+			let b = b_iter.next().unwrap_or_default();
+			sum = sum + (a - b).sqr();
+		}
+		
+		sum.when(self.cmp_order, self.time)
 	}
 }
 
@@ -518,5 +590,60 @@ mod tests {
 		assert_eq!(vec, [(0*Secs, 8*Secs), (50*Secs, vec[1].1)]);
 		assert_eq!(vec_eq[0..2], [8*Secs, 50*Secs]);
 		assert!(vec[1].1 > 2_u64.pow(53)*Secs);
+	}
+	
+	#[test]
+	fn distance() {
+		#[derive(PartialOrd, PartialEq)]
+		#[flux(Sum<f64, 2> = {value} + spd.per(Secs), crate = "crate")]
+		#[derive(Debug)]
+		struct Pos {
+			value: i64,
+			spd: Spd,
+		}
+		
+		#[derive(PartialOrd, PartialEq)]
+		#[flux(Sum<f64, 1> = {value} + acc.per(Secs), crate = "crate")]
+		#[derive(Debug)]
+		struct Spd {
+			value: i64,
+			acc: Acc,
+		}
+		
+		#[derive(PartialOrd, PartialEq)]
+		#[flux(Sum<f64, 0> = {value}, crate = "crate")]
+		#[derive(Debug)]
+		struct Acc {
+			value: i64,
+		}
+		
+		let a_pos = vec![
+			Pos { value: 3, spd: Spd { value: 7, acc: Acc { value: -4 } } },
+			Pos { value: -4, spd: Spd { value: -7, acc: Acc { value: 18 } } }
+		].to_flux(Time::ZERO);
+		let b_pos = vec![
+			Pos { value: 8, spd: Spd { value: 8, acc: Acc { value: -5 } } },
+			Pos { value: 4, spd: Spd { value: 4, acc: Acc { value: 12 } } }
+		].to_flux(Time::ZERO);
+		
+		assert_eq!(
+			Flux::when_dis(&a_pos, Ordering::Less, 10.0, &b_pos)
+				.into_iter()
+				.collect::<Vec<(Time, Time)>>(),
+			[
+				(Time::ZERO, Time::from_secs_f64(0.0823337)),
+				(Time::from_secs_f64(2.46704544), Time::from_secs_f64(4.116193987))
+			]
+		);
+		
+		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
+		assert_eq!(
+			Flux::when_dis(&a_pos, Ordering::Less, 2.0, &b_pos)
+				.into_iter()
+				.collect::<Vec<(Time, Time)>>(),
+			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
+		);
+		
+		// https://www.desmos.com/calculator/23ic1ikyt3
 	}
 }

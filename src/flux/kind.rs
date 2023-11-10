@@ -240,6 +240,33 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	}
 }
 
+/// Squaring [`Poly`]nomials.
+pub trait PolySqr: private::Sealed {
+	type Output: FluxKind;
+	fn sqr(self) -> Poly<Self::Output>;
+}
+
+impl<K: FluxKind> private::Sealed for Poly<K> {}
+
+impl<K: FluxKind> PolySqr for Poly<K>
+where
+	K: Mul + Mul<K::Value, Output=K> + Add<<K as Mul>::Output>,
+	K::Value: Mul<Output=K::Value>,
+	<K as Add<<K as Mul>::Output>>::Output: FluxKind<Value=K::Value>
+{
+	type Output = <K as Add<<K as Mul>::Output>>::Output;
+	fn sqr(self) -> Poly<Self::Output> {
+		Poly(
+			self.0*self.0,
+			self.1*self.0*Scalar(2.0) + self.1*self.1,
+		)
+	}
+}
+
+mod private {
+	pub trait Sealed {}
+}
+
 // !!! This should be an iterator at some point. Need to be able to produce a
 // generating function for roots.
 pub type RootList = Box<[f64]>;
