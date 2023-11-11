@@ -120,8 +120,8 @@ impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 
 #[cfg(feature = "glam")]
 mod glam_stuff {
-	use super::*;
 	use glam::*;
+	use crate::linear::{LinearIso, InvLinearIso};
 	
 	macro_rules! impl_iso_for_vec {
 		($a:ty, $as_b:ident: $b:ty, $as_a:ident) => {

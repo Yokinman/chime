@@ -1,9 +1,11 @@
 //! Defining a *kind* of change over time.
 
-use super::*;
-
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
+
+use crate::linear::{Linear, Scalar};
+use crate::{Time, Times, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 /// 

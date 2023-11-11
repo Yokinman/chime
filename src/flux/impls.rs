@@ -1,10 +1,9 @@
 //! Convenient [`Flux`] implementations (Vec<T>, ??? tuples, etc.).
 
-use super::*;
-
 use std::vec::Vec;
 
-use time::Time;
+use crate::{Flux, Time, Moment};
+use crate::kind::FluxKind;
 use crate::linear::Linear;
 
 // !!! Arrays
