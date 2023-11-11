@@ -5,11 +5,11 @@ mod impls;
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::{
 	linear::*,
-	kind::*,
+	kind::{*, ops as kind_ops},
 };
 
 pub use self::impls::*;
@@ -267,13 +267,11 @@ pub struct When<A: FluxKind, B: FluxKind> {
 	time: Time,
 }
 
-impl<A, B> IntoIterator for When<A, B>
+impl<A: FluxKind, B: FluxKind> IntoIterator for When<A, B>
 where
-	A: FluxKind + Add<B>,
-	B: FluxKind<Value=A::Value>,
+	A: kind_ops::Sub<B>,
+	<A as kind_ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
-	<A as Add<B>>::Output: FluxKind<Value=A::Value> + Roots + PartialOrd,
-	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
@@ -292,13 +290,11 @@ pub struct WhenEq<A: FluxKind, B: FluxKind> {
 	time: Time,
 }
 
-impl<A, B> IntoIterator for WhenEq<A, B>
+impl<A: FluxKind, B: FluxKind> IntoIterator for WhenEq<A, B>
 where
-	A: FluxKind + Add<B>,
-	B: FluxKind<Value=A::Value>,
+	A: kind_ops::Sub<B>,
+	<A as kind_ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
-	<A as Add<B>>::Output: FluxKind<Value=A::Value> + Roots + PartialEq,
-	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
 {
 	type Item = Time;
 	type IntoIter = Times;
@@ -318,28 +314,24 @@ pub struct WhenDis<A: FluxKind, B: FluxKind> {
 	time: Time,
 }
 
-impl<A, B> IntoIterator for WhenDis<A, B>
+impl<A: FluxKind, B: FluxKind> IntoIterator for WhenDis<A, B>
 where
-	A: FluxKind + Add<B>,
-	B: FluxKind<Value=A::Value>,
-	A::Value:
-		Mul<Output = A::Value>
-		+ Add<B::Value, Output=A::Value>
-		+ PartialOrd,
-	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
-	Poly<A>: Sub<Poly<B>, Output=Poly<<A as Add<B>>::Output>>,
-	Poly<<A as Add<B>>::Output>: PolySqr,
-	<Poly<<A as Add<B>>::Output> as PolySqr>::Output:
-		FluxKind<Value=A::Value>
-		+ Add<Output = <Poly<<A as Add<B>>::Output> as PolySqr>::Output>
+	A: kind_ops::Sub<B>,
+	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
+	<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output:
+		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
 		+ Roots
+		+ PartialOrd,
+	A::Value:
+		Mul<Output=A::Value>
+		+ Add<B::Value, Output=A::Value>
 		+ PartialOrd,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let mut sum = Poly::<<<Poly<A> as Sub<Poly<B>>>::Output as PolySqr>::Output> {
+		let mut sum = Poly::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output> {
 			0: Mul::<Scalar>::mul(self.dis*self.dis, Scalar(-1.0)),
 			..Default::default()
 		};

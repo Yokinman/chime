@@ -31,6 +31,74 @@ pub trait FluxKind:
 	}
 }
 
+/// Combining [`FluxKind`] types.
+/// 
+/// Primarily this serves as a way to put two kinds of change-over-time into
+/// the same space, for combination or comparison purposes.
+pub mod ops {
+	use std::ops;
+	use super::{FluxKind, Poly};
+	use crate::linear::Scalar;
+	
+	/// Adding two kinds of change.
+	pub trait Add<K: FluxKind = Self>: FluxKind<Value=K::Value> {
+		type Output: FluxKind<Value=K::Value>;
+		fn add(self, kind: K) -> <Self as Add<K>>::Output;
+	}
+	
+	impl<A, B> Add<B> for A
+	where
+		A: FluxKind + ops::Add<B>,
+		B: FluxKind<Value=A::Value>,
+		<A as ops::Add<B>>::Output: FluxKind<Value=A::Value>,
+	{
+		type Output = <A as ops::Add<B>>::Output;
+		fn add(self, kind: B) -> <A as ops::Add<B>>::Output {
+			self + kind
+		}
+	}
+	
+	/// Differentiating two kinds of change.
+	pub trait Sub<K: FluxKind = Self>: FluxKind<Value=K::Value> {
+		type Output: FluxKind<Value=K::Value>;
+		fn sub(self, kind: K) -> <Self as Sub<K>>::Output;
+	}
+	
+	impl<A, B> Sub<B> for A
+	where
+		A: FluxKind + ops::Add<B>,
+		B: FluxKind<Value=A::Value>,
+		<A as ops::Add<B>>::Output: FluxKind<Value=A::Value>,
+	{
+		type Output = <A as ops::Add<B>>::Output;
+		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
+			self + (kind * Scalar(-1.0))
+		}
+	}
+	
+	/// Squaring a kind of change.
+	pub trait Sqr: FluxKind {
+		type Output: FluxKind<Value=Self::Value>;
+		fn sqr_poly(poly: Poly<Self>) -> Poly<<Self as Sqr>::Output>;
+	}
+	
+	impl<K: FluxKind> Sqr for K
+	where
+		K: ops::Mul + ops::Mul<K::Value, Output=K> + ops::Add<<K as ops::Mul>::Output>,
+		K::Value: ops::Mul<Output=K::Value>,
+		<K as ops::Add<<K as ops::Mul>::Output>>::Output: FluxKind<Value=K::Value>
+	{
+		type Output = <K as ops::Add<<K as ops::Mul>::Output>>::Output;
+		fn sqr_poly(poly: Poly<K>) -> Poly<<Self as Sqr>::Output> {
+			// (a+b)^2 = a^2 + 2ab + b^2
+			Poly(
+				poly.0*poly.0,
+				poly.1*poly.0*Scalar(2.0) + poly.1*poly.1,
+			)
+		}
+	}
+}
+
 /// Change accumulator.
 /// 
 /// Converts a discrete pattern of change into a desired form.
@@ -60,6 +128,13 @@ pub struct Poly<K: FluxKind>(pub K::Value, pub K); // !!! Use named fields.
 impl<K: FluxKind> Poly<K> {
 	pub fn constant(&self) -> K::Value {
 		self.0
+	}
+	
+	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
+	where
+		K: ops::Sqr
+	{
+		ops::Sqr::sqr_poly(self)
 	}
 	
 	pub fn is_zero(&self) -> bool
@@ -198,32 +273,31 @@ impl<K: FluxKind> Default for Poly<K> {
 	}
 }
 
-impl<A, B> Add<Poly<B>> for Poly<A>
+impl<A: FluxKind, B: FluxKind> Add<Poly<B>> for Poly<A>
 where
-	A: FluxKind + Add<B>,
-	B: FluxKind<Value=A::Value>,
-	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
+	A: ops::Add<B>,
 	A::Value: Add<B::Value, Output=A::Value>,
 {
-	type Output = Poly<<A as Add<B>>::Output>;
+	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
 		Poly(
 			self.0 + rhs.0,
-			self.1 + rhs.1,
+			self.1.add(rhs.1),
 		)
 	}
 }
 
-impl<A, B> Sub<Poly<B>> for Poly<A>
+impl<A: FluxKind, B: FluxKind> Sub<Poly<B>> for Poly<A>
 where
-	A: FluxKind + Add<B>,
-	B: FluxKind<Value=A::Value>,
-	<A as Add<B>>::Output: FluxKind<Value=A::Value>,
+	A: ops::Sub<B>,
 	A::Value: Add<B::Value, Output=A::Value>,
 {
-	type Output = Poly<<A as Add<B>>::Output>;
+	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		self + (rhs * Scalar(-1.0))
+		Poly(
+			self.0 + rhs.0*Scalar(-1.0),
+			self.1.sub(rhs.1),
+		)
 	}
 }
 
@@ -234,33 +308,6 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 		self.1 = self.1 * rhs;
 		self
 	}
-}
-
-/// Squaring [`Poly`]nomials.
-pub trait PolySqr: private::Sealed {
-	type Output: FluxKind;
-	fn sqr(self) -> Poly<Self::Output>;
-}
-
-impl<K: FluxKind> private::Sealed for Poly<K> {}
-
-impl<K: FluxKind> PolySqr for Poly<K>
-where
-	K: Mul + Mul<K::Value, Output=K> + Add<<K as Mul>::Output>,
-	K::Value: Mul<Output=K::Value>,
-	<K as Add<<K as Mul>::Output>>::Output: FluxKind<Value=K::Value>
-{
-	type Output = <K as Add<<K as Mul>::Output>>::Output;
-	fn sqr(self) -> Poly<Self::Output> {
-		Poly(
-			self.0*self.0,
-			self.1*self.0*Scalar(2.0) + self.1*self.1,
-		)
-	}
-}
-
-mod private {
-	pub trait Sealed {}
 }
 
 // !!! This should be an iterator at some point. Need to be able to produce a
