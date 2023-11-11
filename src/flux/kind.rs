@@ -145,7 +145,7 @@ impl<K: FluxKind> Poly<K> {
 		 // Convert Ranges to Times:
 		let time = offset.as_secs_f64();
 		let max_time = Time::MAX.as_secs_f64();
-		let list: Vec<(Time, Time)> = range_list
+		range_list
 			.filter_map(|(a, b)| {
 				debug_assert!(a <= b);
 				let a = a + time;
@@ -159,9 +159,7 @@ impl<K: FluxKind> Poly<K> {
 					))
 				}
 			})
-			.collect();
-		
-		TimeRanges(list.into_iter())
+			.collect()
 	}
 	
 	pub fn when_eq(&self, offset: Time) -> Times
@@ -181,7 +179,7 @@ impl<K: FluxKind> Poly<K> {
 		 // Convert Roots to Times:
 		let time = offset.as_secs_f64();
 		let max_time = Time::MAX.as_secs_f64();
-		let vec: Vec<Time> = real_roots.into_iter()
+		real_roots.into_iter()
 			.filter_map(|t| {
 				let t = t + time;
 				if t < 0.0 || t >= max_time {
@@ -190,9 +188,7 @@ impl<K: FluxKind> Poly<K> {
 					Some(Time::from_secs_f64(t))
 				}
 			})
-			.collect();
-		
-		Times(vec.into_iter())
+			.collect()
 	}
 }
 

@@ -229,6 +229,12 @@ impl Iterator for TimeRanges {
 	}
 }
 
+impl FromIterator<(Time, Time)> for TimeRanges {
+	fn from_iter<T: IntoIterator<Item=(Time, Time)>>(iter: T) -> Self {
+		Self(iter.into_iter().collect::<Vec<_>>().into_iter())
+	}
+}
+
 /// Iterator of [`Time`] values.
 #[must_use]
 pub struct Times(std::vec::IntoIter<Time>);
@@ -243,6 +249,12 @@ impl Iterator for Times {
 	}
 	fn count(self) -> usize {
 		self.0.count()
+	}
+}
+
+impl FromIterator<Time> for Times {
+	fn from_iter<T: IntoIterator<Item=Time>>(iter: T) -> Self {
+		Self(iter.into_iter().collect::<Vec<_>>().into_iter())
 	}
 }
 
