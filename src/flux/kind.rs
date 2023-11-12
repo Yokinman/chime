@@ -108,6 +108,10 @@ pub trait FluxAccum<'a, K: FluxKind> {
 	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
 }
 
+impl<K: FluxKind> FluxAccum<'_, K> for () {
+	fn from_kind(_kind: FluxAccumKind<'_, K>) -> Self {}
+}
+
 /// General accumulator arguments.
 #[non_exhaustive]
 pub enum FluxAccumKind<'a, K: FluxKind> {

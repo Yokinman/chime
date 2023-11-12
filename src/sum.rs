@@ -1,7 +1,7 @@
 //! Summation over time.
 
 use std::cmp::Ordering;
-use std::ops::{Add, Mul, Sub, Shr};
+use std::ops::{Add, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
 
 /// Summation over time.
@@ -55,30 +55,70 @@ impl<T: Linear, const DEG: usize> FluxKind for Sum<T, DEG> {
 	}
 }
 
-/// Used with `Shr` for upgrading a [`Sum`].
-#[derive(Copy, Clone, Debug)]
-struct DegShift<T: Linear>(pub T);
+impl<T: Linear> Into<Constant<T>> for Sum<T, 0> {
+	fn into(self) -> Constant<T> {
+		Constant::zero()
+	}
+}
+
+impl<T: Linear> From<Constant<T>> for Sum<T, 0> {
+	fn from(_: Constant<T>) -> Self {
+		Self::zero()
+	}
+}
+
+impl<K: FluxKind, const DEG: usize> Add<K> for Sum<K::Value, DEG>
+where
+	K: Into<Constant<K::Value>>
+{
+	type Output = Self;
+	fn add(self, _: K) -> Self {
+		self
+	}
+}
+
+/// Used for upgrading the degree of a [`Sum`].
+trait SumShiftUp: FluxKind {
+	type Up: FluxKind<Value=Self::Value>;
+	fn shift_up(self, constant: Self::Value) -> <Self as SumShiftUp>::Up;
+}
+
+impl<K: FluxKind> SumShiftUp for K
+where
+	K: Into<Constant<K::Value>>
+{
+	type Up = Sum<Self::Value, 1>;
+	fn shift_up(self, constant: Self::Value) -> <Self as SumShiftUp>::Up {
+		Sum::<Self::Value, 1>([constant])
+	}
+}
 
 /// Degree sequential ordering.
 macro_rules! impl_deg_order {
 	(1  1  $($num:tt)*) => { impl_deg_order!(2  $($num)*); };
 	(2  2  $($num:tt)*) => { impl_deg_order!(4  $($num)*); };
 	(4  4  $($num:tt)*) => { impl_deg_order!(8  $($num)*); };
-	(8  8  $($num:tt)*) => { impl_deg_order!(16 $($num)*); };
+	// (8  8  $($num:tt)*) => { impl_deg_order!(16 $($num)*); }; // !!! This is really slow
 	// (16 16 $($num:tt)*) => { impl_deg_order!(32 $($num)*); };
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
-	(16) => {/* break */};
+	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: Linear> Shr<DegShift<T>> for Sum<T, { $($num +)+ 0 - 1 }> {
-			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn shr(self, shift: DegShift<T>) -> Self::Output {
+		impl<T: Linear> SumShiftUp for Sum<T, { $($num +)+ 0 }> {
+			type Up = Sum<T, { $($num +)+ 0 + 1 }>;
+			fn shift_up(self, constant: T) -> <Self as SumShiftUp>::Up {
 				let mut sum = Sum::zero();
 				let mut iter = self.0.into_iter();
-				sum.0[0] = shift.0;
+				sum.0[0] = constant;
 				for item in sum.0.iter_mut().skip(1) {
 					*item = iter.next().unwrap();
 				}
 				sum
+			}
+		}
+		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, 0> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
+				rhs
 			}
 		}
 		impl<T: Linear> Add for Sum<T, { $($num +)+ 0 }> {
@@ -126,10 +166,10 @@ macro_rules! impl_deg_add {
 	($a:tt, 1  1  $($num:tt)*) => { impl_deg_add!($a, 2  $($num)*); };
 	($a:tt, 2  2  $($num:tt)*) => { impl_deg_add!($a, 4  $($num)*); };
 	($a:tt, 4  4  $($num:tt)*) => { impl_deg_add!($a, 8  $($num)*); };
-	($a:tt, 8  8  $($num:tt)*) => { impl_deg_add!($a, 16 $($num)*); };
+	// ($a:tt, 8  8  $($num:tt)*) => { impl_deg_add!($a, 16 $($num)*); };
 	// ($a:tt, 16 16 $($num:tt)*) => { impl_deg_add!($a, 32 $($num)*); };
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
-	($a:tt, 16) => {/* break */};
+	($a:tt, 8) => {/* break */};
 	($a:tt, $($num:tt)+) => {
 		impl<T: Linear> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
@@ -161,17 +201,6 @@ macro_rules! impl_deg_add {
 	};
 }
 impl_deg_order!(1);
-impl<T: Linear> Add for Sum<T, 0> {
-	type Output = Self;
-	fn add(mut self, rhs: Self) -> Self {
-		let mut iter = rhs.0.into_iter();
-		for item in &mut self.0 {
-			*item = *item + iter.next().unwrap();
-		}
-		self
-	}
-}
-impl_deg_add!(0, 1);
 
 const LIMIT: f64 = 0.01;
 
@@ -513,10 +542,10 @@ where
 /// Used to remove redundant trait bounds.
 #[doc(hidden)]
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
-	fn eval<C: Flux<Kind=B>>(
+	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
-		value: &C,
+		value: &V,
 		unit: TimeUnit,
 	);
 }
@@ -524,10 +553,8 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
-	B: FluxKind<Value=A::Value>,
-	A: Add<B, Output=A> + Add<<B as Shr<DegShift<A::Value>>>::Output, Output=A>,
-	B: Add<A, Output=A> + Shr<DegShift<A::Value>>,
-	<B as Shr<DegShift<A::Value>>>::Output: FluxKind<Value=A::Value>,
+	B: FluxKind<Value=A::Value> + SumShiftUp,
+	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
@@ -557,7 +584,10 @@ where
 					poly: &mut sub_poly,
 					depth: *depth + 1,
 				}));
-				let shr_poly = Poly(A::Value::zero(), sub_poly.1 >> DegShift(sub_poly.0));
+				let shr_poly = Poly(
+					A::Value::zero(),
+					sub_poly.1.shift_up(sub_poly.0)
+				);
 				let depth = *depth as f64;
 				let time_scale = (1*unit).as_secs_f64().recip();
 				**poly = **poly

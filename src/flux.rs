@@ -5,6 +5,7 @@ mod impls;
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
+use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::{
@@ -155,6 +156,29 @@ pub trait Flux: Sized {
 			dis,
 			time,
 		}.into_iter()
+	}
+}
+
+impl Moment for f64 {
+	type Flux = Self;
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		self
+	}
+}
+
+impl Flux for f64 {
+	type Moment = Self;
+	type Kind = Constant<Self>;
+	type OutAccum<'a> = ();
+	fn value(&self) -> <Self::Kind as FluxKind>::Value {
+		*self
+	}
+	fn time(&self) -> Time {
+		Time::ZERO
+	}
+	fn change<'a>(&self, _accum: ()) -> Self::OutAccum<'a> {}
+	fn at(&self, _time: Time) -> Self::Moment {
+		*self
 	}
 }
 
@@ -397,6 +421,38 @@ pub struct Change<'t, T> {
 	pub unit: TimeUnit,
 }
 
+/// No change over time.
+/// 
+/// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
+/// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
+#[derive(Copy, Clone, Debug)]
+pub struct Constant<T: Linear>(PhantomData<T>);
+
+impl<T: Linear> Mul<Scalar> for Constant<T> {
+	type Output = Self;
+	fn mul(self, _rhs: Scalar) -> Self::Output {
+		self
+	}
+}
+
+impl<T: Linear> FluxKind for Constant<T> {
+	type Value = T;
+	type Accum<'a> = ();
+	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
+		Some(Ordering::Equal)
+	}
+	fn zero() -> Self {
+		Self(PhantomData)
+	}
+}
+
+impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
+	type Output = K;
+	fn add(self, rhs: K) -> K {
+		rhs
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use impl_op::impl_op;
@@ -440,7 +496,7 @@ mod tests {
 		snap: Snap,
 	}
 	
-	#[flux(Sum<f64, 0> = {value}, crate = "crate")]
+	#[flux(Constant<f64> = {value}, crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Snap {
 		value: f64,
@@ -615,7 +671,7 @@ mod tests {
 		}
 		
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 0> = {value}, crate = "crate")]
+		#[flux(Constant<f64> = {value}, crate = "crate")]
 		#[derive(Debug)]
 		struct Acc {
 			value: i64,
