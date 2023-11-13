@@ -39,10 +39,10 @@ pub trait Flux: Sized {
 	/// The output accumulator of [`Flux::change`].
 	type OutAccum<'a>: FluxAccum<'a, Self::Kind>;
 	
-	/// Initial value.
+	/// The basis value that describes this flux (relative to [`Flux::time`]).
 	fn value(&self) -> <Self::Kind as FluxKind>::Value;
 	
-	/// ...
+	/// The basis time that describes this flux (relative to [`Flux::value`]).
 	fn time(&self) -> Time;
 	
 	/// Accumulates change over time.
@@ -82,29 +82,31 @@ pub trait Flux: Sized {
 	/// The evaluation of this value at the given time.
 	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
 		let mut value = self.value();
-		let value_accum = FluxAccumKind::Value {
-			value: &mut value,
-			depth: 0,
-			time,
-			offset: self.time(),
-		};
-		self.change(<Self::Kind as FluxKind>::Accum::from_kind(value_accum));
+		if time != self.time() {
+			let accum = FluxAccumKind::Value {
+				value: &mut value,
+				depth: 0,
+				time,
+				base_time: self.time(),
+			};
+			self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
+		}
 		value
 	}
 	
 	/// A polynomial description of this flux value relative to `self.time()`.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Poly::default();
-		if self.time() == time {
-			poly.0 = self.value();
-			let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
-			self.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
-		} else {
-			let new = self.at(time).to_flux(time); // !!! This may be lossy
-			poly.0 = new.value();
-			let poly_accum = FluxAccumKind::Poly { poly: &mut poly, depth: 0 };
-			new.change(<Self::Kind as FluxKind>::Accum::from_kind(poly_accum));
-		}
+		let mut poly = Poly {
+			0: self.value_at(time),
+			..Default::default()
+		};
+		let accum = FluxAccumKind::Poly {
+			poly: &mut poly,
+			depth: 0,
+			time,
+			base_time: self.time(),
+		};
+		self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
 		poly
 	}
 	
@@ -593,12 +595,21 @@ mod tests {
 			},
 			misc: Vec::new(),
 		};
-		pos.to_flux(Time::default())
+		let mut pos = pos.to_flux(Time::default());
+		pos.spd.accel.at_mut(20*Secs);
+		pos.spd.accel.jerk.at_mut(10*Secs);
+		pos
 	}
 	
 	#[test]
 	fn value() {
 		let mut pos = position();
+		
+		 // Times:
+		assert_eq!(pos.time(), 0*Secs);
+		assert_eq!(pos.spd.time(), 0*Secs);
+		assert_eq!(pos.spd.accel.time(), 20*Secs);
+		assert_eq!(pos.spd.accel.jerk.time(), 10*Secs);
 		
 		 // Values:
 		assert_eq!(pos.at(0*Secs).round(), 32.);
@@ -610,9 +621,9 @@ mod tests {
 		 // Update:
 		assert_eq!(pos.at_mut(20*Secs).round(), -113.);
 		assert_eq!(pos.at(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209779.);
+		assert_eq!(pos.at(200*Secs).round(), -209778.);
 		assert_eq!(pos.at_mut(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209779.);
+		assert_eq!(pos.at(200*Secs).round(), -209778.);
 	}
 	
 	#[test]
@@ -634,7 +645,7 @@ mod tests {
 				Poly(-112.55000000000007, Sum([
 					6.014166666666661,
 					1.44541666666666666,
-					0.030833333333333334,
+					0.03083333333333334,
 					-0.00041666666666666664,
 				]))
 			);

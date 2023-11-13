@@ -21,17 +21,16 @@ where
 	type OutAccum<'a> = T::OutAccum<'a>;
 	fn value(&self) -> <Self::Kind as FluxKind>::Value {
 		let mut value = <Self::Kind as FluxKind>::Value::zero();
+		let time = self.time();
 		for item in self {
-			value = value + item.value();
+			value = value + item.value_at(time);
 		}
 		value
 	}
 	fn time(&self) -> Time {
-		if let Some(item) = self.first() {
-			item.time()
-		} else {
-			Time::default()
-		}
+		self.first()
+			.map(|x| x.time())
+			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
 		-> Self::OutAccum<'a>

@@ -119,11 +119,13 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 		value: &'a mut K::Value,
 		depth: usize,
 		time: Time,
-		offset: Time,
+		base_time: Time,
 	},
 	Poly {
 		poly: &'a mut Poly<K>,
 		depth: usize,
+		time: Time,
+		base_time: Time,
 	},
 }
 

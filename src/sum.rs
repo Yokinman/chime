@@ -563,26 +563,30 @@ where
 		unit: TimeUnit,
 	) {
 		match kind {
-			FluxAccumKind::Value { value, depth, time, offset } => {
-				let mut sub_value = flux.value();
+			FluxAccumKind::Value { value, depth, time, base_time } => {
+				let mut sub_value = flux.value_at(*base_time);
 				flux.change(B::Accum::from_kind(FluxAccumKind::Value {
 					value: &mut sub_value,
 					depth: *depth + 1,
 					time: *time,
-					offset: flux.time(),
+					base_time: *base_time,
 				}));
 				let depth = *depth as f64;
-				let time_scale = (time.as_secs_f64() - offset.as_secs_f64()) / (1*unit).as_secs_f64();
-				**value = **value + (sub_value * Scalar((time_scale + depth) / (depth + 1.0)) * scalar);
-			}
-			FluxAccumKind::Poly { poly, depth } => {
+				let time_scale = (time.as_secs_f64() - base_time.as_secs_f64())
+					/ (1*unit).as_secs_f64();
+				**value = **value
+					+ (sub_value * Scalar((time_scale+depth) / (depth+1.)) * scalar);
+			},
+			FluxAccumKind::Poly { poly, depth, time, base_time } => {
 				let mut sub_poly = Poly {
-					0: flux.value(),
+					0: flux.value_at(*time),
 					..Default::default()
 				};
 				flux.change(B::Accum::from_kind(FluxAccumKind::Poly {
 					poly: &mut sub_poly,
 					depth: *depth + 1,
+					time: *time,
+					base_time: *base_time,
 				}));
 				let shr_poly = Poly(
 					A::Value::zero(),
