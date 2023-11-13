@@ -1,4 +1,4 @@
-//! Convenient [`Flux`] implementations (Vec<T>, ??? tuples, etc.).
+//! Convenient [`Flux`] implementations (`Vec<T>`, ??? tuples, etc.).
 
 use std::vec::Vec;
 

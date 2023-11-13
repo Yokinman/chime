@@ -383,7 +383,7 @@ where
 	}
 }
 
-/// [`Flux::when_dis`] predictive distance comparison.
+/// [`FluxVec::when_dis`] predictive distance comparison.
 pub struct WhenDis<A: FluxKind, B: FluxKind, D: FluxKind> {
 	a_poly: Box<[Poly<A>]>,
 	b_poly: Box<[Poly<B>]>,
