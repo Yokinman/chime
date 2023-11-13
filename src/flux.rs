@@ -134,29 +134,6 @@ pub trait Flux: Sized {
 			time,
 		}.into_iter()
 	}
-	
-	/// Ranges of time when a vector is within a distance from another vector.
-	fn when_dis<B: Flux>(
-		vec: &[Self], // ??? Use self that implements Index or a "FluxVec" trait
-		cmp_order: Ordering,
-		dis: <Self::Kind as FluxKind>::Value, // !!! This can be a Flux too
-		other: &[B],
-	) -> TimeRanges
-	where
-		WhenDis<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
-	{
-		let time = vec.iter().map(|x| x.time())
-			.chain(other.iter().map(|x| x.time()))
-			.max().unwrap_or_default();
-		
-		WhenDis {
-			a_poly: vec.iter().map(|x| x.poly(time)).collect(),
-			b_poly: other.iter().map(|x| x.poly(time)).collect(),
-			cmp_order,
-			dis,
-			time,
-		}.into_iter()
-	}
 }
 
 impl Moment for f64 {
@@ -235,6 +212,81 @@ where
 		<V::Moment as Display>::fmt(self, f)
 	}
 }
+
+/// Multidimensional change over time.
+pub trait FluxVec {
+	type Kind: FluxKind;
+	fn times(&self) -> Times;
+	fn polys(&self, time: Time) -> Polys<Self::Kind>;
+	
+	/// Ranges of time when a vector is within a distance from another vector.
+	fn when_dis<B: FluxVec + ?Sized>(
+		&self,
+		other: &B,
+		cmp_order: Ordering,
+		dis: <Self::Kind as FluxKind>::Value, // !!! This can be a Flux
+	) -> TimeRanges
+	where
+		WhenDis<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
+	{
+		let time = self.times()
+			.chain(other.times())
+			.max().unwrap_or_default();
+		
+		WhenDis {
+			a_poly: self.polys(time),
+			b_poly: other.polys(time),
+			cmp_order,
+			dis,
+			time,
+		}.into_iter()
+	}
+}
+
+impl<T: Flux> FluxVec for [T] {
+	type Kind = T::Kind;
+	fn times(&self) -> Times {
+		self.iter()
+			.map(|x| x.time())
+			.collect()
+	}
+	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+		self.iter()
+			.map(|x| x.poly(time))
+			.collect()
+	}
+}
+
+impl<T: Flux> FluxVec for Vec<T> {
+	type Kind = T::Kind;
+	fn times(&self) -> Times {
+		(**self).times()
+	}
+	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+		(**self).polys(time)
+	}
+}
+
+// impl<A: Flux, B: Flux> FluxVec for (A, B)
+// where
+// 	B::Kind: FluxKind<Value = <A::Kind as FluxKind>::Value>,
+// 	A::Kind: Add<B::Kind>,
+// 	<A::Kind as Add<B::Kind>>::Output: FluxKind<Value = <A::Kind as FluxKind>::Value>
+// {
+// 	type Kind = <A::Kind as Add<B::Kind>>::Output;
+// 	fn times(&self) -> Times {
+// 		[self.0.time(), self.1.time()]
+// 			.into_iter().collect()
+// 	}
+// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+// 		[self.0.poly(time) + Poly::<B::Kind>::default(), Poly::<A::Kind>::default() + self.1.poly(time)]
+// 			.into_iter().collect()
+// 	}
+// }
+
+/// ...
+#[allow(type_alias_bounds)]
+type Polys<K: FluxKind> = Box<[Poly<K>]>;
 
 /// Iterator of [`Time`] ranges.
 #[must_use]
@@ -331,8 +383,8 @@ where
 
 /// [`Flux::when_dis`] predictive distance comparison.
 pub struct WhenDis<A: FluxKind, B: FluxKind> {
-	a_poly: Vec<Poly<A>>,
-	b_poly: Vec<Poly<B>>,
+	a_poly: Box<[Poly<A>]>,
+	b_poly: Box<[Poly<B>]>,
 	cmp_order: Ordering,
 	dis: A::Value,
 	time: Time,
@@ -361,8 +413,8 @@ where
 		};
 		
 		let count = self.a_poly.len().max(self.b_poly.len());
-		let mut a_iter = self.a_poly.into_iter();
-		let mut b_iter = self.b_poly.into_iter();
+		let mut a_iter = self.a_poly.iter().copied();
+		let mut b_iter = self.b_poly.iter().copied();
 		
 		for _ in 0..count {
 			let a = a_iter.next().unwrap_or_default();
@@ -687,7 +739,7 @@ mod tests {
 		].to_flux(Time::ZERO);
 		
 		assert_eq!(
-			Flux::when_dis(&a_pos, Ordering::Less, 10.0, &b_pos)
+			a_pos.when_dis(&b_pos, Ordering::Less, 10.)
 				.into_iter()
 				.collect::<Vec<(Time, Time)>>(),
 			[
@@ -698,7 +750,7 @@ mod tests {
 		
 		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
 		assert_eq!(
-			Flux::when_dis(&a_pos, Ordering::Less, 2.0, &b_pos)
+			a_pos.when_dis(&*b_pos, Ordering::Less, 2.)
 				.into_iter()
 				.collect::<Vec<(Time, Time)>>(),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
