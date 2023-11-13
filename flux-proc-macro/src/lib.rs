@@ -251,7 +251,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#flux_fields
 				#ident: #flux::FluxValue::new(
 					time,
-					#flux::linear::InvLinearIso::inv_map(self.#ident)
+					#flux::linear::LinearIsoInv::inv_map(self.#ident)
 				),
 			};
 		} else {

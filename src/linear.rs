@@ -80,11 +80,12 @@ where T:
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: InvLinearIso<Self> + ?Sized>: Linear {
+pub trait LinearIso<T: LinearIsoInv<Self> + ?Sized>: Linear {
 	fn map(self) -> T;
 }
 
-pub trait InvLinearIso<T: LinearIso<Self>> {
+/// The inverse map of a linear isomorphism.
+pub trait LinearIsoInv<T: LinearIso<Self>> {
 	fn inv_map(self) -> T;
 }
 
@@ -94,7 +95,7 @@ impl<T: Linear> LinearIso<T> for T {
 	}
 }
 
-impl<T: Linear> InvLinearIso<T> for T {
+impl<T: Linear> LinearIsoInv<T> for T {
 	fn inv_map(self) -> T {
 		self
 	}
@@ -108,7 +109,7 @@ macro_rules! impl_iso_for_int {
 				// !!! ^ Unsure if this should round or floor.
 			}
 		}
-		impl InvLinearIso<$a> for $b {
+		impl LinearIsoInv<$a> for $b {
 			fn inv_map(self) -> $a {
 				self as $a
 			}
@@ -121,7 +122,7 @@ impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 #[cfg(feature = "glam")]
 mod glam_stuff {
 	use glam::*;
-	use crate::linear::{LinearIso, InvLinearIso};
+	use crate::linear::{LinearIso, LinearIsoInv};
 	
 	macro_rules! impl_iso_for_vec {
 		($a:ty, $as_b:ident: $b:ty, $as_a:ident) => {
@@ -131,7 +132,7 @@ mod glam_stuff {
 					// !!! ^ Unsure if this should round or floor.
 				}
 			}
-			impl InvLinearIso<$a> for $b {
+			impl LinearIsoInv<$a> for $b {
 				fn inv_map(self) -> $a {
 					self.$as_a()
 				}

@@ -44,7 +44,7 @@ impl LinearIso<f64> for Exp<f64> {
 	}
 }
 
-impl InvLinearIso<Exp<f64>> for f64 {
+impl LinearIsoInv<Exp<f64>> for f64 {
 	fn inv_map(self) -> Exp<f64> {
 		Exp(self.ln())
 	}
@@ -56,7 +56,7 @@ impl LinearIso<u64> for Exp<f64> {
 	}
 }
 
-impl InvLinearIso<Exp<f64>> for u64 {
+impl LinearIsoInv<Exp<f64>> for u64 {
 	fn inv_map(self) -> Exp<f64> {
 		Exp((self as f64).ln())
 	}
