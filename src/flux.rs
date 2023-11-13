@@ -220,24 +220,26 @@ pub trait FluxVec {
 	fn polys(&self, time: Time) -> Polys<Self::Kind>;
 	
 	/// Ranges of time when a vector is within a distance from another vector.
-	fn when_dis<B: FluxVec + ?Sized>(
+	fn when_dis<B: FluxVec + ?Sized, D: Flux>(
 		&self,
 		other: &B,
 		cmp_order: Ordering,
-		dis: <Self::Kind as FluxKind>::Value, // !!! This can be a Flux
+		dis: &D,
 	) -> TimeRanges
 	where
-		WhenDis<Self::Kind, B::Kind>: IntoIterator<IntoIter=TimeRanges>
+		WhenDis<Self::Kind, B::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
-		let time = self.times()
+		let time = std::iter::once(dis.time())
+			.chain(self.times())
 			.chain(other.times())
-			.max().unwrap_or_default();
+			.max()
+			.unwrap_or_default();
 		
 		WhenDis {
 			a_poly: self.polys(time),
 			b_poly: other.polys(time),
 			cmp_order,
-			dis,
+			dis: dis.poly(time),
 			time,
 		}.into_iter()
 	}
@@ -382,45 +384,48 @@ where
 }
 
 /// [`Flux::when_dis`] predictive distance comparison.
-pub struct WhenDis<A: FluxKind, B: FluxKind> {
+pub struct WhenDis<A: FluxKind, B: FluxKind, D: FluxKind> {
 	a_poly: Box<[Poly<A>]>,
 	b_poly: Box<[Poly<B>]>,
 	cmp_order: Ordering,
-	dis: A::Value,
+	dis: Poly<D>,
 	time: Time,
 }
 
-impl<A: FluxKind, B: FluxKind> IntoIterator for WhenDis<A, B>
+impl<A: FluxKind, B: FluxKind, D> IntoIterator for WhenDis<A, B, D>
 where
 	A: kind_ops::Sub<B>,
 	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
 	<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output:
 		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
+		+ kind_ops::Sub<
+			<D as kind_ops::Sqr>::Output,
+			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output
+		>
 		+ Roots
 		+ PartialOrd,
-	A::Value:
-		Mul<Output=A::Value>
-		+ Add<B::Value, Output=A::Value>
-		+ PartialOrd,
+	A::Value: PartialOrd,
+	D: FluxKind<Value=A::Value> + kind_ops::Sqr,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let mut sum = Poly::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output> {
-			0: Mul::<Scalar>::mul(self.dis*self.dis, Scalar(-1.0)),
-			..Default::default()
-		};
-		
 		let count = self.a_poly.len().max(self.b_poly.len());
+		
 		let mut a_iter = self.a_poly.iter().copied();
 		let mut b_iter = self.b_poly.iter().copied();
+		
+		let mut sum = Poly
+			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
+			::default();
 		
 		for _ in 0..count {
 			let a = a_iter.next().unwrap_or_default();
 			let b = b_iter.next().unwrap_or_default();
 			sum = sum + (a - b).sqr();
 		}
+		sum = sum - self.dis.sqr();
 		
 		sum.when(self.cmp_order, self.time)
 	}
@@ -502,6 +507,20 @@ impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
 	type Output = K;
 	fn add(self, rhs: K) -> K {
 		rhs
+	}
+}
+
+impl<T: Linear> Mul<Constant<T>> for Constant<T> {
+	type Output = Self;
+	fn mul(self, _rhs: Self) -> Self {
+		self
+	}
+}
+
+impl<T: Linear> Mul<T> for Constant<T> {
+	type Output = Self;
+	fn mul(self, _rhs: T) -> Self {
+		self
 	}
 }
 
@@ -738,8 +757,11 @@ mod tests {
 			Pos { value: 4, spd: Spd { value: 4, acc: Acc { value: 12 } } }
 		].to_flux(Time::ZERO);
 		
+		let dis = Spd { value: 10, acc: Acc { value: 0 } }
+			.to_flux(Time::ZERO);
+		
 		assert_eq!(
-			a_pos.when_dis(&b_pos, Ordering::Less, 10.)
+			a_pos.when_dis(&b_pos, Ordering::Less, &dis)
 				.into_iter()
 				.collect::<Vec<(Time, Time)>>(),
 			[
@@ -750,7 +772,7 @@ mod tests {
 		
 		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
 		assert_eq!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, 2.)
+			a_pos.when_dis(&*b_pos, Ordering::Less, &2.)
 				.into_iter()
 				.collect::<Vec<(Time, Time)>>(),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
