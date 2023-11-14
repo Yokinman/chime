@@ -457,45 +457,6 @@ where
 	}
 }
 
-/// Convenience for grouping the unmapped value & time in a [`Flux`] type.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct FluxValue<T: Linear> {
-	value: T,
-	time: Time,
-}
-
-impl<T: Linear> From<T> for FluxValue<T> {
-	fn from(value: T) -> Self {
-		value.to_flux(Time::ZERO)
-	}
-}
-
-impl<T: Linear> Moment for T {
-	type Flux = FluxValue<T>;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		FluxValue {
-			value: self,
-			time,
-		}
-	}
-}
-
-impl<T: Linear> Flux for FluxValue<T> {
-	type Moment = T;
-	type Kind = Constant<T>;
-	type OutAccum<'a> = ();
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		self.value
-	}
-	fn base_time(&self) -> Time {
-		self.time
-	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
-	fn to_moment(&self, _time: Time) -> Self::Moment {
-		self.value
-	}
-}
-
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
 /// `1 + 2.per(TimeUnit::Secs)` 
@@ -516,7 +477,7 @@ pub struct Change<'t, T> {
 	pub unit: TimeUnit,
 }
 
-/// No change over time.
+/// A [`FluxKind`] with no change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
 /// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
@@ -559,6 +520,45 @@ impl<T: Linear> Mul<T> for Constant<T> {
 	type Output = Self;
 	fn mul(self, _rhs: T) -> Self {
 		self
+	}
+}
+
+/// A [`Flux`] with no change over time.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ConstantFlux<T: Linear> {
+	value: T,
+	time: Time,
+}
+
+impl<T: Linear> From<T> for ConstantFlux<T> {
+	fn from(value: T) -> Self {
+		value.to_flux(Time::ZERO)
+	}
+}
+
+impl<T: Linear> Moment for T {
+	type Flux = ConstantFlux<T>;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		ConstantFlux {
+			value: self,
+			time,
+		}
+	}
+}
+
+impl<T: Linear> Flux for ConstantFlux<T> {
+	type Moment = T;
+	type Kind = Constant<T>;
+	type OutAccum<'a> = ();
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+		self.value
+	}
+	fn base_time(&self) -> Time {
+		self.time
+	}
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
+	fn to_moment(&self, _time: Time) -> Self::Moment {
+		self.value
 	}
 }
 
@@ -849,7 +849,7 @@ mod tests {
 		
 		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
 		assert_time_ranges!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, &FluxValue::from(2.)),
+			a_pos.when_dis(&*b_pos, Ordering::Less, &ConstantFlux::from(2.)),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
 		);
 		
