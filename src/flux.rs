@@ -97,7 +97,7 @@ pub trait Flux: Sized {
 	/// A polynomial description of this flux value relative to `self.time()`.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
 		let mut poly = Poly {
-			0: self.value_at(time),
+			value: self.value_at(time),
 			..Default::default()
 		};
 		let accum = FluxAccumKind::Poly {
@@ -654,8 +654,8 @@ mod tests {
 			let poly = $poly;
 			let cmp_poly = $cmp_poly;
 			let dif_poly = poly - cmp_poly;
-			let iter = std::iter::once(dif_poly.0)
-				.chain(dif_poly.1.0.into_iter())
+			let iter = std::iter::once(dif_poly.value)
+				.chain(dif_poly.terms.into_iter())
 				.enumerate();
 			for (degree, coeff) in iter {
 				assert_eq!((coeff * 2_f64.powi((1 + degree) as i32)).round(), 0.,
@@ -694,34 +694,43 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.poly(pos.time()),
-			Poly(-63., Sum([
-				-11.9775,
-				0.270416666666666,
-				0.0475,
-				-0.000416666666666,
-			]))
+			Poly {
+				value: -63.,
+				terms: Sum([
+					-11.9775,
+					0.270416666666666,
+					0.0475,
+					-0.000416666666666,
+				])
+			}
 		);
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
 			assert_poly!(
 				pos.poly(pos.time()),
-				Poly(-112.55, Sum([
-					 6.0141666666666666666,
-					 1.4454166666666666666,
-					 0.0308333333333333333,
-					-0.0004166666666666666,
-				]))
+				Poly {
+					value: -112.55,
+					terms: Sum([
+						 6.0141666666666666666,
+						 1.4454166666666666666,
+						 0.0308333333333333333,
+						-0.0004166666666666666,
+					])
+				}
 			);
 		}
 		pos.at_mut(0*Secs);
 		assert_poly!(
 			pos.poly(pos.time()),
-			Poly(32., Sum([
-				-1.4691666666666666666,
-				-1.4045833333333333333,
-				 0.0641666666666666666,
-				-0.0004166666666666666,
-			]))
+			Poly {
+				value: 32.,
+				terms: Sum([
+					-1.4691666666666666666,
+					-1.4045833333333333333,
+					 0.0641666666666666666,
+					-0.0004166666666666666,
+				])
+			}
 		);
 	}
 	

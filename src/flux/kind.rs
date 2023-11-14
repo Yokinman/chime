@@ -91,12 +91,12 @@ pub mod ops {
 		<K as ops::Add<<K as ops::Mul>::Output>>::Output: FluxKind<Value=K::Value>
 	{
 		type Output = <K as ops::Add<<K as ops::Mul>::Output>>::Output;
-		fn sqr_poly(poly: Poly<K>) -> Poly<<Self as Sqr>::Output> {
+		fn sqr_poly(p: Poly<K>) -> Poly<<Self as Sqr>::Output> {
 			// (a+b)^2 = a^2 + 2ab + b^2
-			Poly(
-				poly.0*poly.0,
-				poly.1*poly.0*Scalar(2.0) + poly.1*poly.1,
-			)
+			Poly {
+				value: p.value*p.value,
+				terms: p.terms*p.value*Scalar(2.0) + p.terms*p.terms
+			}
 		}
 	}
 }
@@ -131,13 +131,12 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 
 /// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Poly<K: FluxKind>(pub K::Value, pub K); // !!! Use named fields.
+pub struct Poly<K: FluxKind> {
+	pub value: K::Value,
+	pub terms: K,
+}
 
 impl<K: FluxKind> Poly<K> {
-	pub fn constant(&self) -> K::Value {
-		self.0
-	}
-	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
@@ -150,7 +149,7 @@ impl<K: FluxKind> Poly<K> {
 		K: PartialEq,
 		K::Value: PartialEq,
 	{
-		self.0.is_zero() && self.1.is_zero()
+		self.value.is_zero() && self.terms.is_zero()
 	}
 	
 	// ??? Could instead make the polynomial evaluable at `-infinity`.
@@ -158,8 +157,8 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K::Value: PartialOrd
 	{
-		match self.1.initial_order() {
-			Some(Ordering::Equal) => self.0.partial_cmp(&K::Value::zero()),
+		match self.terms.initial_order() {
+			Some(Ordering::Equal) => self.value.partial_cmp(&K::Value::zero()),
 			order => order
 		}
 	}
@@ -256,7 +255,8 @@ impl<K: FluxKind> Poly<K> {
 		
 		 // Constant Equality:
 		if real_roots.is_empty() && self.is_zero() {
-			return Times::from_iter([Time::ZERO]);
+			return [Time::ZERO]
+				.into_iter().collect();
 		}
 		
 		 // Convert Roots to Times:
@@ -277,7 +277,10 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
-		Self(Linear::zero(), K::zero())
+		Self {
+			value: Linear::zero(),
+			terms: K::zero()
+		}
 	}
 }
 
@@ -288,10 +291,10 @@ where
 {
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
-		Poly(
-			self.0 + rhs.0,
-			self.1.add(rhs.1),
-		)
+		Poly {
+			value: self.value + rhs.value,
+			terms: self.terms.add(rhs.terms)
+		}
 	}
 }
 
@@ -302,18 +305,18 @@ where
 {
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		Poly(
-			self.0 + rhs.0*Scalar(-1.0),
-			self.1.sub(rhs.1),
-		)
+		Poly {
+			value: self.value + (rhs.value * Scalar(-1.0)),
+			terms: self.terms.sub(rhs.terms)
+		}
 	}
 }
 
 impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0 * rhs;
-		self.1 = self.1 * rhs;
+		self.value = self.value * rhs;
+		self.terms = self.terms * rhs;
 		self
 	}
 }
