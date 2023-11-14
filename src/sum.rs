@@ -619,7 +619,7 @@ where
 	) {
 		match kind {
 			FluxAccumKind::Value { value, depth, time, base_time } => {
-				let mut sub_value = flux.value_at(*base_time);
+				let mut sub_value = flux.value(*base_time);
 				flux.change(B::Accum::from_kind(FluxAccumKind::Value {
 					value: &mut sub_value,
 					depth: *depth + 1,
@@ -634,7 +634,7 @@ where
 			},
 			FluxAccumKind::Poly { poly, depth, time, base_time } => {
 				let mut sub_poly = Poly {
-					value: flux.value_at(*time),
+					value: flux.value(*time),
 					..Default::default()
 				};
 				flux.change(B::Accum::from_kind(FluxAccumKind::Poly {

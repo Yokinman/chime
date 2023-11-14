@@ -246,7 +246,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			moment_fields = quote::quote!{
 				#moment_fields
 				#ident: #flux::linear::LinearIso::<#field_ty>
-					::map(self.value_at(time)),
+					::map(self.value(time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -265,7 +265,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::Flux::at(&self.#ident, time),
+				#ident: #flux::Flux::to_moment(&self.#ident, time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -297,16 +297,16 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			type OutAccum<'a> = #out_accum;
-			fn value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
-				self.#value_ident.value()
+			fn base_value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
+				self.#value_ident.base_value()
 			}
-			fn time(&self) -> #flux::Time {
-				self.#value_ident.time()
+			fn base_time(&self) -> #flux::Time {
+				self.#value_ident.base_time()
 			}
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {
 				#change_expr
 			}
-			fn at(&self, time: #flux::Time) -> Self::Moment {
+			fn to_moment(&self, time: #flux::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 		}

@@ -19,17 +19,17 @@ where
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
 	type OutAccum<'a> = T::OutAccum<'a>;
-	fn value(&self) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
 		let mut value = <Self::Kind as FluxKind>::Value::zero();
-		let time = self.time();
+		let time = self.base_time();
 		for item in self {
-			value = value + item.value_at(time);
+			value = value + item.value(time);
 		}
 		value
 	}
-	fn time(&self) -> Time {
+	fn base_time(&self) -> Time {
 		self.first()
-			.map(|x| x.time())
+			.map(|x| x.base_time())
 			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
@@ -40,9 +40,9 @@ where
 		}
 		changes
 	}
-	fn at(&self, time: Time) -> Self::Moment {
+	fn to_moment(&self, time: Time) -> Self::Moment {
 		self.iter()
-			.map(|x| x.at(time))
+			.map(|x| x.to_moment(time))
 			.collect()
 	}
 }

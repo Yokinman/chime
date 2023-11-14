@@ -19,7 +19,7 @@ pub use time::{Time, TimeUnit};
 
 pub use flux_proc_macro::flux;
 
-/// Moment-in-time interface for [`Flux::at`] / [`Flux::at_mut`].
+/// A discrete interface for a value that changes over time.
 pub trait Moment {
 	type Flux: Flux<Moment=Self>;
 	
@@ -27,11 +27,9 @@ pub trait Moment {
 	fn to_flux(self, time: Time) -> Self::Flux;
 }
 
-/// A value that can change over time.
-pub trait Flux: Sized {
+/// The continuous interface for a value that changes over time.
+pub trait Flux {
 	type Moment: Moment<Flux=Self>;
-	// !!! Might be worth making Flux generic over the Moment, so something like
-	// a `Position` type can represent its x & y parts separately if desired.
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
@@ -39,24 +37,37 @@ pub trait Flux: Sized {
 	/// The output accumulator of [`Flux::change`].
 	type OutAccum<'a>: FluxAccum<'a, Self::Kind>;
 	
-	/// The basis value that describes this flux (relative to [`Flux::time`]).
-	fn value(&self) -> <Self::Kind as FluxKind>::Value;
+	/// An evaluation of this flux at some point in time.
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
 	
-	/// The basis time that describes this flux (relative to [`Flux::value`]).
-	fn time(&self) -> Time;
+	/// The time of [`Flux::base_value`].
+	fn base_time(&self) -> Time;
 	
 	/// Accumulates change over time.
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a>;
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> Self::OutAccum<'a>;
 	
-	/// The moment of this value at the given time.
-	fn at(&self, time: Time) -> Self::Moment;
+	/// A moment in the timeline.
+	fn to_moment(&self, time: Time) -> Self::Moment;
 	
-	/// Sets the moment of this value at the given time (affects all moments).
-	fn set_at(&mut self, time: Time, moment: Self::Moment) {
+	/// Sets a moment in the timeline (affects all moments).
+	fn set_moment(&mut self, time: Time, moment: Self::Moment)
+	where
+		Self: Sized
+	{
 		*self = moment.to_flux(time);
 	}
 	
-	/// Returns a mutable moment in time.
+	/// A reference to a moment in the timeline.
+	fn at(&self, time: Time) -> MomentRef<Self::Moment> {
+		let moment = self.to_moment(time);
+		MomentRef {
+			moment,
+			borrow: PhantomData,
+		}
+	}
+	
+	/// A unique, mutable reference to a moment in the timeline.
 	/// 
 	/// ```text
 	/// let mut moment = self.at_mut(time);
@@ -70,52 +81,55 @@ pub trait Flux: Sized {
 	/// // modifications
 	/// self.set_moment(time, moment);
 	/// ```
-	fn at_mut(&mut self, time: Time) -> FluxMut<Self> {
-		let moment = Some(self.at(time));
-		FluxMut {
-			inner: self,
-			time,
+	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment> {
+		let moment = Some(self.to_moment(time));
+		MomentRefMut {
 			moment,
+			time,
+			borrow: self,
 		}
 	}
 	
-	/// The evaluation of this value at the given time.
-	fn value_at(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
-		let mut value = self.value();
-		if time != self.time() {
+	/// A point in the timeline.
+	/// 
+	/// `self.value(self.base_time()) == self.base_value()`
+	fn value(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
+		let mut value = self.base_value();
+		let base_time = self.base_time();
+		if time != base_time {
 			let accum = FluxAccumKind::Value {
 				value: &mut value,
 				depth: 0,
 				time,
-				base_time: self.time(),
+				base_time,
 			};
 			self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
 		}
 		value
 	}
 	
-	/// A polynomial description of this flux value relative to `self.time()`.
+	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
 		let mut poly = Poly {
-			value: self.value_at(time),
-			..Default::default()
+			value: self.value(time),
+			..Poly::default()
 		};
 		let accum = FluxAccumKind::Poly {
 			poly: &mut poly,
 			depth: 0,
 			time,
-			base_time: self.time(),
+			base_time: self.base_time(),
 		};
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
 		poly
 	}
 	
-	/// Ranges of time when this value will be above/below/equal to the given value.
-	fn when<O: Flux>(&self, cmp_order: Ordering, other: &O) -> TimeRanges
+	/// Ranges when this is above/below/equal to another flux.
+	fn when<T: Flux>(&self, cmp_order: Ordering, other: &T) -> TimeRanges
 	where
-		When<Self::Kind, O::Kind>: IntoIterator<IntoIter=TimeRanges>
+		When<Self::Kind, T::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
-		let time = self.time().max(other.time());
+		let time = self.base_time().max(other.base_time());
 		When {
 			a_poly: self.poly(time),
 			b_poly: other.poly(time),
@@ -124,12 +138,12 @@ pub trait Flux: Sized {
 		}.into_iter()
 	}
 	
-	/// Times when this value will be equal to the given value.
-	fn when_eq<O: Flux>(&self, other: &O) -> Times
+	/// Times when this is equal to another flux.
+	fn when_eq<T: Flux>(&self, other: &T) -> Times
 	where
-		WhenEq<Self::Kind, O::Kind>: IntoIterator<IntoIter=Times>
+		WhenEq<Self::Kind, T::Kind>: IntoIterator<IntoIter=Times>
 	{
-		let time = self.time().max(other.time());
+		let time = self.base_time().max(other.base_time());
 		WhenEq {
 			a_poly: self.poly(time),
 			b_poly: other.poly(time),
@@ -138,46 +152,54 @@ pub trait Flux: Sized {
 	}
 }
 
-// impl Moment for f64 {
-// 	type Flux = Self;
-// 	fn to_flux(self, _time: Time) -> Self::Flux {
-// 		self
-// 	}
-// }
-// 
-// impl Flux for f64 {
-// 	type Moment = Self;
-// 	type Kind = Constant<Self>;
-// 	type OutAccum<'a> = ();
-// 	fn value(&self) -> <Self::Kind as FluxKind>::Value {
-// 		*self
-// 	}
-// 	fn time(&self) -> Time {
-// 		Time::ZERO
-// 	}
-// 	fn change<'a>(&self, _accum: ()) -> Self::OutAccum<'a> {}
-// 	fn at(&self, _time: Time) -> Self::Moment {
-// 		*self
-// 	}
-// }
-
-/// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct FluxMut<'v, V: Flux> {
-	inner: &'v mut V,
-	time: Time,
-	moment: Option<V::Moment>,
+/// Immutable moment-in-time interface for [`Flux::at`].
+pub struct MomentRef<'b, M: Moment> {
+	moment: M,
+	borrow: PhantomData<&'b M::Flux>,
 }
 
-impl<V: Flux> Drop for FluxMut<'_, V> {
+impl<M: Moment> Deref for MomentRef<'_, M> {
+	type Target = M;
+	fn deref(&self) -> &Self::Target {
+		&self.moment
+	}
+}
+
+impl<M: Moment> Debug for MomentRef<'_, M>
+where
+	M: Debug
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Debug>::fmt(self, f)
+	}
+}
+
+impl<M: Moment> Display for MomentRef<'_, M>
+where
+	M: Display
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Display>::fmt(self, f)
+	}
+}
+
+/// Mutable moment-in-time interface for [`Flux::at_mut`].
+pub struct MomentRefMut<'b, M: Moment> {
+	moment: Option<M>,
+	time: Time,
+	borrow: &'b mut M::Flux,
+}
+
+impl<M: Moment> Drop for MomentRefMut<'_, M> {
 	fn drop(&mut self) {
 		if let Some(moment) = std::mem::take(&mut self.moment) {
-			self.inner.set_at(self.time, moment);
+			self.borrow.set_moment(self.time, moment);
 		}
 	}
 }
 
-impl<V: Flux> Deref for FluxMut<'_, V> {
-	type Target = V::Moment;
+impl<M: Moment> Deref for MomentRefMut<'_, M> {
+	type Target = M;
 	fn deref(&self) -> &Self::Target {
 		if let Some(moment) = self.moment.as_ref() {
 			moment
@@ -187,7 +209,7 @@ impl<V: Flux> Deref for FluxMut<'_, V> {
 	}
 }
 
-impl<V: Flux> DerefMut for FluxMut<'_, V> {
+impl<M: Moment> DerefMut for MomentRefMut<'_, M> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		if let Some(moment) = self.moment.as_mut() {
 			moment
@@ -197,21 +219,21 @@ impl<V: Flux> DerefMut for FluxMut<'_, V> {
 	}
 }
 
-impl<V: Flux> Debug for FluxMut<'_, V>
+impl<M: Moment> Debug for MomentRefMut<'_, M>
 where
-	V::Moment: Debug
+	M: Debug
 {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<V::Moment as Debug>::fmt(self, f)
+		<M as Debug>::fmt(self, f)
 	}
 }
 
-impl<V: Flux> Display for FluxMut<'_, V>
+impl<M: Moment> Display for MomentRefMut<'_, M>
 where
-	V::Moment: Display
+	M: Display
 {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<V::Moment as Display>::fmt(self, f)
+		<M as Display>::fmt(self, f)
 	}
 }
 
@@ -221,17 +243,17 @@ pub trait FluxVec {
 	fn times(&self) -> Times;
 	fn polys(&self, time: Time) -> Polys<Self::Kind>;
 	
-	/// Ranges of time when a vector is within a distance from another vector.
-	fn when_dis<B: FluxVec + ?Sized, D: Flux>(
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis<T: FluxVec + ?Sized, D: Flux>(
 		&self,
-		other: &B,
+		other: &T,
 		cmp_order: Ordering,
 		dis: &D,
 	) -> TimeRanges
 	where
-		WhenDis<Self::Kind, B::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
+		WhenDis<Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
-		let time = std::iter::once(dis.time())
+		let time = std::iter::once(dis.base_time())
 			.chain(self.times())
 			.chain(other.times())
 			.max()
@@ -251,7 +273,7 @@ impl<T: Flux> FluxVec for [T] {
 	type Kind = T::Kind;
 	fn times(&self) -> Times {
 		self.iter()
-			.map(|x| x.time())
+			.map(|x| x.base_time())
 			.collect()
 	}
 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
@@ -279,7 +301,7 @@ impl<T: Flux> FluxVec for Vec<T> {
 // {
 // 	type Kind = <A::Kind as Add<B::Kind>>::Output;
 // 	fn times(&self) -> Times {
-// 		[self.0.time(), self.1.time()]
+// 		[self.0.basis_time(), self.1.basis_time()]
 // 			.into_iter().collect()
 // 	}
 // 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
@@ -462,14 +484,14 @@ impl<T: Linear> Flux for FluxValue<T> {
 	type Moment = T;
 	type Kind = Constant<T>;
 	type OutAccum<'a> = ();
-	fn value(&self) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
 		self.value
 	}
-	fn time(&self) -> Time {
+	fn base_time(&self) -> Time {
 		self.time
 	}
 	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
-	fn at(&self, _time: Time) -> Self::Moment {
+	fn to_moment(&self, _time: Time) -> Self::Moment {
 		self.value
 	}
 }
@@ -610,8 +632,8 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux(Time::ZERO);
-		let value = pos.value_at(10*Secs);
-		pos.value.set_at(10*Secs, value);
+		let value = pos.value(10*Secs);
+		pos.value.set_moment(10*Secs, value);
 		pos.spd.accel.at_mut(20*Secs);
 		pos.spd.accel.jerk.at_mut(10*Secs);
 		pos
@@ -669,10 +691,10 @@ mod tests {
 		let mut pos = position();
 		
 		 // Times:
-		assert_eq!(pos.time(), 10*Secs);
-		assert_eq!(pos.spd.time(), 0*Secs);
-		assert_eq!(pos.spd.accel.time(), 20*Secs);
-		assert_eq!(pos.spd.accel.jerk.time(), 10*Secs);
+		assert_eq!(pos.base_time(), 10*Secs);
+		assert_eq!(pos.spd.base_time(), 0*Secs);
+		assert_eq!(pos.spd.accel.base_time(), 20*Secs);
+		assert_eq!(pos.spd.accel.jerk.base_time(), 10*Secs);
 		
 		 // Values:
 		assert_eq!(pos.at(0*Secs).round(), 32.);
@@ -693,7 +715,7 @@ mod tests {
 	fn poly() {
 		let mut pos = position();
 		assert_poly!(
-			pos.poly(pos.time()),
+			pos.poly(10*Secs),
 			Poly {
 				value: -63.,
 				terms: Sum([
@@ -707,7 +729,7 @@ mod tests {
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
 			assert_poly!(
-				pos.poly(pos.time()),
+				pos.poly(pos.base_time()),
 				Poly {
 					value: -112.55,
 					terms: Sum([
@@ -721,7 +743,7 @@ mod tests {
 		}
 		pos.at_mut(0*Secs);
 		assert_poly!(
-			pos.poly(pos.time()),
+			pos.poly(pos.base_time()),
 			Poly {
 				value: 32.,
 				terms: Sum([
@@ -825,7 +847,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
+		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
 		assert_time_ranges!(
 			a_pos.when_dis(&*b_pos, Ordering::Less, &FluxValue::from(2.)),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
