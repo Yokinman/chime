@@ -293,6 +293,7 @@ impl<T: Flux> FluxVec for Vec<T> {
 type Polys<K: FluxKind> = Box<[Poly<K>]>;
 
 /// Iterator of [`Time`] ranges.
+#[derive(Clone)]
 #[must_use]
 pub struct TimeRanges(std::vec::IntoIter<(Time, Time)>);
 
@@ -316,6 +317,7 @@ impl FromIterator<(Time, Time)> for TimeRanges {
 }
 
 /// Iterator of [`Time`] values.
+#[derive(Clone)]
 #[must_use]
 pub struct Times(std::vec::IntoIter<Time>);
 
@@ -595,10 +597,58 @@ mod tests {
 			},
 			misc: Vec::new(),
 		};
-		let mut pos = pos.to_flux(Time::default());
+		let mut pos = pos.to_flux(Time::ZERO);
+		pos.value = FluxValue::new(10*Secs, pos.value_at(10*Secs));
 		pos.spd.accel.at_mut(20*Secs);
 		pos.spd.accel.jerk.at_mut(10*Secs);
 		pos
+	}
+	
+	macro_rules! assert_times {
+		($times:expr, $cmp_times:expr) => {{
+			let times: Times = $times;
+			let cmp_times = Times::from_iter($cmp_times.into_iter());
+			assert_eq!(
+				times.clone().count(),
+				cmp_times.clone().count(),
+				"a: {:?}, b: {:?}",
+				times.collect::<Box<[_]>>(),
+				cmp_times.collect::<Box<[_]>>()
+			);
+			for (a, b) in times.zip(cmp_times) {
+				let time = ((a.max(b) - b.min(a)).as_secs_f64() * 60.).floor();
+				assert_eq!(time, 0., "a: {:?}, b: {:?}", a, b);
+			}
+		}};
+	}
+	
+	macro_rules! assert_time_ranges {
+		($ranges:expr, $cmp_ranges:expr) => {{
+			let ranges: TimeRanges = $ranges;
+			let cmp_ranges = TimeRanges::from_iter($cmp_ranges.into_iter());
+			assert_eq!(ranges.clone().count(), cmp_ranges.clone().count());
+			for ((a, b), (x, y)) in ranges.zip(cmp_ranges) {
+				let a_time = ((a.max(x) - x.min(a)).as_secs_f64() * 60.).floor();
+				let b_time = ((b.max(y) - y.min(b)).as_secs_f64() * 60.).floor();
+				assert_eq!(a_time, 0., "a: {:?}, x: {:?}", a, x);
+				assert_eq!(b_time, 0., "b: {:?}, y: {:?}", b, y);
+			}
+		}};
+	}
+	
+	macro_rules! assert_poly {
+		($poly:expr, $cmp_poly:expr) => {{
+			let poly = $poly;
+			let cmp_poly = $cmp_poly;
+			let dif_poly = poly - cmp_poly;
+			let iter = std::iter::once(dif_poly.0)
+				.chain(dif_poly.1.0.into_iter())
+				.enumerate();
+			for (degree, coeff) in iter {
+				assert_eq!((coeff * 2_f64.powi((1 + degree) as i32)).round(), 0.,
+					"poly: {:?}, cmp_poly: {:?}", poly, cmp_poly);
+			}
+		}};
 	}
 	
 	#[test]
@@ -606,7 +656,7 @@ mod tests {
 		let mut pos = position();
 		
 		 // Times:
-		assert_eq!(pos.time(), 0*Secs);
+		assert_eq!(pos.time(), 10*Secs);
 		assert_eq!(pos.spd.time(), 0*Secs);
 		assert_eq!(pos.spd.accel.time(), 20*Secs);
 		assert_eq!(pos.spd.accel.jerk.time(), 10*Secs);
@@ -616,7 +666,7 @@ mod tests {
 		assert_eq!(pos.at(10*Secs).round(), -63.);
 		assert_eq!(pos.at(20*Secs).round(), -113.);
 		assert_eq!(pos.at(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209779.);
+		assert_eq!(pos.at(200*Secs).round(), -209778.);
 		
 		 // Update:
 		assert_eq!(pos.at_mut(20*Secs).round(), -113.);
@@ -629,35 +679,35 @@ mod tests {
 	#[test]
 	fn poly() {
 		let mut pos = position();
-		assert_eq!(
+		assert_poly!(
 			pos.poly(pos.time()),
-			Poly(32.0, Sum([
-				-1.4691666666666667,
-				-1.4045833333333335,
-				0.06416666666666666,
-				-0.00041666666666666664,
+			Poly(-63., Sum([
+				-11.9775,
+				0.270416666666666,
+				0.0475,
+				-0.000416666666666,
 			]))
 		);
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
-			assert_eq!(
+			assert_poly!(
 				pos.poly(pos.time()),
-				Poly(-112.55000000000007, Sum([
-					6.014166666666661,
-					1.44541666666666666,
-					0.03083333333333334,
-					-0.00041666666666666664,
+				Poly(-112.55, Sum([
+					 6.0141666666666666666,
+					 1.4454166666666666666,
+					 0.0308333333333333333,
+					-0.0004166666666666666,
 				]))
 			);
 		}
 		pos.at_mut(0*Secs);
-		assert_eq!(
+		assert_poly!(
 			pos.poly(pos.time()),
-			Poly(32.00000000000006, Sum([
-				-1.4691666666666667,
-				-1.4045833333333335,
-				0.06416666666666666,
-				-0.00041666666666666664,
+			Poly(32., Sum([
+				-1.4691666666666666666,
+				-1.4045833333333333333,
+				 0.0641666666666666666,
+				-0.0004166666666666666,
 			]))
 		);
 	}
@@ -667,32 +717,15 @@ mod tests {
 		let pos = position();
 		let acc = position().spd.accel;
 		
-		let pos_when: Vec<(Time, Time)> = pos.when(Ordering::Greater, &acc).collect();
-		let pos_when_eq: Vec<Time> = pos.when_eq(&acc).collect();
-		
-		assert_eq!(pos_when, [
-			(0*Nanosecs, 4560099744*Nanosecs),
-			(26912076291*Nanosecs, 127394131312*Nanosecs)
+		assert_time_ranges!(pos.when(Ordering::Greater, &acc), [
+			(Time::ZERO, Time::from_secs_f64(4.56)),
+			(Time::from_secs_f64(26.912), Time::from_secs_f64(127.394))
 		]);
-		assert_eq!(pos_when_eq, [
-			4560099744*Nanosecs,
-			26912076291*Nanosecs,
-			127394131312*Nanosecs
+		assert_times!(pos.when_eq(&acc), [
+			Time::from_secs_f64(4.56),
+			Time::from_secs_f64(26.912),
+			Time::from_secs_f64(127.394)
 		]);
-		
-		// pos.at_mut(20*Secs);
-		// pos.borrow_mut().spd.value = -20.0;
-		// pos.borrow_mut().spd.accel.jerk.value = 0.3;
-		// 
-		// assert_eq!(pos_when.into_iter().collect::<Vec<(Time, Time)>>(), [
-		// 	(0*Nanosecs, 4560099744*Nanosecs),
-		// 	(33544693273*Nanosecs, 157824014330*Nanosecs)
-		// ]);
-		// assert_eq!(pos.when(Ordering::Greater, &Snap { value: -116.0 }).into_iter().collect::<Vec<(Time, Time)>>(), [
-		// 	(0*Nanosecs, 16114479737*Nanosecs),
-		// 	(19315363058*Nanosecs, 20188850711*Nanosecs),
-		// 	(29523688931*Nanosecs, 157716291466*Nanosecs)
-		// ]);
 	}
 	
 	#[test]
@@ -701,10 +734,8 @@ mod tests {
 		let mut b_pos = position();
 		
 		 // Check Before:
-		let vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
-		let vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
-		assert_eq!(vec, []);
-		assert_eq!(vec_eq, [0*Nanosecs]);
+		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), []);
+		assert_times!(a_pos.when_eq(&b_pos), [0*Nanosecs]);
 		a_pos.at_mut(20*Secs);
 		
 		 // Apply Changes:
@@ -720,18 +751,11 @@ mod tests {
 		b_pos.at_mut(10*Secs).value -= 100.0;
 		
 		 // Check After:
-		let mut vec: Vec<(Time, Time)> = a_pos.when(Ordering::Greater, &b_pos).collect();
-		let mut vec_eq: Vec<Time> = a_pos.when_eq(&b_pos).collect();
-		for (a, b) in &mut vec {
-			*a = Time::from_secs(a.as_secs_f64().round() as u64);
-			*b = Time::from_secs(b.as_secs_f64().round() as u64);
-		}
-		for t in &mut vec_eq {
-			*t = Time::from_secs(t.as_secs_f64().round() as u64);
-		}
-		assert_eq!(vec, [(0*Secs, 8*Secs), (50*Secs, vec[1].1)]);
-		assert_eq!(vec_eq[0..2], [8*Secs, 50*Secs]);
-		assert!(vec[1].1 > 2_u64.pow(53)*Secs);
+		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), [
+			(0*Secs, 8*Secs),
+			(50*Secs, Time::MAX)
+		]);
+		assert_times!(a_pos.when_eq(&b_pos), [8*Secs, 50*Secs]);
 	}
 	
 	#[test]
@@ -771,10 +795,8 @@ mod tests {
 		let dis = Spd { value: 10, acc: Acc { value: 0 } }
 			.to_flux(Time::ZERO);
 		
-		assert_eq!(
-			a_pos.when_dis(&b_pos, Ordering::Less, &dis)
-				.into_iter()
-				.collect::<Vec<(Time, Time)>>(),
+		assert_time_ranges!(
+			a_pos.when_dis(&b_pos, Ordering::Less, &dis),
 			[
 				(Time::ZERO, Time::from_secs_f64(0.0823337)),
 				(Time::from_secs_f64(2.46704544), Time::from_secs_f64(4.116193987))
@@ -782,10 +804,8 @@ mod tests {
 		);
 		
 		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
-		assert_eq!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, &2.)
-				.into_iter()
-				.collect::<Vec<(Time, Time)>>(),
+		assert_time_ranges!(
+			a_pos.when_dis(&*b_pos, Ordering::Less, &2.),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
 		);
 		

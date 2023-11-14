@@ -250,13 +250,13 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		let mut real_roots = self.real_roots()
+		let real_roots = self.real_roots()
 			.unwrap_or_default()
 			.into_vec();
 		
 		 // Constant Equality:
 		if real_roots.is_empty() && self.is_zero() {
-			real_roots.push(0.0);
+			return Times::from_iter([Time::ZERO]);
 		}
 		
 		 // Convert Roots to Times:
