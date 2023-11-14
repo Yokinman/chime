@@ -138,28 +138,28 @@ pub trait Flux: Sized {
 	}
 }
 
-impl Moment for f64 {
-	type Flux = Self;
-	fn to_flux(self, _time: Time) -> Self::Flux {
-		self
-	}
-}
-
-impl Flux for f64 {
-	type Moment = Self;
-	type Kind = Constant<Self>;
-	type OutAccum<'a> = ();
-	fn value(&self) -> <Self::Kind as FluxKind>::Value {
-		*self
-	}
-	fn time(&self) -> Time {
-		Time::ZERO
-	}
-	fn change<'a>(&self, _accum: ()) -> Self::OutAccum<'a> {}
-	fn at(&self, _time: Time) -> Self::Moment {
-		*self
-	}
-}
+// impl Moment for f64 {
+// 	type Flux = Self;
+// 	fn to_flux(self, _time: Time) -> Self::Flux {
+// 		self
+// 	}
+// }
+// 
+// impl Flux for f64 {
+// 	type Moment = Self;
+// 	type Kind = Constant<Self>;
+// 	type OutAccum<'a> = ();
+// 	fn value(&self) -> <Self::Kind as FluxKind>::Value {
+// 		*self
+// 	}
+// 	fn time(&self) -> Time {
+// 		Time::ZERO
+// 	}
+// 	fn change<'a>(&self, _accum: ()) -> Self::OutAccum<'a> {}
+// 	fn at(&self, _time: Time) -> Self::Moment {
+// 		*self
+// 	}
+// }
 
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
 pub struct FluxMut<'v, V: Flux> {
@@ -437,28 +437,40 @@ where
 
 /// Convenience for grouping the unmapped value & time in a [`Flux`] type.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct FluxValue<T: Linear>(Time, T);
+pub struct FluxValue<T: Linear> {
+	value: T,
+	time: Time,
+}
 
-impl<T: Linear> FluxValue<T> {
-	pub fn new(time: Time, value: T) -> Self {
-		Self(time, value)
-	}
-	
-	pub fn time(&self) -> Time {
-		self.0
+impl<T: Linear> From<T> for FluxValue<T> {
+	fn from(value: T) -> Self {
+		value.to_flux(Time::ZERO)
 	}
 }
 
-impl<T: Linear> Deref for FluxValue<T> {
-	type Target = T;
-	fn deref(&self) -> &Self::Target {
-		&self.1
+impl<T: Linear> Moment for T {
+	type Flux = FluxValue<T>;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		FluxValue {
+			value: self,
+			time,
+		}
 	}
 }
 
-impl<T: Linear> DerefMut for FluxValue<T> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.1
+impl<T: Linear> Flux for FluxValue<T> {
+	type Moment = T;
+	type Kind = Constant<T>;
+	type OutAccum<'a> = ();
+	fn value(&self) -> <Self::Kind as FluxKind>::Value {
+		self.value
+	}
+	fn time(&self) -> Time {
+		self.time
+	}
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
+	fn at(&self, _time: Time) -> Self::Moment {
+		self.value
 	}
 }
 
@@ -598,7 +610,8 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux(Time::ZERO);
-		pos.value = FluxValue::new(10*Secs, pos.value_at(10*Secs));
+		let value = pos.value_at(10*Secs);
+		pos.value.set_at(10*Secs, value);
 		pos.spd.accel.at_mut(20*Secs);
 		pos.spd.accel.jerk.at_mut(10*Secs);
 		pos
@@ -805,7 +818,7 @@ mod tests {
 		
 		let b_pos = b_pos.at(Time::ZERO).to_flux(1*Secs);
 		assert_time_ranges!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, &2.),
+			a_pos.when_dis(&*b_pos, Ordering::Less, &FluxValue::from(2.)),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
 		);
 		

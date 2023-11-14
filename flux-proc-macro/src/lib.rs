@@ -237,24 +237,29 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	let mut moment_fields = Default::default();
 	let mut flux_fields = Default::default();
 	for field in &mut flux_item.fields {
-		let field_ty = &field.ty;
 		let ident = field.ident.as_ref();
 		if ident == Some(&value_ident) {
-			field.ty = syn::parse_quote!{
-				#flux::FluxValue<<<Self as #flux::Flux>::Kind as #flux::kind::FluxKind>::Value>
-			};
+			let field_ty = std::mem::replace(&mut field.ty, syn::parse_quote!{
+				#flux::FluxValue<<<Self as #flux::Flux>::Kind
+					as #flux::kind::FluxKind>::Value>
+			});
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::LinearIso::map(self.value_at(time)),
+				#ident: #flux::linear::LinearIso::<#field_ty>
+					::map(self.value_at(time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::FluxValue::new(
-					time,
-					#flux::linear::LinearIsoInv::inv_map(self.#ident)
+				#ident: #flux::Moment::to_flux(
+					#flux::linear::LinearIsoInv
+						::<<<Self::Flux as #flux::Flux>::Kind
+							as #flux::kind::FluxKind>::Value>
+						::inv_map(self.#ident),
+					time
 				),
 			};
 		} else {
+			let field_ty = &field.ty;
 			field.ty = syn::parse_quote!{
 				<#field_ty as #flux::Moment>::Flux
 			};
@@ -293,7 +298,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Kind = #kind_type;
 			type OutAccum<'a> = #out_accum;
 			fn value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
-				*self.#value_ident
+				self.#value_ident.value()
 			}
 			fn time(&self) -> #flux::Time {
 				self.#value_ident.time()
