@@ -110,10 +110,7 @@ pub trait Flux {
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Poly {
-			value: self.value(time),
-			..Poly::default()
-		};
+		let mut poly = Poly::with_value(self.value(time));
 		let accum = FluxAccumKind::Poly {
 			poly: &mut poly,
 			depth: 0,
@@ -482,11 +479,18 @@ pub struct Change<'t, T> {
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
 /// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
 #[derive(Copy, Clone, Debug)]
-pub struct Constant<T: Linear>(PhantomData<T>);
+pub struct Constant<T>(T);
+
+impl<T: Linear> From<T> for Constant<T> {
+	fn from(value: T) -> Self {
+		Self(value)
+	}
+}
 
 impl<T: Linear> Mul<Scalar> for Constant<T> {
 	type Output = Self;
-	fn mul(self, _rhs: Scalar) -> Self::Output {
+	fn mul(mut self, rhs: Scalar) -> Self::Output {
+		self.0 = self.0 * rhs;
 		self
 	}
 }
@@ -494,31 +498,31 @@ impl<T: Linear> Mul<Scalar> for Constant<T> {
 impl<T: Linear> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
+	fn value(&self) -> Self::Value {
+		self.0
+	}
 	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
-		Some(Ordering::Equal)
+		self.value().partial_cmp(&T::zero())
 	}
 	fn zero() -> Self {
-		Self(PhantomData)
+		Self(T::zero())
 	}
 }
 
 impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
 	type Output = K;
 	fn add(self, rhs: K) -> K {
-		rhs
+		K::from(rhs.value() + self.value())
 	}
 }
 
-impl<T: Linear> Mul<Constant<T>> for Constant<T> {
+impl<T> Mul<Constant<T>> for Constant<T>
+where
+	T: Mul<Output = T>
+{
 	type Output = Self;
-	fn mul(self, _rhs: Self) -> Self {
-		self
-	}
-}
-
-impl<T: Linear> Mul<T> for Constant<T> {
-	type Output = Self;
-	fn mul(self, _rhs: T) -> Self {
+	fn mul(mut self, rhs: Self) -> Self {
+		self.0 = self.0 * rhs.0;
 		self
 	}
 }
@@ -648,7 +652,7 @@ mod tests {
 				cmp_times.clone().count(),
 				"a: {:?}, b: {:?}",
 				times.collect::<Box<[_]>>(),
-				cmp_times.collect::<Box<[_]>>()
+				cmp_times.collect::<Box<[_]>>(),
 			);
 			for (a, b) in times.zip(cmp_times) {
 				let time = ((a.max(b) - b.min(a)).as_secs_f64() * 60.).floor();
@@ -661,7 +665,13 @@ mod tests {
 		($ranges:expr, $cmp_ranges:expr) => {{
 			let ranges: TimeRanges = $ranges;
 			let cmp_ranges = TimeRanges::from_iter($cmp_ranges.into_iter());
-			assert_eq!(ranges.clone().count(), cmp_ranges.clone().count());
+			assert_eq!(
+				ranges.clone().count(),
+				cmp_ranges.clone().count(),
+				"a: {:?}, b: {:?}",
+				ranges.collect::<Box<[_]>>(),
+				cmp_ranges.collect::<Box<[_]>>(),
+			);
 			for ((a, b), (x, y)) in ranges.zip(cmp_ranges) {
 				let a_time = ((a.max(x) - x.min(a)).as_secs_f64() * 60.).floor();
 				let b_time = ((b.max(y) - y.min(b)).as_secs_f64() * 60.).floor();
@@ -676,10 +686,7 @@ mod tests {
 			let poly = $poly;
 			let cmp_poly = $cmp_poly;
 			let dif_poly = poly - cmp_poly;
-			let iter = std::iter::once(dif_poly.value)
-				.chain(dif_poly.terms.into_iter())
-				.enumerate();
-			for (degree, coeff) in iter {
+			for (degree, coeff) in dif_poly.into_iter().enumerate() {
 				assert_eq!((coeff * 2_f64.powi((1 + degree) as i32)).round(), 0.,
 					"poly: {:?}, cmp_poly: {:?}", poly, cmp_poly);
 			}
@@ -716,43 +723,34 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.poly(10*Secs),
-			Poly {
-				value: -63.,
-				terms: Sum([
-					-11.9775,
-					0.270416666666666,
-					0.0475,
-					-0.000416666666666,
-				])
-			}
+			Poly::from(Sum::new(-63.15, [
+				-11.9775,
+				0.270416666666666,
+				0.0475,
+				-0.000416666666666,
+			]))
 		);
 		for _ in 0..2 {
 			pos.at_mut(20*Secs);
 			assert_poly!(
 				pos.poly(pos.base_time()),
-				Poly {
-					value: -112.55,
-					terms: Sum([
-						 6.0141666666666666666,
-						 1.4454166666666666666,
-						 0.0308333333333333333,
-						-0.0004166666666666666,
-					])
-				}
+				Poly::from(Sum::new(-112.55, [
+					 6.0141666666666666666,
+					 1.4454166666666666666,
+					 0.0308333333333333333,
+					-0.0004166666666666666,
+				]))
 			);
 		}
 		pos.at_mut(0*Secs);
 		assert_poly!(
 			pos.poly(pos.base_time()),
-			Poly {
-				value: 32.,
-				terms: Sum([
-					-1.4691666666666666666,
-					-1.4045833333333333333,
-					 0.0641666666666666666,
-					-0.0004166666666666666,
-				])
-			}
+			Poly::from(Sum::new(32., [
+				-1.4691666666666666666,
+				-1.4045833333333333333,
+				 0.0641666666666666666,
+				-0.0004166666666666666,
+			]))
 		);
 	}
 	

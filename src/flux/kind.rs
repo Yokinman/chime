@@ -1,24 +1,25 @@
-//! Defining a *kind* of change over time.
+//! Defining a kind of change over time.
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Scalar};
 use crate::{Time, Times, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
-/// 
-/// ??? Should `Poly` just be absorbed into this trait? It feels like it would
-/// be convenient if the constant were managed by these types. 
 pub trait FluxKind:
 	'static + Copy + Clone + Debug
+	+ From<<Self as FluxKind>::Value>
 	+ Mul<Scalar, Output=Self>
 {
 	type Value: Linear;
 	
 	type Accum<'a>: FluxAccum<'a, Self>;
 	
+	fn value(&self) -> Self::Value;
+	
+	// ??? Could instead make the polynomial evaluable at `-infinity`.
 	fn initial_order(&self) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd;
@@ -39,7 +40,7 @@ pub trait FluxKind:
 /// the same space, for combination or comparison purposes.
 pub mod ops {
 	use std::ops;
-	use super::{FluxKind, Poly};
+	use super::FluxKind;
 	use crate::linear::Scalar;
 	
 	/// Adding two kinds of change.
@@ -81,22 +82,17 @@ pub mod ops {
 	/// Squaring a kind of change.
 	pub trait Sqr: FluxKind {
 		type Output: FluxKind<Value=Self::Value>;
-		fn sqr_poly(poly: Poly<Self>) -> Poly<<Self as Sqr>::Output>;
+		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
 	impl<K: FluxKind> Sqr for K
 	where
-		K: ops::Mul + ops::Mul<K::Value, Output=K> + ops::Add<<K as ops::Mul>::Output>,
-		K::Value: ops::Mul<Output=K::Value>,
-		<K as ops::Add<<K as ops::Mul>::Output>>::Output: FluxKind<Value=K::Value>
+		K: ops::Mul,
+		<K as ops::Mul>::Output: FluxKind<Value=K::Value>,
 	{
-		type Output = <K as ops::Add<<K as ops::Mul>::Output>>::Output;
-		fn sqr_poly(p: Poly<K>) -> Poly<<Self as Sqr>::Output> {
-			// (a+b)^2 = a^2 + 2ab + b^2
-			Poly {
-				value: p.value*p.value,
-				terms: p.terms*p.value*Scalar(2.0) + p.terms*p.terms
-			}
+		type Output = <K as ops::Mul>::Output;
+		fn sqr(self) -> <Self as Sqr>::Output {
+			self * self
 		}
 	}
 }
@@ -129,38 +125,20 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 	},
 }
 
-/// A polynomial in standard form; e.g. `a + b x + c x^2 + d x^3`.
+/// A polynomial wrapper for [`FluxKind`].
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Poly<K: FluxKind> {
-	pub value: K::Value,
-	pub terms: K,
-}
+pub struct Poly<K>(K);
 
 impl<K: FluxKind> Poly<K> {
+	pub fn with_value(value: K::Value) -> Self {
+		Poly(K::from(value))
+	}
+	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
 	{
-		ops::Sqr::sqr_poly(self)
-	}
-	
-	pub fn is_zero(&self) -> bool
-	where
-		K: PartialEq,
-		K::Value: PartialEq,
-	{
-		self.value.is_zero() && self.terms.is_zero()
-	}
-	
-	// ??? Could instead make the polynomial evaluable at `-infinity`.
-	pub fn initial_order(&self) -> Option<Ordering>
-	where
-		K::Value: PartialOrd
-	{
-		match self.terms.initial_order() {
-			Some(Ordering::Equal) => self.value.partial_cmp(&K::Value::zero()),
-			order => order
-		}
+		(*self).sqr().into()
 	}
 	
 	pub fn real_roots(self) -> Result<RootList, RootList>
@@ -177,7 +155,7 @@ impl<K: FluxKind> Poly<K> {
 			roots.into_boxed_slice()
 		};
 		
-		K::roots(self)
+		self.roots()
 			.map(cleanup)
 			.map_err(cleanup)
 	}
@@ -277,46 +255,53 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
-		Self {
-			value: Linear::zero(),
-			terms: K::zero()
-		}
+		Self(K::zero())
+	}
+}
+
+impl<K: FluxKind> From<K> for Poly<K> {
+	fn from(value: K) -> Self {
+		Poly(value)
+	}
+}
+
+impl<K> Deref for Poly<K> {
+	type Target = K;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<K> DerefMut for Poly<K> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
 	}
 }
 
 impl<A: FluxKind, B: FluxKind> Add<Poly<B>> for Poly<A>
 where
-	A: ops::Add<B>,
-	A::Value: Add<B::Value, Output=A::Value>,
+	A: ops::Add<B>
 {
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
-			value: self.value + rhs.value,
-			terms: self.terms.add(rhs.terms)
-		}
+		Poly((*self).add(*rhs))
 	}
 }
 
 impl<A: FluxKind, B: FluxKind> Sub<Poly<B>> for Poly<A>
 where
-	A: ops::Sub<B>,
-	A::Value: Add<B::Value, Output=A::Value>,
+	A: ops::Sub<B>
 {
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
-			value: self.value + (rhs.value * Scalar(-1.0)),
-			terms: self.terms.sub(rhs.terms)
-		}
+		Poly((*self).sub(*rhs))
 	}
 }
 
 impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.value = self.value * rhs;
-		self.terms = self.terms * rhs;
+		*self = *self * rhs;
 		self
 	}
 }
@@ -330,5 +315,5 @@ pub type RootList = Box<[f64]>;
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
-	fn roots(poly: Poly<Self>) -> Result<RootList, RootList>;
+	fn roots(self) -> Result<RootList, RootList>;
 }
