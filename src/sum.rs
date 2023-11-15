@@ -112,7 +112,7 @@ impl<T: Linear> Into<Constant<T>> for Sum<T, 0> {
 
 impl<T: Linear> From<Constant<T>> for Sum<T, 0> {
 	fn from(value: Constant<T>) -> Self {
-		Self::from(value.value())
+		Self::from(*value)
 	}
 }
 

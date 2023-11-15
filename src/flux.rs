@@ -474,83 +474,49 @@ pub struct Change<'t, T> {
 	pub unit: TimeUnit,
 }
 
-/// A [`FluxKind`] with no change over time.
+/// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
 /// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
-#[derive(Copy, Clone, Debug)]
-pub struct Constant<T>(T);
-
-impl<T: Linear> From<T> for Constant<T> {
-	fn from(value: T) -> Self {
-		Self(value)
-	}
-}
-
-impl<T: Linear> Mul<Scalar> for Constant<T> {
-	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0 * rhs;
-		self
-	}
-}
-
-impl<T: Linear> FluxKind for Constant<T> {
-	type Value = T;
-	type Accum<'a> = ();
-	fn value(&self) -> Self::Value {
-		self.0
-	}
-	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
-		self.value().partial_cmp(&T::zero())
-	}
-	fn zero() -> Self {
-		Self(T::zero())
-	}
-}
-
-impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
-	type Output = K;
-	fn add(self, rhs: K) -> K {
-		K::from(rhs.value() + self.value())
-	}
-}
-
-impl<T> Mul<Constant<T>> for Constant<T>
-where
-	T: Mul<Output = T>
-{
-	type Output = Self;
-	fn mul(mut self, rhs: Self) -> Self {
-		self.0 = self.0 * rhs.0;
-		self
-	}
-}
-
-/// A [`Flux`] with no change over time.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct ConstantFlux<T: Linear> {
+pub struct Constant<T> {
 	value: T,
 	time: Time,
 }
 
-impl<T: Linear> From<T> for ConstantFlux<T> {
+impl<T> Deref for Constant<T> {
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.value
+	}
+}
+
+impl<T> DerefMut for Constant<T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.value
+	}
+}
+
+impl<T: Linear> From<T> for Constant<T> {
 	fn from(value: T) -> Self {
-		value.to_flux(Time::ZERO)
+		Constant {
+			value,
+			time: Time::ZERO,
+		}
 	}
 }
 
 impl<T: Linear> Moment for T {
-	type Flux = ConstantFlux<T>;
+	type Flux = Constant<T>;
 	fn to_flux(self, time: Time) -> Self::Flux {
-		ConstantFlux {
+		Constant {
 			value: self,
 			time,
 		}
 	}
 }
 
-impl<T: Linear> Flux for ConstantFlux<T> {
+impl<T: Linear> Flux for Constant<T> {
 	type Moment = T;
 	type Kind = Constant<T>;
 	type OutAccum<'a> = ();
@@ -563,6 +529,46 @@ impl<T: Linear> Flux for ConstantFlux<T> {
 	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
 	fn to_moment(&self, _time: Time) -> Self::Moment {
 		self.value
+	}
+}
+
+impl<T: Linear> FluxKind for Constant<T> {
+	type Value = T;
+	type Accum<'a> = ();
+	fn value(&self) -> Self::Value {
+		self.value
+	}
+	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
+		self.value.partial_cmp(&T::zero())
+	}
+	fn zero() -> Self {
+		Self::from(T::zero())
+	}
+}
+
+impl<T: Linear> Mul<Scalar> for Constant<T> {
+	type Output = Self;
+	fn mul(mut self, rhs: Scalar) -> Self::Output {
+		self.value = self.value * rhs;
+		self
+	}
+}
+
+impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
+	type Output = K;
+	fn add(self, rhs: K) -> K {
+		K::from(rhs.value() + self.value)
+	}
+}
+
+impl<T> Mul<Constant<T>> for Constant<T>
+where
+	T: Mul<Output = T>
+{
+	type Output = Self;
+	fn mul(mut self, rhs: Self) -> Self {
+		self.value = self.value * rhs.value;
+		self
 	}
 }
 
@@ -847,7 +853,7 @@ mod tests {
 		
 		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
 		assert_time_ranges!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, &ConstantFlux::from(2.)),
+			a_pos.when_dis(&*b_pos, Ordering::Less, &Constant::from(2.)),
 			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
 		);
 		

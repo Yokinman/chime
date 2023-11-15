@@ -240,7 +240,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		let ident = field.ident.as_ref();
 		if ident == Some(&value_ident) {
 			let field_ty = std::mem::replace(&mut field.ty, syn::parse_quote!{
-				#flux::ConstantFlux<<<Self as #flux::Flux>::Kind
+				#flux::Constant<<<Self as #flux::Flux>::Kind
 					as #flux::kind::FluxKind>::Value>
 			});
 			moment_fields = quote::quote!{
