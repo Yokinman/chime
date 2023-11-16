@@ -29,6 +29,9 @@ pub trait Moment {
 
 /// The continuous interface for a value that changes over time.
 pub trait Flux {
+	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
+	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
+	
 	type Moment: Moment<Flux=Self>;
 	
 	/// The kind of change over time.

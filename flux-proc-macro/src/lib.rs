@@ -17,7 +17,7 @@ impl syn::parse::Parse for FluxParse {
 		let change_expr = syn::Expr::parse(input)?;
 		
 		 // Parse Crate Name Override:
-		let mut crate_path: syn::Path = syn::parse_quote!{::flux};
+		let mut crate_path: syn::Path = syn::parse_quote!{::chime};
 		while !input.is_empty() {
 			input.parse::<Token![,]>()?;
 			let meta = syn::MetaNameValue::parse(input)?;
