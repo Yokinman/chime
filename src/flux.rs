@@ -379,7 +379,7 @@ where
 	
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
-		poly.when(self.cmp_order, self.time)
+		poly.when_sign(self.cmp_order, self.time)
 	}
 }
 
@@ -402,7 +402,7 @@ where
 	
 	fn into_iter(self) -> Self::IntoIter {
 		let poly = self.a_poly - self.b_poly;
-		poly.when_eq(self.time)
+		poly.when_zero(self.time)
 	}
 }
 
@@ -450,7 +450,7 @@ where
 		}
 		sum = sum - self.dis.sqr();
 		
-		sum.when(self.cmp_order, self.time)
+		sum.when_sign(self.cmp_order, self.time)
 	}
 }
 

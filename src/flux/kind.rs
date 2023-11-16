@@ -160,7 +160,8 @@ impl<K: FluxKind> Poly<K> {
 			.map_err(cleanup)
 	}
 	
-	pub fn when(&self, order: Ordering, offset: Time) -> TimeRanges
+	/// Ranges when the sign is greater than, less than, or equal to zero.
+	pub(crate) fn when_sign(&self, order: Ordering, offset: Time) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -222,7 +223,8 @@ impl<K: FluxKind> Poly<K> {
 			.collect()
 	}
 	
-	pub fn when_eq(&self, offset: Time) -> Times
+	/// Times when the value is equal to zero.
+	pub(crate) fn when_zero(&self, offset: Time) -> Times
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
