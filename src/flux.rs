@@ -24,7 +24,7 @@ pub trait Moment {
 	type Flux: Flux<Moment=Self>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
-	fn to_flux(self, time: Time) -> Self::Flux;
+	fn to_flux(&self, time: Time) -> Self::Flux;
 }
 
 /// The continuous interface for a value that changes over time.
@@ -580,9 +580,9 @@ impl<T: Linear> From<T> for Constant<T> {
 
 impl<T: Linear> Moment for T {
 	type Flux = Constant<T>;
-	fn to_flux(self, time: Time) -> Self::Flux {
+	fn to_flux(&self, time: Time) -> Self::Flux {
 		Constant {
-			value: self,
+			value: *self,
 			time,
 		}
 	}

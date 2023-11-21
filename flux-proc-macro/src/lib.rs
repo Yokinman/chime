@@ -251,7 +251,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			flux_fields = quote::quote!{
 				#flux_fields
 				#ident: #flux::Moment::to_flux(
-					#flux::linear::LinearIsoInv
+					&#flux::linear::LinearIsoInv
 						::<<<Self::Flux as #flux::Flux>::Kind
 							as #flux::kind::FluxKind>::Value>
 						::inv_map(self.#ident),
@@ -269,7 +269,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::Moment::to_flux(self.#ident, time),
+				#ident: #flux::Moment::to_flux(&self.#ident, time),
 			};
 		}
 	}
@@ -282,7 +282,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux_ident #ty_generics;
-			fn to_flux(self, time: #flux::Time) -> Self::Flux {
+			fn to_flux(&self, time: #flux::Time) -> Self::Flux {
 				#flux_ident { #flux_fields }
 			}
 		}

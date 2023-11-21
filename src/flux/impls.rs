@@ -1,4 +1,4 @@
-//! Convenient [`Flux`] implementations (`Vec<T>`, ??? tuples, etc.).
+//! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
 use std::vec::Vec;
 
@@ -49,11 +49,11 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	Vec<T::Flux>: Flux<Moment=Vec<T>>
+	Vec<T::Flux>: Flux<Moment = Vec<T>>
 {
 	type Flux = Vec<T::Flux>;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		self.into_iter()
+	fn to_flux(&self, time: Time) -> Self::Flux {
+		self.iter()
 			.map(|x| x.to_flux(time))
 			.collect()
 	}
