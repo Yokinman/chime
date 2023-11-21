@@ -604,7 +604,7 @@ where
 				let time_scale = (time.as_secs_f64() - base_time.as_secs_f64())
 					/ (1*unit).as_secs_f64();
 				**value = **value
-					+ (sub_value * Scalar((time_scale+depth) / (depth+1.)) * scalar);
+					+ (sub_value * Scalar(time_scale / (depth+1.)) * scalar);
 			},
 			FluxAccumKind::Poly { poly, depth, time, base_time } => {
 				let mut sub_poly = Poly::with_value(flux.value(*time));
@@ -618,7 +618,7 @@ where
 				let depth = *depth as f64;
 				let time_scale = (1*unit).as_secs_f64().recip();
 				**poly = **poly
-					+ (sub_poly * (Scalar(depth / (depth + 1.)) * scalar))
+					// + (sub_poly * (Scalar(depth / (depth + 1.)) * scalar))
 					+ (sup_poly * (Scalar(time_scale / (depth + 1.)) * scalar));
 				// https://www.desmos.com/calculator/mhlpjakz32
 			},

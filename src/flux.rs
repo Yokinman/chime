@@ -462,6 +462,7 @@ where
 /// `1 + 2.per(TimeUnit::Secs)` 
 pub trait Per: Sized {
 	fn per(&self, unit: TimeUnit) -> Change<Self> {
+		// !!! Make TimeUnit just a Duration
 		Change {
 			rate: self,
 			unit
@@ -632,12 +633,12 @@ mod tests {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
-				value: 0.0,
+				value: -4.4075 / 3.0,
 				fric: Fric { value: 3.5 },
 				accel: Accel {
-					value: 0.3,
+					value: 2.0725 / 3.0,
 					jerk: Jerk {
-						value: 0.4,
+						value: 0.385,
 						snap: Snap { value: -0.01 },
 					},
 				},
@@ -717,7 +718,7 @@ mod tests {
 		assert_eq!(pos.at(10*Secs).round(), -63.);
 		assert_eq!(pos.at(20*Secs).round(), -113.);
 		assert_eq!(pos.at(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209778.);
+		assert_eq!(pos.at(200*Secs).round(), -209779.);
 		
 		 // Update:
 		assert_eq!(pos.at_mut(20*Secs).round(), -113.);
@@ -766,7 +767,13 @@ mod tests {
 	#[test]
 	fn when() {
 		let pos = position();
-		let acc = position().spd.accel;
+		let acc = Accel {
+			value: 0.3,
+			jerk: Jerk {
+				value: 0.4,
+				snap: Snap { value: -0.01 },
+			},
+		}.to_flux(Time::ZERO);
 		
 		assert_time_ranges!(pos.when(Ordering::Greater, &acc), [
 			(Time::ZERO, Time::from_secs_f64(4.56)),
@@ -795,7 +802,7 @@ mod tests {
 			..Default::default()
 		});
 		b_pos.at_mut(0*Secs).misc.push(Spd {
-			value: 12.25,
+			value: 12.,
 			fric: Fric { value: 0.5 },
 			..Default::default()
 		});
@@ -812,7 +819,7 @@ mod tests {
 	#[test]
 	fn distance() {
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 2> = {value} + spd.per(Secs), crate = "crate")]
+		#[flux(Sum<f64, 2> = {value} + spd.per(Mins), crate = "crate")]
 		#[derive(Debug)]
 		struct Pos {
 			value: i64,
@@ -835,12 +842,12 @@ mod tests {
 		}
 		
 		let a_pos = vec![
-			Pos { value: 3, spd: Spd { value: 7, acc: Acc { value: -4 } } },
-			Pos { value: -4, spd: Spd { value: -7, acc: Acc { value: 18 } } }
+			Pos { value: 3, spd: Spd { value: 300, acc: Acc { value: -240 } } },
+			Pos { value: -4, spd: Spd { value: 120, acc: Acc { value: 1080 } } }
 		].to_flux(Time::ZERO);
 		let b_pos = vec![
-			Pos { value: 8, spd: Spd { value: 8, acc: Acc { value: -5 } } },
-			Pos { value: 4, spd: Spd { value: 4, acc: Acc { value: 12 } } }
+			Pos { value: 8, spd: Spd { value: 330, acc: Acc { value: -300 } } },
+			Pos { value: 4, spd: Spd { value: 600, acc: Acc { value: 720 } } }
 		].to_flux(Time::ZERO);
 		
 		let dis = Spd { value: 10, acc: Acc { value: 0 } }
