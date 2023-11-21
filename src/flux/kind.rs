@@ -235,8 +235,7 @@ impl<K: FluxKind> Poly<K> {
 		
 		 // Constant Equality:
 		if real_roots.is_empty() && self.is_zero() {
-			return [Time::ZERO]
-				.into_iter().collect();
+			return [].into_iter().collect();
 		}
 		
 		 // Convert Roots to Times:

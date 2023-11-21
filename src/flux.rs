@@ -871,7 +871,8 @@ mod tests {
 		
 		 // Check Before:
 		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), []);
-		assert_times!(a_pos.when_eq(&b_pos), [0*Nanosecs]);
+		assert_time_ranges!(a_pos.when(Ordering::Equal, &b_pos), [(Time::ZERO, Time::MAX)]);
+		assert_times!(a_pos.when_eq(&b_pos), []);
 		a_pos.at_mut(20*Secs);
 		
 		 // Apply Changes:
