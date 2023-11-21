@@ -267,6 +267,29 @@ pub trait FluxVec {
 			time,
 		}.into_iter()
 	}
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis_eq<T: FluxVec + ?Sized, D: Flux>(
+		&self,
+		other: &T,
+		dis: &D,
+	) -> Times
+	where
+		WhenDisEq<Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=Times>
+	{
+		let time = std::iter::once(dis.base_time())
+			.chain(self.times())
+			.chain(other.times())
+			.max()
+			.unwrap_or_default();
+		
+		WhenDisEq {
+			a_poly: self.polys(time),
+			b_poly: other.polys(time),
+			dis: dis.poly(time),
+			time,
+		}.into_iter()
+	}
 }
 
 impl<T: Flux> FluxVec for [T] {
@@ -426,8 +449,7 @@ where
 		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
 		+ kind_ops::Sub<
 			<D as kind_ops::Sqr>::Output,
-			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output
-		>
+			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
 		+ Roots
 		+ PartialOrd,
 	A::Value: PartialOrd,
@@ -454,6 +476,52 @@ where
 		sum = sum - self.dis.sqr();
 		
 		sum.when_sign(self.cmp_order, self.time)
+	}
+}
+
+/// [`FluxVec::when_dis_eq`] predictive distance comparison.
+pub struct WhenDisEq<A: FluxKind, B: FluxKind, D: FluxKind> {
+	a_poly: Box<[Poly<A>]>,
+	b_poly: Box<[Poly<B>]>,
+	dis: Poly<D>,
+	time: Time,
+}
+
+impl<A: FluxKind, B: FluxKind, D> IntoIterator for WhenDisEq<A, B, D>
+where
+	A: kind_ops::Sub<B>,
+	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
+	<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output:
+		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
+		+ kind_ops::Sub<
+			<D as kind_ops::Sqr>::Output,
+			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
+		+ Roots
+		+ PartialEq,
+	A::Value: PartialEq,
+	D: FluxKind<Value=A::Value> + kind_ops::Sqr,
+{
+	type Item = Time;
+	type IntoIter = Times;
+	
+	fn into_iter(self) -> Self::IntoIter {
+		let count = self.a_poly.len().max(self.b_poly.len());
+		
+		let mut a_iter = self.a_poly.iter().copied();
+		let mut b_iter = self.b_poly.iter().copied();
+		
+		let mut sum = Poly
+			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
+			::default();
+		
+		for _ in 0..count {
+			let a = a_iter.next().unwrap_or_default();
+			let b = b_iter.next().unwrap_or_default();
+			sum = sum + (a - b).sqr();
+		}
+		sum = sum - self.dis.sqr();
+		
+		sum.when_zero(self.time)
 	}
 }
 
@@ -862,9 +930,9 @@ mod tests {
 		);
 		
 		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
-		assert_time_ranges!(
-			a_pos.when_dis(&*b_pos, Ordering::Less, &Constant::from(2.)),
-			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191))]
+		assert_times!(
+			a_pos.when_dis_eq(&*b_pos, &Constant::from(2.)),
+			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]
 		);
 		
 		// https://www.desmos.com/calculator/23ic1ikyt3
