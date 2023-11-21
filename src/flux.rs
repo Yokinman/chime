@@ -309,10 +309,20 @@ impl<T: Flux> FluxVec for [T] {
 impl<T: Flux> FluxVec for Vec<T> {
 	type Kind = T::Kind;
 	fn times(&self) -> Times {
-		(**self).times()
+		self.as_slice().times()
 	}
 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-		(**self).polys(time)
+		self.as_slice().polys(time)
+	}
+}
+
+impl<T: Flux, const S: usize> FluxVec for [T; S] {
+	type Kind = T::Kind;
+	fn times(&self) -> Times {
+		self.as_slice().times()
+	}
+	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+		self.as_slice().polys(time)
 	}
 }
 
@@ -909,11 +919,11 @@ mod tests {
 			value: i64,
 		}
 		
-		let a_pos = vec![
+		let a_pos = [
 			Pos { value: 3, spd: Spd { value: 300, acc: Acc { value: -240 } } },
 			Pos { value: -4, spd: Spd { value: 120, acc: Acc { value: 1080 } } }
 		].to_flux(Time::ZERO);
-		let b_pos = vec![
+		let b_pos = [
 			Pos { value: 8, spd: Spd { value: 330, acc: Acc { value: -300 } } },
 			Pos { value: 4, spd: Spd { value: 600, acc: Acc { value: 720 } } }
 		].to_flux(Time::ZERO);
@@ -931,7 +941,7 @@ mod tests {
 		
 		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
 		assert_times!(
-			a_pos.when_dis_eq(&*b_pos, &Constant::from(2.)),
+			a_pos.when_dis_eq(&b_pos, &Constant::from(2.)),
 			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]
 		);
 		
