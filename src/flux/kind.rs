@@ -204,27 +204,26 @@ impl<K: FluxKind> Poly<K> {
 		};
 		
 		 // Convert Ranges to Times:
-		let time = offset.as_secs_f64();
-		let max_time = Time::MAX.as_secs_f64();
 		range_list
 			.filter_map(|(a, b)| {
 				debug_assert!(a <= b);
-				let a = a + time;
-				let b = b + time;
-				if b < 0.0 || a >= max_time {
-					None
+				if let (
+					Ok(a) | Err(a @ Time::ZERO),
+					Ok(b) | Err(b @ Time::MAX)
+				) = (
+					time_try_from_secs(a, offset),
+					time_try_from_secs(b, offset)
+				) {
+					Some((a, b))
 				} else {
-					Some((
-						time_from_secs(a).unwrap_or(Time::ZERO),
-						time_from_secs(b).unwrap_or(Time::MAX)
-					))
+					None
 				}
 			})
 			.collect()
 	}
 	
 	/// Times when the value is equal to zero.
-	pub(crate) fn when_zero(&self, offset: Time) -> Times
+	pub(crate) fn when_zero(&self, basis: Time) -> Times
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
@@ -239,9 +238,8 @@ impl<K: FluxKind> Poly<K> {
 		}
 		
 		 // Convert Roots to Times:
-		let time = offset.as_secs_f64();
 		real_roots.into_iter()
-			.filter_map(|t| time_from_secs(t + time))
+			.filter_map(|t| time_try_from_secs(t, basis).ok())
 			.collect()
 	}
 }
@@ -311,11 +309,10 @@ pub trait Roots: FluxKind {
 	fn roots(self) -> Result<RootList, RootList>;
 }
 
-/// `Duration::try_from_secs_f64`, but floors instead of rounding.
-fn time_from_secs(t: f64) -> Option<Time> {
-	if t < 0. {
-		return None
-	}
+/// `Duration::try_from_secs_f64`, but rounds toward the `basis`.
+fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
+	let sign = t.signum();
+	t *= sign;
 	
 	const MANT_MASK: u64 = (1 << 52) - 1;
 	const EXP_MASK: u64 = (1 << 11) - 1;
@@ -324,7 +321,7 @@ fn time_from_secs(t: f64) -> Option<Time> {
 	let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
 	let exp = (((bits >> 52) & EXP_MASK) as i16) - 1023;
 	
-	Some(if exp < -30 {
+	let time = if exp < -30 {
 		// Too small; `1ns < 2s^-30`.
 		Time::ZERO
 	} else if exp < 0 {
@@ -340,6 +337,16 @@ fn time_from_secs(t: f64) -> Option<Time> {
 		Time::from_secs(mant << (exp - 52))
 	} else {
 		// Too big.
-		return None
-	})
+		return if sign < 0. {
+			Err(Time::ZERO)
+		} else {
+			Err(Time::MAX)
+		}
+	};
+	
+	if sign < 0. {
+		basis.checked_sub(time).ok_or(Time::ZERO)
+	} else {
+		basis.checked_add(time).ok_or(Time::MAX)
+	}
 }
