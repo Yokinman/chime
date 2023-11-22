@@ -215,8 +215,8 @@ impl<K: FluxKind> Poly<K> {
 					None
 				} else {
 					Some((
-						Time::try_from_secs_f64(a).unwrap_or(Time::ZERO),
-						Time::try_from_secs_f64(b).unwrap_or(Time::MAX)
+						time_from_secs(a).unwrap_or(Time::ZERO),
+						time_from_secs(b).unwrap_or(Time::MAX)
 					))
 				}
 			})
@@ -240,16 +240,8 @@ impl<K: FluxKind> Poly<K> {
 		
 		 // Convert Roots to Times:
 		let time = offset.as_secs_f64();
-		let max_time = Time::MAX.as_secs_f64();
 		real_roots.into_iter()
-			.filter_map(|t| {
-				let t = t + time;
-				if t < 0.0 || t >= max_time {
-					None
-				} else {
-					Some(Time::from_secs_f64(t))
-				}
-			})
+			.filter_map(|t| time_from_secs(t + time))
 			.collect()
 	}
 }
@@ -317,4 +309,37 @@ pub type RootList = Box<[f64]>;
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
 	fn roots(self) -> Result<RootList, RootList>;
+}
+
+/// `Duration::try_from_secs_f64`, but floors instead of rounding.
+fn time_from_secs(t: f64) -> Option<Time> {
+	if t < 0. {
+		return None
+	}
+	
+	const MANT_MASK: u64 = (1 << 52) - 1;
+	const EXP_MASK: u64 = (1 << 11) - 1;
+	
+	let bits = t.to_bits();
+	let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
+	let exp = (((bits >> 52) & EXP_MASK) as i16) - 1023;
+	
+	Some(if exp < -30 {
+		// Too small; `1ns < 2s^-30`.
+		Time::ZERO
+	} else if exp < 0 {
+		// No integer part.
+		let nanos = ((((mant as u128) << (44 + exp)) * 1_000_000_000) >> (44 + 52)) as u32;
+		Time::new(0, nanos)
+	} else if exp < 52 {
+		let secs = mant >> (52 - exp);
+		let nanos = (((((mant << exp) & MANT_MASK) as u128) * 1_000_000_000) >> 52) as u32;
+		Time::new(secs, nanos)
+	} else if exp < 64 {
+		// No fractional part.
+		Time::from_secs(mant << (exp - 52))
+	} else {
+		// Too big.
+		return None
+	})
 }
