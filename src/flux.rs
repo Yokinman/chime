@@ -2,6 +2,7 @@
 
 pub mod kind;
 mod impls;
+mod time;
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
@@ -14,8 +15,7 @@ use crate::{
 };
 
 pub use self::impls::*;
-
-pub use time::{Time, TimeUnit};
+pub use self::time::*;
 
 pub use flux_proc_macro::flux;
 
@@ -346,56 +346,6 @@ impl<T: Flux, const S: usize> FluxVec for [T; S] {
 /// ...
 #[allow(type_alias_bounds)]
 type Polys<K: FluxKind> = Box<[Poly<K>]>;
-
-/// Iterator of [`Time`] ranges.
-#[derive(Clone)]
-#[must_use]
-pub struct TimeRanges(std::vec::IntoIter<(Time, Time)>);
-
-impl Iterator for TimeRanges {
-	type Item = (Time, Time);
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next()
-	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		self.0.size_hint()
-	}
-	fn count(self) -> usize {
-		self.0.count()
-	}
-}
-
-impl FromIterator<(Time, Time)> for TimeRanges {
-	fn from_iter<T: IntoIterator<Item=(Time, Time)>>(iter: T) -> Self {
-		let mut vec = iter.into_iter().collect::<Vec<_>>();
-		vec.sort_unstable();
-		Self(vec.into_iter())
-	}
-}
-
-/// Iterator of [`Time`] values.
-#[derive(Clone)]
-#[must_use]
-pub struct Times(std::vec::IntoIter<Time>);
-
-impl Iterator for Times {
-	type Item = Time;
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next()
-	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		self.0.size_hint()
-	}
-	fn count(self) -> usize {
-		self.0.count()
-	}
-}
-
-impl FromIterator<Time> for Times {
-	fn from_iter<T: IntoIterator<Item=Time>>(iter: T) -> Self {
-		Self(iter.into_iter().collect::<Vec<_>>().into_iter())
-	}
-}
 
 /// [`Flux::when`] predictive comparison.
 #[derive(Copy, Clone, Debug)]
