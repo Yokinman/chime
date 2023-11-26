@@ -367,7 +367,9 @@ impl Iterator for TimeRanges {
 
 impl FromIterator<(Time, Time)> for TimeRanges {
 	fn from_iter<T: IntoIterator<Item=(Time, Time)>>(iter: T) -> Self {
-		Self(iter.into_iter().collect::<Vec<_>>().into_iter())
+		let mut vec = iter.into_iter().collect::<Vec<_>>();
+		vec.sort_unstable();
+		Self(vec.into_iter())
 	}
 }
 
