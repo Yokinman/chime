@@ -425,7 +425,7 @@ impl Roots for Sum<f64, 4> {
 			);
 			let m = *Poly::from(resolvent_cubic).real_roots()
 				.unwrap_or_default() 
-				.iter().find(|&r| *r >= 0.0)
+				.iter().rev().find(|&r| *r >= 0.0)
 				.expect("this shouldn't happen, probably a precision issue");
 			let sqrt_2m = (2.0 * m).sqrt();
 			let quad_a = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.0]);
@@ -775,6 +775,23 @@ mod tests {
 				-2000000000000. * f64::sqrt(60. - 6.*f64::sqrt(19.)),
 				 2000000000000. * f64::sqrt(60. - 6.*f64::sqrt(19.)),
 				 2000000000000. * f64::sqrt(60. + 6.*f64::sqrt(19.)),
+			]
+		);
+		assert_roots(
+			Sum(
+				4.906800313619897e-6,
+				[
+					15145.164260286278,
+					23999.999769993723,
+					-236643.191,
+					250000.0
+				]
+			),
+			&[
+				-0.19230902079054427,
+				-3.23984644667874e-10,
+				0.4732863823239847,
+				0.6655954027905443
 			]
 		);
 	}
