@@ -575,7 +575,7 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
 		value: &V,
-		unit: TimeUnit,
+		unit: time::Time,
 	);
 }
 
@@ -589,7 +589,7 @@ where
 		kind: &mut FluxAccumKind<'_, A>,
 		scalar: Scalar,
 		flux: &V,
-		unit: TimeUnit,
+		unit: time::Time,
 	) {
 		match kind {
 			FluxAccumKind::Value { value, depth, time, base_time } => {
@@ -602,7 +602,7 @@ where
 				}));
 				let depth = *depth as f64;
 				let time_scale = (time.as_secs_f64() - base_time.as_secs_f64())
-					/ (1*unit).as_secs_f64();
+					/ unit.as_secs_f64();
 				**value = **value
 					+ (sub_value * Scalar(time_scale / (depth+1.)) * scalar);
 			},
@@ -616,7 +616,7 @@ where
 				}));
 				let sup_poly = Poly::from(sub_poly.shift_up());
 				let depth = *depth as f64;
-				let time_scale = (1*unit).as_secs_f64().recip();
+				let time_scale = unit.as_secs_f64().recip();
 				**poly = **poly
 					// + (sub_poly * (Scalar(depth / (depth + 1.)) * scalar))
 					+ (sup_poly * (Scalar(time_scale / (depth + 1.)) * scalar));
@@ -800,7 +800,7 @@ mod tests {
 	#[test]
 	fn vec() {
 		#[derive(PartialEq)]
-		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(TimeUnit::Secs), crate = "crate")]
+		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(time::SEC), crate = "crate")]
 		struct Pos {
 			value: glam::IVec2,
 			spd: Spd,
@@ -817,20 +817,20 @@ mod tests {
 			spd: Spd {
 				value: glam::IVec2::new(6, 4)
 			}
-		}.to_flux(Time::default());
+		}.to_flux(time::Time::default());
 		
 		let b_pos = Pos {
 			value: glam::IVec2::new(14, 18),
 			spd: Spd {
 				value: glam::IVec2::new(4, 0)
 			}
-		}.to_flux(Time::default());
+		}.to_flux(time::Time::default());
 		
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
 		assert_eq!(
-			a_pos.when_eq(&b_pos).collect::<Vec<Time>>(),
-			[2*TimeUnit::Secs]
+			a_pos.when_eq(&b_pos).collect::<Vec<time::Time>>(),
+			[2*time::SEC]
 		);
 	}
 }

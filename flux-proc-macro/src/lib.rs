@@ -282,7 +282,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux_ident #ty_generics;
-			fn to_flux(&self, time: #flux::Time) -> Self::Flux {
+			fn to_flux(&self, time: #flux::time::Time) -> Self::Flux {
 				#flux_ident { #flux_fields }
 			}
 		}
@@ -300,13 +300,13 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fn base_value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
 				self.#value_ident.base_value()
 			}
-			fn base_time(&self) -> #flux::Time {
+			fn base_time(&self) -> #flux::time::Time {
 				self.#value_ident.base_time()
 			}
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {
 				#change_expr
 			}
-			fn to_moment(&self, time: #flux::Time) -> Self::Moment {
+			fn to_moment(&self, time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 		}

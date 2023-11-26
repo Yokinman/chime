@@ -2,7 +2,8 @@
 
 use std::vec::Vec;
 
-use crate::{Flux, Time, Moment};
+use crate::{Flux, Moment};
+use crate::time::Time;
 use crate::kind::FluxKind;
 use crate::linear::Linear;
 

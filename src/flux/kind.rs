@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Scalar};
-use crate::{Time, Times, TimeRanges};
+use crate::time::{Time, Times, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:

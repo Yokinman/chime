@@ -1,8 +1,8 @@
 //! Utilities for describing how a type changes over time.
 
+pub mod time;
 pub mod kind;
 mod impls;
-mod time;
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
@@ -14,8 +14,9 @@ use crate::{
 	kind::{*, ops as kind_ops},
 };
 
+use self::time::{Time, Times, TimeRanges};
+
 pub use self::impls::*;
-pub use self::time::*;
 
 pub use flux_proc_macro::flux;
 
@@ -489,10 +490,9 @@ where
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
-/// `1 + 2.per(TimeUnit::Secs)` 
+/// `1 + 2.per(time_unit::SEC)` 
 pub trait Per: Sized {
-	fn per(&self, unit: TimeUnit) -> Change<Self> {
-		// !!! Make TimeUnit just a Duration
+	fn per(&self, unit: Time) -> Change<Self> {
 		Change {
 			rate: self,
 			unit
@@ -505,7 +505,7 @@ impl<T: Flux> Per for T {}
 /// A description of a change over time for use with arithmetic operators.
 pub struct Change<'t, T> {
 	pub rate: &'t T,
-	pub unit: TimeUnit,
+	pub unit: Time,
 }
 
 /// No change over time.
@@ -610,10 +610,10 @@ where
 mod tests {
 	use impl_op::impl_op;
 	use super::*;
-	use TimeUnit::*;
+	use super::time::SEC;
 	use crate::sum::Sum;
 	
-	#[flux(Sum<f64, 4> = {value} + spd.per(Secs) + misc.per(Secs), crate = "crate")]
+	#[flux(Sum<f64, 4> = {value} + spd.per(SEC) + misc.per(SEC), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Pos {
 		value: f64,
@@ -621,7 +621,7 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	#[flux(Sum<f64, 3> = {value} - fric.per(Secs) + accel.per(Secs), crate = "crate")]
+	#[flux(Sum<f64, 3> = {value} - fric.per(SEC) + accel.per(SEC), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Spd {
 		value: f64,
@@ -635,14 +635,14 @@ mod tests {
 		value: f64,
 	}
 	
-	#[flux(Sum<f64, 2> = {value} + jerk.per(Secs), crate = "crate")]
+	#[flux(Sum<f64, 2> = {value} + jerk.per(SEC), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Accel {
 		value: f64,
 		jerk: Jerk,
 	}
 	
-	#[flux(Sum<f64, 1> = {value} + snap.per(Secs), crate = "crate")]
+	#[flux(Sum<f64, 1> = {value} + snap.per(SEC), crate = "crate")]
 	#[derive(Clone, Debug, Default)]
 	struct Jerk {
 		value: f64,
@@ -676,10 +676,10 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux(Time::ZERO);
-		let value = pos.value(10*Secs);
-		pos.value.set_moment(10*Secs, value);
-		pos.spd.accel.at_mut(20*Secs);
-		pos.spd.accel.jerk.at_mut(10*Secs);
+		let value = pos.value(10*SEC);
+		pos.value.set_moment(10*SEC, value);
+		pos.spd.accel.at_mut(20*SEC);
+		pos.spd.accel.jerk.at_mut(10*SEC);
 		pos
 	}
 	
@@ -738,31 +738,31 @@ mod tests {
 		let mut pos = position();
 		
 		 // Times:
-		assert_eq!(pos.base_time(), 10*Secs);
-		assert_eq!(pos.spd.base_time(), 0*Secs);
-		assert_eq!(pos.spd.accel.base_time(), 20*Secs);
-		assert_eq!(pos.spd.accel.jerk.base_time(), 10*Secs);
+		assert_eq!(pos.base_time(), 10*SEC);
+		assert_eq!(pos.spd.base_time(), 0*SEC);
+		assert_eq!(pos.spd.accel.base_time(), 20*SEC);
+		assert_eq!(pos.spd.accel.jerk.base_time(), 10*SEC);
 		
 		 // Values:
-		assert_eq!(pos.at(0*Secs).round(), 32.);
-		assert_eq!(pos.at(10*Secs).round(), -63.);
-		assert_eq!(pos.at(20*Secs).round(), -113.);
-		assert_eq!(pos.at(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209779.);
+		assert_eq!(pos.at(0*SEC).round(), 32.);
+		assert_eq!(pos.at(10*SEC).round(), -63.);
+		assert_eq!(pos.at(20*SEC).round(), -113.);
+		assert_eq!(pos.at(100*SEC).round(), 8339.);
+		assert_eq!(pos.at(200*SEC).round(), -209779.);
 		
 		 // Update:
-		assert_eq!(pos.at_mut(20*Secs).round(), -113.);
-		assert_eq!(pos.at(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209778.);
-		assert_eq!(pos.at_mut(100*Secs).round(), 8339.);
-		assert_eq!(pos.at(200*Secs).round(), -209778.);
+		assert_eq!(pos.at_mut(20*SEC).round(), -113.);
+		assert_eq!(pos.at(100*SEC).round(), 8339.);
+		assert_eq!(pos.at(200*SEC).round(), -209778.);
+		assert_eq!(pos.at_mut(100*SEC).round(), 8339.);
+		assert_eq!(pos.at(200*SEC).round(), -209778.);
 	}
 	
 	#[test]
 	fn poly() {
 		let mut pos = position();
 		assert_poly!(
-			pos.poly(10*Secs),
+			pos.poly(10*SEC),
 			Poly::from(Sum::new(-63.15, [
 				-11.9775,
 				0.270416666666666,
@@ -771,7 +771,7 @@ mod tests {
 			]))
 		);
 		for _ in 0..2 {
-			pos.at_mut(20*Secs);
+			pos.at_mut(20*SEC);
 			assert_poly!(
 				pos.poly(pos.base_time()),
 				Poly::from(Sum::new(-112.55, [
@@ -782,7 +782,7 @@ mod tests {
 				]))
 			);
 		}
-		pos.at_mut(0*Secs);
+		pos.at_mut(0*SEC);
 		assert_poly!(
 			pos.poly(pos.base_time()),
 			Poly::from(Sum::new(32., [
@@ -825,32 +825,32 @@ mod tests {
 		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), []);
 		assert_time_ranges!(a_pos.when(Ordering::Equal, &b_pos), [(Time::ZERO, Time::MAX)]);
 		assert_times!(a_pos.when_eq(&b_pos), []);
-		a_pos.at_mut(20*Secs);
+		a_pos.at_mut(20*SEC);
 		
 		 // Apply Changes:
-		b_pos.at_mut(0*Secs).misc.push(Spd {
+		b_pos.at_mut(0*SEC).misc.push(Spd {
 			value: 2.5,
 			..Default::default()
 		});
-		b_pos.at_mut(0*Secs).misc.push(Spd {
+		b_pos.at_mut(0*SEC).misc.push(Spd {
 			value: 12.,
 			fric: Fric { value: 0.5 },
 			..Default::default()
 		});
-		b_pos.at_mut(10*Secs).value -= 100.0;
+		b_pos.at_mut(10*SEC).value -= 100.0;
 		
 		 // Check After:
 		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), [
-			(0*Secs, 8*Secs),
-			(50*Secs, Time::MAX)
+			(0*SEC, 8*SEC),
+			(50*SEC, Time::MAX)
 		]);
-		assert_times!(a_pos.when_eq(&b_pos), [8*Secs, 50*Secs]);
+		assert_times!(a_pos.when_eq(&b_pos), [8*SEC, 50*SEC]);
 	}
 	
 	#[test]
 	fn distance() {
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 2> = {value} + spd.per(Mins), crate = "crate")]
+		#[flux(Sum<f64, 2> = {value} + spd.per(time::MIN), crate = "crate")]
 		#[derive(Debug)]
 		struct Pos {
 			value: i64,
@@ -858,7 +858,7 @@ mod tests {
 		}
 		
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 1> = {value} + acc.per(Secs), crate = "crate")]
+		#[flux(Sum<f64, 1> = {value} + acc.per(SEC), crate = "crate")]
 		#[derive(Debug)]
 		struct Spd {
 			value: i64,
@@ -892,7 +892,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(1*Secs);
+		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(SEC);
 		assert_times!(
 			a_pos.when_dis_eq(&b_pos, &Constant::from(2.)),
 			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]

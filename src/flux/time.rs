@@ -1,51 +1,29 @@
-//! ...
+//! Working with time.
 
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 use std::cmp::Ordering;
 
-use impl_op::impl_op;
-
-/// ...
+/// An amount of time.
 pub type Time = std::time::Duration;
 
-/// A nanosecond-based interface for creating & parsing instances of [Time].
-#[derive(Debug, Copy, Clone)]
-pub enum TimeUnit {
-	/** Nanoseconds  (ns)          */ Nanosecs, 
-	/** Microseconds (μs), 1,000ns */ Microsecs,
-	/** Milliseconds (ms), 1,000μs */ Millisecs,
-	/** Seconds      (s),  1,000ms */ Secs,
-	/** Minutes      (m),  60s     */ Mins,
-	/** Hours        (h),  60m     */ Hours,
-}
-
-impl TimeUnit {
-	const fn length(self) -> u64 {
-		match self {
-			Self::Nanosecs  => 1,
-			Self::Microsecs => 1000 * Self::Nanosecs.length(),
-			Self::Millisecs => 1000 * Self::Microsecs.length(),
-			Self::Secs      => 1000 * Self::Millisecs.length(),
-			Self::Mins      => 60 * Self::Secs.length(),
-			Self::Hours     => 60 * Self::Mins.length(),
-		}
-	}
+/// Units of time.
+mod units {
+	use super::Time;
 	
-	pub const fn time(self, value: u64) -> Time {
-		Time::from_nanos(value.saturating_mul(self.length()))
-	}
+	/// 1 nanosecond (ns).
+	pub const NANOSEC: Time = Time::from_nanos(1);
+	/// 1 microsecond (μs).
+	pub const MICROSEC: Time = Time::from_micros(1);
+	/// 1 millisecond (ms).
+	pub const MILLISEC: Time = Time::from_millis(1);
+	/// 1 second (s).
+	pub const SEC: Time = Time::from_secs(1);
+	/// 1 minute (m).
+	pub const MIN: Time = Time::from_secs(60);
+	/// 1 hour (h).
+	pub const HOUR: Time = Time::from_secs(60 * 60);
 }
-
- // Conversion:
-impl_op!{ a >> b -> u64 {
-	(Time,     TimeUnit) => (a.as_nanos() / (b.length() as u128)) as u64,
-	(TimeUnit, TimeUnit) => a.length() / b.length(),
-}}
-
- // Scalar Multiplication:
-impl_op!{ a * b -> Time {
-	(u64, TimeUnit) => b.time(a),
-}}
+pub use units::*;
 
 /// Iterator of [`Time`] values.
 #[derive(Clone)]
@@ -258,19 +236,18 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use TimeUnit::*;
 	
 	#[test]
 	fn time_logic() {
-		let a = [1*Secs, 2*Secs, 3*Secs].into_iter().collect::<Times>();
-		let b = [2*Secs, 5*Secs].into_iter().collect::<Times>();
-		assert_eq!((a.clone() & b.clone()).collect::<Vec<_>>(), [2*Secs]);
-		assert_eq!((a.clone() | b.clone()).collect::<Vec<_>>(), [1*Secs, 2*Secs, 3*Secs, 5*Secs]);
-		assert_eq!((a.clone() ^ b.clone()).collect::<Vec<_>>(), [1*Secs, 3*Secs, 5*Secs]);
+		let a = [1*SEC, 2*SEC, 3*SEC].into_iter().collect::<Times>();
+		let b = [2*SEC, 5*SEC].into_iter().collect::<Times>();
+		assert_eq!((a.clone() & b.clone()).collect::<Vec<_>>(), [2*SEC]);
+		assert_eq!((a.clone() | b.clone()).collect::<Vec<_>>(), [1*SEC, 2*SEC, 3*SEC, 5*SEC]);
+		assert_eq!((a.clone() ^ b.clone()).collect::<Vec<_>>(), [1*SEC, 3*SEC, 5*SEC]);
 		assert_eq!((!b).collect::<Vec<_>>(), [
-			(Time::ZERO, 2*Secs - 1*Nanosecs),
-			(2*Secs + 1*Nanosecs, 5*Secs - 1*Nanosecs),
-			(5*Secs + 1*Nanosecs, Time::MAX)
+			(Time::ZERO, 2*SEC - NANOSEC),
+			(2*SEC + NANOSEC, 5*SEC - NANOSEC),
+			(5*SEC + NANOSEC, Time::MAX)
 		]);
 	}
 }
