@@ -318,7 +318,10 @@ impl Roots for Sum<f64, 3> {
 		if c == 0. {
 			let p = -a / (2.0 * d);
 			let q = -b / (3.0 * d);
-			let discriminant = p*p - q*q*q;
+			let mut discriminant = p*p - q*q*q;
+			if discriminant.abs() < f64::EPSILON {
+				discriminant = 0.;
+			}
 			return match discriminant.partial_cmp(&0.0) {
 				 // 3 Real Roots:
 				Some(Ordering::Less) => {
@@ -340,7 +343,7 @@ impl Roots for Sum<f64, 3> {
 					Ok([(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN].into())
 				},
 				
-				 // This shouldn't really ever run, but just in case:
+				 // 2 Real Roots:
 				_ => {
 					let roots = [
 						[0.].into(),
