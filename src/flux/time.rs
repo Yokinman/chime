@@ -100,26 +100,7 @@ impl Not for Times {
 	
 	/// Inverse of times.
 	fn not(self) -> Self::Output {
-		let mut ranges = Vec::new();
-		let mut prev_time = None;
-		for time in self {
-			if prev_time.unwrap_or_default() != time {
-				let t = prev_time
-					.map(|t| t + Time::new(0, 1))
-					.unwrap_or_default();
-				
-				ranges.push((t, time - Time::new(0, 1)));
-			}
-			prev_time = Some(time);
-		}
-		if prev_time.unwrap_or_default() != Time::MAX {
-			let t = prev_time
-				.map(|t| t + Time::new(0, 1))
-				.unwrap_or_default();
-			
-			ranges.push((t, Time::MAX));
-		}
-		TimeRanges(ranges.into_iter())
+		!self.map(|t| (t, t)).collect::<TimeRanges>()
 	}
 }
 
@@ -153,6 +134,129 @@ impl FromIterator<(Time, Time)> for TimeRanges {
 			})
 			.collect::<Vec<_>>()
 			.into_iter())
+	}
+}
+
+impl BitAnd for TimeRanges {
+	type Output = Self;
+	
+	/// Intersection of ranges.
+	fn bitand(self, rhs: Self) -> Self::Output {
+		let mut prev = None;
+		Self(min_iter(self, rhs, false)
+			.filter_map(|curr| if let Some(prev_range) = prev {
+				match (prev_range, curr) {
+					(SomeOrd::Less((_, prev_b)), SomeOrd::Greater((a, b))) |
+					(SomeOrd::Greater((_, prev_b)), SomeOrd::Less((a, b))) => {
+						let r = if a <= prev_b {
+							Some((a, prev_b))
+						} else {
+							None
+						};
+						if b >= prev_b {
+							prev = Some(curr);
+						}
+						r
+					},
+					(_, SomeOrd::Equal(curr)) => {
+						prev = None;
+						Some(curr)
+					},
+					_ => {
+						prev = Some(curr);
+						None
+					}
+				}
+			} else {
+				prev = Some(curr);
+				None
+			})
+			.collect::<Vec<_>>()
+			.into_iter())
+	}
+}
+
+impl BitOr for TimeRanges {
+	type Output = Self;
+	
+	/// Union of ranges.
+	fn bitor(self, rhs: Self) -> Self::Output {
+		Self(min_iter(self, rhs, false)
+			.fold(Vec::new(), |mut ranges, range| {
+				let (a, b) = range.into_inner();
+				if let Some((_, prev_b)) = ranges.last_mut() {
+					if *prev_b < a {
+						ranges.push((a, b));
+					} else {
+						*prev_b = b;
+					}
+				} else {
+					ranges.push((a, b));
+				}
+				ranges
+			})
+			.into_iter())
+	}
+}
+
+impl BitXor for TimeRanges {
+	type Output = Self;
+	
+	/// Intersection of ranges.
+	fn bitxor(self, rhs: Self) -> Self::Output {
+		Self(min_iter(self, rhs, false)
+			.filter_map(|t| match t {
+				SomeOrd::Less(t) |
+				SomeOrd::Greater(t) => Some(t),
+				_ => None
+			})
+			.fold(Vec::new(), |mut ranges, (a, b)| {
+				match ranges.last_mut() {
+					Some((prev_a, prev_b))
+					if a <= *prev_b => {
+						if *prev_a != a {
+							let prev = std::mem::replace(prev_b, a - NANOSEC);
+							if prev != b {
+								ranges.push((prev + NANOSEC, b));
+							}
+						} else if *prev_b != b {
+							*prev_a = *prev_b + NANOSEC;
+							*prev_b = b;
+						}
+					},
+					_ => ranges.push((a, b))
+				}
+				ranges
+			})
+			.into_iter())
+	}
+}
+
+impl Not for TimeRanges {
+	type Output = Self;
+	
+	/// Inverse of ranges.
+	fn not(self) -> Self::Output {
+		let mut ranges = Vec::new();
+		let mut prev_time = None;
+		for (a, b) in self {
+			if prev_time.unwrap_or_default() != a {
+				let t = prev_time
+					.map(|t| t + Time::new(0, 1))
+					.unwrap_or_default();
+				
+				ranges.push((t, a - Time::new(0, 1)));
+			}
+			prev_time = Some(b);
+		}
+		if prev_time.unwrap_or_default() != Time::MAX {
+			let t = prev_time
+				.map(|t| t + Time::new(0, 1))
+				.unwrap_or_default();
+			
+			ranges.push((t, Time::MAX));
+		}
+		Self(ranges.into_iter())
 	}
 }
 
@@ -272,6 +376,35 @@ mod tests {
 			(Time::ZERO, 2*t - NANOSEC),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(5*t + NANOSEC, Time::MAX)
+		]);
+	}
+	
+	#[test]
+	fn range_logic() {
+		let t = NANOSEC;
+		let a = TimeRanges::from_iter(
+			[(1*t, 2*t), (3*t, 10*t), (20*t, 40*t)]);
+		let b = TimeRanges::from_iter(
+			[(2*t, 5*t), (20*t, 40*t), (50*t, Time::MAX)]);
+		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [
+			(2*t, 2*t),
+			(3*t, 5*t),
+			(20*t, 40*t)
+		]);
+		assert_eq!(Vec::from_iter(a.clone() | b.clone()), [
+			(1*t, 10*t),
+			(20*t, 40*t),
+			(50*t, Time::MAX)
+		]);
+		assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [
+			(1*t, 2*t - NANOSEC),
+			(5*t + NANOSEC, 10*t),
+			(50*t, Time::MAX)
+		]);
+		assert_eq!(Vec::from_iter(!b), [
+			(Time::ZERO, 2*t - NANOSEC),
+			(5*t + NANOSEC, 20*t - NANOSEC),
+			(40*t + NANOSEC, 50*t - NANOSEC)
 		]);
 	}
 }
