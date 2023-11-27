@@ -840,9 +840,9 @@ mod tests {
 		b_pos.at_mut(10*SEC).value -= 100.0;
 		
 		 // Check After:
-		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), [
-			(0*SEC, 8*SEC),
-			(50*SEC, Time::MAX)
+		assert_eq!(a_pos.when(Ordering::Greater, &b_pos).collect::<Vec<_>>(), [
+			(0*SEC, 8*SEC - time::NANOSEC),
+			(50*SEC + time::NANOSEC, Time::MAX)
 		]);
 		assert_times!(a_pos.when_eq(&b_pos), [8*SEC, 50*SEC]);
 	}

@@ -47,15 +47,15 @@ impl FromIterator<Time> for Times {
 	fn from_iter<T: IntoIterator<Item=Time>>(iter: T) -> Self {
 		let mut list = iter.into_iter().collect::<Vec<_>>();
 		list.sort_unstable();
+		list.dedup();
 		Self(list.into_iter())
 	}
 }
 
 impl BitAnd for Times {
-	//! Intersection of times.
-	
 	type Output = Self;
 	
+	/// Intersection of times.
 	fn bitand(self, rhs: Self) -> Self::Output {
 		Self(min_iter(self, rhs, true)
 			.filter_map(|t| match t {
@@ -68,27 +68,21 @@ impl BitAnd for Times {
 }
 
 impl BitOr for Times {
-	//! Union of times.
-	
 	type Output = Self;
 	
+	/// Union of times.
 	fn bitor(self, rhs: Self) -> Self::Output {
 		Self(min_iter(self, rhs, false)
-			.map(|t| match t {
-				SomeOrd::Less(t) |
-				SomeOrd::Greater(t) |
-				SomeOrd::Equal(t) => t,
-			})
+			.map(SomeOrd::into_inner)
 			.collect::<Vec<_>>()
 			.into_iter())
 	}
 }
 
 impl BitXor for Times {
-	//! Symmetric difference of times.
-	
 	type Output = Self;
 	
+	/// Symmetric difference of times.
 	fn bitxor(self, rhs: Self) -> Self::Output {
 		Self(min_iter(self, rhs, false)
 			.filter_map(|t| match t {
@@ -103,6 +97,8 @@ impl BitXor for Times {
 
 impl Not for Times {
 	type Output = TimeRanges;
+	
+	/// Inverse of times.
 	fn not(self) -> Self::Output {
 		let mut ranges = Vec::new();
 		let mut prev_time = None;
@@ -147,21 +143,35 @@ impl Iterator for TimeRanges {
 
 impl FromIterator<(Time, Time)> for TimeRanges {
 	fn from_iter<T: IntoIterator<Item=(Time, Time)>>(iter: T) -> Self {
-		let mut list = iter.into_iter().collect::<Vec<_>>();
-		list.sort_unstable_by_key(|(a, b)| {
-			assert!(a <= b);
-			*a
-		});
-		assert!(list.windows(2).all(|w| w[0].1 <= w[1].0));
-		Self(list.into_iter())
+		let mut prev = None;
+		Self(iter.into_iter()
+			.inspect(|&(a, b)| {
+				assert!(a <= b);
+				if let Some(prev) = std::mem::replace(&mut prev, Some(b)) {
+					assert!(prev < a);
+				}
+			})
+			.collect::<Vec<_>>()
+			.into_iter())
 	}
 }
 
 /// ...
+#[derive(Copy, Clone, Debug)]
 enum SomeOrd<T> {
 	Less(T),
 	Greater(T),
 	Equal(T),
+}
+
+impl<T> SomeOrd<T> {
+	pub fn into_inner(self) -> T {
+		match self {
+			SomeOrd::Less(t)    |
+			SomeOrd::Greater(t) |
+			SomeOrd::Equal(t)   => t
+		}
+	}
 }
 
 /// An iterator of two iterators. Compares the next item of the first iterator
@@ -214,6 +224,19 @@ where
 			_ => None
 		}
 	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let (a_min, a_max) = self.a_iter.size_hint();
+		let (b_min, b_max) = self.b_iter.size_hint();
+		let peek_num = (self.a_next.is_some() as usize) + (self.b_next.is_some() as usize);
+		(
+			a_min + b_min + peek_num,
+			if let (Some(a_max), Some(b_max)) = (a_max, b_max) {
+				Some(a_max + b_max + peek_num)
+			} else {
+				None
+			}
+		)
+	}
 }
 
 fn min_iter<A, B>(mut a_iter: A, mut b_iter: B, break_none: bool) -> OrdIter<A, B>
@@ -239,15 +262,16 @@ mod tests {
 	
 	#[test]
 	fn time_logic() {
-		let a = [1*SEC, 2*SEC, 3*SEC].into_iter().collect::<Times>();
-		let b = [2*SEC, 5*SEC].into_iter().collect::<Times>();
-		assert_eq!((a.clone() & b.clone()).collect::<Vec<_>>(), [2*SEC]);
-		assert_eq!((a.clone() | b.clone()).collect::<Vec<_>>(), [1*SEC, 2*SEC, 3*SEC, 5*SEC]);
-		assert_eq!((a.clone() ^ b.clone()).collect::<Vec<_>>(), [1*SEC, 3*SEC, 5*SEC]);
-		assert_eq!((!b).collect::<Vec<_>>(), [
-			(Time::ZERO, 2*SEC - NANOSEC),
-			(2*SEC + NANOSEC, 5*SEC - NANOSEC),
-			(5*SEC + NANOSEC, Time::MAX)
+		let t = SEC;
+		let a = Times::from_iter([1*t, 2*t, 3*t]);
+		let b = Times::from_iter([2*t, 5*t]);
+		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [2*t]);
+		assert_eq!(Vec::from_iter(a.clone() | b.clone()), [1*t, 2*t, 3*t, 5*t]);
+		assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [1*t, 3*t, 5*t]);
+		assert_eq!(Vec::from_iter(!b), [
+			(Time::ZERO, 2*t - NANOSEC),
+			(2*t + NANOSEC, 5*t - NANOSEC),
+			(5*t + NANOSEC, Time::MAX)
 		]);
 	}
 }

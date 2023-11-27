@@ -161,7 +161,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	pub(crate) fn when_sign(&self, order: Ordering, offset: Time) -> TimeRanges
+	pub(crate) fn when_sign(&self, order: Ordering, basis: Time) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -204,21 +204,40 @@ impl<K: FluxKind> Poly<K> {
 		};
 		
 		 // Convert Ranges to Times:
+		let offset = if order == Ordering::Equal {
+			Time::ZERO
+		} else {
+			Time::new(0, 1)
+		};
 		range_list
 			.filter_map(|(a, b)| {
-				debug_assert!(a <= b);
 				if let (
 					Ok(a) | Err(a @ Time::ZERO),
 					Ok(b) | Err(b @ Time::MAX)
 				) = (
-					time_try_from_secs(a, offset),
-					time_try_from_secs(b, offset)
+					time_try_from_secs(a, basis).map(|t| t.checked_add(offset).unwrap_or(Time::MAX)),
+					time_try_from_secs(b, basis).map(|t| t.checked_sub(offset).unwrap_or(Time::ZERO))
 				) {
-					Some((a, b))
+					if a <= b {
+						Some((a, b))
+					} else {
+						None
+					}
 				} else {
 					None
 				}
 			})
+			.fold(Vec::new(), |mut ranges, (a, b)| {
+				 // Combine Adjacent Ranges:
+				match ranges.last_mut() {
+					Some((_, prev)) if *prev == a => {
+						*prev = b;
+					},
+					_ => ranges.push((a, b))
+				}
+				ranges
+			})
+			.into_iter()
 			.collect()
 	}
 	
@@ -238,8 +257,15 @@ impl<K: FluxKind> Poly<K> {
 		}
 		
 		 // Convert Roots to Times:
+		let mut prev = None;
 		real_roots.into_iter()
-			.filter_map(|t| time_try_from_secs(t, basis).ok())
+			.filter_map(|t| {
+				if std::mem::replace(&mut prev, Some(t)) == Some(t) {
+					None
+				} else {
+					time_try_from_secs(t, basis).ok()
+				}
+			})
 			.collect()
 	}
 }
