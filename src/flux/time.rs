@@ -104,6 +104,20 @@ impl Not for Times {
 	}
 }
 
+impl BitAnd<TimeRanges> for Times {
+	type Output = Self;
+	
+	/// Intersection of times & ranges.
+	fn bitand(self, rhs: TimeRanges) -> Self::Output {
+		(self.map(|t| (t, t)).collect::<TimeRanges>() & rhs)
+			.map(|(a, b)| {
+				debug_assert_eq!(a, b);
+				a
+			})
+			.collect()
+	}
+}
+
 /// Iterator of [`Time`] ranges.
 #[derive(Clone)]
 #[must_use]
@@ -149,7 +163,7 @@ impl BitAnd for TimeRanges {
 					(SomeOrd::Less((_, prev_b)), SomeOrd::Greater((a, b))) |
 					(SomeOrd::Greater((_, prev_b)), SomeOrd::Less((a, b))) => {
 						let r = if a <= prev_b {
-							Some((a, prev_b))
+							Some((a, prev_b.min(b)))
 						} else {
 							None
 						};
@@ -377,6 +391,10 @@ mod tests {
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(5*t + NANOSEC, Time::MAX)
 		]);
+		assert_eq!(
+			Vec::from_iter(a.clone() & TimeRanges::from_iter([(Time::ZERO, Time::MAX)])),
+			Vec::from_iter(a.clone())
+		);
 	}
 	
 	#[test]
