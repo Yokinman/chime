@@ -239,8 +239,6 @@ macro_rules! impl_deg_add {
 }
 impl_deg_order!(1);
 
-const LIMIT: f64 = 0.01;
-
 impl Roots for Sum<f64, 0> {
 	fn roots(self) -> Result<RootList, RootList> {
 		Ok([].into())
@@ -278,7 +276,7 @@ impl Roots for Sum<f64, 2> {
 		}
 		
 		 // Precision Breakdown:
-		if (4.0 * a * c/(b*b)).abs() < LIMIT {
+		if (a * c/(b*b)).abs() < 1e-10 {
 			// https://www.desmos.com/calculator/coxloe79ea
 			let roots = [
 				[-b / c].into(),
@@ -356,9 +354,9 @@ impl Roots for Sum<f64, 3> {
 		
 		 // Precision Breakdown:
 		if
-			(4.0  * b *   d/(c*c))   .abs() < LIMIT &&
-			(27.0 * a * d*d/(c*c*c)) .abs() < LIMIT
-			// https://www.desmos.com/calculator/4kgmefjtqz
+			(b *   d/(c*c))   .abs() < 1e-9 &&
+			(a * d*d/(c*c*c)) .abs() < 1e-13
+			// https://www.desmos.com/calculator/ckzncd7l5h
 		{
 			let roots = [
 				[-c / d].into(),
@@ -426,10 +424,11 @@ impl Roots for Sum<f64, 4> {
 					1.0,
 				]
 			);
-			let m = *Poly::from(resolvent_cubic).real_roots()
+			let m = Poly::from(resolvent_cubic).real_roots()
 				.unwrap_or_default() 
-				.iter().rev().find(|&r| *r >= 0.0)
-				.expect("this shouldn't happen, probably a precision issue");
+				.iter().rev().find(|&r| *r > -f64::EPSILON)
+				.expect("this shouldn't happen, probably a precision issue")
+				.max(0.);
 			let sqrt_2m = (2.0 * m).sqrt();
 			let quad_a = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.0]);
 			let quad_b = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.0]);
@@ -438,10 +437,10 @@ impl Roots for Sum<f64, 4> {
 		
 		 // Precision Breakdown:
 		if
-			(4.0   * c *     e/(d*d))     .abs() < LIMIT &&
-			(27.0  * b *   e*e/(d*d*d))   .abs() < LIMIT &&
-			(256.0 * a * e*e*e/(d*d*d*d)) .abs() < LIMIT
-			// https://www.desmos.com/calculator/09upa4bqod
+			(c *     e/(d*d))     .abs() < 1e-7  &&
+			(b *   e*e/(d*d*d))   .abs() < 1e-10 &&
+			(a * e*e*e/(d*d*d*d)) .abs() < 1e-15
+			// https://www.desmos.com/calculator/nl1jbjq07m
 		{
 			let roots = [
 				[-d / e].into(),
