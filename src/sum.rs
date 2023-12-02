@@ -426,7 +426,7 @@ impl Roots for Sum<f64, 4> {
 			);
 			let m = Poly::from(resolvent_cubic).real_roots()
 				.unwrap_or_default() 
-				.iter().rev().find(|&r| *r > -f64::EPSILON)
+				.iter().rev().find(|&r| *r > -1e-14)
 				.expect("this shouldn't happen, probably a precision issue")
 				.max(0.);
 			let sqrt_2m = (2.0 * m).sqrt();
