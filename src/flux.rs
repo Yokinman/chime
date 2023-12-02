@@ -4,6 +4,7 @@ pub mod time;
 pub mod kind;
 mod impls;
 
+use std::array;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -239,20 +240,20 @@ where
 }
 
 /// Multidimensional change over time.
-pub trait FluxVec {
+pub trait FluxVec<const DEGREE: usize> {
 	type Kind: FluxKind;
-	fn times(&self) -> Times;
-	fn polys(&self, time: Time) -> Polys<Self::Kind>;
+	fn times(&self) -> [Time; DEGREE];
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; DEGREE];
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T: FluxVec + ?Sized, D: Flux>(
+	fn when_dis<T: FluxVec<DEGREE> + ?Sized, D: Flux>(
 		&self,
 		other: &T,
 		cmp_order: Ordering,
 		dis: &D,
 	) -> TimeRanges
 	where
-		WhenDis<Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
+		WhenDis<DEGREE, Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
 	{
 		let time = std::iter::once(dis.base_time())
 			.chain(self.times())
@@ -270,13 +271,13 @@ pub trait FluxVec {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis_eq<T: FluxVec + ?Sized, D: Flux>(
+	fn when_dis_eq<T: FluxVec<DEGREE> + ?Sized, D: Flux>(
 		&self,
 		other: &T,
 		dis: &D,
 	) -> Times
 	where
-		WhenDisEq<Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=Times>
+		WhenDisEq<DEGREE, Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=Times>
 	{
 		let time = std::iter::once(dis.base_time())
 			.chain(self.times())
@@ -293,37 +294,37 @@ pub trait FluxVec {
 	}
 }
 
-impl<T: Flux> FluxVec for [T] {
-	type Kind = T::Kind;
-	fn times(&self) -> Times {
-		self.iter()
-			.map(|x| x.base_time())
-			.collect()
-	}
-	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-		self.iter()
-			.map(|x| x.poly(time))
-			.collect()
-	}
-}
+// impl<T: Flux> FluxVec for [T] {
+// 	type Kind = T::Kind;
+// 	fn times(&self) -> Times {
+// 		self.iter()
+// 			.map(|x| x.base_time())
+// 			.collect()
+// 	}
+// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+// 		self.iter()
+// 			.map(|x| x.poly(time))
+// 			.collect()
+// 	}
+// }
 
-impl<T: Flux> FluxVec for Vec<T> {
-	type Kind = T::Kind;
-	fn times(&self) -> Times {
-		self.as_slice().times()
-	}
-	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-		self.as_slice().polys(time)
-	}
-}
+// impl<T: Flux> FluxVec for Vec<T> {
+// 	type Kind = T::Kind;
+// 	fn times(&self) -> Times {
+// 		self.as_slice().times()
+// 	}
+// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
+// 		self.as_slice().polys(time)
+// 	}
+// }
 
-impl<T: Flux, const S: usize> FluxVec for [T; S] {
+impl<T: Flux, const D: usize> FluxVec<D> for [T; D] {
 	type Kind = T::Kind;
-	fn times(&self) -> Times {
-		self.as_slice().times()
+	fn times(&self) -> [Time; D] {
+		array::from_fn(|i| self[i].base_time())
 	}
-	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-		self.as_slice().polys(time)
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; D] {
+		array::from_fn(|i| self[i].poly(time))
 	}
 }
 
@@ -344,9 +345,9 @@ impl<T: Flux, const S: usize> FluxVec for [T; S] {
 // 	}
 // }
 
-/// ...
-#[allow(type_alias_bounds)]
-type Polys<K: FluxKind> = Box<[Poly<K>]>;
+// /// ...
+// #[allow(type_alias_bounds)]
+// type Polys<K: FluxKind> = Box<[Poly<K>]>;
 
 /// [`Flux::when`] predictive comparison.
 #[derive(Copy, Clone, Debug)]
@@ -396,15 +397,15 @@ where
 }
 
 /// [`FluxVec::when_dis`] predictive distance comparison.
-pub struct WhenDis<A: FluxKind, B: FluxKind, D: FluxKind> {
-	a_poly: Box<[Poly<A>]>,
-	b_poly: Box<[Poly<B>]>,
+pub struct WhenDis<const DEGREE: usize, A: FluxKind, B: FluxKind, D: FluxKind> {
+	a_poly: [Poly<A>; DEGREE],
+	b_poly: [Poly<B>; DEGREE],
 	cmp_order: Ordering,
 	dis: Poly<D>,
 	time: Time,
 }
 
-impl<A: FluxKind, B: FluxKind, D> IntoIterator for WhenDis<A, B, D>
+impl<const DEGREE: usize, A: FluxKind, B: FluxKind, D> IntoIterator for WhenDis<DEGREE, A, B, D>
 where
 	A: kind_ops::Sub<B>,
 	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
@@ -422,19 +423,12 @@ where
 	type IntoIter = TimeRanges;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let count = self.a_poly.len().max(self.b_poly.len());
-		
-		let mut a_iter = self.a_poly.iter().copied();
-		let mut b_iter = self.b_poly.iter().copied();
-		
 		let mut sum = Poly
 			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
 			::default();
 		
-		for _ in 0..count {
-			let a = a_iter.next().unwrap_or_default();
-			let b = b_iter.next().unwrap_or_default();
-			sum = sum + (a - b).sqr();
+		for i in 0..DEGREE {
+			sum = sum + (self.a_poly[i] - self.b_poly[i]).sqr();
 		}
 		sum = sum - self.dis.sqr();
 		
@@ -443,14 +437,14 @@ where
 }
 
 /// [`FluxVec::when_dis_eq`] predictive distance comparison.
-pub struct WhenDisEq<A: FluxKind, B: FluxKind, D: FluxKind> {
-	a_poly: Box<[Poly<A>]>,
-	b_poly: Box<[Poly<B>]>,
-	dis: Poly<D>,
-	time: Time,
+pub struct WhenDisEq<const DEGREE: usize, A: FluxKind, B: FluxKind, D: FluxKind> {
+	pub a_poly: [Poly<A>; DEGREE],
+	pub b_poly: [Poly<B>; DEGREE],
+	pub dis: Poly<D>,
+	pub time: Time,
 }
 
-impl<A: FluxKind, B: FluxKind, D> IntoIterator for WhenDisEq<A, B, D>
+impl<const DEGREE: usize, A: FluxKind, B: FluxKind, D> IntoIterator for WhenDisEq<DEGREE, A, B, D>
 where
 	A: kind_ops::Sub<B>,
 	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
@@ -468,19 +462,12 @@ where
 	type IntoIter = Times;
 	
 	fn into_iter(self) -> Self::IntoIter {
-		let count = self.a_poly.len().max(self.b_poly.len());
-		
-		let mut a_iter = self.a_poly.iter().copied();
-		let mut b_iter = self.b_poly.iter().copied();
-		
 		let mut sum = Poly
 			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
 			::default();
 		
-		for _ in 0..count {
-			let a = a_iter.next().unwrap_or_default();
-			let b = b_iter.next().unwrap_or_default();
-			sum = sum + (a - b).sqr();
+		for i in 0..DEGREE {
+			sum = sum + (self.a_poly[i] - self.b_poly[i]).sqr();
 		}
 		sum = sum - self.dis.sqr();
 		
