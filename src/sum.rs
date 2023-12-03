@@ -427,7 +427,7 @@ impl Roots for Sum<f64, 4> {
 			);
 			let m = Poly::from(resolvent_cubic).real_roots()
 				.unwrap_or_default() 
-				.iter().rev().find(|&r| *r > -1e-14)
+				.iter().rev().find(|&r| *r >= 0.)
 				.expect("this shouldn't happen, probably a precision issue")
 				.max(0.);
 			let sqrt_2m = (2. * m).sqrt();
@@ -709,6 +709,14 @@ mod tests {
 		assert_roots(
 			Sum(6., [-2077.5, -17000./77., 6712./70.]),
 			&[-3.64550618348, 0.00288720188, 5.94514363216]
+		);
+		assert_roots(
+			Sum(-3.6350710512584225e-33, [
+				0.10240000000000019,
+				-0.5455003017809628,
+				1.
+			]),
+			&[3.54987407349455e-32]
 		);
 		
 		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Sum<f64, 3> {
