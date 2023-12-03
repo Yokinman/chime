@@ -154,6 +154,10 @@ impl<K: FluxKind> Poly<K> {
 		}
 	}
 	
+	pub fn time(&self) -> Time {
+		self.time
+	}
+	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
