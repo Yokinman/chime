@@ -268,25 +268,26 @@ impl Roots for Sum<f64, 2> {
 			];
 			return Ok(roots.concat().into())
 		}
-		
-		 // Pseudo-linear:
 		if b == 0. {
+			 // Pseudo-linear:
 			let r = (-a / c).sqrt();
 			return Ok([r, -r].into())
 		}
 		
+		let mut n = -b / c;
+		
 		 // Precision Breakdown:
-		if (a * c/(b*b)).abs() < 1e-10 {
+		if (a / (n * b)).abs() < 1e-10 {
 			// https://www.desmos.com/calculator/coxloe79ea
 			let roots = [
-				[-b / c].into(),
+				[n].into(),
 				Sum(a, [b]).roots()?
 			];
 			return Ok(roots.concat().into())
 		}
 		
 		 // General Quadratic:
-		let n = -b / (2.0 * c);
+		n /= 2.;
 		let n1 = (n*n - a/c).sqrt();
 		Ok([n + n1, n - n1].into())
 	}
@@ -305,22 +306,21 @@ impl Roots for Sum<f64, 3> {
 			];
 			return Ok(roots.concat().into())
 		}
-		
-		 // Pseudo-linear:
-		if (b,c) == (0.,0.) {
-			let r = (-a / d).cbrt();
-			return Ok([r, r, r].into())
-		}
-		
-		 // Depressed Cubic:
 		if c == 0. {
-			let p = -a / (2.0 * d);
-			let q = -b / (3.0 * d);
-			let mut discriminant = p*p - q*q*q;
+			 // Pseudo-linear:
+			if b == 0. {
+				let r = (-a / d).cbrt();
+				return Ok([r; 3].into())
+			}
+			
+			 // Depressed Cubic:
+			let p = -a / (2. * d);
+			let q = -b / (3. * d);
+			let mut discriminant = q.mul_add(-q*q, p*p);
 			if discriminant.abs() < f64::EPSILON {
 				discriminant = 0.;
 			}
-			return match discriminant.partial_cmp(&0.0) {
+			return match discriminant.partial_cmp(&0.) {
 				 // 3 Real Roots:
 				Some(Ordering::Less) => {
 					let sqrt_q = q.sqrt();
@@ -328,9 +328,9 @@ impl Roots for Sum<f64, 3> {
 					let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
 					use std::f64::consts::TAU;
 					Ok([
-						2.0 * sqrt_q * f64::cos(angle + TAU*0.0/3.0),
-						2.0 * sqrt_q * f64::cos(angle + TAU*1.0/3.0),
-						2.0 * sqrt_q * f64::cos(angle + TAU*2.0/3.0),
+						2. * sqrt_q * f64::cos(TAU.mul_add(0./3., angle)),
+						2. * sqrt_q * f64::cos(TAU.mul_add(1./3., angle)),
+						2. * sqrt_q * f64::cos(TAU.mul_add(2./3., angle)),
 					].into())
 				},
 				
@@ -352,26 +352,28 @@ impl Roots for Sum<f64, 3> {
 			}
 		}
 		
+		let mut n = -c / d;
+		
 		 // Precision Breakdown:
 		if
-			(b *   d/(c*c))   .abs() < 1e-9 &&
-			(a * d*d/(c*c*c)) .abs() < 1e-13
+			(b / (n   * c)).abs() < 1e-9 &&
+			(a / (n*n * c)).abs() < 1e-13
 			// https://www.desmos.com/calculator/ckzncd7l5h
 		{
 			let roots = [
-				[-c / d].into(),
+				[n].into(),
 				Sum(a, [b, c]).roots()?
 			];
 			return Ok(roots.concat().into())
 		}
 		
 		 // General Cubic:
-		let n = -c / (3.0 * d);
+		n /= 3.;
 		let depressed_cubic = Sum(
-			a + (n * (b + (n * c * (2.0/3.0)))),
+			n.mul_add(n.mul_add(c * (2./3.), b), a),
 			[
-				b + (n * c),
-				0.0,
+				n.mul_add(c, b),
+				0.,
 				d,
 			]
 		);
@@ -395,33 +397,32 @@ impl Roots for Sum<f64, 4> {
 			];
 			return Ok(roots.concat().into())
 		}
-		
-		 // Pseudo-linear:
-		if (b,c,d) == (0.,0.,0.) {
-			let r = (-a / e).sqrt().sqrt();
-			return Ok([r, r, -r, -r].into())
-		}
-		
-		 // Biquadratic:
-		if (b,d) == (0.,0.) {
-			return Ok(Sum(a, [c, e]).roots()?
-				.iter()
-				.map(|r| r.sqrt())
-				.flat_map(|r| [r, -r])
-				.collect())
-		}
-		
-		 // Depressed Quartic:
 		if d == 0. {
+			if b == 0. {
+				if c == 0. {
+					 // Pseudo-linear:
+					let r = (-a / e).sqrt().sqrt();
+					return Ok([r, r, -r, -r].into())
+				}
+				
+				 // Biquadratic:
+				return Ok(Sum(a, [c, e]).roots()?
+					.iter()
+					.map(|r| r.sqrt())
+					.flat_map(|r| [r, -r])
+					.collect())
+			}
+			
+			 // Depressed Quartic:
 			let p = a / e;
-			let q = b / (2.0 * e);
-			let r = c / (2.0 * e);
+			let q = b / (2. * e);
+			let r = c / (2. * e);
 			let resolvent_cubic = Sum(
-				-(q * q) / 2.0,
+				-(q * q) / 2.,
 				[
-					(r * r) - p,
-					2.0 * r,
-					1.0,
+					r.mul_add(r, -p),
+					2. * r,
+					1.,
 				]
 			);
 			let m = Poly::from(resolvent_cubic).real_roots()
@@ -429,34 +430,36 @@ impl Roots for Sum<f64, 4> {
 				.iter().rev().find(|&r| *r > -1e-14)
 				.expect("this shouldn't happen, probably a precision issue")
 				.max(0.);
-			let sqrt_2m = (2.0 * m).sqrt();
-			let quad_a = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.0]);
-			let quad_b = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.0]);
+			let sqrt_2m = (2. * m).sqrt();
+			let quad_a = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]);
+			let quad_b = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]);
 			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat().into())
 		}
 		
+		let mut n = -d / e;
+		
 		 // Precision Breakdown:
 		if
-			(c *     e/(d*d))     .abs() < 1e-7  &&
-			(b *   e*e/(d*d*d))   .abs() < 1e-10 &&
-			(a * e*e*e/(d*d*d*d)) .abs() < 1e-15
+			(c / (n     * d)).abs() < 1e-7  &&
+			(b / (n*n   * d)).abs() < 1e-10 &&
+			(a / (n*n*n * d)).abs() < 1e-15
 			// https://www.desmos.com/calculator/nl1jbjq07m
 		{
 			let roots = [
-				[-d / e].into(),
+				[n].into(),
 				Sum(a, [b, c, d]).roots()?
 			];
 			return Ok(roots.concat().into())
 		}
 		
 		 // General Quartic:
-		let n = -d / (4.0 * e);
+		n /= 4.;
 		let depressed_quartic = Sum(
-			a + (n * (b + (n * (c + (n * d * (3.0/4.0)))))),
+			n.mul_add(n.mul_add(n.mul_add(d * (3./4.), c), b), a),
 			[
-				b + (n * (c + (n * d)) * 2.0),
-				c + (n * d * (3.0/2.0)),
-				0.0,
+				n.mul_add(n.mul_add(d, c) * 2., b),
+				n.mul_add(d * (3./2.), c),
+				0.,
 				e,
 			]
 		);

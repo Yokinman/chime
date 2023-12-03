@@ -236,7 +236,7 @@ impl<K: FluxKind> Poly<K> {
 		} else {
 			Time::new(0, 1)
 		};
-		range_list
+		TimeRanges(range_list
 			.filter_map(|(a, b)| {
 				if let (
 					Ok(a) | Err(a @ Time::ZERO),
@@ -266,8 +266,7 @@ impl<K: FluxKind> Poly<K> {
 				}
 				ranges
 			})
-			.into_iter()
-			.collect()
+			.into_iter())
 	}
 	
 	/// Times when the value is equal to zero.
@@ -287,7 +286,7 @@ impl<K: FluxKind> Poly<K> {
 		
 		 // Convert Roots to Times:
 		let mut prev = None;
-		real_roots.into_iter()
+		Times(real_roots.into_iter()
 			.filter_map(|t| {
 				if std::mem::replace(&mut prev, Some(t)) == Some(t) {
 					None
@@ -295,7 +294,8 @@ impl<K: FluxKind> Poly<K> {
 					time_try_from_secs(t, self.time).ok()
 				}
 			})
-			.collect()
+			.collect::<Vec<_>>()
+			.into_iter())
 	}
 }
 
