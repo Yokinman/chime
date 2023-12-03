@@ -376,3 +376,112 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		basis.checked_add(time).ok_or(Time::MAX)
 	}
 }
+
+mod private {
+	/// Sealed trait, only applied to [`super::Poly`] and [`super::PolyVec`].
+	pub trait PolyValue<const SIZE: usize> {}
+}
+
+impl<K> private::PolyValue<1> for Poly<K> {}
+impl<K, const SIZE: usize> private::PolyValue<SIZE> for PolyVec<K, SIZE> {}
+
+/// [`crate::Flux::when`] predictive comparison.
+pub trait When<B>: private::PolyValue<1> {
+	fn when(self, order: Ordering, poly: Poly<B>, basis: Time) -> TimeRanges;
+}
+
+impl<A: FluxKind, B: FluxKind> When<B> for Poly<A>
+where
+	A: ops::Sub<B>,
+	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
+	A::Value: PartialOrd,
+{
+	fn when(self, order: Ordering, poly: Poly<B>, basis: Time) -> TimeRanges {
+		(self - poly).when_sign(order, basis)
+	}
+}
+
+/// [`crate::Flux::when_eq`] predictive comparison.
+pub trait WhenEq<B>: private::PolyValue<1> {
+	fn when_eq(self, poly: Poly<B>, basis: Time) -> Times;
+}
+
+impl<A: FluxKind, B: FluxKind> WhenEq<B> for Poly<A>
+where
+	A: ops::Sub<B>,
+	<A as ops::Sub<B>>::Output: Roots + PartialEq,
+	A::Value: PartialEq,
+{
+	fn when_eq(self, poly: Poly<B>, basis: Time) -> Times {
+		(self - poly).when_zero(basis)
+	}
+}
+
+/// [`crate::FluxVec::polys`].
+pub struct PolyVec<K, const SIZE: usize>(pub [Poly<K>; SIZE]);
+
+/// [`crate::FluxVec::when_dis`] predictive distance comparison.
+pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
+	fn when_dis(&self, poly: &PolyVec<B, SIZE>, order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges;
+}
+
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDis<SIZE, B, D> for PolyVec<A, SIZE>
+where
+	A: ops::Sub<B>,
+	<A as ops::Sub<B>>::Output: ops::Sqr,
+	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
+		Add<Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+		+ ops::Sub<
+			<D as ops::Sqr>::Output,
+			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+		+ Roots
+		+ PartialOrd,
+	A::Value: PartialOrd,
+	D: FluxKind<Value=A::Value> + ops::Sqr,
+{
+	fn when_dis(&self, poly: &PolyVec<B, SIZE>, order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges {
+		let mut sum = Poly
+			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+			::default();
+		
+		for i in 0..SIZE {
+			sum = sum + (self.0[i] - poly.0[i]).sqr();
+		}
+		sum = sum - dis.sqr();
+		
+		sum.when_sign(order, basis)
+	}
+}
+
+/// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
+pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
+	fn when_dis_eq(&self, poly: &PolyVec<B, SIZE>, dis: &Poly<D>, basis: Time) -> Times;
+}
+
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDisEq<SIZE, B, D> for PolyVec<A, SIZE>
+where
+	A: ops::Sub<B>,
+	<A as ops::Sub<B>>::Output: ops::Sqr,
+	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
+		Add<Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+		+ ops::Sub<
+			<D as ops::Sqr>::Output,
+			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+		+ Roots
+		+ PartialEq,
+	A::Value: PartialEq,
+	D: FluxKind<Value=A::Value> + ops::Sqr,
+{
+	fn when_dis_eq(&self, poly: &PolyVec<B, SIZE>, dis: &Poly<D>, basis: Time) -> Times {
+		let mut sum = Poly
+			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
+			::default();
+		
+		for i in 0..SIZE {
+			sum = sum + (self.0[i] - poly.0[i]).sqr();
+		}
+		sum = sum - dis.sqr();
+		
+		sum.when_zero(basis)
+	}
+}

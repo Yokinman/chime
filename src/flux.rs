@@ -12,7 +12,7 @@ use std::ops::{Add, Deref, DerefMut, Mul};
 
 use crate::{
 	linear::*,
-	kind::{*, ops as kind_ops},
+	kind::*,
 };
 
 use self::time::{Time, Times, TimeRanges};
@@ -127,30 +127,21 @@ pub trait Flux {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T: Flux>(&self, cmp_order: Ordering, other: &T) -> TimeRanges
+	fn when<T: Flux>(&self, order: Ordering, other: &T) -> TimeRanges
 	where
-		When<Self::Kind, T::Kind>: IntoIterator<IntoIter=TimeRanges>
+		Poly<Self::Kind>: When<T::Kind>
 	{
-		let time = self.base_time().max(other.base_time());
-		When {
-			a_poly: self.poly(time),
-			b_poly: other.poly(time),
-			cmp_order,
-			time,
-		}.into_iter()
+		let basis = self.base_time().max(other.base_time());
+		self.poly(basis).when(order, other.poly(basis), basis)
 	}
 	
 	/// Times when this is equal to another flux.
 	fn when_eq<T: Flux>(&self, other: &T) -> Times
 	where
-		WhenEq<Self::Kind, T::Kind>: IntoIterator<IntoIter=Times>
+		Poly<Self::Kind>: WhenEq<T::Kind>
 	{
-		let time = self.base_time().max(other.base_time());
-		WhenEq {
-			a_poly: self.poly(time),
-			b_poly: other.poly(time),
-			time,
-		}.into_iter()
+		let basis = self.base_time().max(other.base_time());
+		self.poly(basis).when_eq(other.poly(basis), basis)
 	}
 }
 
@@ -240,91 +231,54 @@ where
 }
 
 /// Multidimensional change over time.
-pub trait FluxVec<const DEGREE: usize> {
+pub trait FluxVec<const SIZE: usize> {
 	type Kind: FluxKind;
-	fn times(&self) -> [Time; DEGREE];
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; DEGREE];
+	fn times(&self) -> [Time; SIZE];
+	fn polys(&self, time: Time) -> PolyVec<Self::Kind, SIZE>;
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T: FluxVec<DEGREE> + ?Sized, D: Flux>(
+	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
 		&self,
 		other: &T,
-		cmp_order: Ordering,
+		order: Ordering,
 		dis: &D,
 	) -> TimeRanges
 	where
-		WhenDis<DEGREE, Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=TimeRanges>
+		PolyVec<Self::Kind, SIZE>: WhenDis<SIZE, T::Kind, D::Kind>
 	{
-		let time = std::iter::once(dis.base_time())
+		let basis = std::iter::once(dis.base_time())
 			.chain(self.times())
 			.chain(other.times())
 			.max()
 			.unwrap_or_default();
-		
-		WhenDis {
-			a_poly: self.polys(time),
-			b_poly: other.polys(time),
-			cmp_order,
-			dis: dis.poly(time),
-			time,
-		}.into_iter()
+		self.polys(basis).when_dis(&other.polys(basis), order, &dis.poly(basis), basis)
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis_eq<T: FluxVec<DEGREE> + ?Sized, D: Flux>(
+	fn when_dis_eq<T: FluxVec<SIZE> + ?Sized, D: Flux>(
 		&self,
 		other: &T,
 		dis: &D,
 	) -> Times
 	where
-		WhenDisEq<DEGREE, Self::Kind, T::Kind, D::Kind>: IntoIterator<IntoIter=Times>
+		PolyVec<Self::Kind, SIZE>: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
-		let time = std::iter::once(dis.base_time())
+		let basis = std::iter::once(dis.base_time())
 			.chain(self.times())
 			.chain(other.times())
 			.max()
 			.unwrap_or_default();
-		
-		WhenDisEq {
-			a_poly: self.polys(time),
-			b_poly: other.polys(time),
-			dis: dis.poly(time),
-			time,
-		}.into_iter()
+		self.polys(basis).when_dis_eq(&other.polys(basis), &dis.poly(basis), basis)
 	}
 }
-
-// impl<T: Flux> FluxVec for [T] {
-// 	type Kind = T::Kind;
-// 	fn times(&self) -> Times {
-// 		self.iter()
-// 			.map(|x| x.base_time())
-// 			.collect()
-// 	}
-// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-// 		self.iter()
-// 			.map(|x| x.poly(time))
-// 			.collect()
-// 	}
-// }
-
-// impl<T: Flux> FluxVec for Vec<T> {
-// 	type Kind = T::Kind;
-// 	fn times(&self) -> Times {
-// 		self.as_slice().times()
-// 	}
-// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-// 		self.as_slice().polys(time)
-// 	}
-// }
 
 impl<T: Flux, const D: usize> FluxVec<D> for [T; D] {
 	type Kind = T::Kind;
 	fn times(&self) -> [Time; D] {
 		array::from_fn(|i| self[i].base_time())
 	}
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; D] {
-		array::from_fn(|i| self[i].poly(time))
+	fn polys(&self, time: Time) -> PolyVec<Self::Kind, D> {
+		PolyVec(array::from_fn(|i| self[i].poly(time)))
 	}
 }
 
@@ -344,136 +298,6 @@ impl<T: Flux, const D: usize> FluxVec<D> for [T; D] {
 // 			.into_iter().collect()
 // 	}
 // }
-
-// /// ...
-// #[allow(type_alias_bounds)]
-// type Polys<K: FluxKind> = Box<[Poly<K>]>;
-
-/// [`Flux::when`] predictive comparison.
-#[derive(Copy, Clone, Debug)]
-pub struct When<A: FluxKind, B: FluxKind> {
-	a_poly: Poly<A>,
-	b_poly: Poly<B>,
-	cmp_order: Ordering,
-	time: Time,
-}
-
-impl<A: FluxKind, B: FluxKind> IntoIterator for When<A, B>
-where
-	A: kind_ops::Sub<B>,
-	<A as kind_ops::Sub<B>>::Output: Roots + PartialOrd,
-	A::Value: PartialOrd,
-{
-	type Item = (Time, Time);
-	type IntoIter = TimeRanges;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		let poly = self.a_poly - self.b_poly;
-		poly.when_sign(self.cmp_order, self.time)
-	}
-}
-
-/// [`Flux::when_eq`] predictive equality comparison.
-#[derive(Copy, Clone, Debug)]
-pub struct WhenEq<A: FluxKind, B: FluxKind> {
-	a_poly: Poly<A>,
-	b_poly: Poly<B>,
-	time: Time,
-}
-
-impl<A: FluxKind, B: FluxKind> IntoIterator for WhenEq<A, B>
-where
-	A: kind_ops::Sub<B>,
-	<A as kind_ops::Sub<B>>::Output: Roots + PartialEq,
-	A::Value: PartialEq,
-{
-	type Item = Time;
-	type IntoIter = Times;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		let poly = self.a_poly - self.b_poly;
-		poly.when_zero(self.time)
-	}
-}
-
-/// [`FluxVec::when_dis`] predictive distance comparison.
-pub struct WhenDis<const DEGREE: usize, A: FluxKind, B: FluxKind, D: FluxKind> {
-	a_poly: [Poly<A>; DEGREE],
-	b_poly: [Poly<B>; DEGREE],
-	cmp_order: Ordering,
-	dis: Poly<D>,
-	time: Time,
-}
-
-impl<const DEGREE: usize, A: FluxKind, B: FluxKind, D> IntoIterator for WhenDis<DEGREE, A, B, D>
-where
-	A: kind_ops::Sub<B>,
-	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
-	<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output:
-		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-		+ kind_ops::Sub<
-			<D as kind_ops::Sqr>::Output,
-			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-		+ Roots
-		+ PartialOrd,
-	A::Value: PartialOrd,
-	D: FluxKind<Value=A::Value> + kind_ops::Sqr,
-{
-	type Item = (Time, Time);
-	type IntoIter = TimeRanges;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		let mut sum = Poly
-			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-			::default();
-		
-		for i in 0..DEGREE {
-			sum = sum + (self.a_poly[i] - self.b_poly[i]).sqr();
-		}
-		sum = sum - self.dis.sqr();
-		
-		sum.when_sign(self.cmp_order, self.time)
-	}
-}
-
-/// [`FluxVec::when_dis_eq`] predictive distance comparison.
-pub struct WhenDisEq<const DEGREE: usize, A: FluxKind, B: FluxKind, D: FluxKind> {
-	pub a_poly: [Poly<A>; DEGREE],
-	pub b_poly: [Poly<B>; DEGREE],
-	pub dis: Poly<D>,
-	pub time: Time,
-}
-
-impl<const DEGREE: usize, A: FluxKind, B: FluxKind, D> IntoIterator for WhenDisEq<DEGREE, A, B, D>
-where
-	A: kind_ops::Sub<B>,
-	<A as kind_ops::Sub<B>>::Output: kind_ops::Sqr,
-	<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output:
-		Add<Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-		+ kind_ops::Sub<
-			<D as kind_ops::Sqr>::Output,
-			Output = <<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-		+ Roots
-		+ PartialEq,
-	A::Value: PartialEq,
-	D: FluxKind<Value=A::Value> + kind_ops::Sqr,
-{
-	type Item = Time;
-	type IntoIter = Times;
-	
-	fn into_iter(self) -> Self::IntoIter {
-		let mut sum = Poly
-			::<<<A as kind_ops::Sub<B>>::Output as kind_ops::Sqr>::Output>
-			::default();
-		
-		for i in 0..DEGREE {
-			sum = sum + (self.a_poly[i] - self.b_poly[i]).sqr();
-		}
-		sum = sum - self.dis.sqr();
-		
-		sum.when_zero(self.time)
-	}
-}
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
