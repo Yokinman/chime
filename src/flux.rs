@@ -234,7 +234,7 @@ where
 pub trait FluxVec<const SIZE: usize> {
 	type Kind: FluxKind;
 	fn times(&self) -> [Time; SIZE];
-	fn polys(&self, time: Time) -> PolyVec<Self::Kind, SIZE>;
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE];
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
 	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
@@ -244,7 +244,7 @@ pub trait FluxVec<const SIZE: usize> {
 		dis: &D,
 	) -> TimeRanges
 	where
-		PolyVec<Self::Kind, SIZE>: WhenDis<SIZE, T::Kind, D::Kind>
+		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
 	{
 		let basis = std::iter::once(dis.base_time())
 			.chain(self.times())
@@ -261,7 +261,7 @@ pub trait FluxVec<const SIZE: usize> {
 		dis: &D,
 	) -> Times
 	where
-		PolyVec<Self::Kind, SIZE>: WhenDisEq<SIZE, T::Kind, D::Kind>
+		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
 		let basis = std::iter::once(dis.base_time())
 			.chain(self.times())
@@ -272,13 +272,13 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 }
 
-impl<T: Flux, const D: usize> FluxVec<D> for [T; D] {
+impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	type Kind = T::Kind;
-	fn times(&self) -> [Time; D] {
+	fn times(&self) -> [Time; SIZE] {
 		array::from_fn(|i| self[i].base_time())
 	}
-	fn polys(&self, time: Time) -> PolyVec<Self::Kind, D> {
-		PolyVec(array::from_fn(|i| self[i].poly(time)))
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
+		array::from_fn(|i| self[i].poly(time))
 	}
 }
 

@@ -378,12 +378,12 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 }
 
 mod private {
-	/// Sealed trait, only applied to [`super::Poly`] and [`super::PolyVec`].
+	/// Sealed trait, only applied to [`super::Poly`] types.
 	pub trait PolyValue<const SIZE: usize> {}
 }
 
 impl<K> private::PolyValue<1> for Poly<K> {}
-impl<K, const SIZE: usize> private::PolyValue<SIZE> for PolyVec<K, SIZE> {}
+impl<K, const SIZE: usize> private::PolyValue<SIZE> for [Poly<K>; SIZE] {}
 
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B>: private::PolyValue<1> {
@@ -417,15 +417,12 @@ where
 	}
 }
 
-/// [`crate::FluxVec::polys`].
-pub struct PolyVec<K, const SIZE: usize>(pub [Poly<K>; SIZE]);
-
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis(&self, poly: &PolyVec<B, SIZE>, order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges;
+	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDis<SIZE, B, D> for PolyVec<A, SIZE>
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
 where
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
@@ -439,13 +436,13 @@ where
 	A::Value: PartialOrd,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis(&self, poly: &PolyVec<B, SIZE>, order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges {
+	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges {
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 			::default();
 		
 		for i in 0..SIZE {
-			sum = sum + (self.0[i] - poly.0[i]).sqr();
+			sum = sum + (self[i] - poly[i]).sqr();
 		}
 		sum = sum - dis.sqr();
 		
@@ -455,10 +452,10 @@ where
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis_eq(&self, poly: &PolyVec<B, SIZE>, dis: &Poly<D>, basis: Time) -> Times;
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>, basis: Time) -> Times;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDisEq<SIZE, B, D> for PolyVec<A, SIZE>
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
 where
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
@@ -472,13 +469,13 @@ where
 	A::Value: PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(&self, poly: &PolyVec<B, SIZE>, dis: &Poly<D>, basis: Time) -> Times {
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>, basis: Time) -> Times {
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 			::default();
 		
 		for i in 0..SIZE {
-			sum = sum + (self.0[i] - poly.0[i]).sqr();
+			sum = sum + (self[i] - poly[i]).sqr();
 		}
 		sum = sum - dis.sqr();
 		
