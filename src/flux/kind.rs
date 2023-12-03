@@ -118,7 +118,7 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 		base_time: Time,
 	},
 	Poly {
-		poly: &'a mut Poly<K>,
+		poly: &'a mut K,
 		depth: usize,
 		time: Time,
 		base_time: Time,

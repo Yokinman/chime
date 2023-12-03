@@ -115,7 +115,7 @@ pub trait Flux {
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Poly::with_value(self.value(time));
+		let mut poly = Self::Kind::from(self.value(time));
 		let accum = FluxAccumKind::Poly {
 			poly: &mut poly,
 			depth: 0,
@@ -123,7 +123,7 @@ pub trait Flux {
 			base_time: self.base_time(),
 		};
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
-		poly
+		Poly::from(poly)
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.

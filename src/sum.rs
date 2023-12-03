@@ -609,14 +609,14 @@ where
 					+ (sub_value * Scalar(time_scale / (depth+1.)) * scalar);
 			},
 			FluxAccumKind::Poly { poly, depth, time, base_time } => {
-				let mut sub_poly = Poly::with_value(flux.value(*time));
+				let mut sub_poly = B::from(flux.value(*time));
 				flux.change(B::Accum::from_kind(FluxAccumKind::Poly {
 					poly: &mut sub_poly,
 					depth: *depth + 1,
 					time: *time,
 					base_time: *base_time,
 				}));
-				let sup_poly = Poly::from(sub_poly.shift_up());
+				let sup_poly = sub_poly.shift_up();
 				let depth = *depth as f64;
 				let time_scale = unit.as_secs_f64().recip();
 				**poly = **poly
