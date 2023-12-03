@@ -478,9 +478,11 @@ where
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
 	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges {
-		let time = self.get(0)
-			.map(|x| x.time)
-			.unwrap_or_default();
+		let time = if SIZE == 0 {
+			Time::ZERO
+		} else {
+			self[0].time
+		};
 		
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
@@ -515,9 +517,11 @@ where
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
 	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times {
-		let time = self.get(0)
-			.map(|x| x.time)
-			.unwrap_or_default();
+		let time = if SIZE == 0 {
+			Time::ZERO
+		} else {
+			self[0].time
+		};
 		
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>

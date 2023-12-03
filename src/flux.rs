@@ -131,8 +131,8 @@ pub trait Flux {
 	where
 		Poly<Self::Kind>: When<T::Kind>
 	{
-		let basis = self.base_time().max(other.base_time());
-		self.poly(basis).when(order, other.poly(basis))
+		let time = self.base_time();
+		self.poly(time).when(order, other.poly(time))
 	}
 	
 	/// Times when this is equal to another flux.
@@ -140,8 +140,8 @@ pub trait Flux {
 	where
 		Poly<Self::Kind>: WhenEq<T::Kind>
 	{
-		let basis = self.base_time().max(other.base_time());
-		self.poly(basis).when_eq(other.poly(basis))
+		let time = self.base_time();
+		self.poly(time).when_eq(other.poly(time))
 	}
 }
 
@@ -246,12 +246,12 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
 	{
-		let basis = std::iter::once(dis.base_time())
-			.chain(self.times())
-			.chain(other.times())
-			.max()
-			.unwrap_or_default();
-		self.polys(basis).when_dis(&other.polys(basis), order, &dis.poly(basis))
+		let time = if SIZE == 0 {
+			Time::ZERO
+		} else {
+			self.times()[0]
+		};
+		self.polys(time).when_dis(&other.polys(time), order, &dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -263,12 +263,12 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
-		let basis = std::iter::once(dis.base_time())
-			.chain(self.times())
-			.chain(other.times())
-			.max()
-			.unwrap_or_default();
-		self.polys(basis).when_dis_eq(&other.polys(basis), &dis.poly(basis))
+		let time = if SIZE == 0 {
+			Time::ZERO
+		} else {
+			self.times()[0]
+		};
+		self.polys(time).when_dis_eq(&other.polys(time), &dis.poly(time))
 	}
 }
 
