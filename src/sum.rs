@@ -240,38 +240,39 @@ macro_rules! impl_deg_add {
 impl_deg_order!(1);
 
 impl Roots for Sum<f64, 0> {
-	fn roots(self) -> Result<RootList, RootList> {
-		Ok([].into())
+	type Output = [f64; 0];
+	fn roots(self) -> <Self as Roots>::Output {
+		[]
 	}
 }
 
 impl Roots for Sum<f64, 1> {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = [f64; 1];
+	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b]) = self;
 		if b == 0. {
-			return Sum(a, []).roots()
+			return [f64::NAN]
 		}
-		Ok([-a / b].into())
+		[-a / b]
 	}
 }
 
 impl Roots for Sum<f64, 2> {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = [f64; 2];
+	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c]) = self;
 		if c == 0. {
-			return Sum(a, [b]).roots()
+			let [x] = Sum(a, [b]).roots();
+			return [x, f64::NAN]
 		}
 		if a == 0. {
-			let roots = [
-				[0.].into(),
-				Sum(b, [c]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x] = Sum(b, [c]).roots();
+			return [x, 0.]
 		}
 		if b == 0. {
 			 // Pseudo-linear:
 			let r = (-a / c).sqrt();
-			return Ok([r, -r].into())
+			return [r, -r]
 		}
 		
 		let mut n = -b / c;
@@ -279,38 +280,33 @@ impl Roots for Sum<f64, 2> {
 		 // Precision Breakdown:
 		if (a / (n * b)).abs() < 1e-10 {
 			// https://www.desmos.com/calculator/coxloe79ea
-			let roots = [
-				[n].into(),
-				Sum(a, [b]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x] = Sum(a, [b]).roots();
+			return [x, n]
 		}
 		
 		 // General Quadratic:
 		n /= 2.;
 		let n1 = (n*n - a/c).sqrt();
-		Ok([n + n1, n - n1].into())
+		[n + n1, n - n1]
 	}
 }
 
 impl Roots for Sum<f64, 3> {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = [f64; 3];
+	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d]) = self;
 		if d == 0. {
-			return Sum(a, [b, c]).roots()
+			let [x, y] = Sum(a, [b, c]).roots();
+			return [x, y, f64::NAN]
 		}
 		if a == 0. {
-			let roots = [
-				[0.].into(),
-				Sum(b, [c, d]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x, y] = Sum(b, [c, d]).roots();
+			return [x, y, 0.]
 		}
 		if c == 0. {
 			 // Pseudo-linear:
 			if b == 0. {
-				let r = (-a / d).cbrt();
-				return Ok([r; 3].into())
+				return [(-a / d).cbrt(); 3]
 			}
 			
 			 // Depressed Cubic:
@@ -327,27 +323,24 @@ impl Roots for Sum<f64, 3> {
 					debug_assert!(!sqrt_q.is_nan());
 					let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
 					use std::f64::consts::TAU;
-					Ok([
+					[
 						2. * sqrt_q * f64::cos(TAU.mul_add(0./3., angle)),
 						2. * sqrt_q * f64::cos(TAU.mul_add(1./3., angle)),
 						2. * sqrt_q * f64::cos(TAU.mul_add(2./3., angle)),
-					].into())
+					]
 				},
 				
 				 // 1 Real Root:
 				Some(Ordering::Greater) => {
 					let n = discriminant.sqrt();
 					debug_assert!(!n.is_nan());
-					Ok([(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN].into())
+					[(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN]
 				},
 				
 				 // 2 Real Roots:
 				_ => {
-					let roots = [
-						[0.].into(),
-						Sum(a, [b, c]).roots()?
-					];
-					return Ok(roots.concat().into())
+					let [x, y] = Sum(a, [b, c]).roots();
+					[x, y, f64::NAN]
 				}
 			}
 		}
@@ -360,11 +353,8 @@ impl Roots for Sum<f64, 3> {
 			(a / (n*n * c)).abs() < 1e-13
 			// https://www.desmos.com/calculator/ckzncd7l5h
 		{
-			let roots = [
-				[n].into(),
-				Sum(a, [b, c]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x, y] = Sum(a, [b, c]).roots();
+			return [x, y, n]
 		}
 		
 		 // General Cubic:
@@ -377,40 +367,35 @@ impl Roots for Sum<f64, 3> {
 				d,
 			]
 		);
-		Ok(depressed_cubic.roots()?
-			.iter()
-			.map(|x| x + n)
-			.collect())
+		let [x, y, z] = depressed_cubic.roots();
+		[x+n, y+n, z+n]
 	}
 }
 
 impl Roots for Sum<f64, 4> {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = [f64; 4];
+	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d, e]) = self;
 		if e == 0. {
-			return Sum(a, [b, c, d]).roots()
+			let [x, y, z] = Sum(a, [b, c, d]).roots();
+			return [x, y, z, f64::NAN]
 		}
 		if a == 0. {
-			let roots = [
-				[0.].into(),
-				Sum(b, [c, d, e]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x, y, z] = Sum(b, [c, d, e]).roots();
+			return [x, y, z, 0.]
 		}
 		if d == 0. {
 			if b == 0. {
 				if c == 0. {
 					 // Pseudo-linear:
 					let r = (-a / e).sqrt().sqrt();
-					return Ok([r, r, -r, -r].into())
+					return [r, r, -r, -r]
 				}
 				
 				 // Biquadratic:
-				return Ok(Sum(a, [c, e]).roots()?
-					.iter()
-					.map(|r| r.sqrt())
-					.flat_map(|r| [r, -r])
-					.collect())
+				let [x, y] = Sum(a, [c, e]).roots();
+				let (x, y) = (x.sqrt(), y.sqrt());
+				return [-x, x, -y, y];
 			}
 			
 			 // Depressed Quartic:
@@ -425,15 +410,16 @@ impl Roots for Sum<f64, 4> {
 					1.,
 				]
 			);
-			let m = Poly::from(resolvent_cubic).real_roots()
-				.unwrap_or_default() 
-				.iter().rev().find(|&r| *r >= 0.)
+			let m = Poly::from(resolvent_cubic).roots() 
+				.into_iter()
+				.rev()
+				.find(|&r| r >= 0.)
 				.expect("this shouldn't happen, probably a precision issue")
 				.max(0.);
 			let sqrt_2m = (2. * m).sqrt();
-			let quad_a = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]);
-			let quad_b = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]);
-			return Ok([Roots::roots(quad_a)?, Roots::roots(quad_b)?].concat().into())
+			let [x, y] = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
+			let [z, w] = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]).roots();
+			return [x, y, z, w]
 		}
 		
 		let mut n = -d / e;
@@ -445,11 +431,8 @@ impl Roots for Sum<f64, 4> {
 			(a / (n*n*n * d)).abs() < 1e-15
 			// https://www.desmos.com/calculator/nl1jbjq07m
 		{
-			let roots = [
-				[n].into(),
-				Sum(a, [b, c, d]).roots()?
-			];
-			return Ok(roots.concat().into())
+			let [x, y, z] = Sum(a, [b, c, d]).roots();
+			return [x, y, z, n]
 		}
 		
 		 // General Quartic:
@@ -463,10 +446,8 @@ impl Roots for Sum<f64, 4> {
 				e,
 			]
 		);
-		Ok(depressed_quartic.roots()?
-			.iter()
-			.map(|x| x + n)
-			.collect())
+		let [x, y, z, w] = depressed_quartic.roots();
+		[x+n, y+n, z+n, w+n]
 	}
 }
 
@@ -475,7 +456,11 @@ impl<const D: usize> Roots for Sum<glam::DVec2, D>
 where
 	Sum<f64, D>: FluxKind<Value=f64> + Roots
 {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = [f64; D];
+	fn roots(self) -> <Self as Roots>::Output {
+		let mut root_list = [f64::NAN; D];
+		let mut root_count = 0;
+		
 		let mut x_poly = Sum::zero();
 		let mut y_poly = Sum::zero();
 		for (index, coeff) in self.into_iter().enumerate() {
@@ -483,31 +468,22 @@ where
 			y_poly[index] = coeff.y;
 		}
 		
-		type Output = fn(RootList) -> Result<RootList, RootList>;
-		let (output, mut x_roots, mut y_roots): (Output, _, _) = match (
-			x_poly.roots(),
-			y_poly.roots()
-		) {
-			(Ok(x),        Ok(y)       ) => (Ok,  x.to_vec(), y.to_vec()),
-			(Ok(x)|Err(x), Ok(y)|Err(y)) => (Err, x.to_vec(), y.to_vec()),
-		};
+		let mut x_roots = x_poly.roots().into_iter().collect::<Vec<_>>();
+		let mut y_roots = y_poly.roots().into_iter().collect::<Vec<_>>();
 		x_roots.sort_unstable_by(f64::total_cmp);
 		y_roots.sort_unstable_by(f64::total_cmp);
 		
 		let mut x_iter = x_roots.into_iter();
 		let mut y_iter = y_roots.into_iter();
-		
 		let mut x = x_iter.next();
 		let mut y = y_iter.next();
-		
-		let mut root_list = Vec::new();
-		
 		while let (Some(a), Some(b)) = (x.as_ref(), y.as_ref()) {
 			match a.total_cmp(b) {
 				Ordering::Less    => x = x_iter.next(),
 				Ordering::Greater => y = y_iter.next(),
 				Ordering::Equal   => {
-					root_list.push(*a);
+					root_list[root_count] = *a;
+					root_count += 1;
 					x = x_iter.next();
 					y = y_iter.next();
 					// !!! What if the next value(s) are equal to the current?
@@ -516,7 +492,7 @@ where
 			}
 		}
 		
-		output(root_list.into())
+		root_list
 	}
 }
 
@@ -524,7 +500,8 @@ impl<T: Linear, const D: usize> Roots for Sum<Exp<T>, D>
 where
 	Sum<T, D>: FluxKind<Value=T> + Roots
 {
-	fn roots(self) -> Result<RootList, RootList> {
+	type Output = <Sum<T, D> as Roots>::Output;
+	fn roots(self) -> <Self as Roots>::Output {
 		let mut b_poly = Sum::zero();
 		let mut iter = self.into_iter();
 		for item in b_poly.iter_mut() {
@@ -659,17 +636,21 @@ mod tests {
 	where
 		K: Roots
 	{
-		let r = Poly::from(p).real_roots().unwrap_or_default();
+		let r = Poly::from(p).real_roots().into_iter()
+			.collect::<Vec<f64>>();
+		let expected_roots = expected_roots.into_iter()
+			.copied()
+			.collect::<Vec<f64>>();
 		assert_eq!(
 			r.len(), expected_roots.len(),
 			"{:?} vs {:?}",
 			r, expected_roots
 		);
-		for i in 0..r.len() {
+		for (x, y) in r.into_iter().zip(expected_roots.into_iter()) {
 			assert!(
-				(r[i] - expected_roots[i]).abs() < 0.1,
+				(x - y).abs() < 0.1,
 				"{:?} vs {:?}",
-				r[i], expected_roots[i]
+				x, y
 			);
 		}
 	}
@@ -694,9 +675,11 @@ mod tests {
 			Sum(20., [4., -7.]),
 			&[-10./7., 2.]
 		);
+		let r = Poly::from(Sum(-40./3., [-2./3., 17./100.])).real_roots()
+			.into_iter().collect::<Vec<_>>();
 		assert_roots(
 			Sum(40./3., [2./3., -17./100.]),
-			Poly::from(Sum(-40./3., [-2./3., 17./100.])).real_roots().unwrap().as_ref()
+			r.as_slice()
 		);
 		assert_roots(
 			Sum(0., [4./6., -17./100.]),

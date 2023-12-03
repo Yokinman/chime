@@ -168,23 +168,18 @@ impl<K: FluxKind> Poly<K> {
 		}
 	}
 	
-	pub fn real_roots(self) -> Result<RootList, RootList>
+	pub fn real_roots(self) -> impl IntoIterator<Item=f64>
 	where
 		K: Roots
 	{
 		//! Returns all real-valued roots of this polynomial in ascending order.
-		//! If not all roots are known, `Err` is returned.
 		
-		let cleanup = |roots: RootList| {
-			let mut roots = roots.into_vec();
-			roots.retain(|r| !r.is_nan());
-			roots.sort_unstable_by(|a,b| a.total_cmp(b));
-			roots.into_boxed_slice()
-		};
+		let mut roots = self.roots().into_iter()
+			.filter(|r| !r.is_nan())
+			.collect::<Vec<_>>();
 		
-		self.roots()
-			.map(cleanup)
-			.map_err(cleanup)
+		roots.sort_unstable_by(f64::total_cmp);
+		roots
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -196,38 +191,38 @@ impl<K: FluxKind> Poly<K> {
 		let initial_order = self.initial_order();
 		
 		 // Convert Roots to Ranges:
-		let range_list = match self.real_roots() {
-			Ok(roots) => {
-				let mut list = Vec::with_capacity(
-					if order == Ordering::Equal {
-						roots.len()
-					} else {
-						1 + (roots.len() / 2)
-					}
-				);
-				let mut prev_point = if initial_order == Some(order) {
-					Some(f64::NEG_INFINITY)
+		let range_list = {
+			let roots = self.real_roots().into_iter();
+			
+			let (min_size, max_size) = roots.size_hint();
+			let mut list = Vec::with_capacity(
+				if order == Ordering::Equal {
+					max_size.unwrap_or(min_size)
 				} else {
-					None
-				};
-				for &point in roots.iter() {
-					if let Some(prev) = prev_point {
-						if point != prev {
-							list.push((prev, point));
-						}
-						prev_point = None;
-					} else if order == Ordering::Equal {
-						list.push((point, point));
-					} else {
-						prev_point = Some(point);
+					1 + (max_size.unwrap_or(min_size) / 2)
+				}
+			);
+			let mut prev_point = if initial_order == Some(order) {
+				Some(f64::NEG_INFINITY)
+			} else {
+				None
+			};
+			for point in roots {
+				if let Some(prev) = prev_point {
+					if point != prev {
+						list.push((prev, point));
 					}
+					prev_point = None;
+				} else if order == Ordering::Equal {
+					list.push((point, point));
+				} else {
+					prev_point = Some(point);
 				}
-				if let Some(point) = prev_point {
-					list.push((point, f64::INFINITY));
-				}
-				list.into_iter()
-			},
-			Err(_) => Default::default(),
+			}
+			if let Some(point) = prev_point {
+				list.push((point, f64::INFINITY));
+			}
+			list.into_iter()
 		};
 		
 		 // Convert Ranges to Times:
@@ -275,18 +270,11 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		let real_roots = self.real_roots()
-			.unwrap_or_default()
-			.into_vec();
-		
-		 // Constant Equality:
-		if real_roots.is_empty() && self.is_zero() {
-			return [].into_iter().collect();
-		}
+		let mut prev = None;
 		
 		 // Convert Roots to Times:
-		let mut prev = None;
-		Times(real_roots.into_iter()
+		let list = self.real_roots()
+			.into_iter()
 			.filter_map(|t| {
 				if std::mem::replace(&mut prev, Some(t)) == Some(t) {
 					None
@@ -294,8 +282,14 @@ impl<K: FluxKind> Poly<K> {
 					time_try_from_secs(t, self.time).ok()
 				}
 			})
-			.collect::<Vec<_>>()
-			.into_iter())
+			.collect::<Vec<_>>();
+		
+		 // Constant Equality:
+		if prev.is_none() && self.is_zero() {
+			return [].into_iter().collect();
+		}
+		
+		Times(list.into_iter())
 	}
 }
 
@@ -364,16 +358,13 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	}
 }
 
-/// !!! This should be an iterator at some point. Needs to be able to produce a
-/// generating function for roots.
-pub type RootList = Box<[f64]>;
-
 /// Roots of a [`Poly`]nomial.
 /// 
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
-	fn roots(self) -> Result<RootList, RootList>;
+	type Output: IntoIterator<Item=f64>;
+	fn roots(self) -> <Self as Roots>::Output;
 }
 
 /// `Duration::try_from_secs_f64`, but rounds toward the `basis`.
