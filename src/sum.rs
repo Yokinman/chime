@@ -543,23 +543,14 @@ impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
 	}
 }
 
-impl<K: FluxKind> SumAccum<'_, K> {
-	fn accum<V: Flux>(mut self, scalar: Scalar, change: Change<'_, V>) -> Self
-	where
-		(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	{
-		<(K, V::Kind)>::eval(&mut self.0, scalar, change.rate, change.unit);
-		self
-	}
-}
-
 impl<K: FluxKind, V: Flux> Add<Change<'_, V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
 	type Output = Self;
-	fn add(self, rhs: Change<'_, V>) -> Self {
-		self.accum(Scalar(1.), rhs)
+	fn add(mut self, rhs: Change<'_, V>) -> Self {
+		<(K, V::Kind)>::eval(&mut self.0, 1., rhs.rate, rhs.unit);
+		self
 	}
 }
 
@@ -568,8 +559,9 @@ where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
 	type Output = Self;
-	fn sub(self, rhs: Change<'_, V>) -> Self {
-		self.accum(Scalar(-1.), rhs)
+	fn sub(mut self, rhs: Change<'_, V>) -> Self {
+		<(K, V::Kind)>::eval(&mut self.0, -1., rhs.rate, rhs.unit);
+		self
 	}
 }
 
@@ -578,7 +570,7 @@ where
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
-		scalar: Scalar,
+		scalar: f64,
 		value: &V,
 		unit: time::Time,
 	);
@@ -592,7 +584,7 @@ where
 {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut FluxAccumKind<'_, A>,
-		scalar: Scalar,
+		scalar: f64,
 		flux: &V,
 		unit: time::Time,
 	) {
@@ -605,11 +597,11 @@ where
 					time: *time,
 					base_time: *base_time,
 				}));
-				let depth = *depth as f64;
 				let time_scale = (time.as_secs_f64() - base_time.as_secs_f64())
 					/ unit.as_secs_f64();
-				**value = **value
-					+ (sub_value * Scalar(time_scale / (depth+1.)) * scalar);
+				**value = **value + (sub_value * Scalar(
+					(time_scale / ((*depth+1) as f64)) * scalar
+				));
 			},
 			FluxAccumKind::Poly { poly, depth, time, base_time } => {
 				let mut sub_poly = B::from(flux.value(*time));
@@ -619,12 +611,10 @@ where
 					time: *time,
 					base_time: *base_time,
 				}));
-				let sup_poly = sub_poly.shift_up();
-				let depth = *depth as f64;
 				let time_scale = unit.as_secs_f64().recip();
-				**poly = **poly
-					// + (sub_poly * (Scalar(depth / (depth + 1.)) * scalar))
-					+ (sup_poly * (Scalar(time_scale / (depth + 1.)) * scalar));
+				**poly = **poly + (sub_poly.shift_up() * Scalar(
+					(time_scale / ((*depth+1) as f64)) * scalar
+				));
 				// https://www.desmos.com/calculator/mhlpjakz32
 			},
 		}
