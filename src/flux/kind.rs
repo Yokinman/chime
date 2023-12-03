@@ -75,7 +75,7 @@ pub mod ops {
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
-			self + (kind * Scalar(-1.0))
+			self + (kind * Scalar(-1.))
 		}
 	}
 	
@@ -127,18 +127,41 @@ pub enum FluxAccumKind<'a, K: FluxKind> {
 
 /// A polynomial wrapper for [`FluxKind`].
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Poly<K>(K);
+pub struct Poly<K> {
+	inner: K,
+	time: Time,
+}
 
 impl<K: FluxKind> Poly<K> {
+	pub fn new(inner: K, time: Time) -> Self {
+		Self {
+			inner,
+			time,
+		}
+	}
+	
 	pub fn with_value(value: K::Value) -> Self {
-		Poly(K::from(value))
+		Self {
+			inner: K::from(value),
+			time: Time::ZERO,
+		}
+	}
+	
+	pub fn with_time(time: Time) -> Self {
+		Self {
+			inner: K::zero(),
+			time,
+		}
 	}
 	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
 	{
-		(*self).sqr().into()
+		Poly {
+			inner: (*self).sqr(),
+			time: self.time,
+		}
 	}
 	
 	pub fn real_roots(self) -> Result<RootList, RootList>
@@ -161,7 +184,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, basis: Time) -> TimeRanges
+	fn when_sign(&self, order: Ordering) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -215,8 +238,10 @@ impl<K: FluxKind> Poly<K> {
 					Ok(a) | Err(a @ Time::ZERO),
 					Ok(b) | Err(b @ Time::MAX)
 				) = (
-					time_try_from_secs(a, basis).map(|t| t.checked_add(offset).unwrap_or(Time::MAX)),
-					time_try_from_secs(b, basis).map(|t| t.checked_sub(offset).unwrap_or(Time::ZERO))
+					time_try_from_secs(a, self.time)
+						.map(|t| t.checked_add(offset).unwrap_or(Time::MAX)),
+					time_try_from_secs(b, self.time)
+						.map(|t| t.checked_sub(offset).unwrap_or(Time::ZERO))
 				) {
 					if a <= b {
 						Some((a, b))
@@ -242,7 +267,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, basis: Time) -> Times
+	fn when_zero(&self) -> Times
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
@@ -263,7 +288,7 @@ impl<K: FluxKind> Poly<K> {
 				if std::mem::replace(&mut prev, Some(t)) == Some(t) {
 					None
 				} else {
-					time_try_from_secs(t, basis).ok()
+					time_try_from_secs(t, self.time).ok()
 				}
 			})
 			.collect()
@@ -272,26 +297,32 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
-		Self(K::zero())
+		Self {
+			inner: K::zero(),
+			time: Time::ZERO,
+		}
 	}
 }
 
 impl<K: FluxKind> From<K> for Poly<K> {
 	fn from(value: K) -> Self {
-		Poly(value)
+		Self {
+			inner: value,
+			time: Time::ZERO,
+		}
 	}
 }
 
 impl<K> Deref for Poly<K> {
 	type Target = K;
 	fn deref(&self) -> &Self::Target {
-		&self.0
+		&self.inner
 	}
 }
 
 impl<K> DerefMut for Poly<K> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
+		&mut self.inner
 	}
 }
 
@@ -301,7 +332,10 @@ where
 {
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
-		Poly((*self).add(*rhs))
+		Poly {
+			inner: (*self).add(*rhs),
+			time: self.time,
+		}
 	}
 }
 
@@ -311,7 +345,10 @@ where
 {
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		Poly((*self).sub(*rhs))
+		Poly {
+			inner: (*self).sub(*rhs),
+			time: self.time,
+		}
 	}
 }
 
@@ -387,7 +424,7 @@ impl<K, const SIZE: usize> private::PolyValue<SIZE> for [Poly<K>; SIZE] {}
 
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B>: private::PolyValue<1> {
-	fn when(self, order: Ordering, poly: Poly<B>, basis: Time) -> TimeRanges;
+	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges;
 }
 
 impl<A: FluxKind, B: FluxKind> When<B> for Poly<A>
@@ -396,14 +433,14 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
 {
-	fn when(self, order: Ordering, poly: Poly<B>, basis: Time) -> TimeRanges {
-		(self - poly).when_sign(order, basis)
+	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges {
+		(self - poly).when_sign(order)
 	}
 }
 
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B>: private::PolyValue<1> {
-	fn when_eq(self, poly: Poly<B>, basis: Time) -> Times;
+	fn when_eq(self, poly: Poly<B>) -> Times;
 }
 
 impl<A: FluxKind, B: FluxKind> WhenEq<B> for Poly<A>
@@ -412,14 +449,14 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B>, basis: Time) -> Times {
-		(self - poly).when_zero(basis)
+	fn when_eq(self, poly: Poly<B>) -> Times {
+		(self - poly).when_zero()
 	}
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges;
+	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges;
 }
 
 impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
@@ -436,23 +473,27 @@ where
 	A::Value: PartialOrd,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>, basis: Time) -> TimeRanges {
+	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges {
+		let time = self.get(0)
+			.map(|x| x.time)
+			.unwrap_or_default();
+		
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-			::default();
+			::with_time(time);
 		
 		for i in 0..SIZE {
 			sum = sum + (self[i] - poly[i]).sqr();
 		}
 		sum = sum - dis.sqr();
 		
-		sum.when_sign(order, basis)
+		sum.when_sign(order)
 	}
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>, basis: Time) -> Times;
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times;
 }
 
 impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
@@ -469,16 +510,20 @@ where
 	A::Value: PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>, basis: Time) -> Times {
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times {
+		let time = self.get(0)
+			.map(|x| x.time)
+			.unwrap_or_default();
+		
 		let mut sum = Poly
 			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-			::default();
+			::with_time(time);
 		
 		for i in 0..SIZE {
 			sum = sum + (self[i] - poly[i]).sqr();
 		}
 		sum = sum - dis.sqr();
 		
-		sum.when_zero(basis)
+		sum.when_zero()
 	}
 }

@@ -123,7 +123,7 @@ pub trait Flux {
 			base_time: self.base_time(),
 		};
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
-		Poly::from(poly)
+		Poly::new(poly, time)
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
@@ -132,7 +132,7 @@ pub trait Flux {
 		Poly<Self::Kind>: When<T::Kind>
 	{
 		let basis = self.base_time().max(other.base_time());
-		self.poly(basis).when(order, other.poly(basis), basis)
+		self.poly(basis).when(order, other.poly(basis))
 	}
 	
 	/// Times when this is equal to another flux.
@@ -141,7 +141,7 @@ pub trait Flux {
 		Poly<Self::Kind>: WhenEq<T::Kind>
 	{
 		let basis = self.base_time().max(other.base_time());
-		self.poly(basis).when_eq(other.poly(basis), basis)
+		self.poly(basis).when_eq(other.poly(basis))
 	}
 }
 
@@ -251,7 +251,7 @@ pub trait FluxVec<const SIZE: usize> {
 			.chain(other.times())
 			.max()
 			.unwrap_or_default();
-		self.polys(basis).when_dis(&other.polys(basis), order, &dis.poly(basis), basis)
+		self.polys(basis).when_dis(&other.polys(basis), order, &dis.poly(basis))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -268,7 +268,7 @@ pub trait FluxVec<const SIZE: usize> {
 			.chain(other.times())
 			.max()
 			.unwrap_or_default();
-		self.polys(basis).when_dis_eq(&other.polys(basis), &dis.poly(basis), basis)
+		self.polys(basis).when_dis_eq(&other.polys(basis), &dis.poly(basis))
 	}
 }
 
