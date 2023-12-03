@@ -478,22 +478,23 @@ where
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
 	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges {
+		use ops::*;
+		
 		let time = if SIZE == 0 {
 			Time::ZERO
 		} else {
 			self[0].time
 		};
 		
-		let mut sum = Poly
-			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-			::with_time(time);
+		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		
 		for i in 0..SIZE {
-			sum = sum + (self[i] - poly[i]).sqr();
+			let x = (*self[i]).sub(*poly[i]);
+			sum = sum + x.sqr();
 		}
-		sum = sum - dis.sqr();
 		
-		sum.when_sign(order)
+		Poly::new(sum.sub((**dis).sqr()), time)
+			.when_sign(order)
 	}
 }
 
@@ -517,21 +518,22 @@ where
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
 	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times {
+		use ops::*;
+		
 		let time = if SIZE == 0 {
 			Time::ZERO
 		} else {
 			self[0].time
 		};
 		
-		let mut sum = Poly
-			::<<<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-			::with_time(time);
+		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		
 		for i in 0..SIZE {
-			sum = sum + (self[i] - poly[i]).sqr();
+			let x = (*self[i]).sub(*poly[i]);
+			sum = sum + x.sqr();
 		}
-		sum = sum - dis.sqr();
 		
-		sum.when_zero()
+		Poly::new(sum.sub((**dis).sqr()), time)
+			.when_zero()
 	}
 }
