@@ -161,7 +161,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	pub(crate) fn when_sign(&self, order: Ordering, basis: Time) -> TimeRanges
+	fn when_sign(&self, order: Ordering, basis: Time) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -242,7 +242,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Times when the value is equal to zero.
-	pub(crate) fn when_zero(&self, basis: Time) -> Times
+	fn when_zero(&self, basis: Time) -> Times
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
@@ -323,8 +323,8 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	}
 }
 
-// !!! This should be an iterator at some point. Need to be able to produce a
-// generating function for roots.
+/// !!! This should be an iterator at some point. Needs to be able to produce a
+/// generating function for roots.
 pub type RootList = Box<[f64]>;
 
 /// Roots of a [`Poly`]nomial.
