@@ -26,9 +26,9 @@ mod units {
 pub use units::*;
 
 /// Iterator of [`Time`] values.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[must_use]
-pub struct Times(pub(crate) std::vec::IntoIter<Time>);
+pub struct Times(std::vec::IntoIter<Time>);
 
 impl Iterator for Times {
 	type Item = Time;
@@ -119,9 +119,9 @@ impl BitAnd<TimeRanges> for Times {
 }
 
 /// Iterator of [`Time`] ranges.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[must_use]
-pub struct TimeRanges(pub(crate) std::vec::IntoIter<(Time, Time)>);
+pub struct TimeRanges(std::vec::IntoIter<(Time, Time)>);
 
 impl Iterator for TimeRanges {
 	type Item = (Time, Time);

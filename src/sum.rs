@@ -636,11 +636,13 @@ mod tests {
 	where
 		K: Roots
 	{
-		let r = Poly::from(p).real_roots().into_iter()
+		let mut r = Poly::from(p).real_roots().into_iter()
 			.collect::<Vec<f64>>();
-		let expected_roots = expected_roots.into_iter()
+		let mut expected_roots = expected_roots.into_iter()
 			.copied()
 			.collect::<Vec<f64>>();
+		r.sort_unstable_by(f64::total_cmp);
+		expected_roots.sort_unstable_by(f64::total_cmp);
 		assert_eq!(
 			r.len(), expected_roots.len(),
 			"{:?} vs {:?}",

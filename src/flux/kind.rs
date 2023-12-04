@@ -168,18 +168,13 @@ impl<K: FluxKind> Poly<K> {
 		}
 	}
 	
+	/// All real-valued roots of this polynomial.
 	pub fn real_roots(self) -> impl IntoIterator<Item=f64>
 	where
 		K: Roots
 	{
-		//! Returns all real-valued roots of this polynomial in ascending order.
-		
-		let mut roots = self.roots().into_iter()
+		self.roots().into_iter()
 			.filter(|r| !r.is_nan())
-			.collect::<Vec<_>>();
-		
-		roots.sort_unstable_by(f64::total_cmp);
-		roots
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -193,6 +188,16 @@ impl<K: FluxKind> Poly<K> {
 		 // Convert Roots to Ranges:
 		let range_list = {
 			let roots = self.real_roots().into_iter();
+			
+			 // Sort:
+			let (capacity, _) = roots.size_hint();
+			let mut roots = roots.fold(
+				Vec::with_capacity(capacity),
+				|mut list, r| {
+					list.insert(list.partition_point(|&x| r > x), r);
+					list
+				}
+			).into_iter();
 			
 			let (min_size, max_size) = roots.size_hint();
 			let mut list = Vec::with_capacity(
@@ -231,7 +236,7 @@ impl<K: FluxKind> Poly<K> {
 		} else {
 			Time::new(0, 1)
 		};
-		TimeRanges(range_list
+		range_list
 			.filter_map(|(a, b)| {
 				if let (
 					Ok(a) | Err(a @ Time::ZERO),
@@ -261,7 +266,8 @@ impl<K: FluxKind> Poly<K> {
 				}
 				ranges
 			})
-			.into_iter())
+			.into_iter()
+			.collect()
 	}
 	
 	/// Times when the value is equal to zero.
@@ -270,26 +276,10 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		let mut prev = None;
-		
-		 // Convert Roots to Times:
-		let list = self.real_roots()
+		self.real_roots()
 			.into_iter()
-			.filter_map(|t| {
-				if std::mem::replace(&mut prev, Some(t)) == Some(t) {
-					None
-				} else {
-					time_try_from_secs(t, self.time).ok()
-				}
-			})
-			.collect::<Vec<_>>();
-		
-		 // Constant Equality:
-		if prev.is_none() && self.is_zero() {
-			return [].into_iter().collect();
-		}
-		
-		Times(list.into_iter())
+			.filter_map(|t| time_try_from_secs(t, self.time).ok())
+			.collect()
 	}
 }
 
@@ -363,7 +353,7 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
-	type Output: IntoIterator<Item=f64>;
+	type Output: IntoIterator<Item=f64>; // !!! Item=Self::Value
 	fn roots(self) -> <Self as Roots>::Output;
 }
 
