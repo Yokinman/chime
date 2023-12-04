@@ -410,11 +410,14 @@ impl Roots for Sum<f64, 4> {
 					1.,
 				]
 			);
-			let m = Poly::from(resolvent_cubic).roots() 
+			let m = resolvent_cubic.roots() 
 				.into_iter()
 				.rev()
-				.find(|&r| r >= 0.)
-				.expect("this shouldn't happen, probably a precision issue")
+				.find(|&r| r > -f64::EPSILON)
+				.unwrap_or_else(|| panic!(
+					"expected a positive roots from: {:?}",
+					resolvent_cubic
+				))
 				.max(0.);
 			let sqrt_2m = (2. * m).sqrt();
 			let [x, y] = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
