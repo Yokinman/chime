@@ -312,22 +312,22 @@ impl Roots for Sum<f64, 3> {
 			 // Depressed Cubic:
 			let p = -a / (2. * d);
 			let q = -b / (3. * d);
-			let mut discriminant = q.mul_add(-q*q, p*p);
-			if discriminant.abs() < f64::EPSILON {
-				discriminant = 0.;
-			}
+			let discriminant = q.mul_add(-q*q, p*p);
+			// if discriminant.abs() < f64::EPSILON {
+			// 	discriminant = 0.;
+			// }
 			return match discriminant.partial_cmp(&0.) {
 				 // 3 Real Roots:
 				Some(Ordering::Less) => {
 					let sqrt_q = q.sqrt();
 					debug_assert!(!sqrt_q.is_nan());
-					let angle = f64::acos(p / (q * sqrt_q)) / 3.0;
+					let angle = f64::acos(p / (q * sqrt_q));
 					use std::f64::consts::TAU;
 					[
-						2. * sqrt_q * f64::cos(TAU.mul_add(0./3., angle)),
-						2. * sqrt_q * f64::cos(TAU.mul_add(1./3., angle)),
-						2. * sqrt_q * f64::cos(TAU.mul_add(2./3., angle)),
-					]
+						2. * sqrt_q * f64::cos((angle         ) / 3.),
+						2. * sqrt_q * f64::cos((angle +    TAU) / 3.),
+						2. * sqrt_q * f64::cos((angle + 2.*TAU) / 3.),
+					] 
 				},
 				
 				 // 1 Real Root:
