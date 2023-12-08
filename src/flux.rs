@@ -497,7 +497,7 @@ mod tests {
 	macro_rules! assert_times {
 		($times:expr, $cmp_times:expr) => {{
 			let times: Times = $times;
-			let cmp_times = Times::from_iter($cmp_times.into_iter());
+			let cmp_times = Times::new($cmp_times);
 			assert_eq!(
 				times.clone().count(),
 				cmp_times.clone().count(),
@@ -515,7 +515,7 @@ mod tests {
 	macro_rules! assert_time_ranges {
 		($ranges:expr, $cmp_ranges:expr) => {{
 			let ranges: TimeRanges = $ranges;
-			let cmp_ranges = TimeRanges::from_iter($cmp_ranges.into_iter());
+			let cmp_ranges = Vec::from_iter($cmp_ranges).into_iter();
 			assert_eq!(
 				ranges.clone().count(),
 				cmp_ranges.clone().count(),

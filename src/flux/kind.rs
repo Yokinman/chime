@@ -19,7 +19,12 @@ pub trait FluxKind:
 	
 	fn value(&self) -> Self::Value;
 	
-	// ??? Could instead make the polynomial evaluable at `-infinity`.
+	/// The order immediately following the value at time=0.
+	/// 
+	/// This should be the first non-zero [`FluxKind::value`] of this kind or
+	/// its derivatives.
+	/// 
+	/// ??? Should this instead be the order immediately preceding time=0?
 	fn initial_order(&self) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd;
@@ -169,7 +174,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// All real-valued roots of this polynomial.
-	pub fn real_roots(self) -> impl IntoIterator<Item=f64>
+	pub fn real_roots(self) -> impl Iterator<Item=f64> + Send + Sync + Clone
 	where
 		K: Roots
 	{
@@ -183,91 +188,23 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
-		let initial_order = self.initial_order();
-		
-		 // Convert Roots to Ranges:
-		let range_list = {
-			let roots = self.real_roots().into_iter();
-			
-			 // Sort:
-			let (capacity, _) = roots.size_hint();
-			let mut roots = roots.fold(
-				Vec::with_capacity(capacity),
-				|mut list, r| {
-					list.insert(list.partition_point(|&x| r > x), r);
-					list
-				}
-			).into_iter();
-			
-			let (min_size, max_size) = roots.size_hint();
-			let mut list = Vec::with_capacity(
-				if order == Ordering::Equal {
-					max_size.unwrap_or(min_size)
-				} else {
-					1 + (max_size.unwrap_or(min_size) / 2)
-				}
-			);
-			let mut prev_point = if initial_order == Some(order) {
-				Some(f64::NEG_INFINITY)
-			} else {
-				None
-			};
-			for point in roots {
-				if let Some(prev) = prev_point {
-					if point != prev {
-						list.push((prev, point));
-					}
-					prev_point = None;
-				} else if order == Ordering::Equal {
-					list.push((point, point));
-				} else {
-					prev_point = Some(point);
-				}
-			}
-			if let Some(point) = prev_point {
-				list.push((point, f64::INFINITY));
-			}
-			list.into_iter()
-		};
-		
-		 // Convert Ranges to Times:
-		let offset = if order == Ordering::Equal {
-			Time::ZERO
+		let basis = self.time;
+		if let Some(initial_order) = self.initial_order() {
+			TimeRanges::new(
+				self.real_roots()
+					.filter_map(move |r| time_try_from_secs(r, basis).ok()),
+				basis,
+				order,
+				initial_order,
+			)
 		} else {
-			Time::new(0, 1)
-		};
-		range_list
-			.filter_map(|(a, b)| {
-				if let (
-					Ok(a) | Err(a @ Time::ZERO),
-					Ok(b) | Err(b @ Time::MAX)
-				) = (
-					time_try_from_secs(a, self.time)
-						.map(|t| t.checked_add(offset).unwrap_or(Time::MAX)),
-					time_try_from_secs(b, self.time)
-						.map(|t| t.checked_sub(offset).unwrap_or(Time::ZERO))
-				) {
-					if a <= b {
-						Some((a, b))
-					} else {
-						None
-					}
-				} else {
-					None
-				}
-			})
-			.fold(Vec::new(), |mut ranges, (a, b)| {
-				 // Combine Adjacent Ranges:
-				match ranges.last_mut() {
-					Some((_, prev)) if *prev == a => {
-						*prev = b;
-					},
-					_ => ranges.push((a, b))
-				}
-				ranges
-			})
-			.into_iter()
-			.collect()
+			TimeRanges::new(
+				std::iter::empty(),
+				basis,
+				Ordering::Equal,
+				Ordering::Equal,
+			)
+		}
 	}
 	
 	/// Times when the value is equal to zero.
@@ -276,10 +213,9 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		self.real_roots()
-			.into_iter()
-			.filter_map(|t| time_try_from_secs(t, self.time).ok())
-			.collect()
+		let basis = self.time;
+		Times::new(self.real_roots()
+			.filter_map(move |r| time_try_from_secs(r, basis).ok()))
 	}
 }
 
@@ -353,7 +289,10 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
-	type Output: IntoIterator<Item=f64>; // !!! Item=Self::Value
+	type Output: IntoIterator<Item=f64, IntoIter = <Self as Roots>::IntoIter>;
+	type IntoIter: Iterator<Item=f64> + Send + Sync + Clone;
+	// !!! Item=Self::Value (requires Self::Value to implement some kind of
+	// time conversion method)
 	fn roots(self) -> <Self as Roots>::Output;
 }
 

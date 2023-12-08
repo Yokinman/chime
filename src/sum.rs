@@ -85,17 +85,18 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	where
 		Self::Value: PartialOrd
 	{
-		let mut degree = D;
-		loop {
-			let order = self[degree].partial_cmp(&T::zero());
-			if degree == 0 || order != Some(Ordering::Equal) {
-				break if degree % 2 == 0 {
-					order
-				} else {
-					order.map(|o| o.reverse())
-				}
+		let order = self.iter().find_map(|x| {
+			let order = x.partial_cmp(&T::zero());
+			if order != Some(Ordering::Equal) {
+				order
+			} else {
+				None
 			}
-			degree -= 1;
+		});
+		if order.is_none() && self.is_zero() {
+			Some(Ordering::Equal)
+		} else {
+			order
 		}
 	}
 	
@@ -241,6 +242,7 @@ impl_deg_order!(1);
 
 impl Roots for Sum<f64, 0> {
 	type Output = [f64; 0];
+	type IntoIter = <[f64; 0] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		[]
 	}
@@ -248,6 +250,7 @@ impl Roots for Sum<f64, 0> {
 
 impl Roots for Sum<f64, 1> {
 	type Output = [f64; 1];
+	type IntoIter = <[f64; 1] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b]) = self;
 		if b == 0. {
@@ -259,6 +262,7 @@ impl Roots for Sum<f64, 1> {
 
 impl Roots for Sum<f64, 2> {
 	type Output = [f64; 2];
+	type IntoIter = <[f64; 2] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c]) = self;
 		if c == 0. {
@@ -293,6 +297,7 @@ impl Roots for Sum<f64, 2> {
 
 impl Roots for Sum<f64, 3> {
 	type Output = [f64; 3];
+	type IntoIter = <[f64; 3] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d]) = self;
 		if d == 0. {
@@ -374,6 +379,7 @@ impl Roots for Sum<f64, 3> {
 
 impl Roots for Sum<f64, 4> {
 	type Output = [f64; 4];
+	type IntoIter = <[f64; 4] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d, e]) = self;
 		if e == 0. {
@@ -460,6 +466,7 @@ where
 	Sum<f64, D>: FluxKind<Value=f64> + Roots
 {
 	type Output = [f64; D];
+	type IntoIter = <[f64; D] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut root_list = [f64::NAN; D];
 		let mut root_count = 0;
@@ -504,6 +511,7 @@ where
 	Sum<T, D>: FluxKind<Value=T> + Roots
 {
 	type Output = <Sum<T, D> as Roots>::Output;
+	type IntoIter = <<Self as Roots>::Output as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut b_poly = Sum::zero();
 		let mut iter = self.into_iter();
