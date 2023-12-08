@@ -188,12 +188,16 @@ macro_rules! impl_deg_order {
 			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
 			fn mul(self, rhs: Self) -> Self::Output {
 				const SIZE: usize = $($num +)+ 0;
-				let mut sum = Sum::zero();
-				for i in 0..=SIZE {
-				for j in 0..=SIZE {
-					sum[i+j] = sum[i+j] + self[i]*rhs[j];
-				}}
-				sum
+				let Sum(a_value, a_terms) = self;
+				let Sum(b_value, b_terms) = rhs;
+				let mut terms = [T::zero(); { 2 * SIZE }];
+				for i in 0..SIZE {
+					terms[i] = terms[i] + a_terms[i]*b_value + a_value*b_terms[i];
+					for j in 0..SIZE {
+						terms[i+j+1] = terms[i+j+1] + a_terms[i]*b_terms[j];
+					}
+				}
+				Sum(a_value*b_value, terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
