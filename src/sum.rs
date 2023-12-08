@@ -86,14 +86,21 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	where
 		Self::Value: PartialOrd
 	{
-		let order = self.iter().find_map(|x| {
-			let order = x.partial_cmp(&T::zero());
-			if order != Some(Ordering::Equal) {
-				order
-			} else {
-				None
-			}
-		});
+		let order = self.iter()
+			.enumerate()
+			.find_map(|(degree, x)| {
+				let order = x.partial_cmp(&T::zero());
+				if order != Some(Ordering::Equal) {
+					if degree % 2 == 0 {
+						order
+					} else {
+						order.map(|o| o.reverse())
+					}
+				} else {
+					None
+				}
+			});
+		
 		if order.is_none() && self.is_zero() {
 			Some(Ordering::Equal)
 		} else {

@@ -19,12 +19,10 @@ pub trait FluxKind:
 	
 	fn value(&self) -> Self::Value;
 	
-	/// The order immediately following the value at time=0.
+	/// The order at or immediately preceding the value at time=0.
 	/// 
 	/// This should be the first non-zero [`FluxKind::value`] of this kind or
-	/// its derivatives.
-	/// 
-	/// ??? Should this instead be the order immediately preceding time=0?
+	/// its derivatives; reversed for odd derivatives.
 	fn initial_order(&self) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd;
@@ -389,8 +387,7 @@ where
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
 		Add<Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-		+ ops::Sub<
-			<D as ops::Sqr>::Output,
+		+ ops::Sub<<D as ops::Sqr>::Output,
 			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialOrd,
@@ -429,8 +426,7 @@ where
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
 		Add<Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
-		+ ops::Sub<
-			<D as ops::Sqr>::Output,
+		+ ops::Sub<<D as ops::Sqr>::Output,
 			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,

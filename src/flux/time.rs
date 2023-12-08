@@ -226,24 +226,26 @@ impl TimeRanges {
 			debug_assert!(times.heap.is_empty());
 			
 			 // Find True Initial Order:
-			let size = match times.iter.size_hint() {
-				(_, Some(size)) => size,
-				(size, None) => size + 4,
-			};
-			if let Some(t) = times.iter.next() {
-				times.heap.reserve(size);
-				times.heap.push(Reverse(t));
-				if t <= basis {
-					order = order.reverse();
-				}
-				for _ in 1..size {
-					if let Some(t) = times.iter.next() {
-						times.heap.push(Reverse(t));
-						if t <= basis {
-							order = order.reverse();
+			if basis != Time::ZERO {
+				let size = match times.iter.size_hint() {
+					(_, Some(size)) => size,
+					(size, None) => size + 4,
+				};
+				if let Some(t) = times.iter.next() {
+					times.heap.reserve(size);
+					times.heap.push(Reverse(t));
+					if t < basis {
+						order = order.reverse();
+					}
+					for _ in 1..size {
+						if let Some(t) = times.iter.next() {
+							times.heap.push(Reverse(t));
+							if t < basis {
+								order = order.reverse();
+							}
+						} else {
+							break
 						}
-					} else {
-						break
 					}
 				}
 			}
