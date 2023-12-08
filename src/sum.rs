@@ -65,8 +65,9 @@ impl<T, const D: usize> IndexMut<usize> for Sum<T, D> {
 impl<T: Linear, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		for item in self.iter_mut() {
-			*item = *item * rhs;
+		self.0 = self.0 * rhs;
+		for i in 0..D {
+			self.1[i] = self.1[i] * rhs;
 		}
 		self
 	}
@@ -123,7 +124,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: K) -> Self {
-		self[0] = self[0] + rhs.value();
+		self.0 = self.0 + rhs.value();
 		self
 	}
 }
@@ -174,9 +175,9 @@ macro_rules! impl_deg_order {
 		impl<T: Linear> Add for Sum<T, { $($num +)+ 0 }> {
 			type Output = Self;
 			fn add(mut self, rhs: Self) -> Self {
-				let mut iter = rhs.into_iter();
-				for item in self.iter_mut() {
-					*item = *item + iter.next().unwrap_or_else(T::zero);
+				self.0 = self.0 + rhs.0;
+				for i in 0..($($num +)+ 0) {
+					self.1[i] = self.1[i] + rhs.1[i];
 				}
 				self
 			}
@@ -215,28 +216,22 @@ macro_rules! impl_deg_add {
 	($a:tt, $($num:tt)+) => {
 		impl<T: Linear> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<T, $a>) -> Self::Output {
-				let mut sum = Sum::zero();
-				let mut iter1 = self.into_iter();
-				let mut iter2 = rhs.into_iter();
-				for item in sum.iter_mut() {
-					*item = iter1.next().unwrap_or_else(T::zero)
-						+ iter2.next().unwrap_or_else(T::zero);
+			fn add(mut self, rhs: Sum<T, $a>) -> Self::Output {
+				self.0 = self.0 + rhs.0;
+				for i in 0..($a) {
+					self.1[i] = self.1[i] + rhs.1[i];
 				}
-				sum
+				self
 			}
 		}
 		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
 			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
-				let mut sum = Sum::zero();
-				let mut iter1 = self.into_iter();
-				let mut iter2 = rhs.into_iter();
-				for item in sum.iter_mut() {
-					*item = iter1.next().unwrap_or_else(T::zero)
-						+ iter2.next().unwrap_or_else(T::zero);
+			fn add(self, mut rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
+				rhs.0 = rhs.0 + self.0;
+				for i in 0..($a) {
+					rhs.1[i] = rhs.1[i] + self.1[i];
 				}
-				sum
+				rhs
 			}
 		}
 		impl_deg_add!($a, 1 $($num)+);
