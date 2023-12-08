@@ -54,7 +54,7 @@ impl Times {
 	{
 		Self {
 			heap: BinaryHeap::new(),
-			iter: Box::new(iter.into_iter()),
+			iter: Box::new(iter.into_iter()), // < This takes like 1 microsecond
 		}
 	}
 	
@@ -233,6 +233,9 @@ impl TimeRanges {
 			if let Some(t) = times.iter.next() {
 				times.heap.reserve(size);
 				times.heap.push(Reverse(t));
+				if t <= basis {
+					order = order.reverse();
+				}
 				for _ in 1..size {
 					if let Some(t) = times.iter.next() {
 						times.heap.push(Reverse(t));
