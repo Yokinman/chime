@@ -159,10 +159,8 @@ macro_rules! impl_deg_order {
 			type Up = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn shift_up(self) -> <Self as SumShiftUp>::Up {
 				let mut sum = Sum::zero();
-				let mut iter = self.into_iter();
-				for item in sum.iter_mut().skip(1) {
-					*item = iter.next().unwrap();
-				}
+				sum.1[0] = self.0;
+				sum.1[1..].copy_from_slice(self.1.as_slice());
 				sum
 			}
 		}
