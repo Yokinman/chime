@@ -247,16 +247,26 @@ impl TimeRanges {
 		}
 	}
 	
-	fn into_not_equal(self) -> TimeRanges {
+	fn into_not_equal(mut self) -> TimeRanges {
 		//! Converts points to ranges.
 		if self.order == Ordering::Equal {
-			return Self::new(
-				self.flat_map(|(a, b)| [Some(a), b.checked_add(NANOSEC)])
-					.flatten(),
-				Time::ZERO,
-				Ordering::Less,
-				Ordering::Greater,
-			)
+			if let Some(a) = self.times.peek() {
+				let times = self
+					.flat_map(|(a, b)| [
+						a.checked_sub(NANOSEC),
+						b.checked_add(NANOSEC)
+					])
+					.flatten();
+				
+				let order = if a == Time::ZERO {
+					Ordering::Less
+				} else {
+					Ordering::Greater
+				};
+				
+				return Self::new(times, Time::ZERO, Ordering::Less, order)
+			}
+			self.order = Ordering::Less;
 		}
 		self
 	}
@@ -306,13 +316,15 @@ impl Iterator for TimeRanges {
 						}
 						
 						 // Ignore Zero-sized Ranges:
-						if a == b {
+						if a == b || a == b - NANOSEC {
 							continue
 						}
 						
-						Some((a, b - NANOSEC))
+						Some((a + NANOSEC, b - NANOSEC))
+					} else if a == Time::MAX {
+						None
 					} else {
-						Some((a, Time::MAX))
+						Some((a + NANOSEC, Time::MAX))
 					};
 					break
 				}
@@ -337,7 +349,7 @@ impl BitAnd for TimeRanges {
 	type Output = Self;
 	
 	/// Intersection of ranges.
-	fn bitand(self, rhs: Self) -> Self::Output {
+	fn bitand(mut self, mut rhs: Self) -> Self::Output {
 		match (self.order, rhs.order) {
 			(Ordering::Equal, Ordering::Equal) => TimeRanges::new(
 				self.times & rhs.times,
@@ -349,7 +361,7 @@ impl BitAnd for TimeRanges {
 			(Ordering::Equal, _) => self.into_not_equal() & rhs,
 			(_, Ordering::Equal) => self & rhs.into_not_equal(),
 			
-			(a_order, b_order) => TimeRanges::new(
+			(a_order, b_order) => Self::new(
 				JoinedTimeRanges {
 					iter: OrdTimes::new(self.times, rhs.times),
 					flag: ((a_order == Ordering::Greater) as u8)
@@ -412,13 +424,11 @@ impl BitXor for TimeRanges {
 			(_, Ordering::Equal) => self ^ rhs.into_not_equal(),
 			
 			(a_order, b_order) => TimeRanges::new(
-				OrdTimes::new(self.times, rhs.times)
-					.flat_map(|t| match t {
-						OrdTime::Greater(t) => [Some(t), None],
-						OrdTime::Less(t)    => [Some(t), None],
-						OrdTime::Equal(t)   => [Some(t), Some(t)],
-					})
-					.flatten(),
+				SplitTimeRanges {
+					iter: OrdTimes::new(self.times, rhs.times),
+					flag: ((a_order == Ordering::Greater) as u8) | (((b_order == Ordering::Greater) as u8) << 1),
+					extra: None,
+				},
 				Time::ZERO,
 				Ordering::Greater,
 				if a_order == b_order {
@@ -435,12 +445,85 @@ impl Not for TimeRanges {
 	type Output = Self;
 	
 	/// Inverse of ranges.
-	fn not(mut self) -> Self::Output {
+	fn not(self) -> Self::Output {
 		if self.order == Ordering::Equal {
 			return !self.into_not_equal()
 		}
-		self.order = self.order.reverse();
-		self
+		TimeRanges::new(
+			InvTimes {
+				iter: self.times,
+				flag: self.order == Ordering::Greater,
+				extra: None,
+				prev: Time::ZERO,
+			},
+			Time::ZERO,
+			Ordering::Greater,
+			self.order.reverse(),
+		)
+	}
+}
+
+/// [`Not`] implementation for [`Times`] and [`TimeRanges`].
+#[derive(Clone)]
+struct InvTimes {
+	iter: Times,
+	flag: bool,
+	extra: Option<Time>,
+	prev: Time,
+}
+
+impl Iterator for InvTimes {
+	type Item = Time;
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.extra.is_some() {
+			return std::mem::take(&mut self.extra)
+		}
+		while let Some(mut time) = self.iter.pop() {
+			self.flag = !self.flag;
+			time = time.max(self.prev);
+			
+			 // Adjacent Roots:
+			if let Some(next) = self.iter.peek() {
+				if next == time || next == time + NANOSEC {
+					if self.flag {
+						self.flag = !self.flag;
+						self.iter.pop();
+					} else if self.extra.is_none() {
+						self.extra = time.checked_sub(NANOSEC);
+					}
+					continue
+				}
+			}
+			
+			self.prev = time;
+			
+			let time = if self.flag {
+				if self.extra.is_some() {
+					std::mem::replace(&mut self.extra, time.checked_add(NANOSEC))
+				} else {
+					time.checked_add(NANOSEC)
+				}
+			} else if self.extra.is_some() {
+				std::mem::take(&mut self.extra)
+			} else {
+				time.checked_sub(NANOSEC)
+			};
+			
+			if let Some(time) = time {
+				return Some(time)
+			} else {
+				continue
+			}
+		}
+		None
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let (_, max) = self.iter.size_hint();
+		let extra_num = self.extra.is_some() as usize;
+		(
+			extra_num,
+			max.map(|x| x + extra_num)
+		)
 	}
 }
 
@@ -507,12 +590,132 @@ impl Iterator for JoinedTimeRanges {
 	}
 }
 
+/// [`BitXor`] implementation for [`TimesRanges`].
+#[derive(Clone)]
+struct SplitTimeRanges {
+	iter: OrdTimes,
+	flag: u8,
+	extra: Option<Time>,
+}
+
+impl SplitTimeRanges {
+	fn step(&mut self, flag: u8, a: Time) -> Option<Time> {
+		self.flag ^= flag;
+		
+		 // Equal:
+		if flag == 0b11 {
+			return match self.flag {
+				0b00 => None,
+				0b11 => match self.iter.peek() {
+					Some(OrdTime::Less(time)) if time == a => {
+						self.flag ^= 0b01;
+						self.iter.next();
+						Some(time)
+					},
+					Some(OrdTime::Greater(time)) if time == a => {
+						self.flag ^= 0b10;
+						self.iter.next();
+						Some(time)
+					},
+					Some(OrdTime::Equal(time)) if time == a => {
+						self.flag ^= 0b11;
+						self.iter.next();
+						None
+					},
+					_ => None
+				},
+				_ => {
+					self.extra = Some(a);
+					Some(a)
+				}
+			}
+		}
+		
+		 // Opposing Range isn't Active:
+		if self.flag & !flag == 0 {
+			return Some(a)
+		}
+		
+		let b = if flag == 0b01 {
+			self.iter.peek()
+		} else {
+			self.iter.peek().map(|t| t.reverse())
+		};
+		
+		 // Adjacent Roots:
+		if let Some(OrdTime::Less(next)) = b {
+			if next == a || next == a + NANOSEC {
+				if self.flag & flag != 0 {
+					self.flag ^= flag;
+					self.iter.next();
+				} else if self.extra.is_none() {
+					self.extra = a.checked_sub(NANOSEC);
+				}
+				return None
+			}
+		}
+		
+		if self.flag & flag != 0 {
+			if a != Time::MAX && b == Some(OrdTime::Greater(a + NANOSEC)) {
+				self.flag ^= !flag & 0b11;
+				self.iter.next();
+				std::mem::take(&mut self.extra)
+			} else if self.extra.is_some() {
+				std::mem::replace(&mut self.extra, a.checked_add(NANOSEC))
+			} else {
+				a.checked_add(NANOSEC)
+			}
+		} else if self.extra.is_some() {
+			std::mem::take(&mut self.extra)
+		} else {
+			a.checked_sub(NANOSEC)
+		}
+	}
+}
+
+impl Iterator for SplitTimeRanges {
+	type Item = Time;
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.extra.is_some() {
+			return std::mem::take(&mut self.extra)
+		}
+		while let Some(time) = self.iter.next() {
+			if let Some(time) = match time {
+				OrdTime::Less(t)    => self.step(0b01, t),
+				OrdTime::Greater(t) => self.step(0b10, t),
+				OrdTime::Equal(t)   => self.step(0b11, t),
+			} {
+				return Some(time)
+			}
+		}
+		None
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let (_, max) = self.iter.size_hint();
+		let extra_num = self.extra.is_some() as usize;
+		(
+			extra_num,
+			max.map(|x| x*2 + extra_num)
+		)
+	}
+}
+
 /// Ordering paired with a time.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum OrdTime {
 	Less(Time),
 	Greater(Time),
 	Equal(Time),
+}
+
+impl OrdTime {
+	fn reverse(self) -> Self {
+		match self {
+			OrdTime::Less(t) => OrdTime::Greater(t),
+			OrdTime::Greater(t) => OrdTime::Less(t),
+			t => t,
+		}
+	}
 }
 
 /// Orders two [`Times`] iterators in parallel.
@@ -611,26 +814,6 @@ mod tests {
 			Vec::from_iter(a.clone() & TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)),
 			Vec::from_iter(a.clone())
 		);
-		
-		 // Lower Inclusive, Upper Exclusive:
-		assert_eq!(
-			Vec::from_iter(a.clone() & TimeRanges::new(
-				[1*t], // 1..MAX
-				Time::ZERO,
-				Ordering::Greater,
-				Ordering::Less,
-			)),
-			[1*t, 2*t, 3*t]
-		);
-		assert_eq!(
-			Vec::from_iter(a.clone() & TimeRanges::new(
-				[2*t], // 0..2
-				Time::ZERO,
-				Ordering::Greater,
-				Ordering::Greater,
-			)),
-			[1*t]
-		);
 	}
 	
 	#[test]
@@ -640,15 +823,15 @@ mod tests {
 		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Time::ZERO, Ordering::Less, Ordering::Greater);
 		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Time::ZERO, Ordering::Greater, Ordering::Equal);
 		assert_eq!(Vec::from_iter(a.clone()), [
-			(0*t, 2*t - NANOSEC),
-			(3*t, 10*t - NANOSEC),
-			(20*t, 40*t - NANOSEC),
-			(40*t + NANOSEC, Time::MAX),
+			(Time::ZERO, 2*t - NANOSEC),
+			(3*t + NANOSEC, 10*t - NANOSEC),
+			(20*t + NANOSEC, 40*t - NANOSEC),
+			(40*t + 2*NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(b.clone()), [
-			(2*t, 5*t - NANOSEC),
-			(20*t, 40*t - NANOSEC),
-			(50*t, Time::MAX),
+			(2*t + NANOSEC, 5*t - NANOSEC),
+			(20*t + NANOSEC, 40*t - NANOSEC),
+			(50*t + NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(c.clone()), [
 			(0*t, 0*t),
@@ -657,21 +840,21 @@ mod tests {
 			(50*t - NANOSEC, 50*t + NANOSEC),
 		]);
 		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [
-			(3*t, 5*t - NANOSEC),
-			(20*t, 40*t - NANOSEC),
-			(50*t, Time::MAX),
+			(3*t + NANOSEC, 5*t - NANOSEC),
+			(20*t + NANOSEC, 40*t - NANOSEC),
+			(50*t + NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(a.clone() | b.clone()), [
 			(0*t, 2*t - NANOSEC),
-			(2*t, 10*t - NANOSEC),
-			(20*t, 40*t - NANOSEC),
-			(40*t + NANOSEC, Time::MAX)
+			(2*t + NANOSEC, 10*t - NANOSEC),
+			(20*t + NANOSEC, 40*t - NANOSEC),
+			(40*t + 2*NANOSEC, Time::MAX)
 		]);
 		assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [
 			(0*t, 2*t - NANOSEC),
-			(2*t, 3*t - NANOSEC),
+			(2*t + NANOSEC, 3*t),
 			(5*t, 10*t - NANOSEC),
-			(40*t + NANOSEC, 50*t - NANOSEC)
+			(40*t + 2*NANOSEC, 50*t)
 		]);
 		assert_eq!(Vec::from_iter(a.clone() & a.clone()), Vec::from_iter(a.clone()));
 		assert_eq!(Vec::from_iter(b.clone() & b.clone()), Vec::from_iter(b.clone()));
@@ -683,52 +866,50 @@ mod tests {
 		assert_eq!(Vec::from_iter(b.clone() ^ b.clone()), Vec::from_iter([]));
 		assert_eq!(Vec::from_iter(c.clone() ^ c.clone()), Vec::from_iter([]));
 		assert_eq!(Vec::from_iter(!!!a.clone()), [
-			(2*t, 3*t - NANOSEC),
-			(10*t, 20*t - NANOSEC),
-			(40*t, 40*t)
+			(2*t, 3*t),
+			(10*t, 20*t),
+			(40*t, 40*t + NANOSEC)
 		]);
 		assert_eq!(Vec::from_iter(!b.clone()), [
-			(Time::ZERO, 2*t - NANOSEC),
-			(5*t, 20*t - NANOSEC),
-			(40*t, 50*t - NANOSEC)
+			(Time::ZERO, 2*t),
+			(5*t, 20*t),
+			(40*t, 50*t)
 		]);
 		assert_eq!(Vec::from_iter(c.clone() & a.clone()), [
 			(0*t, 0*t),
 			(7*t, 7*t),
-			(20*t, 20*t),
 			(50*t - NANOSEC, 50*t + NANOSEC),
 		]);
 		assert_eq!(Vec::from_iter(b.clone() & c.clone()), [
-			(20*t, 20*t),
-			(50*t, 50*t + NANOSEC),
+			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
 		assert_eq!(Vec::from_iter(c.clone() | a.clone()), [
-			(0*t, 2*t - NANOSEC),
-			(3*t, 10*t - NANOSEC),
+			(Time::ZERO, 2*t - NANOSEC),
+			(3*t + NANOSEC, 10*t - NANOSEC),
 			(20*t, 40*t - NANOSEC),
-			(40*t + NANOSEC, Time::MAX),
+			(40*t + 2*NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(b.clone() | c.clone()), [
 			(0*t, 0*t),
-			(2*t, 5*t - NANOSEC),
+			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
 			(20*t, 40*t - NANOSEC),
 			(50*t - NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(c.clone() ^ a.clone()), [
 			(0*t + NANOSEC, 2*t - NANOSEC),
-			(3*t, 7*t - NANOSEC),
+			(3*t + NANOSEC, 7*t - NANOSEC),
 			(7*t + NANOSEC, 10*t - NANOSEC),
-			(20*t + NANOSEC, 40*t - NANOSEC),
-			(40*t + NANOSEC, 50*t - 2*NANOSEC),
+			(20*t, 40*t - NANOSEC),
+			(40*t + 2*NANOSEC, 50*t - 2*NANOSEC),
 			(50*t + 2*NANOSEC, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(b.clone() ^ c.clone()), [
 			(0*t, 0*t),
-			(2*t, 5*t - NANOSEC),
+			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
-			(20*t + NANOSEC, 40*t - NANOSEC),
-			(50*t - NANOSEC, 50*t - NANOSEC),
+			(20*t, 40*t - NANOSEC),
+			(50*t - NANOSEC, 50*t),
 			(50*t + 2*NANOSEC, Time::MAX),
 		]);
 	}
@@ -765,9 +946,9 @@ mod tests {
 		assert_eq!(ranges.clone().collect::<Vec<_>>(), [
 			// SHOULD be (7..10, 20..30, 40..50), but the iterator doesn't know
 			// all the roots. So instead, it corrects itself along the way:
-			(10*t, 20*t - NANOSEC),
-			(20*t, 30*t - NANOSEC),
-			(40*t, 50*t - NANOSEC),
+			(10*t + NANOSEC, 20*t - NANOSEC),
+			(20*t + NANOSEC, 30*t - NANOSEC),
+			(40*t + NANOSEC, 50*t - NANOSEC),
 		]);
 		
 		let b_ranges = TimeRanges::new(
@@ -778,26 +959,26 @@ mod tests {
 		);
 		assert_eq!(b_ranges.clone().collect::<Vec<_>>(), [
 			// This one is within range of all the roots by chance, so it works.
-			(5*t, 10*t - NANOSEC),
-			(25*t, 30*t - NANOSEC),
-			(45*t, Time::MAX),
+			(5*t + NANOSEC, 10*t - NANOSEC),
+			(25*t + NANOSEC, 30*t - NANOSEC),
+			(45*t + NANOSEC, Time::MAX),
 		]);
 		
 		 // Operations:
 		assert_eq!((ranges.clone() & b_ranges.clone()).collect::<Vec<_>>(), [
-			(25*t, 30*t - NANOSEC),
-			(45*t, 50*t - NANOSEC),
+			(25*t + NANOSEC, 30*t - NANOSEC),
+			(45*t + NANOSEC, 50*t - NANOSEC),
 		]);
 		assert_eq!((ranges.clone() ^ b_ranges.clone()).collect::<Vec<_>>(), [
-			(10*t, 20*t - NANOSEC),
-			(20*t, 25*t - NANOSEC),
-			(40*t, 45*t - NANOSEC),
+			(10*t + NANOSEC, 20*t - NANOSEC),
+			(20*t + NANOSEC, 25*t),
+			(40*t + NANOSEC, 45*t),
 			(50*t, Time::MAX),
 		]);
 		assert_eq!((!ranges.clone()).collect::<Vec<_>>(), [
-			(0*t, 10*t - NANOSEC),
-			(10*t, 20*t - NANOSEC),
-			(30*t, 40*t - NANOSEC),
+			(0*t, 10*t),
+			(20*t, 20*t),
+			(30*t, 40*t),
 			(50*t, Time::MAX),
 		]);
 	}
