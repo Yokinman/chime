@@ -294,13 +294,14 @@ pub trait Roots: FluxKind {
 	fn roots(self) -> <Self as Roots>::Output;
 }
 
-/// `Duration::try_from_secs_f64`, but rounds toward the `basis`.
+/// `Duration::try_from_secs_f64`, but always rounds down.
 fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 	let sign = t.signum();
 	t *= sign;
 	
 	const MANT_MASK: u64 = (1 << 52) - 1;
 	const EXP_MASK: u64 = (1 << 11) - 1;
+	const REM_MASK: u128 = (1 << 44) - 1;
 	
 	let bits = t.to_bits();
 	let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
@@ -308,14 +309,26 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 	
 	let time = if exp < -30 {
 		// Too small; `1ns < 2s^-30`.
-		Time::ZERO
+		if sign <= 0. {
+			Time::new(0, 1)
+		} else {
+			Time::ZERO
+		}
 	} else if exp < 0 {
 		// No integer part.
-		let nanos = ((((mant as u128) << (44 + exp)) * 1_000_000_000) >> (44 + 52)) as u32;
+		let nanos_tmp = ((mant as u128) << (44 + exp)) * 1_000_000_000;
+		let mut nanos = (nanos_tmp >> (44 + 52)) as u32;
+		if sign <= 0. && nanos_tmp & REM_MASK != 0 {
+			nanos += 1;
+		}
 		Time::new(0, nanos)
 	} else if exp < 52 {
 		let secs = mant >> (52 - exp);
-		let nanos = (((((mant << exp) & MANT_MASK) as u128) * 1_000_000_000) >> 52) as u32;
+		let nanos_tmp = (((mant << exp) & MANT_MASK) as u128) * 1_000_000_000;
+		let mut nanos = (nanos_tmp >> 52) as u32;
+		if sign <= 0. && nanos_tmp & REM_MASK != 0 {
+			nanos += 1;
+		}
 		Time::new(secs, nanos)
 	} else if exp < 64 {
 		// No fractional part.
