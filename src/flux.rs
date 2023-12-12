@@ -661,7 +661,7 @@ mod tests {
 	#[test]
 	fn distance() {
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 2> = {value} + spd.per(time::MIN), crate = "crate")]
+		#[flux(Sum<f64, 2> = {value} + spd.per(time::MINUTE), crate = "crate")]
 		#[derive(Debug)]
 		struct Pos {
 			value: i64,

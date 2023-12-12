@@ -20,7 +20,7 @@ mod units {
 	/// 1 second (s).
 	pub const SEC: Time = Time::from_secs(1);
 	/// 1 minute (m).
-	pub const MIN: Time = Time::from_secs(60); // !!! Rename
+	pub const MINUTE: Time = Time::from_secs(60);
 	/// 1 hour (h).
 	pub const HOUR: Time = Time::from_secs(60 * 60);
 }
