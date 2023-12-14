@@ -177,7 +177,7 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots
 	{
 		self.roots().into_iter()
-			.filter(|r| !r.is_nan())
+			.filter(|r| r.is_finite())
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.

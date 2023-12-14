@@ -257,9 +257,6 @@ impl Roots for Sum<f64, 1> {
 	type IntoIter = <[f64; 1] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b]) = self;
-		if b == 0. {
-			return [f64::NAN]
-		}
 		[-a / b]
 	}
 }
@@ -269,33 +266,22 @@ impl Roots for Sum<f64, 2> {
 	type IntoIter = <[f64; 2] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c]) = self;
-		if c == 0. {
-			let [x] = Sum(a, [b]).roots();
-			return [x, f64::NAN]
-		}
-		if a == 0. {
-			let [x] = Sum(b, [c]).roots();
-			return [x, 0.]
-		}
-		if b == 0. {
-			 // Pseudo-linear:
-			let r = (-a / c).sqrt();
-			return [r, -r]
-		}
-		
 		let mut n = -b / c;
 		
-		 // Precision Breakdown:
-		if (a / (n * b)).abs() < 1e-10 {
-			// https://www.desmos.com/calculator/coxloe79ea
-			let [x] = Sum(a, [b]).roots();
-			return [x, n]
+		 // Precision Breakdown (Discriminant Quotient):
+		let x = -a / b;
+		if x.is_nan() || n.is_nan() || (x / n).abs() < 1e-8 {
+			return if x.is_nan() {
+				[n, n]
+			} else {
+				[x, n-x]
+			}
 		}
 		
 		 // General Quadratic:
 		n /= 2.;
-		let n1 = (n*n - a/c).sqrt();
-		[n + n1, n - n1]
+		let x = n.mul_add(n, -a/c).sqrt();
+		[x+n, n-x]
 	}
 }
 
@@ -304,14 +290,32 @@ impl Roots for Sum<f64, 3> {
 	type IntoIter = <[f64; 3] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d]) = self;
-		if d == 0. {
+		
+		 // Weak Constant:
+		let x = -a / b;
+		if x.is_nan() || (
+			((x   * c) / b).abs() < 1e-5 && // ??? Adjust as needed
+			((x*x * d) / b).abs() < 1e-16
+		) {
+			let [y, z] = Sum(b, [c, d]).roots();
+			return if x.is_nan() {
+				[y, y, z]
+			} else {
+				[x, y-x, z-x]
+			}
+		}
+		
+		let mut n = -c / d;
+		
+		 // Weak Leading Term:
+		if n.is_nan() || (
+			(b / (n   * c)).abs() < 1e-9 && // ??? Adjust as needed
+			(a / (n*n * c)).abs() < 1e-13
+		) {
 			let [x, y] = Sum(a, [b, c]).roots();
-			return [x, y, f64::NAN]
+			return [x, y, n]
 		}
-		if a == 0. {
-			let [x, y] = Sum(b, [c, d]).roots();
-			return [x, y, 0.]
-		}
+		
 		if c == 0. {
 			 // Pseudo-linear:
 			if b == 0. {
@@ -348,22 +352,10 @@ impl Roots for Sum<f64, 3> {
 				
 				 // 2 Real Roots:
 				_ => {
-					let [x, y] = Sum(a, [b, c]).roots();
-					[x, y, f64::NAN]
+					let r = q / p;
+					[-r, -r, 2.*r]
 				}
 			}
-		}
-		
-		let mut n = -c / d;
-		
-		 // Precision Breakdown:
-		if
-			(b / (n   * c)).abs() < 1e-9 &&
-			(a / (n*n * c)).abs() < 1e-13
-			// https://www.desmos.com/calculator/ckzncd7l5h
-		{
-			let [x, y] = Sum(a, [b, c]).roots();
-			return [x, y, n]
 		}
 		
 		 // General Cubic:
@@ -386,14 +378,34 @@ impl Roots for Sum<f64, 4> {
 	type IntoIter = <[f64; 4] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d, e]) = self;
-		if e == 0. {
+		
+		 // Weak Constant:
+		let x = -a / b;
+		if x.is_nan() || (
+			((x     * c) / b).abs() < 1e-8 && // ??? Adjust as needed
+			((x*x   * d) / b).abs() < 1e-16 &&
+			((x*x*x * e) / b).abs() < 1e-24
+		) {
+			let [y, z, w] = Sum(b, [c, d, e]).roots();
+			return if x.is_nan() {
+				[y, y, z, w]
+			} else {
+				[x, y-x, z-x, w-x]
+			}
+		}
+		
+		let mut n = -d / e;
+		
+		 // Weak Leading Term:
+		if n.is_nan() || (
+		    (c / (n     * d)).abs() < 1e-7  && // ??? Adjust as needed
+			(b / (n*n   * d)).abs() < 1e-10 &&
+			(a / (n*n*n * d)).abs() < 1e-15
+		) {
 			let [x, y, z] = Sum(a, [b, c, d]).roots();
-			return [x, y, z, f64::NAN]
+			return [x, y, z, n]
 		}
-		if a == 0. {
-			let [x, y, z] = Sum(b, [c, d, e]).roots();
-			return [x, y, z, 0.]
-		}
+		
 		if d == 0. {
 			if b == 0. {
 				if c == 0. {
@@ -412,40 +424,24 @@ impl Roots for Sum<f64, 4> {
 			let p = a / e;
 			let q = b / (2. * e);
 			let r = c / (2. * e);
-			let resolvent_cubic = Sum(
+			let resolvent_cubic = Poly::from(Sum(
 				-(q * q) / 2.,
 				[
 					r.mul_add(r, -p),
 					2. * r,
 					1.,
 				]
-			);
-			let m = resolvent_cubic.roots() 
-				.into_iter()
-				.rev()
-				.find(|&r| r > -f64::EPSILON)
+			));
+			let m = resolvent_cubic.real_roots()
+				.find(|&r| r > 0.)
 				.unwrap_or_else(|| panic!(
-					"expected a positive roots from: {:?}",
+					"expected a positive root from: {:?}",
 					resolvent_cubic
-				))
-				.max(0.);
+				));
 			let sqrt_2m = (2. * m).sqrt();
 			let [x, y] = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
 			let [z, w] = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]).roots();
 			return [x, y, z, w]
-		}
-		
-		let mut n = -d / e;
-		
-		 // Precision Breakdown:
-		if
-			(c / (n     * d)).abs() < 1e-7  &&
-			(b / (n*n   * d)).abs() < 1e-10 &&
-			(a / (n*n*n * d)).abs() < 1e-15
-			// https://www.desmos.com/calculator/nl1jbjq07m
-		{
-			let [x, y, z] = Sum(a, [b, c, d]).roots();
-			return [x, y, z, n]
 		}
 		
 		 // General Quartic:
@@ -796,6 +792,10 @@ mod tests {
 				0.4732863823239847,
 				0.6655954027905443
 			]
+		);
+		assert_roots(
+			Sum(-35.99999999999999, [8.046918796812349e-6, 2999.99988981303, -54772.25541522836, 250000.0]),
+			&[-0.0677022, 0.177247]
 		);
 	}
 	
