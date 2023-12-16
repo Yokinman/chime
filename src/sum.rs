@@ -585,11 +585,13 @@ where
 					time: *time,
 					base_time: *base_time,
 				}));
-				let time_scale = (time.as_secs_f64() - base_time.as_secs_f64())
-					/ unit.as_secs_f64();
-				**value = **value + (sub_value * Scalar(
-					(time_scale / ((*depth+1) as f64)) * scalar
-				));
+				let time_scale = if *time > *base_time {
+					(*time - *base_time).as_secs_f64() / unit.as_secs_f64()
+				} else {
+					-(*base_time - *time).as_secs_f64() / unit.as_secs_f64()
+				};
+				**value = **value + (sub_value
+					* Scalar((time_scale / ((*depth+1) as f64)) * scalar));
 			},
 			FluxAccumKind::Poly { poly, depth, time, base_time } => {
 				let mut sub_poly = B::from(flux.value(*time));
@@ -600,9 +602,8 @@ where
 					base_time: *base_time,
 				}));
 				let time_scale = unit.as_secs_f64().recip();
-				**poly = **poly + (sub_poly.shift_up() * Scalar(
-					(time_scale / ((*depth+1) as f64)) * scalar
-				));
+				**poly = **poly + (sub_poly.shift_up()
+					* Scalar((time_scale / ((*depth+1) as f64)) * scalar));
 				// https://www.desmos.com/calculator/mhlpjakz32
 			},
 		}
