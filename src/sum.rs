@@ -82,6 +82,17 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		self[0]
 	}
 	
+	fn at(&self, time: Scalar) -> Self::Value {
+		if time == Scalar(0.) {
+			return self.0
+		}
+		let mut value = T::zero();
+		for degree in 1..=D {
+			value = value*time + self.1[D - degree]
+		}
+		value*time + self.0
+	}
+	
 	fn initial_order(&self) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd
@@ -523,11 +534,15 @@ where
 }
 
 /// Nested summation change accumulator.
-pub struct SumAccum<'a, K: FluxKind>(FluxAccumKind<'a, K>);
+pub struct SumAccum<'a, K: FluxKind> {
+	poly: &'a mut K,
+	depth: usize,
+	time: time::Time,
+}
 
 impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
-	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self {
-		Self(kind)
+	fn from_kind(poly: &'a mut K, depth: usize, time: time::Time) -> Self {
+		Self { poly, depth, time }
 	}
 }
 
@@ -537,7 +552,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: Change<'_, V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self.0, 1., rhs.rate, rhs.unit);
+		<(K, V::Kind)>::eval(&mut self, 1., rhs.rate, rhs.unit);
 		self
 	}
 }
@@ -548,7 +563,7 @@ where
 {
 	type Output = Self;
 	fn sub(mut self, rhs: Change<'_, V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self.0, -1., rhs.rate, rhs.unit);
+		<(K, V::Kind)>::eval(&mut self, -1., rhs.rate, rhs.unit);
 		self
 	}
 }
@@ -557,7 +572,7 @@ where
 #[doc(hidden)]
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 	fn eval<V: Flux<Kind=B>>(
-		kind: &mut FluxAccumKind<'_, A>,
+		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		value: &V,
 		unit: time::Time,
@@ -571,42 +586,21 @@ where
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
 	fn eval<V: Flux<Kind=B>>(
-		kind: &mut FluxAccumKind<'_, A>,
+		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		flux: &V,
 		unit: time::Time,
 	) {
-		match kind {
-			FluxAccumKind::Value { value, depth, time, base_time } => {
-				let mut sub_value = flux.value(*base_time);
-				flux.change(B::Accum::from_kind(FluxAccumKind::Value {
-					value: &mut sub_value,
-					depth: *depth + 1,
-					time: *time,
-					base_time: *base_time,
-				}));
-				let time_scale = if *time > *base_time {
-					(*time - *base_time).as_secs_f64() / unit.as_secs_f64()
-				} else {
-					-(*base_time - *time).as_secs_f64() / unit.as_secs_f64()
-				};
-				**value = **value + (sub_value
-					* Scalar((time_scale / ((*depth+1) as f64)) * scalar));
-			},
-			FluxAccumKind::Poly { poly, depth, time, base_time } => {
-				let mut sub_poly = B::from(flux.value(*time));
-				flux.change(B::Accum::from_kind(FluxAccumKind::Poly {
-					poly: &mut sub_poly,
-					depth: *depth + 1,
-					time: *time,
-					base_time: *base_time,
-				}));
-				let time_scale = unit.as_secs_f64().recip();
-				**poly = **poly + (sub_poly.shift_up()
-					* Scalar((time_scale / ((*depth+1) as f64)) * scalar));
-				// https://www.desmos.com/calculator/mhlpjakz32
-			},
-		}
+		let mut sub_poly = B::from(flux.value(kind.time));
+		flux.change(B::Accum::from_kind(
+			&mut sub_poly,
+			kind.depth + 1,
+			kind.time,
+		));
+		let time_scale = unit.as_secs_f64().recip();
+		*kind.poly = *kind.poly + (sub_poly.shift_up()
+			* Scalar((time_scale / ((kind.depth + 1) as f64)) * scalar));
+		// https://www.desmos.com/calculator/mhlpjakz32
 	}
 }
 

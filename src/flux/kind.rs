@@ -19,6 +19,8 @@ pub trait FluxKind:
 	
 	fn value(&self) -> Self::Value;
 	
+	fn at(&self, time: Scalar) -> Self::Value;
+	
 	/// The order at or immediately preceding the value at time=0.
 	/// 
 	/// This should be the first non-zero [`FluxKind::value`] of this kind or
@@ -104,28 +106,11 @@ pub mod ops {
 /// 
 /// Converts a discrete pattern of change into a desired form.
 pub trait FluxAccum<'a, K: FluxKind> {
-	fn from_kind(kind: FluxAccumKind<'a, K>) -> Self;
+	fn from_kind(kind: &'a mut K, depth: usize, time: Time) -> Self;
 }
 
 impl<K: FluxKind> FluxAccum<'_, K> for () {
-	fn from_kind(_kind: FluxAccumKind<'_, K>) -> Self {}
-}
-
-/// General accumulator arguments.
-#[non_exhaustive]
-pub enum FluxAccumKind<'a, K: FluxKind> {
-	Value {
-		value: &'a mut K::Value,
-		depth: usize,
-		time: Time,
-		base_time: Time,
-	},
-	Poly {
-		poly: &'a mut K,
-		depth: usize,
-		time: Time,
-		base_time: Time,
-	},
+	fn from_kind(_: &'_ mut K, _: usize, _: Time) -> Self {}
 }
 
 /// A polynomial wrapper for [`FluxKind`].
@@ -159,6 +144,14 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn time(&self) -> Time {
 		self.time
+	}
+	
+	pub fn at(&self, time: Time) -> K::Value {
+		self.inner.at(Scalar(if time > self.time {
+			(time - self.time).as_secs_f64()
+		} else {
+			-(self.time - time).as_secs_f64()
+		}))
 	}
 	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>

@@ -99,30 +99,21 @@ pub trait Flux {
 	/// 
 	/// `self.value(self.base_time()) == self.base_value()`
 	fn value(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
-		let mut value = self.base_value();
 		let base_time = self.base_time();
-		if time != base_time {
-			let accum = FluxAccumKind::Value {
-				value: &mut value,
-				depth: 0,
-				time,
-				base_time,
-			};
-			self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
+		if time == base_time {
+			return self.base_value()
 		}
-		value
+		self.poly(base_time).at(time)
 	}
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
 		let mut poly = Self::Kind::from(self.value(time));
-		let accum = FluxAccumKind::Poly {
-			poly: &mut poly,
-			depth: 0,
+		self.change(<Self::Kind as FluxKind>::Accum::from_kind(
+			&mut poly,
+			0,
 			time,
-			base_time: self.base_time(),
-		};
-		self.change(<Self::Kind as FluxKind>::Accum::from_kind(accum));
+		));
 		Poly::new(poly, time)
 	}
 	
@@ -381,6 +372,9 @@ impl<T: Linear> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
 	fn value(&self) -> Self::Value {
+		self.value
+	}
+	fn at(&self, _time: Scalar) -> Self::Value {
 		self.value
 	}
 	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {

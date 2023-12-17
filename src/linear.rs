@@ -6,7 +6,7 @@ use std::ops::{Add, Mul};
 use impl_op::impl_op;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scalar(pub f64);
 
 impl_op!{ a * b {
