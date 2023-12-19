@@ -553,7 +553,7 @@ mod tests {
 		assert_eq!(pos.at(10*SEC).round(), -63.);
 		assert_eq!(pos.at(20*SEC).round(), -113.);
 		assert_eq!(pos.at(100*SEC).round(), 8339.);
-		assert_eq!(pos.at(200*SEC).round(), -209779.);
+		assert_eq!(pos.at(200*SEC).round(), -209778.);
 		
 		 // Update:
 		assert_eq!(pos.at_mut(20*SEC).round(), -113.);

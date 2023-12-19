@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
+use crate::Constant;
 use crate::linear::{Linear, Scalar};
 use crate::time::{Time, Times, TimeRanges};
 
@@ -387,7 +388,7 @@ pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
 	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
 where
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
@@ -397,8 +398,8 @@ where
 			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialOrd,
-	A::Value: PartialOrd,
-	D: FluxKind<Value=A::Value> + ops::Sqr,
+	A::Value: Mul<Output=A::Value> + PartialOrd,
+	D: FluxKind<Value=A::Value> + ops::Sqr + Add<Constant<D::Value>, Output=D>,
 {
 	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges {
 		use ops::*;
@@ -410,13 +411,35 @@ where
 		};
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
+		let mut abs_dis = A::Value::zero();
 		
 		for i in 0..SIZE {
-			let x = (*self[i]).sub(*poly[i]);
-			sum = sum + x.sqr();
+			sum = sum + (*self[i]).sub(*poly[i]).sqr();
+			
+			 // Roughly the distance from zero at the next point of collision:
+			let x = (*self[i]).at(Scalar(2.)) + (*poly[i]).at(Scalar(2.));
+			abs_dis = abs_dis + x*x;
+		}
+		abs_dis = Mul::<Scalar>::mul(abs_dis.sqrt(), Scalar(0.5));
+		
+		let curr_dis = abs_dis + sum.at(Scalar(0.)).sqrt();
+		let goal_dis = abs_dis + (**dis).at(Scalar(0.));
+		
+		 // Buffer Distance (undershoot prediction to avoid rounding):
+		let epsilon = match curr_dis.partial_cmp(&goal_dis) {
+			Some(Ordering::Greater) => goal_dis.next_up()   + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			Some(Ordering::Less)    => goal_dis.next_down() + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			_ => A::Value::zero()
+		};
+		
+		let mut dis_poly = sum.sub((**dis + Constant::from(epsilon)).sqr());
+		
+		 // Guaranteed Start at Zero:
+		if curr_dis == goal_dis + epsilon {
+			dis_poly = dis_poly.sub(<D as Sqr>::Output::from(dis_poly.at(Scalar(0.))));
 		}
 		
-		Poly::new(sum.sub((**dis).sqr()), time)
+		Poly::new(dis_poly, time)
 			.when_sign(order)
 	}
 }
@@ -426,7 +449,7 @@ pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
 	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D: FluxKind> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
+impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
 where
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
@@ -435,9 +458,9 @@ where
 		+ ops::Sub<<D as ops::Sqr>::Output,
 			Output = <<A as ops::Sub<B>>::Output as ops::Sqr>::Output>
 		+ Roots
-		+ PartialEq,
-	A::Value: PartialEq,
-	D: FluxKind<Value=A::Value> + ops::Sqr,
+		+ PartialOrd,
+	A::Value: Mul<Output=A::Value> + PartialOrd,
+	D: FluxKind<Value=A::Value> + ops::Sqr + Add<Constant<D::Value>, Output=D>,
 {
 	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times {
 		use ops::*;
@@ -449,13 +472,35 @@ where
 		};
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
+		let mut abs_dis = A::Value::zero();
 		
 		for i in 0..SIZE {
-			let x = (*self[i]).sub(*poly[i]);
-			sum = sum + x.sqr();
+			sum = sum + (*self[i]).sub(*poly[i]).sqr();
+			
+			 // Roughly the distance from zero at the next point of collision:
+			let x = (*self[i]).at(Scalar(2.)) + (*poly[i]).at(Scalar(2.));
+			abs_dis = abs_dis + x*x;
+		}
+		abs_dis = Mul::<Scalar>::mul(abs_dis.sqrt(), Scalar(0.5));
+		
+		let curr_dis = abs_dis + sum.at(Scalar(0.)).sqrt();
+		let goal_dis = abs_dis + (**dis).at(Scalar(0.));
+		
+		 // Buffer Distance (undershoot prediction to avoid rounding):
+		let epsilon = match curr_dis.partial_cmp(&goal_dis) {
+			Some(Ordering::Greater) => goal_dis.next_up()   + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			Some(Ordering::Less)    => goal_dis.next_down() + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			_ => A::Value::zero()
+		};
+		
+		let mut dis_poly = sum.sub((**dis + Constant::from(epsilon)).sqr());
+		
+		 // Guaranteed Start at Zero:
+		if curr_dis == goal_dis + epsilon {
+			dis_poly = dis_poly.sub(<D as Sqr>::Output::from(dis_poly.at(Scalar(0.))));
 		}
 		
-		Poly::new(sum.sub((**dis).sqr()), time)
+		Poly::new(dis_poly, time)
 			.when_zero()
 	}
 }
