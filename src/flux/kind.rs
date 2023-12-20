@@ -18,8 +18,6 @@ pub trait FluxKind:
 	
 	type Accum<'a>: FluxAccum<'a, Self>;
 	
-	fn value(&self) -> Self::Value;
-	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
 	/// The order at or immediately preceding the value at time=0.
@@ -37,6 +35,10 @@ pub trait FluxKind:
 		Self: PartialEq
 	{
 		self.eq(&Self::zero())
+	}
+	
+	fn value(&self) -> Self::Value {
+		self.at(Scalar(0.))
 	}
 }
 

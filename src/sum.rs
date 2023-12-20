@@ -78,10 +78,6 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	
 	type Accum<'a> = SumAccum<'a, Self>;
 	
-	fn value(&self) -> Self::Value {
-		self[0]
-	}
-	
 	fn at(&self, time: Scalar) -> Self::Value {
 		if time == Scalar(0.) {
 			return self.0
