@@ -393,9 +393,9 @@ impl Roots for Sum<f64, 4> {
 		 // Weak Constant:
 		let x = -a / b;
 		if x.is_nan() || (
-			((x     * c) / b).abs() < 1e-8 && // ??? Adjust as needed
-			((x*x   * d) / b).abs() < 1e-16 &&
-			((x*x*x * e) / b).abs() < 1e-24
+			((x     * c) / b).abs() < 1e-4  && // ??? Adjust as needed
+			((x*x   * d) / b).abs() < 1e-12 &&
+			((x*x*x * e) / b).abs() < 1e-20
 		) {
 			let [y, z, w] = Sum(b, [c, d, e]).roots();
 			return if x.is_nan() {
@@ -443,12 +443,17 @@ impl Roots for Sum<f64, 4> {
 					1.,
 				]
 			));
-			let m = resolvent_cubic.real_roots()
+			let mut m = resolvent_cubic.real_roots()
 				.find(|&r| r > 0.)
 				.unwrap_or_else(|| panic!(
 					"expected a positive root from: {:?}",
 					resolvent_cubic
 				));
+			let y = (*resolvent_cubic).at(Scalar(m))
+				/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.1[0]);
+			if m > y && y.is_finite() {
+				m -= y; // Newton-Raphson step
+			}
 			let sqrt_2m = (2. * m).sqrt();
 			let [x, y] = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
 			let [z, w] = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]).roots();
