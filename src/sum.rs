@@ -292,7 +292,7 @@ impl Roots for Sum<f64, 2> {
 		 // General Quadratic:
 		n /= 2.;
 		let x = n.mul_add(n, -a/c).sqrt();
-		[x+n, n-x]
+		[n-x, n+x]
 	}
 }
 
@@ -312,7 +312,7 @@ impl Roots for Sum<f64, 3> {
 			return if x.is_nan() {
 				[y, y, z]
 			} else {
-				[x, y-x, z-x]
+				[x, y-x, z]
 			}
 		}
 		
@@ -401,7 +401,7 @@ impl Roots for Sum<f64, 4> {
 			return if x.is_nan() {
 				[y, y, z, w]
 			} else {
-				[x, y-x, z-x, w-x]
+				[x, y-x, z, w]
 			}
 		}
 		
