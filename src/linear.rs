@@ -1,7 +1,7 @@
 //! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 use impl_op::impl_op;
 
@@ -49,6 +49,7 @@ impl_op!{ a * b {
 pub trait Linear:
 	'static + Copy + Clone + Debug
 	+ Add<Output=Self>
+	+ Sub<Output=Self>
 	+ Mul<Scalar, Output=Self>
 {
 	fn sqrt(self) -> Self;

@@ -81,6 +81,9 @@ pub mod ops {
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
+			// ??? This could pass through to `ops::Sub` directly, but then
+			// stuff like [`sum::Sum`] would need a whole extra set of macro
+			// implementations. For now, this will just reuse `ops::Add`.
 			self + (kind * Scalar(-1.))
 		}
 	}
@@ -427,8 +430,8 @@ where
 		
 		 // Buffer Distance (undershoot prediction to avoid rounding):
 		let epsilon = match curr_dis.partial_cmp(&goal_dis) {
-			Some(Ordering::Greater) => goal_dis.next_up()   + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
-			Some(Ordering::Less)    => goal_dis.next_down() + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			Some(Ordering::Greater) => goal_dis.next_up()   - goal_dis,
+			Some(Ordering::Less)    => goal_dis.next_down() - goal_dis,
 			_ => A::Value::zero()
 		};
 		
@@ -488,8 +491,8 @@ where
 		
 		 // Buffer Distance (undershoot prediction to avoid rounding):
 		let epsilon = match curr_dis.partial_cmp(&goal_dis) {
-			Some(Ordering::Greater) => goal_dis.next_up()   + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
-			Some(Ordering::Less)    => goal_dis.next_down() + Mul::<Scalar>::mul(goal_dis, Scalar(-1.)),
+			Some(Ordering::Greater) => goal_dis.next_up()   - goal_dis,
+			Some(Ordering::Less)    => goal_dis.next_down() - goal_dis,
 			_ => A::Value::zero()
 		};
 		

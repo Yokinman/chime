@@ -3,7 +3,7 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -34,6 +34,13 @@ impl<T: Linear> Add for Exp<T> {
 	type Output = Self;
 	fn add(self, rhs: Self) -> Self {
 		Self(self.0 + rhs.0)
+	}
+}
+
+impl<T: Linear> Sub for Exp<T> {
+	type Output = Self;
+	fn sub(self, rhs: Self) -> Self {
+		Self(self.0 - rhs.0)
 	}
 }
 
