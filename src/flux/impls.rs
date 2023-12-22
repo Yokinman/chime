@@ -27,8 +27,9 @@ where
 		value
 	}
 	fn base_time(&self) -> Time {
-		self.first()
+		self.iter()
 			.map(|x| x.base_time())
+			.max()
 			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
@@ -70,8 +71,9 @@ where
 		value
 	}
 	fn base_time(&self) -> Time {
-		self.first()
+		self.iter()
 			.map(|x| x.base_time())
+			.max()
 			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)

@@ -237,12 +237,13 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
 	{
-		let time = if SIZE == 0 {
-			Time::ZERO
-		} else {
-			self.times()[0]
-		};
-		self.polys(time).when_dis(&other.polys(time), order, &dis.poly(time))
+		let time = self.times().into_iter()
+			.chain(other.times().into_iter())
+			.max()
+			.unwrap_or_default();
+		
+		self.polys(time)
+			.when_dis(&other.polys(time), order, &dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -254,12 +255,13 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
-		let time = if SIZE == 0 {
-			Time::ZERO
-		} else {
-			self.times()[0]
-		};
-		self.polys(time).when_dis_eq(&other.polys(time), &dis.poly(time))
+		let time = self.times().into_iter()
+			.chain(other.times().into_iter())
+			.max()
+			.unwrap_or_default();
+		
+		self.polys(time)
+			.when_dis_eq(&other.polys(time), &dis.poly(time))
 	}
 }
 
