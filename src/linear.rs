@@ -47,7 +47,7 @@ impl_op!{ a * b {
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
 pub trait Linear:
-	'static + Copy + Clone + Debug
+	'static + Copy + Clone + Debug + Send + Sync
 	+ Add<Output=Self>
 	+ Sub<Output=Self>
 	+ Mul<Scalar, Output=Self>
