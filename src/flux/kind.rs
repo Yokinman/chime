@@ -306,7 +306,7 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 	
 	let time = if exp < -30 {
 		// Too small; `1ns < 2s^-30`.
-		if sign <= 0. {
+		if sign == -1. && t != 0. {
 			Time::new(0, 1)
 		} else {
 			Time::ZERO
@@ -315,7 +315,7 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		// No integer part.
 		let nanos_tmp = ((mant as u128) << (44 + exp)) * 1_000_000_000;
 		let mut nanos = (nanos_tmp >> (44 + 52)) as u32;
-		if sign <= 0. && nanos_tmp & REM_MASK != 0 {
+		if sign == -1. && (nanos_tmp & REM_MASK) != 0 {
 			nanos += 1;
 		}
 		Time::new(0, nanos)
@@ -323,7 +323,7 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		let secs = mant >> (52 - exp);
 		let nanos_tmp = (((mant << exp) & MANT_MASK) as u128) * 1_000_000_000;
 		let mut nanos = (nanos_tmp >> 52) as u32;
-		if sign <= 0. && nanos_tmp & REM_MASK != 0 {
+		if sign == -1. && (nanos_tmp & REM_MASK) != 0 {
 			nanos += 1;
 		}
 		Time::new(secs, nanos)
@@ -332,14 +332,14 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		Time::from_secs(mant << (exp - 52))
 	} else {
 		// Too big.
-		return if sign < 0. {
+		return if sign == -1. {
 			Err(Time::ZERO)
 		} else {
 			Err(Time::MAX)
 		}
 	};
 	
-	if sign < 0. {
+	if sign == -1. {
 		basis.checked_sub(time).ok_or(Time::ZERO)
 	} else {
 		basis.checked_add(time).ok_or(Time::MAX)
