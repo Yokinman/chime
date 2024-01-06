@@ -409,20 +409,24 @@ where
 	move |root| {
 		if let Ok(mut time) = time_try_from_secs(root, basis) {
 			if time >= basis {
-				let mut dis = T::Value::zero();
-				for i in 0..SIZE {
-					let x = a_pos[i].at(time) + b_pos[i].at(time);
-					dis = dis + x*x;
-				}
-				dis = dis.sqrt();
 				for _ in 0..100 {
+					let mut a_dis = T::Value::zero();
+					let mut b_dis = T::Value::zero();
 					let mut sum = T::Value::zero();
 					for i in 0..SIZE {
-						let x = a_pos[i].at(time) - b_pos[i].at(time);
+						let a = a_pos[i].at(time);
+						let b = b_pos[i].at(time);
+						let x = a - b;
+						a_dis = a_dis + a*a;
+						b_dis = b_dis + b*b;
 						sum = sum + x*x;
 					}
-					sum = sum.sqrt();
-					if dis + sum != dis + b_poly.at(time) {
+					a_dis = a_dis.sqrt();
+					b_dis = b_dis.sqrt();
+					sum = Mul::<Scalar>::mul(sum.sqrt() - b_poly.at(time), Scalar(0.499999 / (SIZE as f64).sqrt()));
+					// !!! In 1-dimension I think they can round onto the value,
+					// but only past the value in >1-dimension (~sqrt(dim)).
+					if sum + a_dis != a_dis && sum + b_dis != b_dis && sum + b_poly.at(time) != b_poly.at(time) {
 						break
 					}
 					time = time.checked_sub(crate::time::NANOSEC)?;
