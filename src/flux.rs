@@ -379,6 +379,9 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.value
 	}
+	fn to_time(self, _time: Scalar) -> Self {
+		self
+	}
 	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
 		self.value.partial_cmp(&T::zero())
 	}
@@ -570,34 +573,34 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.poly(10*SEC),
-			Poly::from(Sum::new(-63.15, [
+			Poly::new(Sum::new(-63.15, [
 				-11.9775,
 				0.270416666666666,
 				0.0475,
 				-0.000416666666666,
-			]))
+			]), 10*SEC)
 		);
 		for _ in 0..2 {
 			pos.at_mut(20*SEC);
 			assert_poly!(
 				pos.poly(pos.base_time()),
-				Poly::from(Sum::new(-112.55, [
+				Poly::new(Sum::new(-112.55, [
 					 6.0141666666666666666,
 					 1.4454166666666666666,
 					 0.0308333333333333333,
 					-0.0004166666666666666,
-				]))
+				]), 20*SEC)
 			);
 		}
 		pos.at_mut(0*SEC);
 		assert_poly!(
 			pos.poly(pos.base_time()),
-			Poly::from(Sum::new(32., [
+			Poly::new(Sum::new(32., [
 				-1.4691666666666666666,
 				-1.4045833333333333333,
 				 0.0641666666666666666,
 				-0.0004166666666666666,
-			]))
+			]), 0*SEC)
 		);
 	}
 	

@@ -89,6 +89,23 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		value*time + self.0
 	}
 	
+	fn to_time(mut self, time: Scalar) -> Self {
+		if time == Scalar(0.) {
+			return self
+		}
+		self.0 = self.at(time);
+		let mut deriv = self.clone();
+		for degree in 1..=D {
+			deriv.0 = deriv.1[0] * Scalar(1. / (degree as f64));
+			for d in 1..D {
+				deriv.1[d-1] = deriv.1[d] * Scalar(((d+1) as f64) / (degree as f64))
+			}
+			deriv.1[D-1] = T::zero();
+			self.1[degree-1] = deriv.at(time);
+		}
+		self
+	}
+	
 	fn initial_order(&self) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd

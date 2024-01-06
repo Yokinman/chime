@@ -19,6 +19,8 @@ pub trait FluxKind:
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
+	fn to_time(self, time: Scalar) -> Self;
+	
 	/// The order at or immediately preceding the value at time=0.
 	/// 
 	/// This should be the first non-zero [`FluxKind::value`] of this kind or
@@ -159,6 +161,18 @@ impl<K: FluxKind> Poly<K> {
 		}))
 	}
 	
+	pub fn to_time(mut self, time: Time) -> Self {
+		if self.time != time {
+			self.inner = self.inner.to_time(Scalar(if time > self.time {
+				(time - self.time).as_secs_f64()
+			} else {
+				-(self.time - time).as_secs_f64()
+			}));
+			self.time = time;
+		}
+		self
+	}
+	
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
@@ -252,7 +266,7 @@ where
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
-			inner: (*self).add(*rhs),
+			inner: (*self).add(*rhs.to_time(self.time)),
 			time: self.time,
 		}
 	}
@@ -265,7 +279,7 @@ where
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
-			inner: (*self).sub(*rhs),
+			inner: (*self).sub(*rhs.to_time(self.time)),
 			time: self.time,
 		}
 	}
@@ -486,7 +500,9 @@ where
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self[i]).sub(*poly[i]).sqr();
+			sum = sum + (*self[i].to_time(basis))
+				.sub(*poly[i].to_time(basis))
+				.sqr();
 		}
 		
 		let sum = Poly::new(sum, basis);
@@ -525,7 +541,9 @@ where
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self[i]).sub(*poly[i]).sqr();
+			sum = sum + (*self[i].to_time(basis))
+				.sub(*poly[i].to_time(basis))
+				.sqr();
 		}
 		
 		let sum = Poly::new(sum, basis);
