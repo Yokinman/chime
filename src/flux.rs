@@ -15,7 +15,7 @@ use crate::{
 	kind::*,
 };
 
-use self::time::{Time, Times, TimeRanges};
+use self::time::{Time, /*Times,*/ TimeRanges};
 
 pub use self::impls::*;
 
@@ -127,7 +127,7 @@ pub trait Flux {
 	}
 	
 	/// Times when this is equal to another flux.
-	fn when_eq<T: Flux>(&self, other: &T) -> Times
+	fn when_eq<T: Flux>(&self, other: &T) -> TimeRanges
 	where
 		Poly<Self::Kind>: WhenEq<T::Kind>
 	{
@@ -251,7 +251,7 @@ pub trait FluxVec<const SIZE: usize> {
 		&self,
 		other: &T,
 		dis: &D,
-	) -> Times
+	) -> TimeRanges
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
@@ -275,22 +275,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	}
 }
 
-// impl<A: Flux, B: Flux> FluxVec for (A, B)
-// where
-// 	B::Kind: FluxKind<Value = <A::Kind as FluxKind>::Value>,
-// 	A::Kind: Add<B::Kind>,
-// 	<A::Kind as Add<B::Kind>>::Output: FluxKind<Value = <A::Kind as FluxKind>::Value>
-// {
-// 	type Kind = <A::Kind as Add<B::Kind>>::Output;
-// 	fn times(&self) -> Times {
-// 		[self.0.basis_time(), self.1.basis_time()]
-// 			.into_iter().collect()
-// 	}
-// 	fn polys(&self, time: Time) -> Polys<Self::Kind> {
-// 		[self.0.poly(time) + Poly::<B::Kind>::default(), Poly::<A::Kind>::default() + self.1.poly(time)]
-// 			.into_iter().collect()
-// 	}
-// }
+// !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
@@ -494,21 +479,30 @@ mod tests {
 	}
 	
 	macro_rules! assert_times {
-		($times:expr, $cmp_times:expr) => {{
-			let times: Times = $times;
-			let cmp_times = Times::new($cmp_times);
-			assert_eq!(
-				times.clone().count(),
-				cmp_times.clone().count(),
-				"a: {:?}, b: {:?}",
-				times.collect::<Box<[_]>>(),
-				cmp_times.collect::<Box<[_]>>(),
-			);
-			for (a, b) in times.zip(cmp_times) {
-				let time = ((a.max(b) - b.min(a)).as_secs_f64() * 60.).floor();
-				assert_eq!(time, 0., "a: {:?}, b: {:?}", a, b);
-			}
-		}};
+		($times:expr, []) => {
+			assert_time_ranges!($times, [(Time::ZERO, Time::MAX)])
+		};
+		($times:expr, $cmp_times:expr) => {
+			assert_time_ranges!(
+				$times,
+				$cmp_times.into_iter()
+					.map(|x| (x, x))
+					.collect::<Vec<_>>()
+			)
+			// let times: Times = $times;
+			// let cmp_times = Times::new($cmp_times);
+			// assert_eq!(
+			// 	times.clone().count(),
+			// 	cmp_times.clone().count(),
+			// 	"a: {:?}, b: {:?}",
+			// 	times.collect::<Box<[_]>>(),
+			// 	cmp_times.collect::<Box<[_]>>(),
+			// );
+			// for (a, b) in times.zip(cmp_times) {
+			// 	let time = ((a.max(b) - b.min(a)).as_secs_f64() * 60.).floor();
+			// 	assert_eq!(time, 0., "a: {:?}, b: {:?}", a, b);
+			// }
+		};
 	}
 	
 	macro_rules! assert_time_ranges {

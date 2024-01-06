@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Scalar};
-use crate::time::{Time, Times, TimeRanges};
+use crate::time::{Time, /*Times,*/ TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
@@ -198,33 +198,32 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
-		let basis = self.time;
-		if let Some(initial_order) = self.initial_order() {
-			TimeRanges::new(
-				self.real_roots()
-					.filter_map(f),
-				basis,
-				initial_order,
-				order,
-			)
-		} else {
-			TimeRanges::new(
-				std::iter::empty(),
-				basis,
-				Ordering::Equal,
-				Ordering::Equal,
-			)
-		}
+		TimeRanges::new(
+			self.real_roots()
+				.filter_map(f),
+			self.time,
+			self.initial_order().unwrap_or(Ordering::Equal),
+			order,
+		)
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, f: impl RootFilterMap + 'static) -> Times
+	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		Times::new(self.real_roots()
-			.filter_map(f))
+		TimeRanges::new(
+			self.real_roots()
+				.filter_map(f),
+			self.time,
+			if self.is_zero() {
+				Ordering::Equal
+			} else {
+				Ordering::Greater
+			},
+			Ordering::Equal,
+		)
 	}
 }
 
@@ -460,7 +459,7 @@ where
 
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B>: private::PolyValue<1> {
-	fn when_eq(self, poly: Poly<B>) -> Times;
+	fn when_eq(self, poly: Poly<B>) -> TimeRanges;
 }
 
 impl<A: FluxKind, B: FluxKind> WhenEq<B> for Poly<A>
@@ -469,7 +468,7 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B>) -> Times {
+	fn when_eq(self, poly: Poly<B>) -> TimeRanges {
 		(self - poly)
 			.when_zero(root_filter_map(self, poly))
 	}
@@ -518,7 +517,7 @@ where
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times;
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> TimeRanges;
 }
 
 impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
@@ -534,7 +533,7 @@ where
 	A::Value: Mul<Output=A::Value> + PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> Times {
+	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> TimeRanges {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
@@ -549,6 +548,17 @@ where
 				.sub(*poly[i].to_time(basis))
 				.sqr();
 		}
+		
+		// !!! Make everything range-based? The problem is that if two points
+		// graze the goal distance between them (within rounding range), an
+		// untimely event can cause the points to round into the distance
+		// without triggering the event. We can add a trigger for the current
+		// moment, but without noting some kind of range it'll be able to run
+		// multiple times if more events occur.
+		// - Handles total equality.
+		// - Handles rounding.
+		// - Handles this situation.
+		// - Simplifies some code and concepts?
 		
 		let sum = Poly::new(sum, basis);
 		

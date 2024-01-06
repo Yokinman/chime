@@ -38,7 +38,7 @@ impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {
 
 /// Iterator of [`Time`] values.
 #[must_use]
-pub struct Times {
+struct Times {
 	heap: BinaryHeap<Reverse<Time>>,
 	iter: Box<dyn TimeIter<Item=Time>>,
 	// !!! This could use generics, but it adds way too many tedious bounds
