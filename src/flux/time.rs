@@ -272,6 +272,17 @@ impl TimeRanges {
 	}
 }
 
+impl Default for TimeRanges {
+	fn default() -> Self {
+		Self::new(
+			std::iter::empty(),
+			Time::ZERO,
+			Ordering::Equal,
+			Ordering::Equal
+		)
+	}
+}
+
 impl Iterator for TimeRanges {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
