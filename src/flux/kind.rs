@@ -204,8 +204,8 @@ impl<K: FluxKind> Poly<K> {
 				self.real_roots()
 					.filter_map(f),
 				basis,
-				order,
 				initial_order,
+				order,
 			)
 		} else {
 			TimeRanges::new(
