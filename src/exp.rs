@@ -17,6 +17,10 @@ impl<T: Linear> Linear for Exp<T> {
 		self.0 = self.0.sqrt();
 		self
 	}
+	fn sign(mut self) -> Self {
+		self.0 = self.0.sign();
+		self
+	}
 	fn next_up(mut self) -> Self {
 		self.0 = self.0.next_up();
 		self

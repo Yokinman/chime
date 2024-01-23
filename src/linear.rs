@@ -54,6 +54,8 @@ pub trait Linear:
 {
 	fn sqrt(self) -> Self;
 	
+	fn sign(self) -> Self;
+	
 	fn next_up(self) -> Self;
 	
 	fn next_down(self) -> Self;
@@ -71,6 +73,11 @@ pub trait Linear:
 impl Linear for f64 {
 	fn sqrt(self) -> Self {
 		self.sqrt()
+	}
+	
+	fn sign(self) -> Self {
+		// What if sign is 0
+		self.signum()
 	}
 	
 	fn next_up(self) -> Self {
@@ -123,6 +130,10 @@ impl Linear for f64 {
 impl Linear for f32 {
 	fn sqrt(self) -> Self {
 		self.sqrt()
+	}
+	
+	fn sign(self) -> Self {
+		self.signum()
 	}
 	
 	fn next_up(self) -> Self {
