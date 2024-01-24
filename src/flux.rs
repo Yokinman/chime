@@ -238,7 +238,7 @@ pub trait FluxVec<const SIZE: usize> {
 		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
 	{
 		let time = self.times().into_iter()
-			.chain(other.times().into_iter())
+			.chain(other.times())
 			.max()
 			.unwrap_or_default();
 		
@@ -256,7 +256,7 @@ pub trait FluxVec<const SIZE: usize> {
 		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
 		let time = self.times().into_iter()
-			.chain(other.times().into_iter())
+			.chain(other.times())
 			.max()
 			.unwrap_or_default();
 		
@@ -651,7 +651,7 @@ mod tests {
 		 // Check After:
 		assert_eq!(a_pos.when(Ordering::Greater, &b_pos).collect::<Vec<_>>(), [
 			(0*SEC, 8*SEC - time::NANOSEC),
-			(50*SEC + time::NANOSEC, Time::MAX)
+			(50*SEC, Time::MAX)
 		]);
 		assert_times!(a_pos.when_eq(&b_pos), [8*SEC, 50*SEC]);
 	}

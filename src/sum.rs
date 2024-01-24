@@ -94,7 +94,7 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 			return self
 		}
 		self.0 = self.at(time);
-		let mut deriv = self.clone();
+		let mut deriv = self;
 		for degree in 1..=D {
 			deriv.0 = deriv.1[0] * Scalar(1. / (degree as f64));
 			for d in 1..D {
@@ -624,6 +624,7 @@ where
 
 #[cfg(test)]
 mod tests {
+	use crate::time::*;
 	use super::*;
 	
 	#[test]
@@ -674,7 +675,7 @@ mod tests {
 		);
 		for (x, y) in r.into_iter().zip(expected_roots.into_iter()) {
 			assert!(
-				(x - y).abs() < 0.1,
+				(x - y).abs() < 1e-9 * 10_f64.powf(1. + y.abs().log10().ceil().max(0.)),
 				"{:?} vs {:?}",
 				x, y
 			);
@@ -808,16 +809,27 @@ mod tests {
 		);
 		assert_roots(
 			Sum(-35.99999999999999, [8.046918796812349e-6, 2999.99988981303, -54772.25541522836, 250000.0]),
-			&[-0.0677022, 0.177247]
+			&[-0.067702232, 0.177246743]
 		);
-		assert_eq!(Poly::new(Sum(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*crate::time::NANOSEC).at(1209618450*crate::time::NANOSEC), -181.99999999999994);
+		assert_eq!(Poly::new(Sum(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*NANOSEC).at(1209618450*NANOSEC), -181.99999999999994);
+		assert_roots(
+			Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
+			&[-0.191570016, -1.11113e-8, 9.11132e-9, 0.187579734]
+		);
+		// panic!("{:?}", Poly::new(
+		// 	Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
+		// 	10*SEC
+		// ).when_zero(root_filter_map(
+		// 	Poly::new(Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]), 10*SEC),
+		// 	Poly::new(Sum(0., [0.; 4]), 10*SEC),
+		// ), false).collect::<Vec<_>>());
 	}
 	
 	#[cfg(feature = "glam")]
 	#[test]
 	fn vec() {
 		#[derive(PartialEq)]
-		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(time::SEC), crate = "crate")]
+		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(SEC), crate = "crate")]
 		struct Pos {
 			value: glam::IVec2,
 			spd: Spd,
@@ -834,20 +846,58 @@ mod tests {
 			spd: Spd {
 				value: glam::IVec2::new(6, 4)
 			}
-		}.to_flux(time::Time::default());
+		}.to_flux(Time::default());
 		
 		let b_pos = Pos {
 			value: glam::IVec2::new(14, 18),
 			spd: Spd {
 				value: glam::IVec2::new(4, 0)
 			}
-		}.to_flux(time::Time::default());
+		}.to_flux(Time::default());
 		
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
 		assert_eq!(
-			a_pos.when_eq(&b_pos).collect::<Vec<time::Time>>(),
-			[2*time::SEC]
+			a_pos.when_eq(&b_pos).collect::<Vec<Time>>(),
+			[2*SEC]
+		);
+	}
+	
+	#[test]
+	fn precise() {
+		// https://www.desmos.com/calculator/1z97cqlopx
+		
+		 // Basic Check:
+		let a = Poly::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
+		let b = Poly::new(Constant::from(-194.), SEC);
+		assert_eq!(
+			crate::kind::WhenEq::when_eq(a, b)
+				.collect::<Vec<_>>(),
+			[
+				(SEC-8*NANOSEC, SEC-3*NANOSEC),
+				(SEC+4*NANOSEC, SEC+14*NANOSEC)
+			]
+		);
+		
+		 // Distance Check:
+		let a = [
+			Poly::new(Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]), SEC),
+			Poly::new(Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.]), SEC)
+		];
+		let b = [
+			Poly::new(Constant::from(-3.8808053943969956e-5), SEC),
+			Poly::new(Constant::from(-193.99999999999997), SEC)
+		];
+		let dis = Poly::new(Constant::from(12.), SEC);
+		assert_eq!(
+			crate::kind::WhenDisEq::when_dis_eq(&a, &b, &dis)
+				.collect::<Vec<_>>(),
+			[
+				(780910982*NANOSEC, 780910982*NANOSEC),
+				(SEC-14*NANOSEC, SEC-7*NANOSEC),
+				(SEC-1*NANOSEC, SEC+8*NANOSEC),
+				(1219089016*NANOSEC, 1219089016*NANOSEC),
+			]
 		);
 	}
 }

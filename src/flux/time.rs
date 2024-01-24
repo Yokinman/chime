@@ -38,7 +38,7 @@ impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {
 
 /// Iterator of [`Time`] values.
 #[must_use]
-struct Times {
+pub(crate) struct Times {
 	heap: BinaryHeap<Reverse<Time>>,
 	iter: Box<dyn TimeIter<Item=Time>>,
 	// !!! This could use generics, but it adds way too many tedious bounds
@@ -91,7 +91,7 @@ impl Times {
 		time
 	}
 	
-	fn peek(&mut self) -> Option<Time> {
+	pub(crate) fn peek(&mut self) -> Option<Time> {
 		if self.heap.is_empty() {
 			self.fill_heap(Time::ZERO, &mut Ordering::Equal);
 		}
@@ -360,7 +360,7 @@ impl BitAnd for TimeRanges {
 	type Output = Self;
 	
 	/// Intersection of ranges.
-	fn bitand(mut self, mut rhs: Self) -> Self::Output {
+	fn bitand(self, rhs: Self) -> Self::Output {
 		match (self.order, rhs.order) {
 			(Ordering::Equal, Ordering::Equal) => TimeRanges::new(
 				self.times & rhs.times,

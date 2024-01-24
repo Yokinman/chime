@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Scalar};
+use crate::time;
 use crate::time::{Time, /*Times,*/ TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
@@ -193,16 +194,22 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges
+	fn when_sign(&self, order: Ordering, mut f: impl RootFilterMap + 'static) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
+		let basis = self.time;
+		let initial_order = self.initial_order().unwrap_or(Ordering::Equal);
 		TimeRanges::new(
 			self.real_roots()
-				.filter_map(f),
-			self.time,
-			self.initial_order().unwrap_or(Ordering::Equal),
+				.filter_map(move |x| time_try_from_secs(x, basis).ok())
+				.enumerate()
+				.filter_map(move |(index, time)|
+					f(time, (index % 2 == 1) == (initial_order == order))
+				),
+			basis,
+			initial_order,
 			order,
 		)
 	}
@@ -213,16 +220,59 @@ impl<K: FluxKind> Poly<K> {
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
+		let basis = self.time;
+		let times = time::Times::new(self.real_roots()
+			.filter_map(move |x| time_try_from_secs(x, basis).ok()));
+		
+		#[derive(Clone)]
+		struct RangeBuilder<F> {
+			times: time::Times,
+			f: F
+		}
+		impl<F: RootFilterMap> Iterator for RangeBuilder<F> {
+			type Item = [Time; 2];
+			fn next(&mut self) -> Option<Self::Item> {
+				if let Some(time) = self.times.next() {
+					let a = (self.f)(time, false).unwrap_or(Time::ZERO)
+						.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO);
+					let mut b = (self.f)(time, true).unwrap_or(Time::MAX)
+						.checked_add(time::NANOSEC).unwrap_or(Time::MAX);
+					debug_assert!(a <= b);
+					while let Some(t) = self.times.peek() {
+						debug_assert!(t > a);
+						let x = (self.f)(t, false).unwrap_or(Time::ZERO)
+							.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO);
+						let y = (self.f)(t, true).unwrap_or(Time::MAX)
+							.checked_add(time::NANOSEC).unwrap_or(Time::MAX);
+						debug_assert!(a <= x);
+						if x <= b {
+							if b < y {
+								b = y;
+							}
+							self.times.next();
+						} else {
+							break
+						}
+					}
+					Some([a, b])
+				} else {
+					None
+				}
+			}
+			fn size_hint(&self) -> (usize, Option<usize>) {
+				self.times.size_hint()
+			}
+		}
+		
 		TimeRanges::new(
-			self.real_roots()
-				.filter_map(f),
-			self.time,
+			RangeBuilder { times, f }.flatten(),
+			Time::ZERO,
 			if self.is_zero() {
-				Ordering::Equal
+				Ordering::Less
 			} else {
 				Ordering::Greater
 			},
-			Ordering::Equal,
+			Ordering::Less,
 		)
 	}
 }
@@ -368,75 +418,149 @@ impl<K> private::PolyValue<1> for Poly<K> {}
 impl<K, const SIZE: usize> private::PolyValue<SIZE> for [Poly<K>; SIZE] {}
 
 /// Function that converts a root value to a Time, or ignores it.
-trait RootFilterMap: FnMut(f64) -> Option<Time> + Clone + Send + Sync {}
-impl<T: FnMut(f64) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
+trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
+impl<T: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
+
+const ROOT_FILTER_TRIES: usize = 100; // Arbitrary number
 
 fn root_filter_map<T: FluxKind>(
 	a_poly: Poly<T>,
 	b_poly: Poly<impl FluxKind<Value=T::Value>>,
+	diff_poly: Poly<impl FluxKind<Value=T::Value>>,
 ) -> impl RootFilterMap
 where
 	T::Value: PartialEq
 {
-	let basis = a_poly.time;
-	move |root| {
-		if let Ok(mut time) = time_try_from_secs(root, basis) {
-			for _ in 0..100 {
-				if a_poly.at(time) != b_poly.at(time) {
+	move |mut time, is_end| {
+		// Covers the local range and the range immediately preceding it, but
+		// stops where the trend reverses. Careful, this logic is precise.
+		let mut next_time = if is_end {
+			time.checked_add(time::NANOSEC)?
+		} else {
+			time.checked_sub(time::NANOSEC)?
+		};
+		let sign = (diff_poly.at(next_time) - diff_poly.at(time)).sign();
+		for i in 0..2 {
+			if i != 0 {
+				if is_end {
 					break
 				}
-				time = time.checked_sub(crate::time::NANOSEC)?;
-				// !!! Maybe scale step size logarithmically
+				time = next_time;
+				next_time = if is_end {
+					time.checked_add(time::NANOSEC)?
+				} else {
+					time.checked_sub(time::NANOSEC)?
+				};
 			}
-			Some(time)
-		} else {
-			None
+			let diff = a_poly.at(time) - b_poly.at(time);
+			for _ in 0..ROOT_FILTER_TRIES {
+				if
+					diff != a_poly.at(next_time) - b_poly.at(next_time)
+					|| sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign()
+				{
+					break
+				}
+				time = next_time;
+				next_time = if is_end {
+					time.checked_add(time::NANOSEC)?
+				} else {
+					time.checked_sub(time::NANOSEC)?
+				};
+			}
 		}
+		Some(time)
 	}
 }
 
 fn dis_root_filter_map<T: FluxKind, const SIZE: usize>(
-	a_poly: Poly<T>,
-	b_poly: Poly<impl FluxKind<Value=T::Value>>,
+	pos_poly: Poly<T>,
+	dis_poly: Poly<impl FluxKind<Value=T::Value>>,
+	diff_poly: Poly<impl FluxKind<Value=T::Value>>,
 	a_pos: [Poly<impl FluxKind<Value=T::Value>>; SIZE],
 	b_pos: [Poly<impl FluxKind<Value=T::Value>>; SIZE],
 ) -> impl RootFilterMap
 where
-	T::Value: PartialEq + Mul<Output=T::Value>
+	T::Value: PartialEq + Mul<Output=T::Value>,
 {
-	let basis = a_poly.time;
-	move |root| {
-		if let Ok(mut time) = time_try_from_secs(root, basis) {
-			if time >= basis {
-				for _ in 0..100 {
-					let mut a_dis = T::Value::zero();
-					let mut b_dis = T::Value::zero();
-					let mut sum = T::Value::zero();
-					for i in 0..SIZE {
-						let a = a_pos[i].at(time);
-						let b = b_pos[i].at(time);
-						let x = a - b;
-						a_dis = a_dis + a*a;
-						b_dis = b_dis + b*b;
-						sum = sum + x*x;
-					}
-					a_dis = a_dis.sqrt();
-					b_dis = b_dis.sqrt();
-					sum = Mul::<Scalar>::mul(sum.sqrt() - b_poly.at(time), Scalar(0.499999 / (SIZE as f64).sqrt()));
-					// !!! In 1-dimension I think they can round onto the value,
-					// but only past the value in >1-dimension (~sqrt(dim)).
-					if sum + a_dis != a_dis && sum + b_dis != b_dis && sum + b_poly.at(time) != b_poly.at(time) {
+	move |mut time, is_end| {
+		// Covers the local range, but stops where the trend reverses and
+		// undershoots to avoid rounding past. Careful, this logic is precise.
+		
+		let mut next_time = if is_end {
+			time.checked_add(time::NANOSEC)?
+		} else {
+			time.checked_sub(time::NANOSEC)?
+		};
+		let sign = (diff_poly.at(next_time) - diff_poly.at(time)).sign();
+		
+		 // Rounding Buffer:
+		if !is_end {
+			let round_factor = Scalar(0.5 / (SIZE as f64).sqrt());
+			for _ in 0..ROOT_FILTER_TRIES {
+				if sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign() {
+					break
+				}
+				let dis = dis_poly.at(next_time);
+				let mut a_dis = T::Value::zero();
+				let mut b_dis = T::Value::zero();
+				let mut a_diff = T::Value::zero();
+				for i in 0..SIZE {
+					let a = a_pos[i].at(next_time);
+					let b = b_pos[i].at(next_time);
+					a_dis = a_dis + a*a;
+					b_dis = b_dis + b*b;
+					let x = a - b;
+					a_diff = a_diff + x*x;
+				}
+				a_dis = a_dis.sqrt();
+				b_dis = b_dis.sqrt();
+				a_diff = Mul::<Scalar>::mul(a_diff.sqrt() - dis, round_factor);
+				// !!! This could probably be refined, but it works for now:
+				if a_dis != a_dis + a_diff && b_dis != b_dis + a_diff && dis != dis + a_diff {
+					let b_diff = Mul::<Scalar>::mul(pos_poly.at(next_time).sqrt() - dis, round_factor);
+					if a_dis != a_dis + b_diff && b_dis != b_dis + b_diff && dis != dis + b_diff {
 						break
 					}
-					time = time.checked_sub(crate::time::NANOSEC)?;
-					// !!! Maybe scale step size logarithmically
 				}
-				time = time.max(basis);
+				time = next_time;
+				next_time = if is_end {
+					time.checked_add(time::NANOSEC)?
+				} else {
+					time.checked_sub(time::NANOSEC)?
+				};
 			}
-			Some(time)
-		} else {
-			None
 		}
+		
+		 // Fully Cover Local Range:
+		let mut diff = T::Value::zero();
+		for i in 0..SIZE {
+			let x = a_pos[i].at(time) - b_pos[i].at(time);
+			diff = diff + x*x;
+		}
+		let dis = dis_poly.at(time);
+		diff = diff - dis*dis;
+		for _ in 0..ROOT_FILTER_TRIES {
+			let mut pos = T::Value::zero();
+			for i in 0..SIZE {
+				let x = a_pos[i].at(next_time) - b_pos[i].at(next_time);
+				pos = pos + x*x;
+			}
+			let dis = dis_poly.at(next_time);
+			if
+				diff != pos - dis*dis
+				|| sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign()
+			{
+				break
+			}
+			time = next_time;
+			next_time = if is_end {
+				time.checked_add(time::NANOSEC)?
+			} else {
+				time.checked_sub(time::NANOSEC)?
+			};
+		}
+		
+		Some(time)
 	}
 }
 
@@ -452,8 +576,9 @@ where
 	A::Value: PartialOrd,
 {
 	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges {
-		(self - poly)
-			.when_sign(order, root_filter_map(self, poly))
+		let diff_poly = self - poly;
+		diff_poly
+			.when_sign(order, root_filter_map(self, poly, diff_poly))
 	}
 }
 
@@ -469,8 +594,9 @@ where
 	A::Value: PartialEq,
 {
 	fn when_eq(self, poly: Poly<B>) -> TimeRanges {
-		(self - poly)
-			.when_zero(root_filter_map(self, poly))
+		let diff_poly = self - poly;
+		diff_poly
+			.when_zero(root_filter_map(self, poly, diff_poly))
 	}
 }
 
@@ -509,9 +635,10 @@ where
 		}
 		
 		let sum = Poly::new(sum, basis);
+		let diff_poly = sum - dis.sqr();
 		
-		(sum - dis.sqr())
-			.when_sign(order, dis_root_filter_map(sum, *dis, *self, *poly))
+		diff_poly
+			.when_sign(order, dis_root_filter_map(sum, *dis, diff_poly, *self, *poly))
 	}
 }
 
@@ -549,20 +676,10 @@ where
 				.sqr();
 		}
 		
-		// !!! Make everything range-based? The problem is that if two points
-		// graze the goal distance between them (within rounding range), an
-		// untimely event can cause the points to round into the distance
-		// without triggering the event. We can add a trigger for the current
-		// moment, but without noting some kind of range it'll be able to run
-		// multiple times if more events occur.
-		// - Handles total equality.
-		// - Handles rounding.
-		// - Handles this situation.
-		// - Simplifies some code and concepts?
-		
 		let sum = Poly::new(sum, basis);
+		let diff_poly = sum - dis.sqr();
 		
-		(sum - dis.sqr())
-			.when_zero(dis_root_filter_map(sum, *dis, *self, *poly))
+		diff_poly
+			.when_zero(dis_root_filter_map(sum, *dis, diff_poly, *self, *poly))
 	}
 }
