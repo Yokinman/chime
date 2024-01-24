@@ -452,7 +452,11 @@ where
 					time.checked_sub(time::NANOSEC)?
 				};
 			}
-			let diff = a_poly.at(time) - b_poly.at(time);
+			let diff = if is_end {
+				T::Value::zero()
+			} else {
+				a_poly.at(time) - b_poly.at(time)
+			};
 			for _ in 0..ROOT_FILTER_TRIES {
 				if
 					diff != a_poly.at(next_time) - b_poly.at(next_time)
@@ -533,12 +537,14 @@ where
 		
 		 // Fully Cover Local Range:
 		let mut diff = T::Value::zero();
-		for i in 0..SIZE {
-			let x = a_pos[i].at(time) - b_pos[i].at(time);
-			diff = diff + x*x;
+		if !is_end {
+			for i in 0..SIZE {
+				let x = a_pos[i].at(time) - b_pos[i].at(time);
+				diff = diff + x*x;
+			}
+			let dis = dis_poly.at(time);
+			diff = diff - dis*dis;
 		}
-		let dis = dis_poly.at(time);
-		diff = diff - dis*dis;
 		for _ in 0..ROOT_FILTER_TRIES {
 			let mut pos = T::Value::zero();
 			for i in 0..SIZE {
