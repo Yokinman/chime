@@ -364,6 +364,9 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.value
 	}
+	fn rate_at(&self, _time: Scalar) -> Self::Value {
+		T::zero()
+	}
 	fn to_time(self, _time: Scalar) -> Self {
 		self
 	}

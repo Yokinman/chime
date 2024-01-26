@@ -89,6 +89,16 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		value*time + self.0
 	}
 	
+	fn rate_at(&self, time: Scalar) -> Self::Value {
+		let mut poly = self.clone();
+		poly.0 = poly.1[0];
+		for d in 1..D {
+			poly.1[d-1] = poly.1[d] * Scalar((d+1) as f64)
+		}
+		poly.1[D-1] = T::zero();
+		poly.at(time)
+	}
+	
 	fn to_time(mut self, time: Scalar) -> Self {
 		if time == Scalar(0.) {
 			return self

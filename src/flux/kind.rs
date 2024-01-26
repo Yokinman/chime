@@ -20,6 +20,8 @@ pub trait FluxKind:
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
+	fn rate_at(&self, time: Scalar) -> Self::Value;
+	
 	fn to_time(self, time: Scalar) -> Self;
 	
 	/// The order at or immediately preceding the value at time=0.
@@ -156,6 +158,14 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn at(&self, time: Time) -> K::Value {
 		self.inner.at(Scalar(if time > self.time {
+			(time - self.time).as_secs_f64()
+		} else {
+			-(self.time - time).as_secs_f64()
+		}))
+	}
+	
+	pub fn rate_at(&self, time: Time) -> K::Value {
+		self.inner.rate_at(Scalar(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
