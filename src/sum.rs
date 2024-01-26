@@ -885,7 +885,7 @@ mod tests {
 				.collect::<Vec<_>>(),
 			[
 				(SEC-8*NANOSEC, SEC-3*NANOSEC),
-				(SEC+4*NANOSEC, SEC+14*NANOSEC)
+				(SEC+5*NANOSEC, SEC+14*NANOSEC)
 			]
 		);
 		
@@ -903,10 +903,10 @@ mod tests {
 			crate::kind::WhenDisEq::when_dis_eq(&a, &b, &dis)
 				.collect::<Vec<_>>(),
 			[
-				(780910982*NANOSEC, 780910982*NANOSEC),
+				(780910981*NANOSEC, 780910982*NANOSEC),
 				(SEC-14*NANOSEC, SEC-10*NANOSEC),
-				(SEC-1*NANOSEC, SEC+8*NANOSEC),
-				(1219089016*NANOSEC, 1219089016*NANOSEC),
+				(SEC-0*NANOSEC, SEC+8*NANOSEC),
+				(1219089015*NANOSEC, 1219089016*NANOSEC),
 			]
 		);
 	}

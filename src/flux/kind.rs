@@ -449,7 +449,7 @@ where
 		} else {
 			time.checked_sub(time::NANOSEC)?
 		};
-		let sign = (diff_poly.at(next_time) - diff_poly.at(time)).sign();
+		let sign = diff_poly.rate_at(time).sign();
 		for i in 0..2 {
 			if i != 0 {
 				if is_end {
@@ -468,10 +468,11 @@ where
 				a_poly.at(time) - b_poly.at(time)
 			};
 			for _ in 0..ROOT_FILTER_TRIES {
-				if
-					diff != a_poly.at(next_time) - b_poly.at(next_time)
-					|| sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign()
-				{
+				let rate = diff_poly.rate_at(next_time);
+				if sign != rate.sign() && !rate.is_zero() {
+					return Some(time)
+				}
+				if diff != a_poly.at(next_time) - b_poly.at(next_time) {
 					break
 				}
 				time = next_time;
@@ -500,19 +501,37 @@ where
 		// Covers the local range, but stops where the trend reverses and
 		// undershoots to avoid rounding past. Careful, this logic is precise.
 		
+		// !!! Tricky issue - if the peak of a value occurs near 0, and its rate
+		// of change at 0 is briefly moving away from the target value, only to
+		// immediately start towards the target, an event may be delayed by a
+		// full nanosecond. This compounds with the issue of rounding, leading
+		// to a value moving towards its target more than it should. This can
+		// occur repeatedly in sequence, letting a value round past its target.
+		// - Including the point at 0 would be awkward, since the rate of change
+		//   is moving away. Events shouldn't have to expect this.
+		// - Rewriting all system internals to use a custom Time type, which
+		//   pairs `std::time::Duration` with a floating-point type to measure
+		//   sub-nanosecond offsets would work. One issue is that events would
+		//   have to opt-in, since Bevy's `Time::elapsed` method uses Duration.
+		// - Could refactor system internals to make it so that when an event
+		//   occurs, its prediction values are automatically shifted around to
+		//   ensure that the rounding doesn't happen. I don't really know if
+		//   this would work, and I think it would cause its own issues.
+		
 		let mut next_time = if is_end {
 			time.checked_add(time::NANOSEC)?
 		} else {
 			time.checked_sub(time::NANOSEC)?
 		};
-		let sign = (diff_poly.at(next_time) - diff_poly.at(time)).sign();
+		let sign = diff_poly.rate_at(time).sign();
 		
 		 // Rounding Buffer:
 		if !is_end {
 			let round_factor = Scalar(0.5 / (SIZE as f64).sqrt());
 			for _ in 0..ROOT_FILTER_TRIES {
-				if sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign() {
-					break
+				let rate = diff_poly.rate_at(next_time);
+				if sign != rate.sign() && !rate.is_zero() {
+					return Some(time)
 				}
 				let dis = dis_poly.at(next_time);
 				let mut a_dis = T::Value::zero();
@@ -543,6 +562,12 @@ where
 					time.checked_sub(time::NANOSEC)?
 				};
 			}
+			time = next_time;
+			next_time = if is_end {
+				time.checked_add(time::NANOSEC)?
+			} else {
+				time.checked_sub(time::NANOSEC)?
+			};
 		}
 		
 		 // Fully Cover Local Range:
@@ -556,16 +581,17 @@ where
 			diff = diff - dis*dis;
 		}
 		for _ in 0..ROOT_FILTER_TRIES {
+			let rate = diff_poly.rate_at(next_time);
+			if sign != rate.sign() && !rate.is_zero() {
+				return Some(time)
+			}
 			let mut pos = T::Value::zero();
 			for i in 0..SIZE {
 				let x = a_pos[i].at(next_time) - b_pos[i].at(next_time);
 				pos = pos + x*x;
 			}
 			let dis = dis_poly.at(next_time);
-			if
-				diff != pos - dis*dis
-				|| sign != (diff_poly.at(next_time) - diff_poly.at(time)).sign()
-			{
+			if diff != pos - dis*dis {
 				break
 			}
 			time = next_time;
