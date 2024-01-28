@@ -237,16 +237,19 @@ impl<K: FluxKind> Poly<K> {
 		#[derive(Clone)]
 		struct RangeBuilder<F> {
 			times: time::Times,
+			next: Option<[Time; 2]>,
 			f: F
 		}
 		impl<F: RootFilterMap> Iterator for RangeBuilder<F> {
 			type Item = [Time; 2];
 			fn next(&mut self) -> Option<Self::Item> {
 				if let Some(time) = self.times.next() {
-					let a = (self.f)(time, false).unwrap_or(Time::ZERO)
-						.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO);
-					let mut b = (self.f)(time, true).unwrap_or(Time::MAX)
-						.checked_add(time::NANOSEC).unwrap_or(Time::MAX);
+					let [a, mut b] = self.next.unwrap_or_else(|| [
+						(self.f)(time, false).unwrap_or(Time::ZERO)
+							.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO),
+						(self.f)(time, true).unwrap_or(Time::MAX)
+							.checked_add(time::NANOSEC).unwrap_or(Time::MAX),
+					]);
 					debug_assert!(a <= b);
 					while let Some(t) = self.times.peek() {
 						debug_assert!(t > a);
@@ -261,6 +264,7 @@ impl<K: FluxKind> Poly<K> {
 							}
 							self.times.next();
 						} else {
+							self.next = Some([x, y]);
 							break
 						}
 					}
@@ -275,7 +279,7 @@ impl<K: FluxKind> Poly<K> {
 		}
 		
 		TimeRanges::new(
-			RangeBuilder { times, f }.flatten(),
+			RangeBuilder { times, next: None, f }.flatten(),
 			Time::ZERO,
 			if self.is_zero() {
 				Ordering::Less
