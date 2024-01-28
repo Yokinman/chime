@@ -263,6 +263,14 @@ pub trait FluxVec<const SIZE: usize> {
 		self.polys(time)
 			.when_dis_eq(&other.polys(time), &dis.poly(time))
 	}
+	
+	// !!!
+	// - for distance to an axis-aligned line, use normal prediction on 1 axis.
+	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
+	// - to fit a line segment, filter predicted times.
+	// - for non-fixed angle line segments, use a double distance check?
+	// - rotating point-line may be handleable iteratively, find the bounds in
+	//   which the roots may be and iterate through it.
 }
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
