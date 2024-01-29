@@ -13,11 +13,10 @@ use crate::linear::Linear;
 
 impl<T: Flux, const S: usize> Flux for [T; S]
 where
-	T::Kind: for<'a> FluxKind<Accum<'a> = T::OutAccum<'a>>
+	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>
 {
 	type Moment = [T::Moment; S];
 	type Kind = T::Kind;
-	type OutAccum<'a> = T::OutAccum<'a>;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
 		let mut value = <Self::Kind as FluxKind>::Value::zero();
 		let time = self.base_time();
@@ -33,7 +32,7 @@ where
 			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
-		-> Self::OutAccum<'a>
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
 	{
 		for item in self {
 			changes = item.change(changes);
@@ -57,11 +56,10 @@ where
 
 impl<T: Flux> Flux for Vec<T>
 where
-	T::Kind: for<'a> FluxKind<Accum<'a> = T::OutAccum<'a>>
+	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
-	type OutAccum<'a> = T::OutAccum<'a>;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
 		let mut value = <Self::Kind as FluxKind>::Value::zero();
 		let time = self.base_time();
@@ -77,7 +75,7 @@ where
 			.unwrap_or_default()
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
-		-> Self::OutAccum<'a>
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
 	{
 		for item in self {
 			changes = item.change(changes);

@@ -39,9 +39,6 @@ pub trait Flux {
 	/// The kind of change over time.
 	type Kind: FluxKind;
 	
-	/// The output accumulator of [`Flux::change`].
-	type OutAccum<'a>: FluxAccum<'a, Self::Kind>;
-	
 	/// An evaluation of this flux at some point in time.
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
 	
@@ -50,7 +47,7 @@ pub trait Flux {
 	
 	/// Accumulates change over time.
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> Self::OutAccum<'a>;
+		-> <Self::Kind as FluxKind>::OutAccum<'a>;
 	
 	/// A moment in the timeline.
 	fn to_moment(&self, time: Time) -> Self::Moment;
@@ -350,14 +347,15 @@ impl<T: Linear> Moment for T {
 impl<T: Linear> Flux for Constant<T> {
 	type Moment = T;
 	type Kind = Constant<T>;
-	type OutAccum<'a> = ();
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
 		self.value
 	}
 	fn base_time(&self) -> Time {
 		self.time
 	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {}
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{}
 	fn to_moment(&self, _time: Time) -> Self::Moment {
 		self.value
 	}
@@ -366,9 +364,7 @@ impl<T: Linear> Flux for Constant<T> {
 impl<T: Linear> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
-	fn value(&self) -> Self::Value {
-		self.value
-	}
+	type OutAccum<'a> = ();
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.value
 	}

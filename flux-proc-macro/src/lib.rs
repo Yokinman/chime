@@ -52,55 +52,27 @@ impl syn::parse::Parse for FluxParse {
 fn contextualize(
 	expr: &mut syn::Expr,
 	value_ident: &mut Option<syn::Ident>,
-	out_accum: &mut proc_macro2::TokenStream,
 	fields: &syn::Fields,
 	flux: &proc_macro2::TokenStream,
 ) {
 	match expr {
 		syn::Expr::Paren(syn::ExprParen { expr, .. }) => {
-			contextualize(expr, value_ident, out_accum, fields, flux);
+			contextualize(expr, value_ident, fields, flux);
 		},
+		// syn::Expr::Match(syn::ExprMatch { expr, arms, .. }) => {
+		// 	contextualize(expr, value_ident, fields, flux);
+		// 	for arm in arms {
+		// 		contextualize(arm.body.as_mut(), value_ident, fields, flux);
+		// 	}
+		// },
 		
 		 // Log Operation Outputs:
-		syn::Expr::Binary(syn::ExprBinary { left, op, right, .. }) => {
-			let mut lhs = out_accum.clone();
-			let mut rhs = std::mem::take(out_accum);
-			contextualize(left,  value_ident, &mut lhs, fields, flux);
-			contextualize(right, value_ident, &mut rhs, fields, flux);
-			let op_trait = match op {
-				syn::BinOp::Add(_)    => quote::quote!{Add},
-				syn::BinOp::Sub(_)    => quote::quote!{Sub},
-				syn::BinOp::Mul(_)    => quote::quote!{Mul},
-				syn::BinOp::Div(_)    => quote::quote!{Div},
-				syn::BinOp::Rem(_)    => quote::quote!{Rem},
-				syn::BinOp::BitAnd(_) => quote::quote!{BitAnd},
-				syn::BinOp::BitOr(_)  => quote::quote!{BitOr},
-				syn::BinOp::BitXor(_) => quote::quote!{BitXor},
-				syn::BinOp::Shl(_)    => quote::quote!{Shl},
-				syn::BinOp::Shr(_)    => quote::quote!{Shr},
-				e => panic!(
-					"unexpected binary expression -> {}",
-					e.to_token_stream()
-				)
-			};
-			*out_accum = quote::quote!{
-				<#lhs as ::std::ops::#op_trait<#rhs>>::Output
-			};
+		syn::Expr::Binary(syn::ExprBinary { left, right, .. }) => {
+			contextualize(left,  value_ident, fields, flux);
+			contextualize(right, value_ident, fields, flux);
 		},
-		syn::Expr::Unary(syn::ExprUnary { op, expr, .. }) => {
-			let mut value = out_accum.clone();
-			contextualize(expr, value_ident, &mut value, fields, flux);
-			let op_trait = match op {
-				syn::UnOp::Neg(_) => quote::quote!{Neg},
-				syn::UnOp::Not(_) => quote::quote!{Not},
-				e => panic!(
-					"unexpected unary expression -> {}",
-					e.to_token_stream()
-				)
-			};
-			*out_accum = quote::quote!{
-				<#value as ::std::ops::#op_trait>::Output
-			};
+		syn::Expr::Unary(syn::ExprUnary { expr, .. }) => {
+			contextualize(expr, value_ident, fields, flux);
 		},
 		
 		 // Disambiguate `Per::per` Method Call:
@@ -110,16 +82,12 @@ fn contextualize(
 			if *method != "per" || args.len() != 1 {
 				panic!("unexpected method call (can only call `Per::per`)");
 			}
-			let mut ty = std::mem::take(out_accum);
-			contextualize(receiver, value_ident, &mut ty, fields, flux);
+			contextualize(receiver, value_ident, fields, flux);
 			let mut call: syn::ExprCall = syn::parse_quote!{
 				#flux::Per::#method(&#receiver, #args)
 			};
 			call.attrs = std::mem::take(attrs);
 			*expr = syn::Expr::Call(call);
-			*out_accum = quote::quote!{
-				#flux::Change<'a, <#ty as #flux::Moment>::Flux>
-			};
 		},
 		
 		 // Retrieve Value Expression (`{value}`):
@@ -137,7 +105,7 @@ fn contextualize(
 					);
 				}
 				let mut path = syn::Expr::Path(e.clone());
-				contextualize(&mut path, &mut None, &mut Default::default(), fields, flux);
+				contextualize(&mut path, &mut None, /*&mut Default::default(),*/ fields, flux);
 				*value_ident = match path {
 					syn::Expr::Field(syn::ExprField {
 						member: syn::Member::Named(ident),
@@ -163,7 +131,7 @@ fn contextualize(
 			if path.is_ident("self") {
 				panic!("can't use self here");
 			}
-			if let Some(field) = fields.iter().find(|field| path.is_ident(
+			if let Some(_) = fields.iter().find(|field| path.is_ident(
 				&field.ident.as_ref().unwrap().to_string()
 			)) {
 				let ident = path.get_ident();
@@ -172,7 +140,6 @@ fn contextualize(
 				};
 				expr_field.attrs = std::mem::take(attrs);
 				*expr = expr_field.into();
-				*out_accum = field.ty.to_token_stream();
 			} else {
 				panic!("can only refer to the type's fields");
 			}
@@ -200,15 +167,12 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	};
 	
 	 // Parse Attribute Arguments:
-	let (kind_type, value_ident, change_expr, out_accum, flux) = match syn::parse(arg_stream) {
+	let (kind_type, value_ident, change_expr, flux) = match syn::parse(arg_stream) {
 		Ok(FluxParse { kind_type, mut change_expr, crate_path: flux }) => {
 			let flux = flux.to_token_stream();
 			let mut value_ident = None;
-			let mut out_accum = quote::quote!{
-				<Self::Kind as #flux::kind::FluxKind>::Accum<'a>
-			};
 			
-			contextualize(&mut change_expr, &mut value_ident, &mut out_accum, &item.fields, &flux);
+			contextualize(&mut change_expr, &mut value_ident, &item.fields, &flux);
 			
 			let value_ident = if let Some(value_expr) = value_ident {
 				value_expr
@@ -216,7 +180,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				panic!("no value identifier found (wrap one in curly brackets)");
 			};
 			
-			(kind_type, value_ident, change_expr, out_accum, flux)
+			(kind_type, value_ident, change_expr, flux)
 		}
 		Err(err) => panic!("{}", err),
 	};
@@ -225,7 +189,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	// println!("kind_type   : {}", kind_type.to_token_stream().to_string());
 	// println!("value_ident : {}", value_ident.to_token_stream().to_string());
 	// println!("change_expr : {}", change_expr.to_token_stream().to_string());
-	// println!("out_accum   : {}", out_accum);
 	
 	 // Generate `Flux` Variant of Struct:
 	let mut flux_item = item.clone();
@@ -296,14 +259,15 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		impl #impl_generics #flux::Flux for #flux_ident #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
-			type OutAccum<'a> = #out_accum;
 			fn base_value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value {
 				self.#value_ident.base_value()
 			}
 			fn base_time(&self) -> #flux::time::Time {
 				self.#value_ident.base_time()
 			}
-			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>) -> Self::OutAccum<'a> {
+			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)
+				-> <Self::Kind as #flux::kind::FluxKind>::OutAccum<'a>
+			{
 				#change_expr
 			}
 			fn to_moment(&self, time: #flux::time::Time) -> Self::Moment {

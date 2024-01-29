@@ -18,6 +18,8 @@ pub trait FluxKind:
 	
 	type Accum<'a>: FluxAccum<'a, Self>;
 	
+	type OutAccum<'a>: FluxAccum<'a, Self>;
+	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value;
