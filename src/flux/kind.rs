@@ -650,7 +650,7 @@ where
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges;
+	fn when_dis(self, poly: [Poly<B>; SIZE], order: Ordering, dis: Poly<D>) -> TimeRanges;
 }
 
 impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
@@ -666,7 +666,7 @@ where
 	A::Value: Mul<Output=A::Value> + PartialOrd,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis(&self, poly: &[Poly<B>; SIZE], order: Ordering, dis: &Poly<D>) -> TimeRanges {
+	fn when_dis(self, poly: [Poly<B>; SIZE], order: Ordering, dis: Poly<D>) -> TimeRanges {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
@@ -686,13 +686,13 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_sign(order, dis_root_filter_map(sum, *dis, diff_poly, *self, *poly))
+			.when_sign(order, dis_root_filter_map(sum, dis, diff_poly, self, poly))
 	}
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> TimeRanges;
+	fn when_dis_eq(self, poly: [Poly<B>; SIZE], dis: Poly<D>) -> TimeRanges;
 }
 
 impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
@@ -708,7 +708,7 @@ where
 	A::Value: Mul<Output=A::Value> + PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(&self, poly: &[Poly<B>; SIZE], dis: &Poly<D>) -> TimeRanges {
+	fn when_dis_eq(self, poly: [Poly<B>; SIZE], dis: Poly<D>) -> TimeRanges {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
@@ -728,6 +728,6 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_zero(dis_root_filter_map(sum, *dis, diff_poly, *self, *poly))
+			.when_zero(dis_root_filter_map(sum, dis, diff_poly, self, poly))
 	}
 }

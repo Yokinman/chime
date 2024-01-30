@@ -902,7 +902,7 @@ mod tests {
 		];
 		let dis = Poly::new(Constant::from(12.), SEC);
 		assert_eq!(
-			crate::kind::WhenDisEq::when_dis_eq(&a, &b, &dis)
+			crate::kind::WhenDisEq::when_dis_eq(a, b, dis)
 				.collect::<Vec<_>>(),
 			[
 				(780910981*NANOSEC, 780910982*NANOSEC),

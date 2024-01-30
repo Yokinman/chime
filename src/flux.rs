@@ -240,7 +240,7 @@ pub trait FluxVec<const SIZE: usize> {
 			.unwrap_or_default();
 		
 		self.polys(time)
-			.when_dis(&other.polys(time), order, &dis.poly(time))
+			.when_dis(other.polys(time), order, dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -258,7 +258,7 @@ pub trait FluxVec<const SIZE: usize> {
 			.unwrap_or_default();
 		
 		self.polys(time)
-			.when_dis_eq(&other.polys(time), &dis.poly(time))
+			.when_dis_eq(other.polys(time), dis.poly(time))
 	}
 	
 	// !!!
