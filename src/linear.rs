@@ -56,10 +56,6 @@ pub trait Linear:
 	
 	fn sign(self) -> Self;
 	
-	fn next_up(self) -> Self;
-	
-	fn next_down(self) -> Self;
-	
 	fn zero() -> Self;
 	
 	fn is_zero(&self) -> bool
@@ -80,48 +76,6 @@ impl Linear for f64 {
 		self.signum()
 	}
 	
-	fn next_up(self) -> Self {
-		//! https://doc.rust-lang.org/stable/std/primitive.f64.html#method.next_up
-		const TINY_BITS: u64 = 0x1; // Smallest positive f64.
-		const CLEAR_SIGN_MASK: u64 = 0x7fff_ffff_ffff_ffff;
-		
-		let bits = self.to_bits();
-		if self.is_nan() || bits == Self::INFINITY.to_bits() {
-		    return self;
-		}
-		
-		let abs = bits & CLEAR_SIGN_MASK;
-		let next_bits = if abs == 0 {
-		    TINY_BITS
-		} else if bits == abs {
-		    bits + 1
-		} else {
-		    bits - 1
-		};
-		Self::from_bits(next_bits)
-	}
-	
-	fn next_down(self) -> Self {
-		//! https://doc.rust-lang.org/stable/std/primitive.f64.html#method.next_down
-		const NEG_TINY_BITS: u64 = 0x8000_0000_0000_0001; // Smallest (in magnitude) negative f64.
-		const CLEAR_SIGN_MASK: u64 = 0x7fff_ffff_ffff_ffff;
-		
-		let bits = self.to_bits();
-		if self.is_nan() || bits == Self::NEG_INFINITY.to_bits() {
-		    return self;
-		}
-		
-		let abs = bits & CLEAR_SIGN_MASK;
-		let next_bits = if abs == 0 {
-		    NEG_TINY_BITS
-		} else if bits == abs {
-		    bits - 1
-		} else {
-		    bits + 1
-		};
-		Self::from_bits(next_bits)
-	}
-	
 	fn zero() -> Self {
 		0.
 	}
@@ -134,48 +88,6 @@ impl Linear for f32 {
 	
 	fn sign(self) -> Self {
 		self.signum()
-	}
-	
-	fn next_up(self) -> Self {
-		// https://doc.rust-lang.org/stable/std/primitive.f32.html#method.next_up
-		const TINY_BITS: u32 = 0x1; // Smallest positive f32.
-		const CLEAR_SIGN_MASK: u32 = 0x7fff_ffff;
-		
-		let bits = self.to_bits();
-		if self.is_nan() || bits == Self::INFINITY.to_bits() {
-		    return self;
-		}
-		
-		let abs = bits & CLEAR_SIGN_MASK;
-		let next_bits = if abs == 0 {
-		    TINY_BITS
-		} else if bits == abs {
-		    bits + 1
-		} else {
-		    bits - 1
-		};
-		Self::from_bits(next_bits)
-	}
-	
-	fn next_down(self) -> Self {
-		// https://doc.rust-lang.org/stable/std/primitive.f32.html#method.next_down
-		const NEG_TINY_BITS: u32 = 0x8000_0001; // Smallest (in magnitude) negative f32.
-		const CLEAR_SIGN_MASK: u32 = 0x7fff_ffff;
-		
-		let bits = self.to_bits();
-		if self.is_nan() || bits == Self::NEG_INFINITY.to_bits() {
-		    return self;
-		}
-		
-		let abs = bits & CLEAR_SIGN_MASK;
-		let next_bits = if abs == 0 {
-		    NEG_TINY_BITS
-		} else if bits == abs {
-		    bits - 1
-		} else {
-		    bits + 1
-		};
-		Self::from_bits(next_bits)
 	}
 	
 	fn zero() -> Self {

@@ -21,14 +21,6 @@ impl<T: Linear> Linear for Exp<T> {
 		self.0 = self.0.sign();
 		self
 	}
-	fn next_up(mut self) -> Self {
-		self.0 = self.0.next_up();
-		self
-	}
-	fn next_down(mut self) -> Self {
-		self.0 = self.0.next_down();
-		self
-	}
 	fn zero() -> Self {
 		Self(T::zero())
 	}
