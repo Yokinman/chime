@@ -870,8 +870,8 @@ mod tests {
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
 		assert_eq!(
-			a_pos.when_eq(&b_pos).collect::<Vec<Time>>(),
-			[2*SEC]
+			a_pos.when_eq(&b_pos).collect::<Vec<(Time, Time)>>(),
+			[(2*SEC - NANOSEC, 2*SEC)]
 		);
 	}
 	

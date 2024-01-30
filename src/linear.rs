@@ -128,7 +128,6 @@ macro_rules! impl_iso_for_int {
 		impl LinearIso<$b> for $a {
 			fn map(self) -> $b {
 				self.round() as $b
-				// !!! ^ Unsure if this should round or floor.
 			}
 		}
 		impl LinearIsoInv<$a> for $b {
@@ -144,14 +143,34 @@ impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 #[cfg(feature = "glam")]
 mod glam_stuff {
 	use glam::*;
-	use crate::linear::{LinearIso, LinearIsoInv};
+	use crate::linear::{Linear, LinearIso, LinearIsoInv};
+	
+	macro_rules! impl_linear_for_vec {
+		($a_vec:ty $(, $b_vec:ty)+) => {
+			impl_linear_for_vec!($a_vec);
+			$(impl_linear_for_vec!($b_vec);)+
+		};
+		($vec:ty) => {
+			impl Linear for $vec {
+				fn sqrt(self) -> Self {
+					self.powf(0.5)
+				}
+				fn sign(self) -> Self {
+					self.signum()
+				}
+				fn zero() -> Self {
+					Self::ZERO
+				}
+			}
+		};
+	}
+	impl_linear_for_vec!(Vec2, Vec3, Vec4, DVec2, DVec3, DVec4);
 	
 	macro_rules! impl_iso_for_vec {
 		($a:ty, $as_b:ident: $b:ty, $as_a:ident) => {
 			impl LinearIso<$b> for $a {
 				fn map(self) -> $b {
 					self.round().$as_b()
-					// !!! ^ Unsure if this should round or floor.
 				}
 			}
 			impl LinearIsoInv<$a> for $b {
