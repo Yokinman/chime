@@ -576,24 +576,24 @@ impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
 	}
 }
 
-impl<K: FluxKind, V: Flux> Add<Change<'_, V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Add<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
 	type Output = Self;
-	fn add(mut self, rhs: Change<'_, V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self, 1., rhs.rate, rhs.unit);
+	fn add(mut self, rhs: Change<&V>) -> Self {
+		<(K, V::Kind)>::eval(&mut self, 1., rhs, rhs.unit);
 		self
 	}
 }
 
-impl<K: FluxKind, V: Flux> Sub<Change<'_, V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Sub<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
 {
 	type Output = Self;
-	fn sub(mut self, rhs: Change<'_, V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self, -1., rhs.rate, rhs.unit);
+	fn sub(mut self, rhs: Change<&V>) -> Self {
+		<(K, V::Kind)>::eval(&mut self, -1., rhs, rhs.unit);
 		self
 	}
 }
@@ -604,7 +604,7 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
-		value: &V,
+		rate: impl AsRef<V>,
 		unit: time::Time,
 	);
 }
@@ -618,9 +618,10 @@ where
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
-		flux: &V,
+		rate: impl AsRef<V>,
 		unit: time::Time,
 	) {
+		let flux = rate.as_ref();
 		let mut sub_poly = B::from(flux.value(kind.time));
 		flux.change(B::Accum::from_kind(
 			&mut sub_poly,

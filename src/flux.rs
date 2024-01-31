@@ -5,6 +5,7 @@ pub mod kind;
 mod impls;
 
 use std::array;
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -286,7 +287,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 /// 
 /// `1 + 2.per(time_unit::SEC)` 
 pub trait Per: Sized {
-	fn per(&self, unit: Time) -> Change<Self> {
+	fn per(&self, unit: Time) -> Change<&Self> {
 		Change {
 			rate: self,
 			unit
@@ -297,9 +298,34 @@ pub trait Per: Sized {
 impl<T: Flux> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
-pub struct Change<'t, T> {
-	pub rate: &'t T,
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Change<T> {
+	pub rate: T,
 	pub unit: Time,
+}
+
+impl<T: Flux> AsRef<T> for Change<T> {
+	fn as_ref(&self) -> &T {
+		&self.rate
+	}
+}
+
+impl<T: Flux> Borrow<T> for Change<T> {
+	fn borrow(&self) -> &T {
+		&self.rate
+	}
+}
+
+impl<T: Flux> AsRef<T> for Change<&T> {
+	fn as_ref(&self) -> &T {
+		&self.rate
+	}
+}
+
+impl<T: Flux> Borrow<T> for Change<&T> {
+	fn borrow(&self) -> &T {
+		&self.rate
+	}
 }
 
 /// No change over time.
