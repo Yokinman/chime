@@ -1,4 +1,5 @@
 use proc_macro::*;
+use std::collections::HashSet;
 use quote::*;
 use syn::parse::ParseStream;
 use syn::Token;
@@ -52,7 +53,7 @@ impl syn::parse::Parse for FluxParse {
 fn contextualize(
 	expr: &mut syn::Expr,
 	value_ident: &mut Option<syn::Ident>,
-	fields: &syn::Fields,
+	fields: &mut HashSet<proc_macro2::Ident>,
 	flux: &proc_macro2::TokenStream,
 ) {
 	match expr {
@@ -65,11 +66,11 @@ fn contextualize(
 		// 		contextualize(arm.body.as_mut(), value_ident, fields, flux);
 		// 	}
 		// },
-		syn::Expr::MethodCall(syn::ExprMethodCall { receiver, /*args,*/ .. }) => {
+		syn::Expr::MethodCall(syn::ExprMethodCall { receiver, args, .. }) => {
 			contextualize(receiver, value_ident, fields, flux);
-			// for arg in args {
-			// 	contextualize(arg, value_ident, fields, flux);
-			// }
+			for arg in args {
+				contextualize(arg, value_ident, fields, flux);
+			}
 		},
 		syn::Expr::Binary(syn::ExprBinary { left, right, .. }) => {
 			contextualize(left,  value_ident, fields, flux);
@@ -93,15 +94,7 @@ fn contextualize(
 						e.to_token_stream(),
 					);
 				}
-				let mut path = syn::Expr::Path(e.clone());
-				contextualize(&mut path, &mut None, /*&mut Default::default(),*/ fields, flux);
-				*value_ident = match path {
-					syn::Expr::Field(syn::ExprField {
-						member: syn::Member::Named(ident),
-						..
-					}) => Some(ident),
-					_ => unreachable!()
-				};
+				*value_ident = e.path.get_ident().cloned();
 				
 				 // Replace w/ Identifier:
 				let mut accum: syn::ExprPath = syn::parse_str("accum").unwrap();
@@ -116,21 +109,11 @@ fn contextualize(
 		},
 		
 		 // Convert Identifiers to `self` Fields:
-		syn::Expr::Path(syn::ExprPath { attrs, path, .. }) => {
-			if path.is_ident("self") {
-				panic!("can't use self here");
-			}
-			if let Some(_) = fields.iter().find(|field| path.is_ident(
-				&field.ident.as_ref().unwrap().to_string()
-			)) {
-				let ident = path.get_ident();
-				let mut expr_field: syn::ExprField = syn::parse_quote!{
-					self.#ident
-				};
-				expr_field.attrs = std::mem::take(attrs);
-				*expr = expr_field.into();
-			} else {
-				panic!("can only refer to the type's fields");
+		syn::Expr::Path(syn::ExprPath { path, .. }) => {
+			if path.segments.len() == 1 {
+				fields.insert(path.get_ident()
+					.expect("identifier must exist")
+					.clone());
 			}
 		},
 		
@@ -160,8 +143,9 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		Ok(FluxParse { kind_type, mut change_expr, crate_path: flux }) => {
 			let flux = flux.to_token_stream();
 			let mut value_ident = None;
+			let mut used_idents = HashSet::new();
 			
-			contextualize(&mut change_expr, &mut value_ident, &item.fields, &flux);
+			contextualize(&mut change_expr, &mut value_ident, &mut used_idents, &flux);
 			
 			let value_ident = if let Some(value_expr) = value_ident {
 				value_expr
@@ -169,8 +153,20 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				panic!("no value identifier found (wrap one in curly brackets)");
 			};
 			
+			 // Convenient Identifiers:
+			for ident in used_idents {
+				if item.fields.iter().any(|field|
+					ident == field.ident.to_owned().expect("identifier must exist")
+				) {
+					change_expr = syn::parse_quote!{{
+						let #ident = &self.#ident;
+						#change_expr
+					}};
+				}
+			}
+			
 			(kind_type, value_ident, change_expr, flux)
-		}
+		},
 		Err(err) => panic!("{}", err),
 	};
 	
