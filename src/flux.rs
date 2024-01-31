@@ -5,7 +5,6 @@ pub mod kind;
 mod impls;
 
 use std::array;
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -298,33 +297,50 @@ pub trait Per: Sized {
 impl<T: Flux> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Change<T> {
 	pub rate: T,
 	pub unit: Time,
 }
 
-impl<T: Flux> AsRef<T> for Change<T> {
-	fn as_ref(&self) -> &T {
-		&self.rate
+impl<T> Change<T> {
+	pub fn as_ref(&self) -> Change<&T> {
+		Change {
+			rate: &self.rate,
+			unit: self.unit,
+		}
 	}
 }
 
-impl<T: Flux> Borrow<T> for Change<T> {
-	fn borrow(&self) -> &T {
-		&self.rate
+impl<T: Moment> Moment for Change<T> {
+	type Flux = Change<T::Flux>;
+	fn to_flux(&self, time: Time) -> Self::Flux {
+		Change {
+			rate: self.rate.to_flux(time),
+			unit: self.unit,
+		}
 	}
 }
 
-impl<T: Flux> AsRef<T> for Change<&T> {
-	fn as_ref(&self) -> &T {
-		&self.rate
+impl<T: Flux> Flux for Change<T> {
+	type Moment = Change<T::Moment>;
+	type Kind = T::Kind;
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+		self.rate.base_value()
 	}
-}
-
-impl<T: Flux> Borrow<T> for Change<&T> {
-	fn borrow(&self) -> &T {
-		&self.rate
+	fn base_time(&self) -> Time {
+		self.rate.base_time()
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{
+		self.rate.change(accum)
+	}
+	fn to_moment(&self, time: Time) -> Self::Moment {
+		Change {
+			rate: self.rate.to_moment(time),
+			unit: self.unit,
+		}
 	}
 }
 

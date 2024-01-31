@@ -65,29 +65,18 @@ fn contextualize(
 		// 		contextualize(arm.body.as_mut(), value_ident, fields, flux);
 		// 	}
 		// },
-		
-		 // Log Operation Outputs:
+		syn::Expr::MethodCall(syn::ExprMethodCall { receiver, /*args,*/ .. }) => {
+			contextualize(receiver, value_ident, fields, flux);
+			// for arg in args {
+			// 	contextualize(arg, value_ident, fields, flux);
+			// }
+		},
 		syn::Expr::Binary(syn::ExprBinary { left, right, .. }) => {
 			contextualize(left,  value_ident, fields, flux);
 			contextualize(right, value_ident, fields, flux);
 		},
 		syn::Expr::Unary(syn::ExprUnary { expr, .. }) => {
 			contextualize(expr, value_ident, fields, flux);
-		},
-		
-		 // Disambiguate `Per::per` Method Call:
-		syn::Expr::MethodCall(syn::ExprMethodCall {
-			attrs, receiver, method, turbofish: None, args, ..
-		}) => {
-			if *method != "per" || args.len() != 1 {
-				panic!("unexpected method call (can only call `Per::per`)");
-			}
-			contextualize(receiver, value_ident, fields, flux);
-			let mut call: syn::ExprCall = syn::parse_quote!{
-				#flux::Per::#method(&#receiver, #args)
-			};
-			call.attrs = std::mem::take(attrs);
-			*expr = syn::Expr::Call(call);
 		},
 		
 		 // Retrieve Value Expression (`{value}`):
