@@ -290,7 +290,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 /// 
 /// `1 + 2.per(time_unit::SEC)` 
 pub trait Per: Sized {
-	fn per(&self, unit: Time) -> Change<&Self> {
+	fn per(self, unit: Time) -> Change<Self> {
 		Change {
 			rate: self,
 			unit
@@ -298,7 +298,7 @@ pub trait Per: Sized {
 	}
 }
 
-impl<T: Flux> Per for T {}
+impl<T> Per for T {}
 
 /// A description of a change over time for use with arithmetic operators.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
