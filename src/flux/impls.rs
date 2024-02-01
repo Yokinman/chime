@@ -13,7 +13,8 @@ use crate::linear::Linear;
 
 impl<T: Flux, const S: usize> Flux for [T; S]
 where
-	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>
+	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
+	[T::Moment; S]: Moment<Flux = [T; S]>,
 {
 	type Moment = [T::Moment; S];
 	type Kind = T::Kind;
@@ -46,7 +47,8 @@ where
 
 impl<T: Moment, const S: usize> Moment for [T; S]
 where
-	[T::Flux; S]: Flux<Moment = [T; S]>
+	<T::Flux as Flux>::Kind:
+		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = [T::Flux; S];
 	fn to_flux(&self, time: Time) -> Self::Flux {
@@ -56,7 +58,8 @@ where
 
 impl<T: Flux> Flux for Vec<T>
 where
-	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>
+	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
+	Vec<T::Moment>: Moment<Flux = Vec<T>>,
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
@@ -91,7 +94,8 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	Vec<T::Flux>: Flux<Moment = Vec<T>>
+	<T::Flux as Flux>::Kind:
+		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = Vec<T::Flux>;
 	fn to_flux(&self, time: Time) -> Self::Flux {

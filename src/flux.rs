@@ -34,7 +34,7 @@ pub trait Flux {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
 	
-	type Moment: Moment<Flux=Self>;
+	type Moment: Moment;
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
@@ -55,7 +55,8 @@ pub trait Flux {
 	/// Sets a moment in the timeline (affects all moments).
 	fn set_moment(&mut self, time: Time, moment: Self::Moment)
 	where
-		Self: Sized
+		Self: Sized,
+		<Self as Flux>::Moment: Moment<Flux=Self>,
 	{
 		*self = moment.to_flux(time);
 	}
@@ -83,7 +84,10 @@ pub trait Flux {
 	/// // modifications
 	/// self.set_moment(time, moment);
 	/// ```
-	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment> {
+	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment>
+	where
+		<Self as Flux>::Moment: Moment<Flux=Self>
+	{
 		let moment = Some(self.to_moment(time));
 		MomentRefMut {
 			moment,
