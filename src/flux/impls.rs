@@ -2,7 +2,7 @@
 
 use std::vec::Vec;
 
-use crate::{Flux, Moment};
+use crate::{Constant, Flux, Moment};
 use crate::time::Time;
 use crate::kind::FluxKind;
 use crate::linear::Linear;
@@ -10,6 +10,23 @@ use crate::linear::Linear;
 // ??? Other collections
 // ??? Tuples
 // ??? Function pointers
+
+impl<T: Linear> Flux for T {
+	type Moment = Self;
+	type Kind = Constant<Self>;
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+		*self
+	}
+	fn base_time(&self) -> Time {
+		Time::ZERO
+	}
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{}
+	fn to_moment(&self, _time: Time) -> Self::Moment {
+		*self
+	}
+}
 
 impl<T: Flux, const S: usize> Flux for [T; S]
 where

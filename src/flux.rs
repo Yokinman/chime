@@ -756,12 +756,15 @@ mod tests {
 		
 		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(SEC);
 		assert_times!(
-			a_pos.when_dis_eq(&b_pos, &Constant::from(2.)),
+			a_pos.when_dis_eq(&b_pos, &2.),
 			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]
 		);
 		assert_time_ranges!(
-			a_pos.when_dis(&b_pos, Ordering::Equal, &Constant::from(2.)),
-			[(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.414068993)), (Time::from_secs_f64(0.84545191), Time::from_secs_f64(0.84545191))]
+			a_pos.when_dis(&b_pos, Ordering::Equal, &2.),
+			[
+				(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.414068993)),
+				(Time::from_secs_f64(0.84545191), Time::from_secs_f64(0.84545191))
+			]
 		);
 		
 		// https://www.desmos.com/calculator/23ic1ikyt3
