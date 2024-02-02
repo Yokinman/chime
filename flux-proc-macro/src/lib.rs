@@ -1,6 +1,7 @@
 use proc_macro::*;
 use std::collections::HashSet;
 use quote::*;
+use syn::ext::IdentExt;
 use syn::parse::ParseStream;
 use syn::Token;
 
@@ -146,7 +147,7 @@ fn contextualize(
 			if path.segments.len() == 1 {
 				fields.insert(path.get_ident()
 					.expect("identifier must exist")
-					.clone());
+					.unraw());
 			}
 		},
 		
@@ -189,7 +190,9 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			 // Convenient Identifiers:
 			for ident in used_idents {
 				if item.fields.iter().any(|field|
-					ident == field.ident.to_owned().expect("identifier must exist")
+					ident == field.ident.to_owned()
+						.expect("identifier must exist")
+						.unraw()
 				) {
 					change_expr = syn::parse_quote!{{
 						let #ident = &self.#ident;
@@ -218,8 +221,9 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	let mut moment_fields = Default::default();
 	let mut flux_fields = Default::default();
 	for field in &mut flux_item.fields {
-		let ident = field.ident.as_ref();
-		if ident == Some(&value_ident) {
+		let ident = field.ident.as_ref()
+			.expect("identifier must exist");
+		if ident.unraw() == value_ident.unraw() {
 			let field_ty = std::mem::replace(&mut field.ty, syn::parse_quote!{
 				#flux::Constant<<<Self as #flux::Flux>::Kind
 					as #flux::kind::FluxKind>::Value>
