@@ -60,23 +60,56 @@ fn contextualize(
 		syn::Expr::Paren(syn::ExprParen { expr, .. }) => {
 			contextualize(expr, value_ident, fields, flux);
 		},
-		// syn::Expr::Match(syn::ExprMatch { expr, arms, .. }) => {
-		// 	contextualize(expr, value_ident, fields, flux);
-		// 	for arm in arms {
-		// 		contextualize(arm.body.as_mut(), value_ident, fields, flux);
-		// 	}
-		// },
-		syn::Expr::MethodCall(syn::ExprMethodCall { receiver, args, .. }) => {
-			contextualize(receiver, value_ident, fields, flux);
+		syn::Expr::Call(syn::ExprCall { func: expr, args, .. }) |
+		syn::Expr::MethodCall(syn::ExprMethodCall { receiver: expr, args, .. }) => {
+			contextualize(expr, value_ident, fields, flux);
 			for arg in args {
 				contextualize(arg, value_ident, fields, flux);
 			}
 		},
-		syn::Expr::Binary(syn::ExprBinary { left, right, .. }) => {
+		syn::Expr::Field(syn::ExprField { base, .. }) => {
+			contextualize(base, value_ident, fields, flux);
+		},
+		syn::Expr::Lit(syn::ExprLit { .. }) => {},
+		syn::Expr::Array(syn::ExprArray { elems, .. }) => {
+			for elem in elems {
+				contextualize(elem, value_ident, fields, flux);
+			}
+		},
+		syn::Expr::Repeat(syn::ExprRepeat { expr, len, .. }) => {
+			contextualize(expr, value_ident, fields, flux);
+			contextualize(len, value_ident, fields, flux);
+		},
+		syn::Expr::Struct(syn::ExprStruct { fields: members, rest, .. }) => {
+			for member in members {
+				contextualize(&mut member.expr, value_ident, fields, flux);
+			}
+			if let Some(rest) = rest {
+				contextualize(rest, value_ident, fields, flux);
+			}
+		},
+		syn::Expr::Tuple(syn::ExprTuple { elems, .. }) => {
+			for elem in elems {
+				contextualize(elem, value_ident, fields, flux);
+			}
+		},
+		syn::Expr::Binary(syn::ExprBinary { left, right, .. }) |
+		syn::Expr::Index(syn::ExprIndex { expr: left, index: right, .. }) => {
 			contextualize(left,  value_ident, fields, flux);
 			contextualize(right, value_ident, fields, flux);
 		},
-		syn::Expr::Unary(syn::ExprUnary { expr, .. }) => {
+		syn::Expr::Range(syn::ExprRange { start, end, .. }) => {
+			if let Some(start) = start {
+				contextualize(start, value_ident, fields, flux);
+			}
+			if let Some(end) = end {
+				contextualize(end, value_ident, fields, flux);
+			}
+		},
+		syn::Expr::Reference(syn::ExprReference { expr, .. }) |
+		syn::Expr::Unary(syn::ExprUnary { expr, .. }) |
+		syn::Expr::Cast(syn::ExprCast { expr, .. }) |
+		syn::Expr::Try(syn::ExprTry { expr, .. }) => {
 			contextualize(expr, value_ident, fields, flux);
 		},
 		
