@@ -8,7 +8,7 @@ use std::array;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
-use std::ops::{Add, Deref, DerefMut, Mul};
+use std::ops::{Deref, DerefMut, Mul};
 
 use crate::{
 	linear::*,
@@ -383,57 +383,24 @@ impl<T> DerefMut for FluxValue<T> {
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
 /// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Constant<T> {
-	value: T,
-	time: Time,
-}
+pub struct Constant<T>(T);
 
 impl<T> Deref for Constant<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
-		&self.value
+		&self.0
 	}
 }
 
 impl<T> DerefMut for Constant<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.value
+		&mut self.0
 	}
 }
 
 impl<T: Linear> From<T> for Constant<T> {
 	fn from(value: T) -> Self {
-		Constant {
-			value,
-			time: Time::ZERO,
-		}
-	}
-}
-
-impl<T: Linear> Moment for T {
-	type Flux = Constant<T>;
-	fn to_flux(&self, time: Time) -> Self::Flux {
-		Constant {
-			value: *self,
-			time,
-		}
-	}
-}
-
-impl<T: Linear> Flux for Constant<T> {
-	type Moment = T;
-	type Kind = Constant<T>;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		self.value
-	}
-	fn base_time(&self) -> Time {
-		self.time
-	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
-	{}
-	fn to_moment(&self, _time: Time) -> Self::Moment {
-		self.value
+		Constant(value)
 	}
 }
 
@@ -442,7 +409,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 	type Accum<'a> = ();
 	type OutAccum<'a> = ();
 	fn at(&self, _time: Scalar) -> Self::Value {
-		self.value
+		self.0
 	}
 	fn rate_at(&self, _time: Scalar) -> Self::Value {
 		T::zero()
@@ -451,7 +418,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 		self
 	}
 	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
-		self.value.partial_cmp(&T::zero())
+		self.0.partial_cmp(&T::zero())
 	}
 	fn zero() -> Self {
 		Self::from(T::zero())
@@ -461,15 +428,8 @@ impl<T: Linear> FluxKind for Constant<T> {
 impl<T: Linear> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.value = self.value * rhs;
+		self.0 = self.0 * rhs;
 		self
-	}
-}
-
-impl<T: Linear, K: FluxKind<Value=T>> Add<K> for Constant<T> {
-	type Output = K;
-	fn add(self, rhs: K) -> K {
-		K::from(rhs.value() + self.value)
 	}
 }
 
@@ -479,7 +439,7 @@ where
 {
 	type Output = Self;
 	fn mul(mut self, rhs: Self) -> Self {
-		self.value = self.value * rhs.value;
+		self.0 = self.0 * rhs.0;
 		self
 	}
 }

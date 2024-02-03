@@ -28,6 +28,13 @@ impl<T: Linear> Flux for T {
 	}
 }
 
+impl<T: Linear> Moment for T {
+	type Flux = Self;
+	fn to_flux(&self, _time: Time) -> Self::Flux {
+		*self
+	}
+}
+
 impl<T: Flux, const S: usize> Flux for [T; S]
 where
 	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
