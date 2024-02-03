@@ -841,14 +841,23 @@ mod tests {
 	#[test]
 	fn vec() {
 		#[derive(PartialEq)]
-		#[flux(Sum<glam::DVec2, 1> = {value} + spd.per(SEC), crate = "crate")]
+		#[flux(
+			kind = "Sum<glam::DVec2, 1>",
+			value = value,
+			change = |c| c + spd.per(SEC),
+			crate = "crate",
+		)]
 		struct Pos {
 			value: glam::IVec2,
 			spd: Spd,
 		}
 		
 		#[derive(PartialEq)]
-		#[flux(Sum<glam::DVec2, 0> = {value}, crate = "crate")]
+		#[flux(
+			kind = "Sum<glam::DVec2, 0>",
+			value = value,
+			crate = "crate",
+		)]
 		struct Spd {
 			value: glam::IVec2
 		}

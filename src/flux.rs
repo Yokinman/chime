@@ -461,7 +461,12 @@ mod tests {
 	use super::time::SEC;
 	use crate::sum::Sum;
 	
-	#[flux(Sum<f64, 4> = {value} + spd.per(SEC) + misc.per(SEC), crate = "crate")]
+	#[flux(
+		kind = "Sum<f64, 4>",
+		value = value,
+		change = |c| c + spd.per(SEC) + misc.per(SEC),
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Pos {
 		value: f64,
@@ -469,7 +474,12 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	#[flux(Sum<f64, 3> = {value} - fric.per(SEC) + accel.per(SEC), crate = "crate")]
+	#[flux(
+		kind = "Sum<f64, 3>",
+		value = value,
+		change = |c| c - fric.per(SEC) + accel.per(SEC),
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Spd {
 		value: f64,
@@ -477,27 +487,45 @@ mod tests {
 		accel: Accel,
 	}
 	
-	#[flux(Sum<f64, 0> = {value}, crate = "crate")]
+	#[flux(
+		kind = "Sum<f64, 0>",
+		value = value,
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Fric {
 		value: f64,
 	}
 	
-	#[flux(Sum<f64, 2> = {value} + jerk.per(SEC), crate = "crate")]
+	#[flux(
+		kind = "Sum<f64, 2>",
+		value = value,
+		change = |c| c + jerk.per(SEC),
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Accel {
 		value: f64,
 		jerk: Jerk,
 	}
 	
-	#[flux(Sum<f64, 1> = {value} + snap.per(SEC), crate = "crate")]
+	#[flux(
+		kind = "Sum<f64, 1>",
+		value = value,
+		change = |c| c + snap.per(SEC),
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Jerk {
 		value: f64,
 		snap: Snap,
 	}
 	
-	#[flux(Constant<f64> = {value}, crate = "crate")]
+	#[flux(
+		kind = "Constant<f64>",
+		value = value,
+		crate = "crate",
+	)]
 	#[derive(Clone, Debug, Default)]
 	struct Snap {
 		value: f64,
@@ -712,7 +740,12 @@ mod tests {
 	#[test]
 	fn distance() {
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 2> = {value} + spd.per(time::MINUTE), crate = "crate")]
+		#[flux(
+			kind = "Sum<f64, 2>",
+			value = value,
+			change = |c| c + spd.per(time::MINUTE),
+			crate = "crate",
+		)]
 		#[derive(Debug)]
 		struct Pos {
 			value: i64,
@@ -720,7 +753,12 @@ mod tests {
 		}
 		
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Sum<f64, 1> = {value} + acc.per(SEC), crate = "crate")]
+		#[flux(
+			kind = "Sum<f64, 1>",
+			value = value,
+			change = |c| c + acc.per(SEC),
+			crate = "crate",
+		)]
 		#[derive(Debug)]
 		struct Spd {
 			value: i64,
@@ -728,7 +766,11 @@ mod tests {
 		}
 		
 		#[derive(PartialOrd, PartialEq)]
-		#[flux(Constant<f64> = {value}, crate = "crate")]
+		#[flux(
+			kind = "Constant<f64>",
+			value = value,
+			crate = "crate",
+		)]
 		#[derive(Debug)]
 		struct Acc {
 			value: i64,
