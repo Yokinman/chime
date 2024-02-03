@@ -241,7 +241,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			// !!! Assert no overlap between `value_idents` and `change_idents`.
 			
 			fetch_idents(&value_expr, &mut value_idents, &mut value_cond_idents);
-			assert!(!value_idents.is_empty(), "must specify a value identifier without `self.`");
+			assert_eq!(value_idents.len(), 1, "must specify a single value identifier without `self.`");
 			fetch_idents(&change_expr, &mut change_idents, &mut change_cond_idents);
 			
 			let mut value_block: syn::Block = syn::parse_quote!{{ #value_expr }};
@@ -262,7 +262,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				change_block.stmts.insert(0, syn::parse_quote!{let #ident = self.#ident;});
 			}
 			for ident in value_idents.iter().filter(has_ident) {
-				value_block.stmts.insert(0, syn::parse_quote!{let #ident = self.#ident.base_value();});
+				value_block.stmts.insert(0, syn::parse_quote!{let #ident = self.#ident;});
 			}
 			for ident in value_cond_idents.iter().filter(has_ident) {
 				value_block.stmts.insert(0, syn::parse_quote!{let #ident = self.#ident;});
@@ -295,10 +295,12 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		 // Constant/Linear Types:
 		if value_idents.contains(&ident.unraw()) {
-			let field_ty = std::mem::replace(&mut field.ty, syn::parse_quote!{
-				#flux::Constant<<<Self as #flux::Flux>::Kind
-					as #flux::kind::FluxKind>::Value>
-			});
+			let field_ty = std::mem::replace(
+				&mut field.ty,
+				syn::parse_quote!{
+					<<#flux::FluxValue<Self> as #flux::Flux>::Kind as #flux::kind::FluxKind>::Value
+				}
+			);
 			moment_fields = quote::quote!{
 				#moment_fields
 				#ident: #flux::linear::LinearIso::<#field_ty>
@@ -306,13 +308,10 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::Moment::to_flux(
-					&#flux::linear::LinearIsoInv
-						::<<<Self::Flux as #flux::Flux>::Kind
-							as #flux::kind::FluxKind>::Value>
-						::inv_map(self.#ident),
-					time
-				),
+				#ident: #flux::linear::LinearIsoInv
+					::<<<Self::Flux as #flux::Flux>::Kind
+						as #flux::kind::FluxKind>::Value>
+					::inv_map(self.#ident),
 			};
 		}
 		
@@ -347,15 +346,14 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	
 	 // Generate Implementation:
 	let ident = item.ident.clone();
-	let value_ident = value_idents.iter().next();
 	let (impl_generics, ty_generics, where_clause) = item.generics.split_for_impl();
 	let flux_value_impl = quote::quote!{
 		#item
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
-			type Flux = #flux_ident #ty_generics;
+			type Flux = #flux::FluxValue<#flux_ident #ty_generics>;
 			fn to_flux(&self, time: #flux::time::Time) -> Self::Flux {
-				#flux_ident { #flux_fields }
+				#flux::FluxValue::new(#flux_ident { #flux_fields }, time)
 			}
 		}
 		
@@ -365,7 +363,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		// it's only accessible through `flux::Moment::Flux`.
 		#flux_item
 		
-		impl #impl_generics #flux::Flux for #flux_ident #ty_generics #where_clause {
+		impl #impl_generics #flux::Flux for #flux::FluxValue<#flux_ident> #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
@@ -373,7 +371,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			#value_block
 			
 			fn base_time(&self) -> #flux::time::Time {
-				self.#value_ident.base_time()
+				self.time()
 			}
 			
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)

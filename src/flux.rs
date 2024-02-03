@@ -348,6 +348,36 @@ impl<T: Flux> Flux for Change<T> {
 	}
 }
 
+/// Wrapper for partial [`Flux`] types created by the [`flux`] macro.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct FluxValue<T> {
+	inner: T,
+	time: Time,
+}
+
+impl<T> FluxValue<T> {
+	pub fn new(inner: T, time: Time) -> Self {
+		Self { inner, time }
+	}
+	
+	pub fn time(&self) -> Time {
+		self.time
+	}
+}
+
+impl<T> Deref for FluxValue<T> {
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
+}
+
+impl<T> DerefMut for FluxValue<T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.inner
+	}
+}
+
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
@@ -552,8 +582,8 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux(Time::ZERO);
-		let value = pos.value(10*SEC);
-		pos.value.set_moment(10*SEC, value);
+		pos.value = pos.value(10*SEC);
+		pos.time = 10*SEC;
 		pos.spd.accel.at_mut(20*SEC);
 		pos.spd.accel.jerk.at_mut(10*SEC);
 		pos
