@@ -95,6 +95,13 @@ impl Linear for f32 {
 	}
 }
 
+/// Multidimensional vector type.
+pub trait LinearVec: Linear {
+	const SIZE: usize;
+	type Value: Linear;
+	fn get(&self, index: usize) -> Self::Value;
+}
+
 /// A mapping of a vector space that preserves addition & multiplication.
 /// 
 /// # Properties
@@ -143,14 +150,14 @@ impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
 #[cfg(feature = "glam")]
 mod glam_stuff {
 	use glam::*;
-	use crate::linear::{Linear, LinearIso, LinearIsoInv};
+	use crate::linear::*;
 	
 	macro_rules! impl_linear_for_vec {
-		($a_vec:ty $(, $b_vec:ty)+) => {
+		($a_vec:tt $(, $b_vec:tt)+) => {
 			impl_linear_for_vec!($a_vec);
 			$(impl_linear_for_vec!($b_vec);)+
 		};
-		($vec:ty) => {
+		(($vec:ty, $size:literal, $value:ty)) => {
 			impl Linear for $vec {
 				fn sqrt(self) -> Self {
 					self.powf(0.5)
@@ -162,9 +169,26 @@ mod glam_stuff {
 					Self::ZERO
 				}
 			}
+			impl LinearVec for $vec {
+				const SIZE: usize = $size;
+				type Value = $value;
+				fn get(&self, index: usize) -> Self::Value {
+					if index >= Self::SIZE {
+						panic!("index out of bounds")
+					}
+					self[index]
+				}
+			}
 		};
 	}
-	impl_linear_for_vec!(Vec2, Vec3, Vec4, DVec2, DVec3, DVec4);
+	impl_linear_for_vec!(
+		(Vec2, 2, f32),
+		(Vec3, 3, f32),
+		(Vec4, 4, f32),
+		(DVec2, 2, f64),
+		(DVec3, 3, f64),
+		(DVec4, 4, f64)
+	);
 	
 	macro_rules! impl_iso_for_vec {
 		($a:ty, $as_b:ident: $b:ty, $as_a:ident) => {

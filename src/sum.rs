@@ -149,6 +149,16 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	}
 }
 
+impl<T: LinearVec, const D: usize> FluxKindVec for Sum<T, D> {
+	type Kind = Sum<T::Value, D>;
+	fn kind(&self, index: usize) -> Self::Kind {
+		Sum(
+			self.0.get(index),
+			std::array::from_fn(|i| self.1[i].get(index))
+		)
+	}
+}
+
 impl<T: Linear> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {
 		Constant::from(self[0])

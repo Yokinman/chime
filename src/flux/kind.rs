@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-use crate::linear::{Linear, Scalar};
+use crate::linear::{Linear, LinearVec, Scalar};
 use crate::time;
 use crate::time::{Time, /*Times,*/ TimeRanges};
 
@@ -46,6 +46,15 @@ pub trait FluxKind:
 	fn value(&self) -> Self::Value {
 		self.at(Scalar(0.))
 	}
+}
+
+/// Multidimensional kind of change.
+pub trait FluxKindVec: FluxKind
+where
+	Self::Value: LinearVec,
+{
+	type Kind: FluxKind<Value = <Self::Value as LinearVec>::Value>;
+	fn kind(&self, index: usize) -> Self::Kind;
 }
 
 /// Combining [`FluxKind`] types.
