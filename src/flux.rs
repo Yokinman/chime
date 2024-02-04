@@ -350,6 +350,7 @@ impl<T: Flux> Flux for Change<T> {
 
 /// Wrapper for partial [`Flux`] types created by the [`flux`] macro.
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(bevy::ecs::component::Component))]
 pub struct FluxValue<T> {
 	inner: T,
 	time: Time,
@@ -359,7 +360,6 @@ impl<T> FluxValue<T> {
 	pub fn new(inner: T, time: Time) -> Self {
 		Self { inner, time }
 	}
-	
 	pub fn time(&self) -> Time {
 		self.time
 	}
