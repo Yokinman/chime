@@ -271,8 +271,27 @@ macro_rules! def_flux_vec {
 					.when_dis_eq(other.polys(time), dis.poly(time))
 			}
 			
+			/// Ranges when a component is above/below/equal to another flux.
+			fn when_index<T: Flux>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges
+			where
+				Poly<Self::Kind>: When<T::Kind>
+			{
+				let time = self.index_base_time(index);
+				self.index_poly(index, time)
+					.when(order, other.poly(time))
+			}
+			
+			/// Times when a component is equal to another flux.
+			fn when_index_eq<T: Flux>(&self, index: usize, other: &T) -> TimeRanges
+			where
+				Poly<Self::Kind>: WhenEq<T::Kind>
+			{
+				let time = self.index_base_time(index);
+				self.index_poly(index, time)
+					.when_eq(other.poly(time))
+			}
+			
 			// !!!
-			// - for distance to an axis-aligned line, use normal prediction on 1 axis.
 			// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
 			// - to fit a line segment, filter predicted times.
 			// - for non-fixed angle line segments, use a double distance check?
