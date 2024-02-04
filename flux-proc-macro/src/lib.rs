@@ -298,13 +298,12 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let field_ty = std::mem::replace(
 				&mut field.ty,
 				syn::parse_quote!{
-					<<#flux::FluxValue<Self> as #flux::Flux>::Kind as #flux::kind::FluxKind>::Value
+					<<Self as #flux::_hidden::InnerFlux>::Kind as #flux::kind::FluxKind>::Value
 				}
 			);
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::LinearIso::<#field_ty>
-					::map(self.value(time)),
+				#ident: #flux::linear::LinearIso::<#field_ty>::map(base_value),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -363,22 +362,18 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		// it's only accessible through `flux::Moment::Flux`.
 		#flux_item
 		
-		impl #impl_generics #flux::Flux for #flux::FluxValue<#flux_ident> #ty_generics #where_clause {
+		impl #impl_generics #flux::_hidden::InnerFlux for #flux_ident #ty_generics #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
 			fn base_value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value
 			#value_block
 			
-			fn base_time(&self) -> #flux::time::Time {
-				self.time()
-			}
-			
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)
 				-> <Self::Kind as #flux::kind::FluxKind>::OutAccum<'a>
 			#change_block
 			
-			fn to_moment(&self, time: #flux::time::Time) -> Self::Moment {
+			fn to_moment(&self, time: #flux::time::Time, base_value: <Self::Kind as #flux::kind::FluxKind>::Value) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 		}

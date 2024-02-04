@@ -378,6 +378,42 @@ impl<T> DerefMut for FluxValue<T> {
 	}
 }
 
+impl<T: _hidden::InnerFlux> Flux for FluxValue<T> {
+	type Moment = T::Moment;
+	type Kind = T::Kind;
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+		self.inner.base_value()
+	}
+	fn base_time(&self) -> Time {
+		self.time
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{
+		self.inner.change(accum)
+	}
+	fn to_moment(&self, time: Time) -> Self::Moment {
+		self.inner.to_moment(time, self.value(time))
+	}
+}
+
+#[doc(hidden)]
+pub mod _hidden {
+	use super::*;
+	
+	/// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
+	/// Implemented automatically by the [`flux`] macro, not manually.
+	pub trait InnerFlux {
+		type Moment: Moment;
+		type Kind: FluxKind;
+		fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
+		fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+			-> <Self::Kind as FluxKind>::OutAccum<'a>;
+		fn to_moment(&self, time: Time, base_value: <Self::Kind as FluxKind>::Value)
+			-> Self::Moment;
+	}
+}
+
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
