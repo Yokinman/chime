@@ -149,7 +149,7 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	}
 }
 
-impl<T: LinearVec, const D: usize> FluxKindVec for Sum<T, D> {
+impl<const SIZE: usize, T: LinearVec<SIZE>, const D: usize> FluxKindVec<SIZE> for Sum<T, D> {
 	type Kind = Sum<T::Value, D>;
 	fn kind(&self, index: usize) -> Self::Kind {
 		Sum(

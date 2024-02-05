@@ -96,8 +96,7 @@ impl Linear for f32 {
 }
 
 /// Multidimensional vector type.
-pub trait LinearVec: Linear {
-	const SIZE: usize;
+pub trait LinearVec<const SIZE: usize>: Linear {
 	type Value: Linear;
 	fn get(&self, index: usize) -> Self::Value;
 }
@@ -169,11 +168,10 @@ mod glam_stuff {
 					Self::ZERO
 				}
 			}
-			impl LinearVec for $vec {
-				const SIZE: usize = $size;
+			impl LinearVec<$size> for $vec {
 				type Value = $value;
 				fn get(&self, index: usize) -> Self::Value {
-					if index >= Self::SIZE {
+					if index >= $size {
 						panic!("index out of bounds")
 					}
 					self[index]

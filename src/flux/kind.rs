@@ -49,11 +49,11 @@ pub trait FluxKind:
 }
 
 /// Multidimensional kind of change.
-pub trait FluxKindVec: FluxKind
+pub trait FluxKindVec<const SIZE: usize>: FluxKind
 where
-	Self::Value: LinearVec,
+	Self::Value: LinearVec<SIZE>,
 {
-	type Kind: FluxKind<Value = <Self::Value as LinearVec>::Value>;
+	type Kind: FluxKind<Value = <Self::Value as LinearVec<SIZE>>::Value>;
 	fn kind(&self, index: usize) -> Self::Kind;
 }
 

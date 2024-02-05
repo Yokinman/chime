@@ -225,8 +225,20 @@ where
 /// Multidimensional change over time.
 pub trait FluxVec<const SIZE: usize> {
 	type Kind: FluxKind;
-	fn times(&self) -> [Time; SIZE];
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE];
+	
+	fn base_time(&self, index: usize) -> Time;
+	fn max_base_time(&self) -> Time {
+		let mut time = Time::ZERO;
+		for i in 0..SIZE {
+			time = time.max(self.base_time(i));
+		}
+		time
+	}
+	
+	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
+		array::from_fn(|i| self.poly(i, time))
+	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
 	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
@@ -238,11 +250,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
 	{
-		let time = self.times().into_iter()
-			.chain(other.times())
-			.max()
-			.unwrap_or_default();
-		
+		let time = self.max_base_time();
 		self.polys(time)
 			.when_dis(other.polys(time), order, dis.poly(time))
 	}
@@ -256,11 +264,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
 	{
-		let time = self.times().into_iter()
-			.chain(other.times())
-			.max()
-			.unwrap_or_default();
-		
+		let time = self.max_base_time();
 		self.polys(time)
 			.when_dis_eq(other.polys(time), dis.poly(time))
 	}
@@ -276,11 +280,11 @@ pub trait FluxVec<const SIZE: usize> {
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	type Kind = T::Kind;
-	fn times(&self) -> [Time; SIZE] {
-		array::from_fn(|i| self[i].base_time())
+	fn base_time(&self, index: usize) -> Time {
+		self[index].base_time()
 	}
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
-		array::from_fn(|i| self[i].poly(time))
+	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+		self[index].poly(time)
 	}
 }
 
