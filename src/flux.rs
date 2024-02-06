@@ -222,61 +222,74 @@ where
 	}
 }
 
-/// Multidimensional change over time.
-pub trait FluxVec<const SIZE: usize> {
-	type Kind: FluxKind;
-	
-	fn base_time(&self, index: usize) -> Time;
-	fn max_base_time(&self) -> Time {
-		let mut time = Time::ZERO;
-		for i in 0..SIZE {
-			time = time.max(self.base_time(i));
+macro_rules! def_flux_vec {
+	($name:ident) => {
+		/// Multidimensional change over time.
+		pub trait $name<const SIZE: usize> {
+			type Kind: FluxKind;
+			
+			fn base_time(&self, index: usize) -> Time;
+			fn max_base_time(&self) -> Time {
+				let mut time = Time::ZERO;
+				for i in 0..SIZE {
+					time = time.max(self.base_time(i));
+				}
+				time
+			}
+			
+			fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
+			fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
+				array::from_fn(|i| self.poly(i, time))
+			}
+			
+			/// Ranges when the distance to another vector is above/below/equal to X.
+			fn when_dis<T: $name<SIZE> + ?Sized, D: Flux>(
+				&self,
+				other: &T,
+				order: Ordering,
+				dis: &D,
+			) -> TimeRanges
+			where
+				[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
+			{
+				let time = self.max_base_time();
+				self.polys(time)
+					.when_dis(other.polys(time), order, dis.poly(time))
+			}
+			
+			/// Ranges when the distance to another vector is above/below/equal to X.
+			fn when_dis_eq<T: $name<SIZE> + ?Sized, D: Flux>(
+				&self,
+				other: &T,
+				dis: &D,
+			) -> TimeRanges
+			where
+				[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
+			{
+				let time = self.max_base_time();
+				self.polys(time)
+					.when_dis_eq(other.polys(time), dis.poly(time))
+			}
+			
+			// !!!
+			// - for distance to an axis-aligned line, use normal prediction on 1 axis.
+			// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
+			// - to fit a line segment, filter predicted times.
+			// - for non-fixed angle line segments, use a double distance check?
+			// - rotating point-line may be handleable iteratively, find the bounds in
+			//   which the roots may be and iterate through it.
 		}
-		time
-	}
-	
-	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
-		array::from_fn(|i| self.poly(i, time))
-	}
-	
-	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
-		&self,
-		other: &T,
-		order: Ordering,
-		dis: &D,
-	) -> TimeRanges
-	where
-		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
-	{
-		let time = self.max_base_time();
-		self.polys(time)
-			.when_dis(other.polys(time), order, dis.poly(time))
-	}
-	
-	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis_eq<T: FluxVec<SIZE> + ?Sized, D: Flux>(
-		&self,
-		other: &T,
-		dis: &D,
-	) -> TimeRanges
-	where
-		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
-	{
-		let time = self.max_base_time();
-		self.polys(time)
-			.when_dis_eq(other.polys(time), dis.poly(time))
-	}
-	
-	// !!!
-	// - for distance to an axis-aligned line, use normal prediction on 1 axis.
-	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
-	// - to fit a line segment, filter predicted times.
-	// - for non-fixed angle line segments, use a double distance check?
-	// - rotating point-line may be handleable iteratively, find the bounds in
-	//   which the roots may be and iterate through it.
+	};
 }
+def_flux_vec!(FluxVec); // Used for arrays of 1D Flux types.
+def_flux_vec!(FluxVec2); // Used for 2D+ Flux types.
+// Conflicting impls. ^
+// - `impl Flux for [impl Flux; SIZE]`.
+//   Convenient Flux grouping; `array.to_flux(..)`, `array.per(SEC)`, etc.
+// - `impl FluxVec for [impl Flux; SIZE]`.
+//   Can treat an array of 1D Flux values as a position/vector; `when_dis`.
+// - `impl<T: Flux> FluxVec for T where T::Kind: FluxKindVec`.
+//   Can use a 2D+ Flux value as a position/vector.
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	type Kind = T::Kind;
@@ -285,6 +298,20 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	}
 	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		self[index].poly(time)
+	}
+}
+
+impl<T: Flux, const SIZE: usize> FluxVec2<SIZE> for T
+where
+	<T::Kind as FluxKind>::Value: LinearVec<SIZE>,
+	T::Kind: FluxKindVec<SIZE>,
+{
+	type Kind = <T::Kind as FluxKindVec<SIZE>>::Kind;
+	fn base_time(&self, _index: usize) -> Time {
+		T::base_time(self)
+	}
+	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+		Poly::new(T::poly(self, time).kind(index), time)
 	}
 }
 
