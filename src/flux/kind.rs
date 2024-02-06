@@ -54,7 +54,7 @@ where
 	Self::Value: LinearVec<SIZE>,
 {
 	type Kind: FluxKind<Value = <Self::Value as LinearVec<SIZE>>::Value>;
-	fn kind(&self, index: usize) -> Self::Kind;
+	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 /// Combining [`FluxKind`] types.
