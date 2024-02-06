@@ -98,7 +98,7 @@ impl Linear for f32 {
 /// Multidimensional vector type.
 pub trait LinearVec<const SIZE: usize>: Linear {
 	type Value: Linear;
-	fn get(&self, index: usize) -> Self::Value;
+	fn index(&self, index: usize) -> Self::Value;
 }
 
 /// A mapping of a vector space that preserves addition & multiplication.
@@ -170,7 +170,7 @@ mod glam_stuff {
 			}
 			impl LinearVec<$size> for $vec {
 				type Value = $value;
-				fn get(&self, index: usize) -> Self::Value {
+				fn index(&self, index: usize) -> Self::Value {
 					if index >= $size {
 						panic!("index out of bounds")
 					}
