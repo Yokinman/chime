@@ -228,18 +228,18 @@ macro_rules! def_flux_vec {
 		pub trait $name<const SIZE: usize> {
 			type Kind: FluxKind;
 			
-			fn base_time(&self, index: usize) -> Time;
+			fn index_base_time(&self, index: usize) -> Time;
 			fn max_base_time(&self) -> Time {
 				let mut time = Time::ZERO;
 				for i in 0..SIZE {
-					time = time.max(self.base_time(i));
+					time = time.max(self.index_base_time(i));
 				}
 				time
 			}
 			
-			fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
+			fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
 			fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
-				array::from_fn(|i| self.poly(i, time))
+				array::from_fn(|i| self.index_poly(i, time))
 			}
 			
 			/// Ranges when the distance to another vector is above/below/equal to X.
@@ -293,10 +293,10 @@ def_flux_vec!(FluxVec2); // Used for 2D+ Flux types.
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	type Kind = T::Kind;
-	fn base_time(&self, index: usize) -> Time {
+	fn index_base_time(&self, index: usize) -> Time {
 		self[index].base_time()
 	}
-	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		self[index].poly(time)
 	}
 }
@@ -307,10 +307,10 @@ where
 	T::Kind: FluxKindVec<SIZE>,
 {
 	type Kind = <T::Kind as FluxKindVec<SIZE>>::Kind;
-	fn base_time(&self, _index: usize) -> Time {
+	fn index_base_time(&self, _index: usize) -> Time {
 		T::base_time(self)
 	}
-	fn poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		Poly::new(T::poly(self, time).kind(index), time)
 	}
 }
