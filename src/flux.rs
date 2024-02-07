@@ -308,59 +308,6 @@ pub trait FluxVec<const SIZE: usize> {
 	//   which the roots may be and iterate through it.
 }
 
-impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
-	type Flux = [T::Flux; SIZE];
-	fn to_flux_vec(&self, time: Time) -> Self::Flux {
-		array::from_fn(|i| self[i].to_flux(time))
-	}
-}
-
-impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
-	type Moment = [T::Moment; SIZE];
-	type Kind = T::Kind;
-	fn index_base_time(&self, index: usize) -> Time {
-		self[index].base_time()
-	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
-		self[index].poly(time)
-	}
-	fn to_moment_vec(&self, time: Time) -> Self::Moment {
-		array::from_fn(|i| self[i].to_moment(time))
-	}
-}
-
-impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
-where
-	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearVec<SIZE>,
-	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
-{
-	type Flux = T::Flux;
-	fn to_flux_vec(&self, time: Time) -> Self::Flux {
-		self.to_flux(time)
-	}
-}
-
-impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for T
-where
-	<T::Kind as FluxKind>::Value: LinearVec<SIZE>,
-	T::Kind: FluxKindVec<SIZE>,
-	T::Moment: MomentVec<SIZE>,
-{
-	type Moment = T::Moment;
-	type Kind = <T::Kind as FluxKindVec<SIZE>>::Kind;
-	fn index_base_time(&self, _index: usize) -> Time {
-		T::base_time(self)
-	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
-		Poly::new(T::poly(self, time).index_kind(index), time)
-	}
-	fn to_moment_vec(&self, time: Time) -> Self::Moment {
-		self.to_moment(time)
-	}
-}
-
-// !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
-
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
 /// `1 + 2.per(time_unit::SEC)` 
