@@ -34,14 +34,27 @@ impl syn::parse::Parse for FluxParse {
 			match ident.to_string().as_str() {
 				"kind" => {
 					if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), attrs }) = value {
-						assert!(attrs.is_empty(), "no kind type attributes");
+						assert!(attrs.is_empty(), "kind type must have no attributes");
 						kind_type = Some(s.parse()?);
 					} else {
 						panic!("kind type must be a string");
 					}
 				},
 				"value" => {
-					value_expr = Some(value);
+					let mut is_field = false;
+					if let syn::Expr::Path(syn::ExprPath { path, attrs, qself: None }) = &value {
+						assert!(attrs.is_empty(), "value must have no attributes");
+						if let Some(ident) = path.get_ident() {
+							if ident != "self" {
+								is_field = true;
+							}
+						}
+					}
+					if is_field {
+						value_expr = Some(value);
+					} else {
+						panic!("expected value to be an identifier for a field");
+					}
 				},
 				"change" => {
 					if let syn::Expr::Closure(_) = value {
