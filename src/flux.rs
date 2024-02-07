@@ -222,95 +222,101 @@ where
 	}
 }
 
-macro_rules! def_flux_vec {
-	($name:ident) => {
-		/// Multidimensional change over time.
-		pub trait $name<const SIZE: usize> {
-			type Kind: FluxKind;
-			
-			fn index_base_time(&self, index: usize) -> Time;
-			fn max_base_time(&self) -> Time {
-				let mut time = Time::ZERO;
-				for i in 0..SIZE {
-					time = time.max(self.index_base_time(i));
-				}
-				time
-			}
-			
-			fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
-			fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
-				array::from_fn(|i| self.index_poly(i, time))
-			}
-			
-			/// Ranges when the distance to another vector is above/below/equal to X.
-			fn when_dis<T: $name<SIZE> + ?Sized, D: Flux>(
-				&self,
-				other: &T,
-				order: Ordering,
-				dis: &D,
-			) -> TimeRanges
-			where
-				[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
-			{
-				let time = self.max_base_time();
-				self.polys(time)
-					.when_dis(other.polys(time), order, dis.poly(time))
-			}
-			
-			/// Ranges when the distance to another vector is above/below/equal to X.
-			fn when_dis_eq<T: $name<SIZE> + ?Sized, D: Flux>(
-				&self,
-				other: &T,
-				dis: &D,
-			) -> TimeRanges
-			where
-				[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
-			{
-				let time = self.max_base_time();
-				self.polys(time)
-					.when_dis_eq(other.polys(time), dis.poly(time))
-			}
-			
-			/// Ranges when a component is above/below/equal to another flux.
-			fn when_index<T: Flux>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges
-			where
-				Poly<Self::Kind>: When<T::Kind>
-			{
-				let time = self.index_base_time(index);
-				self.index_poly(index, time)
-					.when(order, other.poly(time))
-			}
-			
-			/// Times when a component is equal to another flux.
-			fn when_index_eq<T: Flux>(&self, index: usize, other: &T) -> TimeRanges
-			where
-				Poly<Self::Kind>: WhenEq<T::Kind>
-			{
-				let time = self.index_base_time(index);
-				self.index_poly(index, time)
-					.when_eq(other.poly(time))
-			}
-			
-			// !!!
-			// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
-			// - to fit a line segment, filter predicted times.
-			// - for non-fixed angle line segments, use a double distance check?
-			// - rotating point-line may be handleable iteratively, find the bounds in
-			//   which the roots may be and iterate through it.
-		}
-	};
+/// Multidimensional interface for a vector that changes over time.
+pub trait MomentVec<const SIZE: usize> {
+	type Flux: FluxVec<SIZE, Moment=Self>;
+	
+	/// Constructs the entirety of a [`FluxVec`] from a single moment.
+	fn to_flux_vec(&self, time: Time) -> Self::Flux;
 }
-def_flux_vec!(FluxVec); // Used for arrays of 1D Flux types.
-def_flux_vec!(FluxVec2); // Used for 2D+ Flux types.
-// Conflicting impls. ^
-// - `impl Flux for [impl Flux; SIZE]`.
-//   Convenient Flux grouping; `array.to_flux(..)`, `array.per(SEC)`, etc.
-// - `impl FluxVec for [impl Flux; SIZE]`.
-//   Can treat an array of 1D Flux values as a position/vector; `when_dis`.
-// - `impl<T: Flux> FluxVec for T where T::Kind: FluxKindVec`.
-//   Can use a 2D+ Flux value as a position/vector.
+
+/// Multidimensional change over time.
+pub trait FluxVec<const SIZE: usize> {
+	type Moment: MomentVec<SIZE>;
+	type Kind: FluxKind;
+	
+	fn index_base_time(&self, index: usize) -> Time;
+	fn max_base_time(&self) -> Time {
+		let mut time = Time::ZERO;
+		for i in 0..SIZE {
+			time = time.max(self.index_base_time(i));
+		}
+		time
+	}
+	
+	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
+	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
+		array::from_fn(|i| self.index_poly(i, time))
+	}
+	
+	fn to_moment_vec(&self, time: Time) -> Self::Moment;
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
+		&self,
+		other: &T,
+		order: Ordering,
+		dis: &D,
+	) -> TimeRanges
+	where
+		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>
+	{
+		let time = self.max_base_time();
+		self.polys(time)
+			.when_dis(other.polys(time), order, dis.poly(time))
+	}
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis_eq<T: FluxVec<SIZE> + ?Sized, D: Flux>(
+		&self,
+		other: &T,
+		dis: &D,
+	) -> TimeRanges
+	where
+		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
+	{
+		let time = self.max_base_time();
+		self.polys(time)
+			.when_dis_eq(other.polys(time), dis.poly(time))
+	}
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	fn when_index<T: Flux>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges
+	where
+		Poly<Self::Kind>: When<T::Kind>
+	{
+		let time = self.index_base_time(index);
+		self.index_poly(index, time)
+			.when(order, other.poly(time))
+	}
+	
+	/// Times when a component is equal to another flux.
+	fn when_index_eq<T: Flux>(&self, index: usize, other: &T) -> TimeRanges
+	where
+		Poly<Self::Kind>: WhenEq<T::Kind>
+	{
+		let time = self.index_base_time(index);
+		self.index_poly(index, time)
+			.when_eq(other.poly(time))
+	}
+	
+	// !!!
+	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
+	// - to fit a line segment, filter predicted times.
+	// - for non-fixed angle line segments, use a double distance check?
+	// - rotating point-line may be handleable iteratively, find the bounds in
+	//   which the roots may be and iterate through it.
+}
+
+impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
+	type Flux = [T::Flux; SIZE];
+	fn to_flux_vec(&self, time: Time) -> Self::Flux {
+		array::from_fn(|i| self[i].to_flux(time))
+	}
+}
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
+	type Moment = [T::Moment; SIZE];
 	type Kind = T::Kind;
 	fn index_base_time(&self, index: usize) -> Time {
 		self[index].base_time()
@@ -318,19 +324,38 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		self[index].poly(time)
 	}
+	fn to_moment_vec(&self, time: Time) -> Self::Moment {
+		array::from_fn(|i| self[i].to_moment(time))
+	}
 }
 
-impl<T: Flux, const SIZE: usize> FluxVec2<SIZE> for T
+impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
+where
+	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearVec<SIZE>,
+	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
+{
+	type Flux = T::Flux;
+	fn to_flux_vec(&self, time: Time) -> Self::Flux {
+		self.to_flux(time)
+	}
+}
+
+impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for T
 where
 	<T::Kind as FluxKind>::Value: LinearVec<SIZE>,
 	T::Kind: FluxKindVec<SIZE>,
+	T::Moment: MomentVec<SIZE>,
 {
+	type Moment = T::Moment;
 	type Kind = <T::Kind as FluxKindVec<SIZE>>::Kind;
 	fn index_base_time(&self, _index: usize) -> Time {
 		T::base_time(self)
 	}
 	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		Poly::new(T::poly(self, time).index_kind(index), time)
+	}
+	fn to_moment_vec(&self, time: Time) -> Self::Moment {
+		self.to_moment(time)
 	}
 }
 
@@ -855,11 +880,11 @@ mod tests {
 		let a_pos = [
 			Pos { value: 3, spd: Spd { value: 300, acc: Acc { value: -240 } } },
 			Pos { value: -4, spd: Spd { value: 120, acc: Acc { value: 1080 } } }
-		].to_flux(Time::ZERO);
+		].to_flux_vec(Time::ZERO);
 		let b_pos = [
 			Pos { value: 8, spd: Spd { value: 330, acc: Acc { value: -300 } } },
 			Pos { value: 4, spd: Spd { value: 600, acc: Acc { value: 720 } } }
-		].to_flux(Time::ZERO);
+		].to_flux_vec(Time::ZERO);
 		
 		let dis = Spd { value: 10, acc: Acc { value: 0 } }
 			.to_flux(Time::ZERO);
@@ -872,7 +897,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(SEC);
+		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
 		assert_times!(
 			a_pos.when_dis_eq(&b_pos, &2.),
 			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]

@@ -35,51 +35,6 @@ impl<T: Linear> Moment for T {
 	}
 }
 
-impl<T: Flux, const S: usize> Flux for [T; S]
-where
-	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
-	[T::Moment; S]: Moment<Flux = [T; S]>,
-{
-	type Moment = [T::Moment; S];
-	type Kind = T::Kind;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		let mut value = <Self::Kind as FluxKind>::Value::zero();
-		let time = self.base_time();
-		for item in self {
-			value = value + item.value(time);
-		}
-		value
-	}
-	fn base_time(&self) -> Time {
-		self.iter()
-			.map(|x| x.base_time())
-			.max()
-			.unwrap_or_default()
-	}
-	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
-	{
-		for item in self {
-			changes = item.change(changes);
-		}
-		changes
-	}
-	fn to_moment(&self, time: Time) -> Self::Moment {
-		std::array::from_fn(|i| self[i].to_moment(time))
-	}
-}
-
-impl<T: Moment, const S: usize> Moment for [T; S]
-where
-	<T::Flux as Flux>::Kind:
-		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
-{
-	type Flux = [T::Flux; S];
-	fn to_flux(&self, time: Time) -> Self::Flux {
-		std::array::from_fn(|i| self[i].to_flux(time))
-	}
-}
-
 impl<T: Flux> Flux for Vec<T>
 where
 	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
