@@ -251,6 +251,34 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	fn to_moment_vec(&self, time: Time) -> Self::Moment;
 	
+	fn set_moment_vec(&mut self, time: Time, moment: Self::Moment)
+	where
+		Self: Sized,
+		<Self as FluxVec<SIZE>>::Moment: MomentVec<SIZE, Flux=Self>,
+	{
+		*self = moment.to_flux_vec(time);
+	}
+	
+	fn at_vec(&self, time: Time) -> MomentVecRef<SIZE, Self::Moment> {
+		let moment = self.to_moment_vec(time);
+		MomentVecRef {
+			moment,
+			borrow: PhantomData,
+		}
+	}
+	
+	fn at_vec_mut(&mut self, time: Time) -> MomentVecRefMut<SIZE, Self::Moment>
+	where
+		<Self as FluxVec<SIZE>>::Moment: MomentVec<SIZE, Flux=Self>
+	{
+		let moment = Some(self.to_moment_vec(time));
+		MomentVecRefMut {
+			moment,
+			time,
+			borrow: self,
+		}
+	}
+	
 	/// Ranges when the distance to another vector is above/below/equal to X.
 	fn when_dis<T: FluxVec<SIZE> + ?Sized, D: Flux>(
 		&self,
@@ -306,6 +334,91 @@ pub trait FluxVec<const SIZE: usize> {
 	// - for non-fixed angle line segments, use a double distance check?
 	// - rotating point-line may be handleable iteratively, find the bounds in
 	//   which the roots may be and iterate through it.
+}
+
+/// Immutable moment-in-time interface for [`FluxVec::at_vec`].
+pub struct MomentVecRef<'b, const SIZE: usize, M: MomentVec<SIZE>> {
+	moment: M,
+	borrow: PhantomData<&'b M::Flux>,
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Deref for MomentVecRef<'_, SIZE, M> {
+	type Target = M;
+	fn deref(&self) -> &Self::Target {
+		&self.moment
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Debug for MomentVecRef<'_, SIZE, M>
+where
+	M: Debug
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Debug>::fmt(self, f)
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Display for MomentVecRef<'_, SIZE, M>
+where
+	M: Display
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Display>::fmt(self, f)
+	}
+}
+
+/// Mutable moment-in-time interface for [`FluxVec::at_vec_mut`].
+pub struct MomentVecRefMut<'b, const SIZE: usize, M: MomentVec<SIZE>> {
+	moment: Option<M>,
+	time: Time,
+	borrow: &'b mut M::Flux,
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Drop for MomentVecRefMut<'_, SIZE, M> {
+	fn drop(&mut self) {
+		if let Some(moment) = std::mem::take(&mut self.moment) {
+			self.borrow.set_moment_vec(self.time, moment);
+		}
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Deref for MomentVecRefMut<'_, SIZE, M> {
+	type Target = M;
+	fn deref(&self) -> &Self::Target {
+		if let Some(moment) = self.moment.as_ref() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> DerefMut for MomentVecRefMut<'_, SIZE, M> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		if let Some(moment) = self.moment.as_mut() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Debug for MomentVecRefMut<'_, SIZE, M>
+where
+	M: Debug
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Debug>::fmt(self, f)
+	}
+}
+
+impl<const SIZE: usize, M: MomentVec<SIZE>> Display for MomentVecRefMut<'_, SIZE, M>
+where
+	M: Display
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Display>::fmt(self, f)
+	}
 }
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
