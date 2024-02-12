@@ -617,7 +617,6 @@ where
 
 #[cfg(test)]
 mod tests {
-	use impl_op::impl_op;
 	use super::*;
 	use super::time::SEC;
 	use crate::sum::Sum;
@@ -692,9 +691,12 @@ mod tests {
 		value: f64,
 	}
 	
-	impl_op!{ *a -> f64 {
-		Pos | Spd | Fric | Accel | Jerk | Snap => a.value
-	}}
+	impl Deref for Pos {
+		type Target = f64;
+		fn deref(&self) -> &Self::Target {
+			&self.value
+		}
+	}
 	
 	fn position() -> <Pos as Moment>::Flux {
 		let pos = Pos {

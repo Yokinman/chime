@@ -3,47 +3,78 @@
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
 
-use impl_op::impl_op;
-
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scalar(pub f64);
 
-impl_op!{ a * b {
-	(Scalar, Scalar) => Scalar(a.0 * b.0),
-	(f64, Scalar) => a * b.0,
-	(f32, Scalar) => ((a as f64) * b.0) as f32,
-	// (u64, Scalar) |
-	// (u32, Scalar) |
-	// (u16, Scalar) |
-	// (u8,  Scalar) |
-	// (i64, Scalar) |
-	// (i32, Scalar) |
-	// (i16, Scalar) |
-	// (i8,  Scalar) => ((a as f64) * b.0).round() as Self,
-}}
+impl Mul<Scalar> for Scalar {
+	type Output = Scalar;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		Scalar(self.0 * rhs.0)
+	}
+}
+
+impl Mul<Scalar> for f64 {
+	type Output = f64;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		self * rhs.0
+	}
+}
+
+impl Mul<Scalar> for f32 {
+	type Output = f32;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		((self as f64) * rhs.0) as f32
+	}
+}
 
 #[cfg(feature = "glam")]
-impl_op!{ a * b {
-	(glam::Vec2,  Scalar) => (a.as_dvec2() * b).as_vec2(),
-	(glam::Vec3,  Scalar) => (a.as_dvec3() * b).as_vec3(),
-	(glam::Vec4,  Scalar) => (a.as_dvec4() * b).as_vec4(),
-	(glam::DVec2, Scalar) |
-	(glam::DVec3, Scalar) |
-	(glam::DVec4, Scalar) => a * b.0,
-	// (glam::IVec2,   Scalar) |
-	// (glam::IVec3,   Scalar) |
-	// (glam::IVec4,   Scalar) |
-	// (glam::UVec2,   Scalar) |
-	// (glam::UVec3,   Scalar) |
-	// (glam::UVec4,   Scalar) |
-	// (glam::I64Vec2, Scalar) |
-	// (glam::I64Vec3, Scalar) |
-	// (glam::I64Vec4, Scalar) |
-	// (glam::U64Vec2, Scalar) |
-	// (glam::U64Vec3, Scalar) |
-	// (glam::U64Vec4, Scalar) => a * b.0,
-}}
+impl Mul<Scalar> for glam::Vec2 {
+	type Output = glam::Vec2;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		(self.as_dvec2() * rhs).as_vec2()
+	}
+}
+
+#[cfg(feature = "glam")]
+impl Mul<Scalar> for glam::Vec3 {
+	type Output = glam::Vec3;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		(self.as_dvec3() * rhs).as_vec3()
+	}
+}
+
+#[cfg(feature = "glam")]
+impl Mul<Scalar> for glam::Vec4 {
+	type Output = glam::Vec4;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		(self.as_dvec4() * rhs).as_vec4()
+	}
+}
+
+#[cfg(feature = "glam")]
+impl Mul<Scalar> for glam::DVec2 {
+	type Output = glam::DVec2;
+	fn mul(self, rhs: Scalar) -> glam::DVec2 {
+		self * rhs.0
+	}
+}
+
+#[cfg(feature = "glam")]
+impl Mul<Scalar> for glam::DVec3 {
+	type Output = glam::DVec3;
+	fn mul(self, rhs: Scalar) -> glam::DVec3 {
+		self * rhs.0
+	}
+}
+
+#[cfg(feature = "glam")]
+impl Mul<Scalar> for glam::DVec4 {
+	type Output = glam::DVec4;
+	fn mul(self, rhs: Scalar) -> glam::DVec4 {
+		self * rhs.0
+	}
+}
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
 pub trait Linear:

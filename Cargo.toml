@@ -7,7 +7,6 @@ edition = "2021"
 flux-proc-macro = { path = "flux-proc-macro" }
 glam = { version = "0.24.2", optional = true }
 bevy = { version = "0.12.1", optional = true }
-impl_op = { path = "../impl_op" }
 
 [features]
 glam = ["dep:glam"]
