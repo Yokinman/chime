@@ -1,6 +1,6 @@
 //! Working with time.
 
-use std::ops::{BitAnd, BitOr, BitXor, Not};
+use std::ops::{BitAnd, BitOr, BitXor, Bound, Not, RangeBounds};
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 
@@ -214,7 +214,38 @@ pub struct TimeRanges {
 }
 
 impl TimeRanges {
-	pub fn new<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering)
+	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
+		let a = match range.start_bound() {
+			Bound::Included(&Time::ZERO) => Bound::Unbounded,
+			Bound::Included(&t) => Bound::Excluded(t - NANOSEC),
+			Bound::Excluded(&t) => Bound::Excluded(t),
+			Bound::Unbounded => Bound::Unbounded,
+		};
+		let b = match range.end_bound() {
+			Bound::Included(&Time::MAX) => Bound::Unbounded,
+			Bound::Included(&t) => Bound::Excluded(t + NANOSEC),
+			Bound::Excluded(&t) => Bound::Excluded(t),
+			Bound::Unbounded => Bound::Unbounded,
+		};
+		match (a, b) {
+			(Bound::Excluded(a), Bound::Excluded(b)) => {
+				assert!(a <= b);
+				TimeRanges::new([a, b], Time::ZERO, Ordering::Greater, Ordering::Less)
+			},
+			(Bound::Excluded(a), Bound::Unbounded) => {
+				TimeRanges::new([a], Time::ZERO, Ordering::Greater, Ordering::Less)
+			},
+			(Bound::Unbounded, Bound::Excluded(b)) => {
+				TimeRanges::new([b], Time::ZERO, Ordering::Greater, Ordering::Greater)
+			},
+			(Bound::Unbounded, Bound::Unbounded) => {
+				TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)
+			},
+			_ => unreachable!()
+		}
+	}
+	
+	pub(crate) fn new<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering)
 		-> Self
 	where
 		T: IntoIterator<Item=Time>,
@@ -269,6 +300,12 @@ impl TimeRanges {
 			self.order = Ordering::Less;
 		}
 		self
+	}
+}
+
+impl From<Time> for TimeRanges {
+	fn from(value: Time) -> Self {
+		TimeRanges::new([value], Time::ZERO, Ordering::Greater, Ordering::Equal)
 	}
 }
 
