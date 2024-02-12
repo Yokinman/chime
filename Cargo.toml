@@ -1,10 +1,17 @@
 [package]
 name = "chime"
+description = "WIP library for continuous, predictable, mutable change over time"
+repository = "https://github.com/Yokinman/chime"
+authors = ["Yokin"]
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = []
+categories = ["mathematics", "game-development", "simulation"]
 
 [dependencies]
-flux-proc-macro = { path = "flux-proc-macro" }
+chime-flux-proc-macro = "0.1.0"
 glam = { version = "0.24.2", optional = true }
 bevy = { version = "0.12.1", optional = true }
 

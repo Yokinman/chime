@@ -19,7 +19,7 @@ use self::time::{Time, /*Times,*/ TimeRanges};
 
 pub use self::impls::*;
 
-pub use flux_proc_macro::flux;
+pub use chime_flux_proc_macro::flux;
 
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
