@@ -214,22 +214,40 @@ pub struct TimeRanges {
 }
 
 impl TimeRanges {
+	pub fn empty() -> Self {
+		Self::new(
+			std::iter::empty(),
+			Time::ZERO,
+			Ordering::Greater,
+			Ordering::Equal
+		)
+	}
+	
 	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
+		Self::try_from_range(range)
+			.expect("must be true: lower bound <= upper bound")
+	}
+	
+	pub fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
 		let a = match range.start_bound() {
 			Bound::Included(&Time::ZERO) => Bound::Unbounded,
+			Bound::Excluded(&Time::MAX) => return None,
 			Bound::Included(&t) => Bound::Excluded(t - NANOSEC),
 			Bound::Excluded(&t) => Bound::Excluded(t),
 			Bound::Unbounded => Bound::Unbounded,
 		};
 		let b = match range.end_bound() {
 			Bound::Included(&Time::MAX) => Bound::Unbounded,
+			Bound::Excluded(&Time::ZERO) => return None,
 			Bound::Included(&t) => Bound::Excluded(t + NANOSEC),
 			Bound::Excluded(&t) => Bound::Excluded(t),
 			Bound::Unbounded => Bound::Unbounded,
 		};
-		match (a, b) {
+		Some(match (a, b) {
 			(Bound::Excluded(a), Bound::Excluded(b)) => {
-				assert!(a <= b);
+				if a >= b || a == b - NANOSEC {
+					return None
+				}
 				TimeRanges::new([a, b], Time::ZERO, Ordering::Greater, Ordering::Less)
 			},
 			(Bound::Excluded(a), Bound::Unbounded) => {
@@ -242,7 +260,7 @@ impl TimeRanges {
 				TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)
 			},
 			_ => unreachable!()
-		}
+		})
 	}
 	
 	pub(crate) fn new<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering)
@@ -311,12 +329,7 @@ impl From<Time> for TimeRanges {
 
 impl Default for TimeRanges {
 	fn default() -> Self {
-		Self::new(
-			std::iter::empty(),
-			Time::ZERO,
-			Ordering::Equal,
-			Ordering::Equal
-		)
+		Self::empty()
 	}
 }
 
