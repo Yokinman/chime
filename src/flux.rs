@@ -596,6 +596,13 @@ impl<T: Linear> FluxKind for Constant<T> {
 	}
 }
 
+impl<const SIZE: usize, T: LinearVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
+	type Kind = Constant<T::Value>;
+	fn index_kind(&self, index: usize) -> Self::Kind {
+		Constant(self.0.index(index))
+	}
+}
+
 impl<T: Linear> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
