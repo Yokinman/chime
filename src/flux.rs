@@ -26,7 +26,7 @@ pub trait Moment {
 	type Flux: Flux<Moment=Self>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
-	fn to_flux(&self, time: Time) -> Self::Flux;
+	fn to_flux(self, time: Time) -> Self::Flux;
 }
 
 /// The continuous interface for a value that changes over time.
@@ -50,7 +50,7 @@ pub trait Flux {
 		-> <Self::Kind as FluxKind>::OutAccum<'a>;
 	
 	/// A moment in the timeline.
-	fn to_moment(&self, time: Time) -> Self::Moment;
+	fn to_moment(self, time: Time) -> Self::Moment;
 	
 	/// Sets a moment in the timeline (affects all moments).
 	fn set_moment(&mut self, time: Time, moment: Self::Moment)
@@ -62,8 +62,11 @@ pub trait Flux {
 	}
 	
 	/// A reference to a moment in the timeline.
-	fn at(&self, time: Time) -> MomentRef<Self::Moment> {
-		let moment = self.to_moment(time);
+	fn at(&self, time: Time) -> MomentRef<Self::Moment>
+	where
+		Self: Clone
+	{
+		let moment = self.clone().to_moment(time);
 		MomentRef {
 			moment,
 			borrow: PhantomData,
@@ -86,9 +89,10 @@ pub trait Flux {
 	/// ```
 	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment>
 	where
+		Self: Clone,
 		<Self as Flux>::Moment: Moment<Flux=Self>
 	{
-		let moment = Some(self.to_moment(time));
+		let moment = Some(self.clone().to_moment(time));
 		MomentRefMut {
 			moment,
 			time,
@@ -227,7 +231,7 @@ pub trait MomentVec<const SIZE: usize> {
 	type Flux: FluxVec<SIZE, Moment=Self>;
 	
 	/// Constructs the entirety of a [`FluxVec`] from a single moment.
-	fn to_flux_vec(&self, time: Time) -> Self::Flux;
+	fn to_flux_vec(self, time: Time) -> Self::Flux;
 }
 
 /// Multidimensional change over time.
@@ -249,7 +253,7 @@ pub trait FluxVec<const SIZE: usize> {
 		array::from_fn(|i| self.index_poly(i, time))
 	}
 	
-	fn to_moment_vec(&self, time: Time) -> Self::Moment;
+	fn to_moment_vec(self, time: Time) -> Self::Moment;
 	
 	fn set_moment_vec(&mut self, time: Time, moment: Self::Moment)
 	where
@@ -259,8 +263,11 @@ pub trait FluxVec<const SIZE: usize> {
 		*self = moment.to_flux_vec(time);
 	}
 	
-	fn at_vec(&self, time: Time) -> MomentVecRef<SIZE, Self::Moment> {
-		let moment = self.to_moment_vec(time);
+	fn at_vec(&self, time: Time) -> MomentVecRef<SIZE, Self::Moment>
+	where
+		Self: Clone
+	{
+		let moment = self.clone().to_moment_vec(time);
 		MomentVecRef {
 			moment,
 			borrow: PhantomData,
@@ -269,9 +276,10 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	fn at_vec_mut(&mut self, time: Time) -> MomentVecRefMut<SIZE, Self::Moment>
 	where
+		Self: Clone,
 		<Self as FluxVec<SIZE>>::Moment: MomentVec<SIZE, Flux=Self>
 	{
-		let moment = Some(self.to_moment_vec(time));
+		let moment = Some(self.clone().to_moment_vec(time));
 		MomentVecRefMut {
 			moment,
 			time,
@@ -453,7 +461,7 @@ impl<T> Change<T> {
 
 impl<T: Moment> Moment for Change<T> {
 	type Flux = Change<T::Flux>;
-	fn to_flux(&self, time: Time) -> Self::Flux {
+	fn to_flux(self, time: Time) -> Self::Flux {
 		Change {
 			rate: self.rate.to_flux(time),
 			unit: self.unit,
@@ -475,7 +483,7 @@ impl<T: Flux> Flux for Change<T> {
 	{
 		self.rate.change(accum)
 	}
-	fn to_moment(&self, time: Time) -> Self::Moment {
+	fn to_moment(self, time: Time) -> Self::Moment {
 		Change {
 			rate: self.rate.to_moment(time),
 			unit: self.unit,
@@ -527,8 +535,9 @@ impl<T: _hidden::InnerFlux> Flux for FluxValue<T> {
 	{
 		self.inner.change(accum)
 	}
-	fn to_moment(&self, time: Time) -> Self::Moment {
-		self.inner.to_moment(time, self.value(time))
+	fn to_moment(self, time: Time) -> Self::Moment {
+		let value = self.value(time);
+		self.inner.to_moment(time, value)
 	}
 }
 
@@ -544,7 +553,7 @@ pub mod _hidden {
 		fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
 		fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
 			-> <Self::Kind as FluxKind>::OutAccum<'a>;
-		fn to_moment(&self, time: Time, base_value: <Self::Kind as FluxKind>::Value)
+		fn to_moment(self, time: Time, base_value: <Self::Kind as FluxKind>::Value)
 			-> Self::Moment;
 	}
 }
@@ -909,7 +918,7 @@ mod tests {
 	
 	#[test]
 	fn distance() {
-		#[derive(PartialOrd, PartialEq)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
 			kind = "Sum<f64, 2>",
 			value = value,
@@ -922,7 +931,7 @@ mod tests {
 			spd: Spd,
 		}
 		
-		#[derive(PartialOrd, PartialEq)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
 			kind = "Sum<f64, 1>",
 			value = value,
@@ -935,7 +944,7 @@ mod tests {
 			acc: Acc,
 		}
 		
-		#[derive(PartialOrd, PartialEq)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
 			kind = "Constant<f64>",
 			value = value,

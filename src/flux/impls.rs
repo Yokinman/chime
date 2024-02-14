@@ -19,23 +19,23 @@ impl<T: Linear> Flux for T {
 	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>)
 		-> <Self::Kind as FluxKind>::OutAccum<'a>
 	{}
-	fn to_moment(&self, _time: Time) -> Self::Moment {
-		*self
+	fn to_moment(self, _time: Time) -> Self::Moment {
+		self
 	}
 }
 
 impl<T: Linear> Moment for T {
 	type Flux = Self;
-	fn to_flux(&self, _time: Time) -> Self::Flux {
-		*self
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		self
 	}
 }
 
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
-	fn to_flux_vec(&self, time: Time) -> Self::Flux {
-		std::array::from_fn(|i| self[i].to_flux(time))
+	fn to_flux_vec(self, time: Time) -> Self::Flux {
+		self.map(|x| x.to_flux(time))
 	}
 }
 
@@ -48,8 +48,8 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		self[index].poly(time)
 	}
-	fn to_moment_vec(&self, time: Time) -> Self::Moment {
-		std::array::from_fn(|i| self[i].to_moment(time))
+	fn to_moment_vec(self, time: Time) -> Self::Moment {
+		self.map(|x| x.to_moment(time))
 	}
 }
 
@@ -59,7 +59,7 @@ where
 	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
 {
 	type Flux = T::Flux;
-	fn to_flux_vec(&self, time: Time) -> Self::Flux {
+	fn to_flux_vec(self, time: Time) -> Self::Flux {
 		self.to_flux(time)
 	}
 }
@@ -78,7 +78,7 @@ where
 	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
 		Poly::new(T::poly(self, time).index_kind(index), time)
 	}
-	fn to_moment_vec(&self, time: Time) -> Self::Moment {
+	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.to_moment(time)
 	}
 }
@@ -115,8 +115,8 @@ where
 		}
 		changes
 	}
-	fn to_moment(&self, time: Time) -> Self::Moment {
-		self.iter()
+	fn to_moment(self, time: Time) -> Self::Moment {
+		self.into_iter()
 			.map(|x| x.to_moment(time))
 			.collect()
 	}
@@ -128,8 +128,8 @@ where
 		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = Vec<T::Flux>;
-	fn to_flux(&self, time: Time) -> Self::Flux {
-		self.iter()
+	fn to_flux(self, time: Time) -> Self::Flux {
+		self.into_iter()
 			.map(|x| x.to_flux(time))
 			.collect()
 	}
