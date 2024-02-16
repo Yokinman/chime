@@ -3,7 +3,7 @@ name = "chime"
 description = "WIP library for continuous, predictable, mutable change over time"
 repository = "https://github.com/Yokinman/chime"
 authors = ["Yokin"]
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -17,4 +17,4 @@ bevy_ecs = { version = "0.12.1", optional = true }
 
 [features]
 glam = ["dep:glam"]
-bevy = ["dep:bevy_ecs", "dep:glam"]
+bevy = ["dep:bevy_ecs", "glam"]
