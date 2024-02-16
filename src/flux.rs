@@ -29,6 +29,9 @@ pub trait Moment {
 	fn to_flux(self, time: Time) -> Self::Flux;
 }
 
+#[allow(type_alias_bounds)]
+pub type FluxOf<T: Moment> = <T as Moment>::Flux;
+
 /// The continuous interface for a value that changes over time.
 pub trait Flux {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
