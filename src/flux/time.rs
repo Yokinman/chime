@@ -62,10 +62,10 @@ impl Times {
 		//! Consumes the iterator into a binary heap if it has a known upper
 		//! limit. Otherwise, it just maintains a minimum heap size.
 		
-		let size = match self.iter.size_hint() {
+		let size = 256.min(match self.iter.size_hint() {
 			(_, Some(size)) => size,
 			(size, None) => (size + 4).saturating_sub(self.heap.len()),
-		};
+		});
 		
 		if size != 0 {
 			self.heap.reserve(size);
@@ -642,11 +642,7 @@ impl Iterator for JoinedTimeRanges {
 		let extra_num = self.has_extra as usize;
 		(
 			extra_num,
-			if self.is_union() {
-				max.map(|x| 2*x + extra_num)
-			} else {
-				max.map(|x| x + extra_num)
-			}
+			max.map(|x| x + extra_num),
 		)
 	}
 }
@@ -756,7 +752,7 @@ impl Iterator for SplitTimeRanges {
 		let extra_num = self.extra.is_some() as usize;
 		(
 			extra_num,
-			max.map(|x| x*2 + extra_num)
+			max.map(|x| x + extra_num)
 		)
 	}
 }
