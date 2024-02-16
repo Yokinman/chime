@@ -3,7 +3,7 @@ name = "chime"
 description = "WIP library for continuous, predictable, mutable change over time"
 repository = "https://github.com/Yokinman/chime"
 authors = ["Yokin"]
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -13,8 +13,8 @@ categories = ["mathematics", "game-development", "simulation"]
 [dependencies]
 chime-flux-proc-macro = "0.2.0"
 glam = { version = "0.24.2", optional = true }
-bevy = { version = "0.12.1", optional = true }
+bevy_ecs = { version = "0.12.1", optional = true }
 
 [features]
 glam = ["dep:glam"]
-bevy = ["dep:bevy"]
+bevy = ["dep:bevy_ecs", "dep:glam"]

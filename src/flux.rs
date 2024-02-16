@@ -497,8 +497,8 @@ impl<T: Flux> Flux for Change<T> {
 /// Wrapper for partial [`Flux`] types created by the [`flux`] macro.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(
-	bevy::ecs::component::Component,
-	bevy::ecs::system::Resource,
+	bevy_ecs::component::Component,
+	bevy_ecs::system::Resource,
 ))]
 pub struct FluxValue<T> {
 	inner: T,
