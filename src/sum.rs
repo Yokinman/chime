@@ -372,17 +372,22 @@ impl Roots for Sum<f64, 3> {
 			let p = -a / (2. * d);
 			let q = -b / (3. * d);
 			let r = p / q;
-			let mut discriminant = f64::ln(((r*r) / q).abs());
-			if discriminant.abs() < 1e-15 {
-				discriminant = 0.;
-			}
+			let discriminant = if q < 0. {
+				1.
+			} else {
+				let mut disc = f64::ln((r*r) / q.abs());
+				if disc.abs() < 1e-15 {
+					0.
+				} else {
+					disc
+				}
+			};
 			return match discriminant.partial_cmp(&0.) {
 				 // 3 Real Roots:
 				Some(Ordering::Less) => {
 					let sqrt_q = q.sqrt();
-					debug_assert!(!sqrt_q.is_nan());
 					let angle = f64::acos(r / sqrt_q);
-					debug_assert!(!angle.is_nan());
+					debug_assert!(!angle.is_nan(), "{:?}", self);
 					use std::f64::consts::TAU;
 					[
 						2. * sqrt_q * f64::cos((angle         ) / 3.),
