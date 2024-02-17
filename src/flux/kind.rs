@@ -435,12 +435,35 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 }
 
 mod private {
-	/// Sealed trait, only applied to [`super::Poly`] types.
-	pub trait PolyValue<const SIZE: usize> {}
+	//! Sealed traits, only applied to [`super::Poly`] types.
+	pub trait PolyValue {}
+	pub trait PolyVec<const SIZE: usize>: Clone + Send + Sync + 'static {
+		type Kind: super::FluxKind<Value=Self::Value>;
+		type Value: super::Linear;
+		fn index_poly(&self, index: usize) -> super::Poly<Self::Kind>;
+	}
 }
+use private::*;
 
-impl<K> private::PolyValue<1> for Poly<K> {}
-impl<K, const SIZE: usize> private::PolyValue<SIZE> for [Poly<K>; SIZE] {}
+impl<K> PolyValue for Poly<K> {}
+
+impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE> for Poly<K>
+where
+	K::Value: LinearVec<SIZE>
+{
+	type Kind = K::Kind;
+	type Value = <K::Kind as FluxKind>::Value;
+	fn index_poly(&self, index: usize) -> Poly<Self::Kind> {
+		Poly::new(self.inner.index_kind(index), self.time)
+	}
+}
+impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE> for [Poly<K>; SIZE] {
+	type Kind = K;
+	type Value = K::Value;
+	fn index_poly(&self, index: usize) -> Poly<Self::Kind> {
+		self[index]
+	}
+}
 
 /// Function that converts a root value to a Time, or ignores it.
 trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
@@ -506,8 +529,8 @@ fn dis_root_filter_map<T: FluxKind, const SIZE: usize>(
 	pos_poly: Poly<T>,
 	dis_poly: Poly<impl FluxKind<Value=T::Value>>,
 	diff_poly: Poly<impl FluxKind<Value=T::Value>>,
-	a_pos: [Poly<impl FluxKind<Value=T::Value>>; SIZE],
-	b_pos: [Poly<impl FluxKind<Value=T::Value>>; SIZE],
+	a_pos: impl PolyVec<SIZE, Value=T::Value>,
+	b_pos: impl PolyVec<SIZE, Value=T::Value>,
 ) -> impl RootFilterMap
 where
 	T::Value: PartialEq + Mul<Output=T::Value>,
@@ -553,8 +576,8 @@ where
 				let mut b_dis = T::Value::zero();
 				let mut a_diff = T::Value::zero();
 				for i in 0..SIZE {
-					let a = a_pos[i].at(next_time);
-					let b = b_pos[i].at(next_time);
+					let a = a_pos.index_poly(i).at(next_time);
+					let b = b_pos.index_poly(i).at(next_time);
 					a_dis = a_dis + a*a;
 					b_dis = b_dis + b*b;
 					let x = a - b;
@@ -589,7 +612,7 @@ where
 		let mut diff = T::Value::zero();
 		if !is_end {
 			for i in 0..SIZE {
-				let x = a_pos[i].at(time) - b_pos[i].at(time);
+				let x = a_pos.index_poly(i).at(time) - b_pos.index_poly(i).at(time);
 				diff = diff + x*x;
 			}
 			let dis = dis_poly.at(time);
@@ -602,7 +625,7 @@ where
 			}
 			let mut pos = T::Value::zero();
 			for i in 0..SIZE {
-				let x = a_pos[i].at(next_time) - b_pos[i].at(next_time);
+				let x = a_pos.index_poly(i).at(next_time) - b_pos.index_poly(i).at(next_time);
 				pos = pos + x*x;
 			}
 			let dis = dis_poly.at(next_time);
@@ -622,7 +645,7 @@ where
 }
 
 /// [`crate::Flux::when`] predictive comparison.
-pub trait When<B>: private::PolyValue<1> {
+pub trait When<B>: PolyValue {
 	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges;
 }
 
@@ -640,7 +663,7 @@ where
 }
 
 /// [`crate::Flux::when_eq`] predictive comparison.
-pub trait WhenEq<B>: private::PolyValue<1> {
+pub trait WhenEq<B>: PolyValue {
 	fn when_eq(self, poly: Poly<B>) -> TimeRanges;
 }
 
@@ -658,12 +681,13 @@ where
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis(self, poly: [Poly<B>; SIZE], order: Ordering, dis: Poly<D>) -> TimeRanges;
+pub trait WhenDis<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
+	fn when_dis(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, order: Ordering, dis: Poly<D>) -> TimeRanges;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for [Poly<A>; SIZE]
+impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for T
 where
+	T: PolyVec<SIZE, Kind=A, Value=A::Value>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -675,19 +699,19 @@ where
 	A::Value: Mul<Output=A::Value> + PartialOrd,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis(self, poly: [Poly<B>; SIZE], order: Ordering, dis: Poly<D>) -> TimeRanges {
+	fn when_dis(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, order: Ordering, dis: Poly<D>) -> TimeRanges {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
 			Time::ZERO
 		} else {
-			self[0].time
+			self.index_poly(0).time
 		};
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self[i].to_time(basis))
-				.sub(*poly[i].to_time(basis))
+			sum = sum + (*self.index_poly(i).to_time(basis))
+				.sub(*poly.index_poly(i).to_time(basis))
 				.sqr();
 		}
 		
@@ -700,12 +724,13 @@ where
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B, D>: private::PolyValue<SIZE> {
-	fn when_dis_eq(self, poly: [Poly<B>; SIZE], dis: Poly<D>) -> TimeRanges;
+pub trait WhenDisEq<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
+	fn when_dis_eq(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, dis: Poly<D>) -> TimeRanges;
 }
 
-impl<A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for [Poly<A>; SIZE]
+impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for T
 where
+	T: PolyVec<SIZE, Kind=A, Value=A::Value>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -717,19 +742,19 @@ where
 	A::Value: Mul<Output=A::Value> + PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(self, poly: [Poly<B>; SIZE], dis: Poly<D>) -> TimeRanges {
+	fn when_dis_eq(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, dis: Poly<D>) -> TimeRanges {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
 			Time::ZERO
 		} else {
-			self[0].time
+			self.index_poly(0).time
 		};
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self[i].to_time(basis))
-				.sub(*poly[i].to_time(basis))
+			sum = sum + (*self.index_poly(i).to_time(basis))
+				.sub(*poly.index_poly(i).to_time(basis))
 				.sqr();
 		}
 		
