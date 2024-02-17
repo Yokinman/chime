@@ -371,16 +371,18 @@ impl Roots for Sum<f64, 3> {
 			 // Depressed Cubic:
 			let p = -a / (2. * d);
 			let q = -b / (3. * d);
-			let discriminant = q.mul_add(-q*q, p*p);
-			// if discriminant.abs() < f64::EPSILON {
-			// 	discriminant = 0.;
-			// }
+			let r = p / q;
+			let mut discriminant = f64::ln(((r*r) / q).abs());
+			if discriminant.abs() < 1e-15 {
+				discriminant = 0.;
+			}
 			return match discriminant.partial_cmp(&0.) {
 				 // 3 Real Roots:
 				Some(Ordering::Less) => {
 					let sqrt_q = q.sqrt();
 					debug_assert!(!sqrt_q.is_nan());
-					let angle = f64::acos(p / (q * sqrt_q));
+					let angle = f64::acos(r / sqrt_q);
+					debug_assert!(!angle.is_nan());
 					use std::f64::consts::TAU;
 					[
 						2. * sqrt_q * f64::cos((angle         ) / 3.),
@@ -391,16 +393,13 @@ impl Roots for Sum<f64, 3> {
 				
 				 // 1 Real Root:
 				Some(Ordering::Greater) => {
-					let n = discriminant.sqrt();
+					let n = q.mul_add(-q*q, p*p).sqrt();
 					debug_assert!(!n.is_nan());
 					[(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN]
 				},
 				
 				 // 2 Real Roots:
-				_ => {
-					let r = q / p;
-					[-r, -r, 2.*r]
-				}
+				_ => [-r, -r, 2.*r]
 			}
 		}
 		
@@ -750,6 +749,13 @@ mod tests {
 			]),
 			&[3.54987407349455e-32]
 		);
+		assert_eq!(
+			Poly::from(Sum(
+				-236263115684.8131,
+				[-9476965815.566229, -95034754.784949, 1.0]
+			)).real_roots().count(),
+			3
+		);
 		
 		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Sum<f64, 3> {
 			Sum(a, [
@@ -838,13 +844,6 @@ mod tests {
 			Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
 			&[-0.191570016, -1.11113e-8, 9.11132e-9, 0.187579734]
 		);
-		// panic!("{:?}", Poly::new(
-		// 	Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
-		// 	10*SEC
-		// ).when_zero(root_filter_map(
-		// 	Poly::new(Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]), 10*SEC),
-		// 	Poly::new(Sum(0., [0.; 4]), 10*SEC),
-		// ), false).collect::<Vec<_>>());
 	}
 	
 	#[cfg(feature = "glam")]
