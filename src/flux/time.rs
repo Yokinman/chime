@@ -73,6 +73,7 @@ impl Times {
 				if let Some(t) = self.iter.next() {
 					self.heap.push(Reverse(t));
 					if t < basis {
+						// !!! Panic if a time is returned before the last returned time.
 						*order = order.reverse();
 					}
 				} else {
@@ -269,6 +270,15 @@ impl TimeRanges {
 		T: IntoIterator<Item=Time>,
 		<T as IntoIterator>::IntoIter: Send + Sync + Clone + 'static,
 	{
+		Self::new_with_filter_map(iter, basis, basis_order, order, |t, _| Some(t))
+	}
+	
+	pub(crate) fn new_with_filter_map<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering, mut f: impl crate::kind::RootFilterMap<Output=Option<Time>> + 'static)
+		-> Self
+	where
+		T: IntoIterator<Item=Time>,
+		<T as IntoIterator>::IntoIter: Send + Sync + Clone + 'static,
+	{
 		let mut times = if basis_order == Ordering::Equal {
 			Times::default()
 		} else {
@@ -289,8 +299,25 @@ impl TimeRanges {
 			times.fill_heap(basis, &mut order);
 		}
 		
+		#[derive(Clone)]
+		struct ManualTimes(Times);
+		
+		impl Iterator for ManualTimes {
+			type Item = Time;
+			fn next(&mut self) -> Option<Self::Item> {
+				self.0.pop()
+			}
+			fn size_hint(&self) -> (usize, Option<usize>) {
+				self.0.size_hint()
+			}
+		}
+		
 		Self {
-			times,
+			times: Times::new(ManualTimes(times)
+				.enumerate()
+				.filter_map(move |(index, time)|
+					f(time, (index % 2 == 0) == (order == Ordering::Greater))
+				)),
 			order,
 			basis: Some(Time::ZERO),
 		}

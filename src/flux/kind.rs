@@ -215,23 +215,20 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, mut f: impl RootFilterMap + 'static) -> TimeRanges
+	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
 		let initial_order = self.initial_order().unwrap_or(Ordering::Equal);
-		TimeRanges::new(
+		TimeRanges::new_with_filter_map(
 			self.real_roots()
-				.filter_map(move |x| time_try_from_secs(x, basis).ok())
-				.enumerate()
-				.filter_map(move |(index, time)|
-					f(time, (index % 2 == 1) == (initial_order == order))
-				),
+				.filter_map(move |x| time_try_from_secs(x, basis).ok()),
 			basis,
 			initial_order,
 			order,
+			f,
 		)
 	}
 	
@@ -466,7 +463,7 @@ impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE> for [Poly<K>; SIZE] {
 }
 
 /// Function that converts a root value to a Time, or ignores it.
-trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
+pub(crate) trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
 impl<T: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
 
 const ROOT_FILTER_TRIES: usize = 100; // Arbitrary number
@@ -571,6 +568,8 @@ where
 				if sign != rate.sign() && !rate.is_zero() {
 					return Some(time)
 				}
+				
+				 // Calculate Accurate Distances:
 				let dis = dis_poly.at(next_time);
 				let mut a_dis = T::Value::zero();
 				let mut b_dis = T::Value::zero();
@@ -586,6 +585,7 @@ where
 				a_dis = a_dis.sqrt();
 				b_dis = b_dis.sqrt();
 				a_diff = Mul::<Scalar>::mul(a_diff.sqrt() - dis, round_factor);
+				
 				// !!! This could probably be refined, but it works for now:
 				if a_dis != a_dis + a_diff && b_dis != b_dis + a_diff && dis != dis + a_diff {
 					let b_diff = Mul::<Scalar>::mul(pos_poly.at(next_time).sqrt() - dis, round_factor);
@@ -623,15 +623,19 @@ where
 			if sign != rate.sign() && !rate.is_zero() {
 				return Some(time)
 			}
+			
+			 // Calculate Accurate Distance:
 			let mut pos = T::Value::zero();
 			for i in 0..SIZE {
 				let x = a_pos.index_poly(i).at(next_time) - b_pos.index_poly(i).at(next_time);
 				pos = pos + x*x;
 			}
 			let dis = dis_poly.at(next_time);
+			
 			if diff != pos - dis*dis {
 				break
 			}
+			
 			time = next_time;
 			next_time = if is_end {
 				time.checked_add(time::NANOSEC)?
@@ -763,5 +767,37 @@ where
 		
 		diff_poly
 			.when_zero(dis_root_filter_map(sum, dis, diff_poly, self, poly))
+	}
+}
+
+#[test]
+fn consistent_sign_pred() {
+	use crate::sum::Sum;
+	fn toast(time: Time) -> Vec<(Time, Time)> {
+		let poly = [
+			Poly::new(Sum::new(-2., [5., -2.]), time),
+			Poly::new(Sum::zero(), time)
+		];
+		poly
+			.when_dis(
+				[Poly::new(Sum::<f64, 2>::zero(), time); 2],
+				Ordering::Greater,
+				Poly::new(crate::Constant::from(1.), time),
+			)
+			.map(|(a, b)| (
+				a.saturating_sub(time),
+				if b == Time::MAX {
+					b
+				} else {
+					b.saturating_sub(time)
+				})
+			)
+			.collect::<Vec<_>>()
+	}
+	for t in 0..6 {
+		assert_eq!(
+			toast(Time::from_secs_f64((t as f64) * 0.5)),
+			toast(Time::from_secs_f64(((t+1) as f64) * 0.5))
+		);
 	}
 }
