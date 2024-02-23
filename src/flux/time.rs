@@ -110,11 +110,28 @@ impl<I: TimeIter> Times<I> {
 	}
 	
 	fn pop(&mut self) -> Option<Time> {
-		 // Doubled Time:
+		if let Some((time, is_end)) = self.pop_doubled() {
+			if is_end {
+				time.checked_add(NANOSEC)
+			} else {
+				time.checked_sub(NANOSEC)
+					.or_else(|| self.pop())
+			}
+		} else {
+			let time = if let Some(Reverse(t)) = self.heap.pop() {
+				Some(t)
+			} else {
+				self.iter.next()
+			};
+			std::mem::replace(&mut self.next_time, time)
+		}
+	}
+	
+	fn pop_doubled(&mut self) -> Option<(Time, bool)> {
 		if let Some(doubled_time) = self.doubled_time.take() {
 			if let Some(doubled_time) = doubled_time {
 				self.doubled_time = Some(None);
-				return doubled_time.checked_add(NANOSEC)
+				return Some((doubled_time, true))
 			}
 			if let Some(time) = self.peek() {
 				self.pop();
@@ -131,19 +148,11 @@ impl<I: TimeIter> Times<I> {
 				}
 				self.doubled_time = Some(Some(curr));
 				
-				return time.checked_sub(NANOSEC)
-					.or_else(|| self.pop())
+				return Some((time, false))
 			}
 			self.doubled_time = Some(None);
 		}
-		
-		 // Normal Time:
-		let time = if let Some(Reverse(t)) = self.heap.pop() {
-			Some(t)
-		} else {
-			self.iter.next()
-		};
-		std::mem::replace(&mut self.next_time, time)
+		None
 	}
 	
 	pub(crate) fn peek(&self) -> Option<Time> {
@@ -202,7 +211,15 @@ where
 {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
-		if let Some(time) = self.times.pop() {
+		if let Some((time, is_end)) = self.times.pop_doubled() {
+			(self.filter)(time, is_end)
+				.and_then(|t| if is_end {
+					t.checked_add(NANOSEC)
+				} else {
+					t.checked_sub(NANOSEC)
+						.or_else(|| self.next())
+				})
+		} else if let Some(time) = self.times.pop() {
 			let is_end = self.is_end;
 			self.is_end = !is_end;
 			(self.filter)(time, is_end)
