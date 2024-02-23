@@ -6,7 +6,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, LinearVec, Scalar};
 use crate::time;
-use crate::time::{Time, /*Times,*/ TimeRanges};
+use crate::time::{Time, TimeIter, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
@@ -215,87 +215,35 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges
+	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeIter>
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
-		let initial_order = self.initial_order().unwrap_or(Ordering::Equal);
-		TimeRanges::new_with_filter_map(
-			self.real_roots()
-				.filter_map(move |x| time_try_from_secs(x, basis).ok()),
-			basis,
-			initial_order,
-			order,
-			f,
-		)
+		let basis_order = self.initial_order().unwrap_or(Ordering::Equal);
+		let times = self.real_roots()
+			.filter_map(move |x| time_try_from_secs(x, basis).ok());
+		TimeRanges::new(times, basis, basis_order, order)
+			.into_filtered(f)
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges
+	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeIter>
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
 		let basis = self.time;
+		let basis_order = if self.is_zero() {
+			Ordering::Equal
+		} else {
+			Ordering::Greater
+		};
 		let times = time::Times::new(self.real_roots()
 			.filter_map(move |x| time_try_from_secs(x, basis).ok()));
-		
-		#[derive(Clone)]
-		struct RangeBuilder<F> {
-			times: time::Times,
-			next: Option<[Time; 2]>,
-			f: F
-		}
-		impl<F: RootFilterMap> Iterator for RangeBuilder<F> {
-			type Item = [Time; 2];
-			fn next(&mut self) -> Option<Self::Item> {
-				if let Some(time) = self.times.next() {
-					let [a, mut b] = self.next.unwrap_or_else(|| [
-						(self.f)(time, false).unwrap_or(Time::ZERO)
-							.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO),
-						(self.f)(time, true).unwrap_or(Time::MAX)
-							.checked_add(time::NANOSEC).unwrap_or(Time::MAX),
-					]);
-					debug_assert!(a <= b);
-					while let Some(t) = self.times.peek() {
-						debug_assert!(t > a);
-						let x = (self.f)(t, false).unwrap_or(Time::ZERO)
-							.checked_sub(time::NANOSEC).unwrap_or(Time::ZERO);
-						let y = (self.f)(t, true).unwrap_or(Time::MAX)
-							.checked_add(time::NANOSEC).unwrap_or(Time::MAX);
-						debug_assert!(a <= x);
-						if x <= b {
-							if b < y {
-								b = y;
-							}
-							self.times.next();
-						} else {
-							self.next = Some([x, y]);
-							break
-						}
-					}
-					Some([a, b])
-				} else {
-					None
-				}
-			}
-			fn size_hint(&self) -> (usize, Option<usize>) {
-				self.times.size_hint()
-			}
-		}
-		
-		TimeRanges::new(
-			RangeBuilder { times, next: None, f }.flatten(),
-			Time::ZERO,
-			if self.is_zero() {
-				Ordering::Less
-			} else {
-				Ordering::Greater
-			},
-			Ordering::Less,
-		)
+		TimeRanges::new(times, basis, basis_order, Ordering::Equal)
+			.into_filtered(f)
 	}
 }
 
@@ -650,7 +598,7 @@ where
 
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B>: PolyValue {
-	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges;
+	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges<impl TimeIter>;
 }
 
 impl<A: FluxKind, B: FluxKind> When<B> for Poly<A>
@@ -659,7 +607,7 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
 {
-	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges {
+	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges<impl TimeIter> {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_sign(order, root_filter_map(self, poly, diff_poly))
@@ -668,7 +616,7 @@ where
 
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B>: PolyValue {
-	fn when_eq(self, poly: Poly<B>) -> TimeRanges;
+	fn when_eq(self, poly: Poly<B>) -> TimeRanges<impl TimeIter>;
 }
 
 impl<A: FluxKind, B: FluxKind> WhenEq<B> for Poly<A>
@@ -677,7 +625,7 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B>) -> TimeRanges {
+	fn when_eq(self, poly: Poly<B>) -> TimeRanges<impl TimeIter> {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_zero(root_filter_map(self, poly, diff_poly))
@@ -686,7 +634,12 @@ where
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
-	fn when_dis(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, order: Ordering, dis: Poly<D>) -> TimeRanges;
+	fn when_dis(
+		self,
+		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		order: Ordering,
+		dis: Poly<D>
+	) -> TimeRanges<impl TimeIter>;
 }
 
 impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for T
@@ -703,7 +656,12 @@ where
 	A::Value: Mul<Output=A::Value> + PartialOrd,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, order: Ordering, dis: Poly<D>) -> TimeRanges {
+	fn when_dis(
+		self,
+		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		order: Ordering,
+		dis: Poly<D>
+	) -> TimeRanges<impl TimeIter> {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {
@@ -729,7 +687,11 @@ where
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
-	fn when_dis_eq(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, dis: Poly<D>) -> TimeRanges;
+	fn when_dis_eq(
+		self,
+		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		dis: Poly<D>
+	) -> TimeRanges<impl TimeIter>;
 }
 
 impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for T
@@ -746,7 +708,11 @@ where
 	A::Value: Mul<Output=A::Value> + PartialEq,
 	D: FluxKind<Value=A::Value> + ops::Sqr,
 {
-	fn when_dis_eq(self, poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>, dis: Poly<D>) -> TimeRanges {
+	fn when_dis_eq(
+		self,
+		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		dis: Poly<D>
+	) -> TimeRanges<impl TimeIter> {
 		use ops::*;
 		
 		let basis = if SIZE == 0 {

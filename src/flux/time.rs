@@ -26,54 +26,80 @@ mod units {
 }
 pub use units::*;
 
-/// Iterator trait object for [`Times`].
-trait TimeIter: Iterator<Item=Time> + Send + Sync {
-	fn clone_into_box(&self) -> Box<dyn TimeIter<Item=Time>>;
-}
-impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {
-	fn clone_into_box(&self) -> Box<dyn TimeIter<Item=Time>> {
-		Box::new(self.clone())
-	}
-}
+/// Iterator types usable by [`Times`].
+pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
+impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 
 /// Iterator of [`Time`] values.
 #[must_use]
-pub(crate) struct Times {
+#[derive(Clone)]
+pub(crate) struct Times<I> {
 	heap: BinaryHeap<Reverse<Time>>,
-	iter: Box<dyn TimeIter<Item=Time>>,
-	// !!! This could use generics, but it adds way too many tedious bounds
-	// without the ability to use `impl Trait` syntax in traits. Also for my
-	// purposes I would have to box the `Times<T>` regardless.
+	iter: I,
+	next_time: Option<Time>,
+	
+	/// Used to convert points of time into ranges.
+	doubled_time: Option<Option<Time>>,
 }
 
-impl Times {
-	pub fn new<T>(iter: T) -> Self
-	where
-		T: IntoIterator<Item=Time>,
-		<T as IntoIterator>::IntoIter: Send + Sync + Clone + 'static,
-	{
-		Self {
+impl<I: TimeIter> Times<I> {
+	pub fn new(iter: impl IntoIterator<IntoIter=I>) -> Self {
+		Self::with_basis(iter, Time::ZERO, &mut Ordering::Less)
+	}
+	
+	pub fn with_basis(
+		iter: impl IntoIterator<IntoIter=I>,
+		basis: Time,
+		basis_order: &mut Ordering
+	) -> Self {
+		let mut times = Self {
 			heap: BinaryHeap::new(),
-			iter: Box::new(iter.into_iter()), // < This takes like 1 microsecond
+			iter: iter.into_iter(),
+			next_time: None,
+			doubled_time: None,
+		};
+		if basis_order.is_eq() {
+			*basis_order = Ordering::Less;
+			times.doubled_time = Some(None);
 		}
+		times.fill_heap(basis, basis_order);
+		times.pop();
+		times
 	}
 	
 	fn fill_heap(&mut self, basis: Time, order: &mut Ordering) {
 		//! Consumes the iterator into a binary heap if it has a known upper
 		//! limit. Otherwise, it just maintains a minimum heap size.
 		
-		let size = 256.min(match self.iter.size_hint() {
-			(_, Some(size)) => size,
-			(size, None) => (size + 4).saturating_sub(self.heap.len()),
-		});
+		let mut is_finite = true;
+		
+		let size = match self.iter.size_hint() {
+			(_, Some(size @ ..=256)) => size,
+			(_, Some(_)) => {
+				is_finite = false;
+				256
+			},
+			(size, None) => {
+				is_finite = false;
+				size + 4
+			},
+		};
 		
 		if size != 0 {
 			self.heap.reserve(size);
 			for _ in 0..size {
 				if let Some(t) = self.iter.next() {
 					self.heap.push(Reverse(t));
-					if t < basis {
-						// !!! Panic if a time is returned before the last returned time.
+					
+					 // Flip Order:
+					if t >= basis {
+						if self.doubled_time.is_some() && t == basis {
+							*order = Ordering::Greater;
+						}
+						if !is_finite {
+							break
+						}
+					} else if self.doubled_time.is_none() {
 						*order = order.reverse();
 					}
 				} else {
@@ -84,42 +110,61 @@ impl Times {
 	}
 	
 	fn pop(&mut self) -> Option<Time> {
-		if self.heap.is_empty() {
-			self.fill_heap(Time::ZERO, &mut Ordering::Equal);
+		 // Doubled Time:
+		if let Some(doubled_time) = self.doubled_time.take() {
+			if let Some(doubled_time) = doubled_time {
+				self.doubled_time = Some(None);
+				return doubled_time.checked_add(NANOSEC)
+			}
+			if let Some(time) = self.peek() {
+				self.pop();
+				
+				 // Combine Repeated/Adjacent Times:
+				let mut curr = time;
+				while let Some(next) = self.peek() {
+					if curr == next || curr.checked_add(NANOSEC) == Some(next) {
+						curr = next;
+						self.pop();
+					} else {
+						break
+					}
+				}
+				self.doubled_time = Some(Some(curr));
+				
+				return time.checked_sub(NANOSEC)
+					.or_else(|| self.pop())
+			}
+			self.doubled_time = Some(None);
 		}
-		let time = self.heap.pop().map(|Reverse(t)| t);
-		self.fill_heap(Time::ZERO, &mut Ordering::Equal);
-		time
+		
+		 // Normal Time:
+		let time = if let Some(Reverse(t)) = self.heap.pop() {
+			Some(t)
+		} else {
+			self.iter.next()
+		};
+		std::mem::replace(&mut self.next_time, time)
 	}
 	
-	pub(crate) fn peek(&mut self) -> Option<Time> {
-		if self.heap.is_empty() {
-			self.fill_heap(Time::ZERO, &mut Ordering::Equal);
+	pub(crate) fn peek(&self) -> Option<Time> {
+		if let Some(doubled_time) = self.doubled_time {
+			if let Some(doubled_time) = doubled_time {
+				return doubled_time.checked_add(NANOSEC)
+			} else if let Some(next_time) = self.next_time {
+				return next_time.checked_sub(NANOSEC).or(Some(NANOSEC))
+			}
 		}
-		self.heap.peek().map(|&Reverse(t)| t)
-	}
-	
-	fn into_ranges(self) -> TimeRanges {
-		TimeRanges::new(self, Time::ZERO, Ordering::Greater, Ordering::Equal)
+		self.next_time
 	}
 }
 
-impl Clone for Times {
-	fn clone(&self) -> Self {
-		Self {
-			heap: self.heap.clone(),
-			iter: self.iter.clone_into_box(),
-		}
-	}
-}
-
-impl Default for Times {
+impl Default for Times<std::iter::Empty<Time>> {
 	fn default() -> Self {
 		Self::new(std::iter::empty())
 	}
 }
 
-impl Iterator for Times {
+impl<I: TimeIter> Iterator for Times<I> {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(a) = self.pop() {
@@ -127,6 +172,7 @@ impl Iterator for Times {
 				if b > a {
 					break
 				}
+				assert_eq!(a, b, "times must be ordered: {:?}", (a, b));
 				self.pop();
 			}
 			return Some(a)
@@ -142,80 +188,44 @@ impl Iterator for Times {
 	}
 }
 
-impl BitAnd for Times {
-	type Output = Self;
-	
-	/// Intersection of times.
-	fn bitand(self, rhs: Self) -> Self::Output {
-		Times::new(OrdTimes::new(self, rhs)
-			.filter_map(|t| match t {
-				OrdTime::Equal(t) => Some(t),
-				_ => None
-			}))
-	}
+/// Filters times for use with [`TimeRanges::into_filtered`].
+#[derive(Clone)]
+pub(crate) struct TimeFilter<I, F> {
+	times: Times<I>,
+	filter: F,
+	is_end: bool,
 }
 
-impl BitOr for Times {
-	type Output = Self;
-	
-	/// Union of times.
-	fn bitor(self, rhs: Self) -> Self::Output {
-		Times::new(OrdTimes::new(self, rhs)
-			.map(|t| match t {
-				OrdTime::Less(t)    |
-				OrdTime::Greater(t) |
-				OrdTime::Equal(t)   => t
-			}))
+impl<I: TimeIter, F> Iterator for TimeFilter<I, F>
+where
+	F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
+{
+	type Item = Time;
+	fn next(&mut self) -> Option<Self::Item> {
+		if let Some(time) = self.times.pop() {
+			let is_end = self.is_end;
+			self.is_end = !is_end;
+			(self.filter)(time, is_end)
+		} else {
+			None
+		}
 	}
-}
-
-impl BitXor for Times {
-	type Output = Self;
-	
-	/// Symmetric difference of times.
-	fn bitxor(self, rhs: Self) -> Self::Output {
-		Times::new(OrdTimes::new(self, rhs)
-			.filter_map(|t| match t {
-				OrdTime::Less(t) |
-				OrdTime::Greater(t) => Some(t),
-				_ => None
-			}))
-	}
-}
-
-impl Not for Times {
-	type Output = TimeRanges;
-	
-	/// Inverse of times.
-	fn not(self) -> Self::Output {
-		!self.into_ranges()
-	}
-}
-
-impl BitAnd<TimeRanges> for Times {
-	type Output = Self;
-	
-	/// Intersection of times & ranges.
-	fn bitand(self, rhs: TimeRanges) -> Self::Output {
-		Times::new((self.into_ranges() & rhs)
-			.map(|(a, b)| {
-				debug_assert_eq!(a, b);
-				a
-			}))
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.times.size_hint()
 	}
 }
 
 /// Iterator of [`Time`] ranges.
 #[must_use]
 #[derive(Clone)]
-pub struct TimeRanges {
-	times: Times,
+pub struct TimeRanges<I> {
+	times: Times<I>,
 	order: Ordering,
 	basis: Option<Time>,
 }
 
-impl TimeRanges {
-	pub fn empty() -> Self {
+impl TimeRanges<std::iter::Empty<Time>> {
+	pub fn empty() -> TimeRanges<std::iter::Empty<Time>> {
 		Self::new(
 			std::iter::empty(),
 			Time::ZERO,
@@ -223,7 +233,9 @@ impl TimeRanges {
 			Ordering::Equal
 		)
 	}
-	
+}
+
+impl TimeRanges<std::iter::Chain<std::option::IntoIter<Time>, std::option::IntoIter<Time>>> {
 	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
 			.expect("must be true: lower bound <= upper bound")
@@ -249,42 +261,44 @@ impl TimeRanges {
 				if a >= b || a == b - NANOSEC {
 					return None
 				}
-				TimeRanges::new([a, b], Time::ZERO, Ordering::Greater, Ordering::Less)
+				TimeRanges::new(
+					Some(a).into_iter().chain(Some(b)),
+					Time::ZERO,
+					Ordering::Greater,
+					Ordering::Less
+				)
 			},
-			(Bound::Excluded(a), Bound::Unbounded) => {
-				TimeRanges::new([a], Time::ZERO, Ordering::Greater, Ordering::Less)
-			},
-			(Bound::Unbounded, Bound::Excluded(b)) => {
-				TimeRanges::new([b], Time::ZERO, Ordering::Greater, Ordering::Greater)
-			},
-			(Bound::Unbounded, Bound::Unbounded) => {
-				TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)
-			},
+			(Bound::Excluded(a), Bound::Unbounded) => TimeRanges::new(
+				Some(a).into_iter().chain(None),
+				Time::ZERO,
+				Ordering::Greater,
+				Ordering::Less
+			),
+			(Bound::Unbounded, Bound::Excluded(b)) => TimeRanges::new(
+				Some(b).into_iter().chain(None),
+				Time::ZERO,
+				Ordering::Greater,
+				Ordering::Greater
+			),
+			(Bound::Unbounded, Bound::Unbounded) => TimeRanges::new(
+				None.into_iter().chain(None),
+				Time::ZERO,
+				Ordering::Greater,
+				Ordering::Greater
+			),
 			_ => unreachable!()
 		})
 	}
-	
-	pub(crate) fn new<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering)
-		-> Self
-	where
-		T: IntoIterator<Item=Time>,
-		<T as IntoIterator>::IntoIter: Send + Sync + Clone + 'static,
+}
+
+impl<I: TimeIter> TimeRanges<I> {
+	pub(crate) fn new(
+		iter: impl IntoIterator<IntoIter=I>,
+		basis: Time,
+		basis_order: Ordering,
+		order: Ordering,
+	) -> TimeRanges<I>
 	{
-		Self::new_with_filter_map(iter, basis, basis_order, order, |t, _| Some(t))
-	}
-	
-	pub(crate) fn new_with_filter_map<T>(iter: T, basis: Time, basis_order: Ordering, order: Ordering, mut f: impl crate::kind::RootFilterMap<Output=Option<Time>> + 'static)
-		-> Self
-	where
-		T: IntoIterator<Item=Time>,
-		<T as IntoIterator>::IntoIter: Send + Sync + Clone + 'static,
-	{
-		let mut times = if basis_order == Ordering::Equal {
-			Times::default()
-		} else {
-			Times::new(iter)
-		};
-		
 		let mut order = if order == basis_order {
 			Ordering::Greater
 		} else if order == Ordering::Equal {
@@ -292,132 +306,84 @@ impl TimeRanges {
 		} else {
 			Ordering::Less
 		};
-		
-		 // Find True Initial Order:
-		if basis != Time::ZERO {
-			debug_assert!(times.heap.is_empty()); 
-			times.fill_heap(basis, &mut order);
-		}
-		
-		#[derive(Clone)]
-		struct ManualTimes(Times);
-		
-		impl Iterator for ManualTimes {
-			type Item = Time;
-			fn next(&mut self) -> Option<Self::Item> {
-				self.0.pop()
-			}
-			fn size_hint(&self) -> (usize, Option<usize>) {
-				self.0.size_hint()
-			}
-		}
-		
-		Self {
-			times: Times::new(ManualTimes(times)
-				.enumerate()
-				.filter_map(move |(index, time)|
-					f(time, (index % 2 == 0) == (order == Ordering::Greater))
-				)),
+		let times = Times::with_basis(iter, basis, &mut order);
+		TimeRanges {
+			times,
 			order,
 			basis: Some(Time::ZERO),
 		}
 	}
 	
-	fn into_not_equal(mut self) -> TimeRanges {
-		//! Converts points to ranges.
-		if self.order == Ordering::Equal {
-			if let Some(a) = self.times.peek() {
-				let times = self
-					.flat_map(|(a, b)| [
-						a.checked_sub(NANOSEC),
-						b.checked_add(NANOSEC)
-					])
-					.flatten();
-				
-				let order = if a == Time::ZERO {
-					Ordering::Less
-				} else {
-					Ordering::Greater
-				};
-				
-				return Self::new(times, Time::ZERO, Ordering::Less, order)
-			}
-			self.order = Ordering::Less;
+	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
+	where
+		F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
+	{
+		TimeRanges {
+			times: Times::new(TimeFilter {
+				times: self.times,
+				filter: f,
+				is_end: self.order.is_gt(),
+			}),
+			order: self.order,
+			basis: self.basis,
 		}
-		self
 	}
 }
 
-impl From<Time> for TimeRanges {
+impl From<Time> for TimeRanges<std::iter::Once<Time>> {
 	fn from(value: Time) -> Self {
-		TimeRanges::new([value], Time::ZERO, Ordering::Greater, Ordering::Equal)
+		TimeRanges::new(
+			std::iter::once(value),
+			Time::ZERO,
+			Ordering::Greater,
+			Ordering::Equal
+		)
 	}
 }
 
-impl Default for TimeRanges {
+impl Default for TimeRanges<std::iter::Empty<Time>> {
 	fn default() -> Self {
 		Self::empty()
 	}
 }
 
-impl Iterator for TimeRanges {
+impl<I: TimeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
 		let basis = self.basis?;
-		let range = match self.order {
-			Ordering::Equal => {
-				if let Some(a) = self.times.next() {
-					let mut b = a;
-					
-					 // Combine Adjacent Points:
-					while b != Time::MAX && Some(b + NANOSEC) == self.times.peek() {
-						b = self.times.next().unwrap();
-					}
-					
-					Some((a, b))
+		let range = if self.order == Ordering::Greater {
+			self.order = Ordering::Less;
+			if let Some(b) = self.times.pop() {
+				assert!(basis <= b, "times must be ordered: {:?}", (basis, b));
+				if b == Time::ZERO {
+					self.next()
 				} else {
-					None
+					Some((Time::ZERO, b - NANOSEC))
 				}
-			},
-			Ordering::Greater => {
-				self.order = Ordering::Less;
-				if let Some(b) = self.times.pop() {
-					if b == Time::ZERO {
-						self.next()
-					} else {
-						Some((Time::ZERO, b - NANOSEC))
-					}
-				} else {
-					Some((Time::ZERO, Time::MAX))
-				}
-			},
-			Ordering::Less => {
-				let mut range = None;
-				while let Some(mut a) = self.times.pop() {
-					a = a.max(basis);
-					range = if let Some(mut b) = self.times.pop() {
-						 // Belated Order Correction:
-						if b < a {
-							let t = a;
-							a = b.max(basis);
-							b = t;
-						}
-						
-						 // Ignore Zero-sized Ranges:
-						if a == b || a == b - NANOSEC {
-							continue
-						}
-						
-						Some((a + NANOSEC, b - NANOSEC))
-					} else if a == Time::MAX {
-						None
-					} else {
-						Some((a + NANOSEC, Time::MAX))
-					};
-					break
-				}
-				range
+			} else {
+				Some((Time::ZERO, Time::MAX))
 			}
+		} else {
+			let mut range = None;
+			while let Some(a) = self.times.pop() {
+				assert!(basis <= a, "times must be ordered: {:?}", (basis, a));
+				range = if let Some(b) = self.times.pop() {
+					assert!(a <= b, "times must be ordered: {:?}", (a, b));
+					
+					 // Ignore Zero-sized Ranges:
+					if a == b || a == b - NANOSEC {
+						continue
+					}
+					
+					Some((a + NANOSEC, b - NANOSEC))
+				} else if a == Time::MAX {
+					None
+				} else {
+					Some((a + NANOSEC, Time::MAX))
+				};
+				break
+			}
+			range
 		};
 		
 		if let Some((a, b)) = range {
@@ -433,110 +399,72 @@ impl Iterator for TimeRanges {
 	}
 }
 
-impl BitAnd for TimeRanges {
-	type Output = Self;
+impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
+	type Output = TimeRanges<JoinedTimeRanges<A, B>>;
 	
 	/// Intersection of ranges.
-	fn bitand(self, rhs: Self) -> Self::Output {
-		match (self.order, rhs.order) {
-			(Ordering::Equal, Ordering::Equal) => TimeRanges::new(
-				self.times & rhs.times,
-				Time::ZERO,
-				Ordering::Greater,
-				Ordering::Equal,
-			),
-			
-			(Ordering::Equal, _) => self.into_not_equal() & rhs,
-			(_, Ordering::Equal) => self & rhs.into_not_equal(),
-			
-			(a_order, b_order) => Self::new(
-				JoinedTimeRanges {
-					iter: OrdTimes::new(self.times, rhs.times),
-					flag: ((a_order == Ordering::Greater) as u8)
-						| (((b_order == Ordering::Greater) as u8) << 1),
-					has_extra: false,
-				},
-				Time::ZERO,
-				Ordering::Greater,
-				a_order.min(b_order),
-			)
-		}
+	fn bitand(self, rhs: TimeRanges<B>) -> Self::Output {
+		TimeRanges::new(
+			JoinedTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times),
+				flag: ((self.order == Ordering::Greater) as u8)
+					| (((rhs.order == Ordering::Greater) as u8) << 1),
+				has_extra: false,
+			},
+			Time::ZERO,
+			Ordering::Greater,
+			self.order.min(rhs.order),
+		)
 	}
 }
 
-impl BitOr for TimeRanges {
-	type Output = Self;
+impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
+	type Output = TimeRanges<JoinedTimeRanges<A, B>>;
 	
 	/// Union of ranges.
-	fn bitor(self, rhs: Self) -> Self::Output {
-		match (self.order, rhs.order) {
-			(Ordering::Equal, Ordering::Equal) => TimeRanges::new(
-				self.times | rhs.times,
-				Time::ZERO,
-				Ordering::Greater,
-				Ordering::Equal,
-			),
-			
-			(Ordering::Equal, _) => self.into_not_equal() | rhs,
-			(_, Ordering::Equal) => self | rhs.into_not_equal(),
-			
-			(a_order, b_order) => TimeRanges::new(
-				JoinedTimeRanges {
-					iter: OrdTimes::new(self.times, rhs.times),
-					flag: !(((a_order == Ordering::Greater) as u8)
-						| (((b_order == Ordering::Greater) as u8) << 1)),
-					has_extra: false,
-				},
-				Time::ZERO,
-				Ordering::Greater,
-				a_order.max(b_order),
-			)
-		}
+	fn bitor(self, rhs: TimeRanges<B>) -> Self::Output {
+		TimeRanges::new(
+			JoinedTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times),
+				flag: !(((self.order == Ordering::Greater) as u8)
+					| (((rhs.order == Ordering::Greater) as u8) << 1)),
+				has_extra: false,
+			},
+			Time::ZERO,
+			Ordering::Greater,
+			self.order.max(rhs.order),
+		)
 	}
 }
 
-impl BitXor for TimeRanges {
-	type Output = Self;
+impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
+	type Output = TimeRanges<SplitTimeRanges<A, B>>;
 	
 	/// Intersection of ranges.
-	fn bitxor(self, rhs: Self) -> Self::Output {
-		match (self.order, rhs.order) {
-			(Ordering::Equal, Ordering::Equal) => TimeRanges::new(
-				self.times ^ rhs.times,
-				Time::ZERO,
-				Ordering::Greater,
-				Ordering::Equal,
-			),
-			
-			(Ordering::Equal, _) => self.into_not_equal() ^ rhs,
-			(_, Ordering::Equal) => self ^ rhs.into_not_equal(),
-			
-			(a_order, b_order) => TimeRanges::new(
-				SplitTimeRanges {
-					iter: OrdTimes::new(self.times, rhs.times),
-					flag: ((a_order == Ordering::Greater) as u8) | (((b_order == Ordering::Greater) as u8) << 1),
-					extra: None,
-				},
-				Time::ZERO,
-				Ordering::Greater,
-				if a_order == b_order {
-					Ordering::Less
-				} else {
-					Ordering::Greater
-				}
-			)
-		}
+	fn bitxor(self, rhs: TimeRanges<B>) -> Self::Output {
+		TimeRanges::new(
+			SplitTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times),
+				flag: ((self.order == Ordering::Greater) as u8)
+					| (((rhs.order == Ordering::Greater) as u8) << 1),
+				extra: None,
+			},
+			Time::ZERO,
+			Ordering::Greater,
+			if self.order == rhs.order {
+				Ordering::Less
+			} else {
+				Ordering::Greater
+			}
+		)
 	}
 }
 
-impl Not for TimeRanges {
-	type Output = Self;
+impl<I: TimeIter> Not for TimeRanges<I> {
+	type Output = TimeRanges<InvTimes<I>>;
 	
 	/// Inverse of ranges.
 	fn not(self) -> Self::Output {
-		if self.order == Ordering::Equal {
-			return !self.into_not_equal()
-		}
 		TimeRanges::new(
 			InvTimes {
 				iter: self.times,
@@ -553,14 +481,14 @@ impl Not for TimeRanges {
 
 /// [`Not`] implementation for [`Times`] and [`TimeRanges`].
 #[derive(Clone)]
-struct InvTimes {
-	iter: Times,
+pub struct InvTimes<I> {
+	iter: Times<I>,
 	flag: bool,
 	extra: Option<Time>,
 	prev: Time,
 }
 
-impl Iterator for InvTimes {
+impl<I: TimeIter> Iterator for InvTimes<I> {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.extra.is_some() {
@@ -617,20 +545,20 @@ impl Iterator for InvTimes {
 
 /// [`BitAnd`] and [`BitOr`] implementation for [`TimesRanges`].
 #[derive(Clone)]
-struct JoinedTimeRanges {
-	iter: OrdTimes,
+pub struct JoinedTimeRanges<A, B> {
+	iter: OrdTimes<A, B>,
 	flag: u8,
 	has_extra: bool,
 }
 
-impl JoinedTimeRanges {
+impl<A, B> JoinedTimeRanges<A, B> {
 	fn is_union(&self) -> bool {
 		//! As opposed to intersection.
 		self.flag >> 7 != 0
 	}
 }
 
-impl Iterator for JoinedTimeRanges {
+impl<A: TimeIter, B: TimeIter> Iterator for JoinedTimeRanges<A, B> {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.has_extra {
@@ -676,13 +604,13 @@ impl Iterator for JoinedTimeRanges {
 
 /// [`BitXor`] implementation for [`TimesRanges`].
 #[derive(Clone)]
-struct SplitTimeRanges {
-	iter: OrdTimes,
+pub struct SplitTimeRanges<A, B> {
+	iter: OrdTimes<A, B>,
 	flag: u8,
 	extra: Option<Time>,
 }
 
-impl SplitTimeRanges {
+impl<A: TimeIter, B: TimeIter> SplitTimeRanges<A, B> {
 	fn step(&mut self, flag: u8, a: Time) -> Option<Time> {
 		self.flag ^= flag;
 		
@@ -757,7 +685,7 @@ impl SplitTimeRanges {
 	}
 }
 
-impl Iterator for SplitTimeRanges {
+impl<A: TimeIter, B: TimeIter> Iterator for SplitTimeRanges<A, B> {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.extra.is_some() {
@@ -804,15 +732,15 @@ impl OrdTime {
 
 /// Orders two [`Times`] iterators in parallel.
 #[derive(Clone)]
-struct OrdTimes {
-	a_iter: Times,
-	b_iter: Times,
+struct OrdTimes<A, B> {
+	a_iter: Times<A>,
+	b_iter: Times<B>,
 	prev: Time,
 }
 
-impl OrdTimes {
-	fn new(a_iter: Times, b_iter: Times) -> OrdTimes {
-		OrdTimes {
+impl<A: TimeIter, B: TimeIter> OrdTimes<A, B> {
+	fn new(a_iter: Times<A>, b_iter: Times<B>) -> Self {
+		Self {
 			a_iter,
 			b_iter,
 			prev: Time::ZERO,
@@ -841,7 +769,7 @@ impl OrdTimes {
 	}
 }
 
-impl Iterator for OrdTimes {
+impl<A: TimeIter, B: TimeIter> Iterator for OrdTimes<A, B> {
 	type Item = OrdTime;
 	fn next(&mut self) -> Option<Self::Item> {
 		Some(match self.peek()? {
@@ -881,31 +809,31 @@ impl Iterator for OrdTimes {
 mod tests {
 	use super::*;
 	
-	#[test]
-	fn time_logic() {
-		let t = SEC;
-		let a = Times::new([1*t, 2*t, 3*t]);
-		let b = Times::new([2*t, 5*t]);
-		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [2*t]);
-		assert_eq!(Vec::from_iter(a.clone() | b.clone()), [1*t, 2*t, 3*t, 5*t]);
-		assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [1*t, 3*t, 5*t]);
-		assert_eq!(Vec::from_iter(!!!b), [
-			(Time::ZERO, 2*t - NANOSEC),
-			(2*t + NANOSEC, 5*t - NANOSEC),
-			(5*t + NANOSEC, Time::MAX)
-		]);
-		assert_eq!(
-			Vec::from_iter(a.clone() & TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)),
-			Vec::from_iter(a.clone())
-		);
-	}
+	// #[test]
+	// fn time_logic() {
+	// 	let t = SEC;
+	// 	let a = Times::new([1*t, 2*t, 3*t]);
+	// 	let b = Times::new([2*t, 5*t]);
+	// 	assert_eq!(Vec::from_iter(a.clone() & b.clone()), [2*t]);
+	// 	assert_eq!(Vec::from_iter(a.clone() | b.clone()), [1*t, 2*t, 3*t, 5*t]);
+	// 	assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [1*t, 3*t, 5*t]);
+	// 	assert_eq!(Vec::from_iter(!!!b), [
+	// 		(Time::ZERO, 2*t - NANOSEC),
+	// 		(2*t + NANOSEC, 5*t - NANOSEC),
+	// 		(5*t + NANOSEC, Time::MAX)
+	// 	]);
+	// 	assert_eq!(
+	// 		Vec::from_iter(a.clone() & TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)),
+	// 		Vec::from_iter(a.clone())
+	// 	);
+	// }
 	
 	#[test]
 	fn range_logic() {
 		let t = SEC;
 		let a = TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Time::ZERO, Ordering::Less, Ordering::Less);
 		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Time::ZERO, Ordering::Less, Ordering::Greater);
-		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Time::ZERO, Ordering::Greater, Ordering::Equal);
+		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], 20*t, Ordering::Greater, Ordering::Equal);
 		assert_eq!(Vec::from_iter(a.clone()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
@@ -998,8 +926,11 @@ mod tests {
 		]);
 	}
 	
+	#[ignore]
 	#[test]
 	fn order_fix() {
+		// !!! This should be rewritten to just validate panicking.
+		
 		#[derive(Clone)]
 		struct RootIter(std::vec::IntoIter<Time>);
 		
