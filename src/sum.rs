@@ -84,6 +84,14 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		}
 	}
 	
+	fn as_accum(&mut self, depth: usize, time: time::Time) -> Self::Accum<'_> {
+		SumAccum {
+			poly: self,
+			depth,
+			time,
+		}
+	}
+	
 	fn at(&self, time: Scalar) -> Self::Value {
 		if time == Scalar(0.) {
 			return self.0
@@ -588,12 +596,6 @@ pub struct SumAccum<'a, K: FluxKind> {
 	time: time::Time,
 }
 
-impl<'a, K: FluxKind> FluxAccum<'a, K> for SumAccum<'a, K> {
-	fn from_kind(poly: &'a mut K, depth: usize, time: time::Time) -> Self {
-		Self { poly, depth, time }
-	}
-}
-
 impl<K: FluxKind, V: Flux> Add<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>
@@ -640,11 +642,7 @@ where
 		unit: time::Time,
 	) {
 		let mut sub_poly = B::from_value(flux.value(kind.time));
-		flux.change(B::Accum::from_kind(
-			&mut sub_poly,
-			kind.depth + 1,
-			kind.time,
-		));
+		flux.change(sub_poly.as_accum(kind.depth + 1, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
 		*kind.poly = *kind.poly + (sub_poly.shift_up()
 			* Scalar((time_scale / ((kind.depth + 1) as f64)) * scalar));

@@ -15,11 +15,13 @@ pub trait FluxKind:
 {
 	type Value: Linear;
 	
-	type Accum<'a>: FluxAccum<'a, Self>;
+	type Accum<'a>;
 	
-	type OutAccum<'a>: FluxAccum<'a, Self>;
+	type OutAccum<'a>;
 	
 	fn from_value(value: Self::Value) -> Self;
+	
+	fn as_accum(&mut self, depth: usize, time: Time) -> Self::Accum<'_>;
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
@@ -122,17 +124,6 @@ pub mod ops {
 			self * self
 		}
 	}
-}
-
-/// Change accumulator.
-/// 
-/// Converts a discrete pattern of change into a desired form.
-pub trait FluxAccum<'a, K: FluxKind> {
-	fn from_kind(kind: &'a mut K, depth: usize, time: Time) -> Self;
-}
-
-impl<K: FluxKind> FluxAccum<'_, K> for () {
-	fn from_kind(_: &'_ mut K, _: usize, _: Time) -> Self {}
 }
 
 /// A polynomial wrapper for [`FluxKind`].
