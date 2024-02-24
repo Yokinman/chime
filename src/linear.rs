@@ -139,61 +139,58 @@ pub trait LinearVec<const SIZE: usize>: Linear {
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: LinearIsoInv<Self> + ?Sized>: Linear {
-	fn map(self) -> T;
+pub trait LinearIso<T: LinearIsoInv<Self>>: Linear {
+	fn map(value: Self) -> T;
 }
 
 /// The inverse map of a linear isomorphism.
-pub trait LinearIsoInv<T: LinearIso<Self>> {
-	fn inv_map(self) -> T;
+pub trait LinearIsoInv<T: LinearIso<Self>>: Sized {
+	fn inv_map(value: Self) -> T;
 }
 
 impl<T: Linear> LinearIso<T> for T {
-	fn map(self) -> T {
-		self
+	fn map(value: Self) -> T {
+		value
 	}
 }
-
 impl<T: Linear> LinearIsoInv<T> for T {
-	fn inv_map(self) -> T {
-		self
+	fn inv_map(value: Self) -> T {
+		value
 	}
 }
 
 impl LinearIso<f64> for f32 {
-	fn map(self) -> f64 {
-		self as f64
+	fn map(value: Self) -> f64 {
+		value as f64
 	}
 }
-
 impl LinearIsoInv<f32> for f64 {
-	fn inv_map(self) -> f32 {
-		self as f32
+	fn inv_map(value: Self) -> f32 {
+		value as f32
 	}
 }
 
 impl LinearIso<f32> for f64 {
-	fn map(self) -> f32 {
-		self as f32
+	fn map(value: Self) -> f32 {
+		value as f32
 	}
 }
-
 impl LinearIsoInv<f64> for f32 {
-	fn inv_map(self) -> f64 {
-		self as f64
+	fn inv_map(value: Self) -> f64 {
+		value as f64
 	}
 }
 
 macro_rules! impl_iso_for_int {
 	($a:ty: $($b:ty),+) => {$(
 		impl LinearIso<$b> for $a {
-			fn map(self) -> $b {
-				self.round() as $b
+			fn map(value: Self) -> $b {
+				value.round() as $b
 			}
 		}
 		impl LinearIsoInv<$a> for $b {
-			fn inv_map(self) -> $a {
-				self as $a
+			fn inv_map(value: Self) -> $a {
+				value as $a
 			}
 		}
 	)+}
@@ -246,13 +243,13 @@ mod glam_stuff {
 	macro_rules! impl_iso_for_vec {
 		($a:ty, $as_b:ident: $b:ty, $as_a:ident) => {
 			impl LinearIso<$b> for $a {
-				fn map(self) -> $b {
-					self.round().$as_b()
+				fn map(value: Self) -> $b {
+					value.round().$as_b()
 				}
 			}
 			impl LinearIsoInv<$a> for $b {
-				fn inv_map(self) -> $a {
-					self.$as_a()
+				fn inv_map(value: Self) -> $a {
+					value.$as_a()
 				}
 			}
 		}
