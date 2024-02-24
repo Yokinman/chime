@@ -142,17 +142,11 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn with_value(value: K::Value) -> Self {
-		Self {
-			inner: K::from_value(value),
-			time: Time::ZERO,
-		}
+		Self::new(K::from_value(value), Time::ZERO)
 	}
 	
 	pub fn with_time(time: Time) -> Self {
-		Self {
-			inner: K::zero(),
-			time,
-		}
+		Self::new(K::zero(), time)
 	}
 	
 	pub fn time(&self) -> Time {
@@ -191,10 +185,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K: ops::Sqr
 	{
-		Poly {
-			inner: (*self).sqr(),
-			time: self.time,
-		}
+		Poly::new((*self).sqr(), self.time)
 	}
 	
 	/// All real-valued roots of this polynomial.
@@ -241,19 +232,13 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
-		Self {
-			inner: K::zero(),
-			time: Time::ZERO,
-		}
+		Self::new(K::zero(), Time::ZERO)
 	}
 }
 
 impl<K: FluxKind> From<K> for Poly<K> {
 	fn from(value: K) -> Self {
-		Self {
-			inner: value,
-			time: Time::ZERO,
-		}
+		Self::new(value, Time::ZERO)
 	}
 }
 
@@ -276,10 +261,10 @@ where
 {
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
-			inner: (*self).add(*rhs.to_time(self.time)),
-			time: self.time,
-		}
+		Poly::new(
+			(*self).add(*rhs.to_time(self.time)),
+			self.time,
+		)
 	}
 }
 
@@ -289,10 +274,10 @@ where
 {
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
-			inner: (*self).sub(*rhs.to_time(self.time)),
-			time: self.time,
-		}
+		Poly::new(
+			(*self).sub(*rhs.to_time(self.time)),
+			self.time,
+		)
 	}
 }
 
