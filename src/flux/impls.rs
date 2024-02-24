@@ -76,7 +76,7 @@ where
 		T::base_time(self)
 	}
 	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
-		Poly::new(T::poly(self, time).index_kind(index), time)
+		Poly::new(T::poly(self, time).into_inner().index_kind(index), time)
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.to_moment(time)

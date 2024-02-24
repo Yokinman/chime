@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearVec, Scalar};
 use crate::time;
@@ -149,6 +149,10 @@ impl<K: FluxKind> Poly<K> {
 		Self::new(K::zero(), time)
 	}
 	
+	pub fn into_inner(self) -> K {
+		self.inner
+	}
+	
 	pub fn time(&self) -> Time {
 		self.time
 	}
@@ -185,7 +189,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K: ops::Sqr
 	{
-		Poly::new((*self).sqr(), self.time)
+		Poly::new(self.inner.sqr(), self.time)
 	}
 	
 	/// All real-valued roots of this polynomial.
@@ -193,7 +197,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K: Roots
 	{
-		self.roots().into_iter()
+		self.inner.roots().into_iter()
 			.filter(|r| r.is_finite())
 	}
 	
@@ -204,7 +208,7 @@ impl<K: FluxKind> Poly<K> {
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
-		let basis_order = self.initial_order().unwrap_or(Ordering::Equal);
+		let basis_order = self.inner.initial_order().unwrap_or(Ordering::Equal);
 		let times = self.real_roots()
 			.filter_map(move |x| time_try_from_secs(x, basis).ok());
 		TimeRanges::new(times, basis, basis_order, order)
@@ -218,7 +222,7 @@ impl<K: FluxKind> Poly<K> {
 		K::Value: PartialEq,
 	{
 		let basis = self.time;
-		let basis_order = if self.is_zero() {
+		let basis_order = if self.inner.is_zero() {
 			Ordering::Equal
 		} else {
 			Ordering::Greater
@@ -242,19 +246,6 @@ impl<K: FluxKind> From<K> for Poly<K> {
 	}
 }
 
-impl<K> Deref for Poly<K> {
-	type Target = K;
-	fn deref(&self) -> &Self::Target {
-		&self.inner
-	}
-}
-
-impl<K> DerefMut for Poly<K> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.inner
-	}
-}
-
 impl<A: FluxKind, B: FluxKind> Add<Poly<B>> for Poly<A>
 where
 	A: ops::Add<B>
@@ -262,7 +253,7 @@ where
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
 		Poly::new(
-			(*self).add(*rhs.to_time(self.time)),
+			self.inner.add(rhs.to_time(self.time).inner),
 			self.time,
 		)
 	}
@@ -275,7 +266,7 @@ where
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
 		Poly::new(
-			(*self).sub(*rhs.to_time(self.time)),
+			self.inner.sub(rhs.to_time(self.time).inner),
 			self.time,
 		)
 	}
@@ -284,7 +275,7 @@ where
 impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		*self = *self * rhs;
+		self.inner = self.inner * rhs;
 		self
 	}
 }
@@ -518,6 +509,7 @@ where
 						break
 					}
 				}
+				
 				time = next_time;
 				next_time = if is_end {
 					time.checked_add(time::NANOSEC)?
@@ -649,8 +641,8 @@ where
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self.index_poly(i).to_time(basis))
-				.sub(*poly.index_poly(i).to_time(basis))
+			sum = sum + self.index_poly(i).to_time(basis).inner
+				.sub(poly.index_poly(i).to_time(basis).inner)
 				.sqr();
 		}
 		
@@ -700,8 +692,8 @@ where
 		
 		let mut sum = <<A as Sub<B>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + (*self.index_poly(i).to_time(basis))
-				.sub(*poly.index_poly(i).to_time(basis))
+			sum = sum + self.index_poly(i).to_time(basis).inner
+				.sub(poly.index_poly(i).to_time(basis).inner)
 				.sqr();
 		}
 		

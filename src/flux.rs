@@ -797,7 +797,7 @@ mod tests {
 			let poly = $poly;
 			let cmp_poly = $cmp_poly;
 			let dif_poly = poly - cmp_poly;
-			for (degree, coeff) in dif_poly.into_iter().enumerate() {
+			for (degree, coeff) in dif_poly.into_inner().into_iter().enumerate() {
 				assert_eq!((coeff * 2_f64.powi((1 + degree) as i32)).round(), 0.,
 					"poly: {:?}, cmp_poly: {:?}", poly, cmp_poly);
 			}

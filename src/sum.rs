@@ -486,21 +486,21 @@ impl Roots for Sum<f64, 4> {
 			let p = a / e;
 			let q = b / (2. * e);
 			let r = c / (2. * e);
-			let resolvent_cubic = Poly::from(Sum(
+			let resolvent_cubic = Sum(
 				-(q * q) / 2.,
 				[
 					r.mul_add(r, -p),
 					2. * r,
 					1.,
 				]
-			));
-			let mut m = resolvent_cubic.real_roots()
-				.find(|&r| r > 0.)
+			);
+			let mut m = resolvent_cubic.roots().into_iter()
+				.find(|&r| r > 0. && r.is_finite())
 				.unwrap_or_else(|| panic!(
 					"expected a positive root from: {:?}",
 					resolvent_cubic
 				));
-			let y = (*resolvent_cubic).at(Scalar(m))
+			let y = resolvent_cubic.at(Scalar(m))
 				/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.1[0]);
 			if m > y && y.is_finite() {
 				m -= y; // Newton-Raphson step
