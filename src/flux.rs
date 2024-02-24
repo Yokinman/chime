@@ -116,7 +116,7 @@ pub trait Flux {
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Self::Kind::from(self.value(time));
+		let mut poly = Self::Kind::from_value(self.value(time));
 		self.change(<Self::Kind as FluxKind>::Accum::from_kind(
 			&mut poly,
 			0,
@@ -593,6 +593,9 @@ impl<T: Linear> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
 	type OutAccum<'a> = ();
+	fn from_value(value: Self::Value) -> Self {
+		Constant(value)
+	}
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.0
 	}

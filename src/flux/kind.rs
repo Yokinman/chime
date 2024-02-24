@@ -11,7 +11,6 @@ use crate::time::{Time, TimeIter, TimeRanges};
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
 	'static + Copy + Clone + Debug + Send + Sync
-	+ From<<Self as FluxKind>::Value>
 	+ Mul<Scalar, Output=Self>
 {
 	type Value: Linear;
@@ -19,6 +18,8 @@ pub trait FluxKind:
 	type Accum<'a>: FluxAccum<'a, Self>;
 	
 	type OutAccum<'a>: FluxAccum<'a, Self>;
+	
+	fn from_value(value: Self::Value) -> Self;
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
@@ -151,7 +152,7 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn with_value(value: K::Value) -> Self {
 		Self {
-			inner: K::from(value),
+			inner: K::from_value(value),
 			time: Time::ZERO,
 		}
 	}

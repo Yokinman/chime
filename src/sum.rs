@@ -34,10 +34,7 @@ impl<T: Linear, const D: usize> Sum<T, D> {
 
 impl<T: Linear, const D: usize> From<T> for Sum<T, D> {
 	fn from(value: T) -> Self {
-		Self {
-			0: value,
-			..Sum::zero()
-		}
+		Self::from_value(value)
 	}
 }
 
@@ -79,6 +76,13 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	type Accum<'a> = SumAccum<'a, Self>;
 	
 	type OutAccum<'a> = SumAccum<'a, Self>;
+	
+	fn from_value(value: Self::Value) -> Self {
+		Self {
+			0: value,
+			..Sum::zero()
+		}
+	}
 	
 	fn at(&self, time: Scalar) -> Self::Value {
 		if time == Scalar(0.) {
@@ -375,7 +379,7 @@ impl Roots for Sum<f64, 3> {
 			let discriminant = if q < 0. {
 				1.
 			} else {
-				let mut disc = f64::ln((r*r) / q.abs());
+				let disc = f64::ln((r*r) / q.abs());
 				if disc.abs() < 1e-15 {
 					0.
 				} else {
@@ -635,7 +639,7 @@ where
 		flux: &V,
 		unit: time::Time,
 	) {
-		let mut sub_poly = B::from(flux.value(kind.time));
+		let mut sub_poly = B::from_value(flux.value(kind.time));
 		flux.change(B::Accum::from_kind(
 			&mut sub_poly,
 			kind.depth + 1,
