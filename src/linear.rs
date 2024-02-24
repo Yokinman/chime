@@ -141,6 +141,9 @@ pub trait LinearVec<const SIZE: usize>: Linear {
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
 pub trait LinearIso<T: LinearIsoInv<Self>>: Linear {
 	fn map(value: Self) -> T;
+	fn identity(value: Self) -> Self {
+		T::inv_map(Self::map(value))
+	}
 }
 
 /// The inverse map of a linear isomorphism.
