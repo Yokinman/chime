@@ -181,6 +181,23 @@ impl LinearIso<f32> for f64 {
 	}
 }
 
+/// Multidimensional linear map.
+pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>> {
+	type Value: LinearIso<T::Value>;
+	fn index(&self, index: usize) -> &Self::Value;
+}
+
+impl<const SIZE: usize, T, I> LinearIsoVec<SIZE, [T; SIZE]> for [I; SIZE]
+where
+	T: Linear,
+	I: LinearIso<T>,
+{
+	type Value = I;
+	fn index(&self, index: usize) -> &Self::Value {
+		&self[index]
+	}
+}
+
 macro_rules! impl_iso_for_int {
 	($b:ty: $($a:ty),+) => {$(
 		impl LinearIso<$b> for $a {
@@ -239,7 +256,7 @@ mod glam_stuff {
 	);
 	
 	macro_rules! impl_iso_for_vec {
-		($b:ty, $b_as_a:ident : $a:ty, $a_as_b:ident) => {
+		($b:ty, $b_as_a:ident : $a:ty, $a_as_b:ident : $size:literal, $a_value:ty) => {
 			impl LinearIso<$b> for $a {
 				fn map(value: $a) -> $b {
 					value.$a_as_b()
@@ -248,26 +265,32 @@ mod glam_stuff {
 					value.round().$b_as_a()
 				}
 			}
+			impl LinearIsoVec<$size, $b> for $a {
+				type Value = $a_value;
+				fn index(&self, index: usize) -> &Self::Value {
+					&self[index]
+				}
+			}
 		}
 	}
-	impl_iso_for_vec!(Vec2, as_uvec2  : UVec2, as_vec2 );
-	impl_iso_for_vec!(Vec3, as_uvec3  : UVec3, as_vec3 );
-	impl_iso_for_vec!(Vec4, as_uvec4  : UVec4, as_vec4 );
-	impl_iso_for_vec!(Vec2, as_ivec2  : IVec2, as_vec2 );
-	impl_iso_for_vec!(Vec3, as_ivec3  : IVec3, as_vec3 );
-	impl_iso_for_vec!(Vec4, as_ivec4  : IVec4, as_vec4 );
-	impl_iso_for_vec!(Vec2, as_dvec2  : DVec2, as_vec2 );
-	impl_iso_for_vec!(Vec3, as_dvec3  : DVec3, as_vec3 );
-	impl_iso_for_vec!(Vec4, as_dvec4  : DVec4, as_vec4 );
-	impl_iso_for_vec!(DVec2, as_uvec2 : UVec2, as_dvec2);
-	impl_iso_for_vec!(DVec3, as_uvec3 : UVec3, as_dvec3);
-	impl_iso_for_vec!(DVec4, as_uvec4 : UVec4, as_dvec4);
-	impl_iso_for_vec!(DVec2, as_ivec2 : IVec2, as_dvec2);
-	impl_iso_for_vec!(DVec3, as_ivec3 : IVec3, as_dvec3);
-	impl_iso_for_vec!(DVec4, as_ivec4 : IVec4, as_dvec4);
-	impl_iso_for_vec!(DVec2, as_vec2  : Vec2, as_dvec2 );
-	impl_iso_for_vec!(DVec3, as_vec3  : Vec3, as_dvec3 );
-	impl_iso_for_vec!(DVec4, as_vec4  : Vec4, as_dvec4 );
+	impl_iso_for_vec!(Vec2, as_uvec2  : UVec2, as_vec2  : 2, u32);
+	impl_iso_for_vec!(Vec3, as_uvec3  : UVec3, as_vec3  : 3, u32);
+	impl_iso_for_vec!(Vec4, as_uvec4  : UVec4, as_vec4  : 4, u32);
+	impl_iso_for_vec!(Vec2, as_ivec2  : IVec2, as_vec2  : 2, i32);
+	impl_iso_for_vec!(Vec3, as_ivec3  : IVec3, as_vec3  : 3, i32);
+	impl_iso_for_vec!(Vec4, as_ivec4  : IVec4, as_vec4  : 4, i32);
+	impl_iso_for_vec!(Vec2, as_dvec2  : DVec2, as_vec2  : 2, f64);
+	impl_iso_for_vec!(Vec3, as_dvec3  : DVec3, as_vec3  : 3, f64);
+	impl_iso_for_vec!(Vec4, as_dvec4  : DVec4, as_vec4  : 4, f64);
+	impl_iso_for_vec!(DVec2, as_uvec2 : UVec2, as_dvec2 : 2, u32);
+	impl_iso_for_vec!(DVec3, as_uvec3 : UVec3, as_dvec3 : 3, u32);
+	impl_iso_for_vec!(DVec4, as_uvec4 : UVec4, as_dvec4 : 4, u32);
+	impl_iso_for_vec!(DVec2, as_ivec2 : IVec2, as_dvec2 : 2, i32);
+	impl_iso_for_vec!(DVec3, as_ivec3 : IVec3, as_dvec3 : 3, i32);
+	impl_iso_for_vec!(DVec4, as_ivec4 : IVec4, as_dvec4 : 4, i32);
+	impl_iso_for_vec!(DVec2, as_vec2  : Vec2, as_dvec2  : 2, f32);
+	impl_iso_for_vec!(DVec3, as_vec3  : Vec3, as_dvec3  : 3, f32);
+	impl_iso_for_vec!(DVec4, as_vec4  : Vec4, as_dvec4  : 4, f32);
 }
 
 #[cfg(feature = "glam")]
