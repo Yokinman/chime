@@ -127,9 +127,16 @@ impl Linear for f32 {
 }
 
 /// Multidimensional vector type.
-pub trait LinearVec<const SIZE: usize>: Linear {
+pub trait LinearVec<const SIZE: usize> {
 	type Value: Linear;
 	fn index(&self, index: usize) -> Self::Value;
+}
+
+impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
+	type Value = T;
+	fn index(&self, index: usize) -> Self::Value {
+		self[index]
+	}
 }
 
 /// A mapping of a vector space that preserves addition & multiplication.
