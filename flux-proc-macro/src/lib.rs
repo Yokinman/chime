@@ -320,9 +320,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::linear::LinearIsoInv
-					::<<<Self::Flux as #flux::Flux>::Kind
-						as #flux::kind::FluxKind>::Value>
+				#ident: #flux::linear::LinearIso::<#field_ty>
 					::inv_map(self.#ident),
 			};
 		}

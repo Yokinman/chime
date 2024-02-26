@@ -60,23 +60,19 @@ impl<T: Linear> From<T> for Exp<T> {
 }
 
 impl LinearIso<f64> for Exp<f64> {
-	fn map(value: Self) -> f64 {
+	fn map(value: Exp<f64>) -> f64 {
 		value.0.exp()
 	}
-}
-impl LinearIsoInv<Exp<f64>> for f64 {
-	fn inv_map(value: Self) -> Exp<f64> {
+	fn inv_map(value: f64) -> Exp<f64> {
 		Exp(value.ln())
 	}
 }
 
 impl LinearIso<u64> for Exp<f64> {
-	fn map(value: Self) -> u64 {
+	fn map(value: Exp<f64>) -> u64 {
 		value.0.exp().round() as u64
 	}
-}
-impl LinearIsoInv<Exp<f64>> for u64 {
-	fn inv_map(value: Self) -> Exp<f64> {
+	fn inv_map(value: u64) -> Exp<f64> {
 		Exp((value as f64).ln())
 	}
 }
