@@ -308,20 +308,19 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		 // Constant/Linear Types:
 		if value_idents.contains(&ident.unraw()) {
-			let field_ty = std::mem::replace(
-				&mut field.ty,
-				syn::parse_quote!{
-					<<Self as #flux::_hidden::InnerFlux>::Kind as #flux::kind::FluxKind>::Value
-				}
-			);
+			let field_ty: syn::Type = syn::parse_quote!{
+				<<#flux_ident as #flux::_hidden::InnerFlux>::Kind as #flux::kind::FluxKind>::Value
+			};
+			let moment_value_type = std::mem::replace(&mut field.ty, field_ty.clone());
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::LinearIso::<#field_ty>::map(base_value),
+				#ident: <#moment_value_type as #flux::linear::LinearIso::<#field_ty>>
+					::inv_map(base_value),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::linear::LinearIso::<#field_ty>
-					::inv_map(self.#ident),
+				#ident: <#moment_value_type as #flux::linear::LinearIso::<#field_ty>>
+					::map(self.#ident),
 			};
 		}
 		
