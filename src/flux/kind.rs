@@ -193,7 +193,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	/// All real-valued roots of this polynomial.
-	pub fn real_roots(self) -> impl Iterator<Item=f64> + Send + Sync + Clone
+	pub fn real_roots(&self) -> impl Iterator<Item=f64> + Send + Sync + Clone
 	where
 		K: Roots
 	{
@@ -227,8 +227,8 @@ impl<K: FluxKind> Poly<K> {
 		} else {
 			Ordering::Greater
 		};
-		let times = time::Times::new(self.real_roots()
-			.filter_map(move |x| time_try_from_secs(x, basis).ok()));
+		let times = self.real_roots()
+			.filter_map(move |x| time_try_from_secs(x, basis).ok());
 		TimeRanges::new(times, basis, basis_order, Ordering::Equal)
 			.into_filtered(f)
 	}
