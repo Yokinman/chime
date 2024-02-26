@@ -238,7 +238,7 @@ pub trait MomentVec<const SIZE: usize> {
 /// Multidimensional change over time.
 pub trait FluxVec<const SIZE: usize> {
 	type Moment: MomentVec<SIZE>;
-	type Kind: FluxKind;
+	type Kind: FluxKindVec<SIZE>;
 	
 	fn index_base_time(&self, index: usize) -> Time;
 	fn max_base_time(&self) -> Time {
@@ -249,8 +249,12 @@ pub trait FluxVec<const SIZE: usize> {
 		time
 	}
 	
-	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind>;
-	fn polys(&self, time: Time) -> [Poly<Self::Kind>; SIZE] {
+	fn index_poly(&self, index: usize, time: Time)
+		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>;
+	
+	fn polys(&self, time: Time)
+		-> [Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]
+	{
 		array::from_fn(|i| self.index_poly(i, time))
 	}
 	
@@ -293,7 +297,8 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		[Poly<Self::Kind>; SIZE]: WhenDis<SIZE, T::Kind, D::Kind>,
+		[Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]:
+			WhenDis<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
 		self.polys(time)
@@ -305,7 +310,8 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		[Poly<Self::Kind>; SIZE]: WhenDisEq<SIZE, T::Kind, D::Kind>
+		[Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]:
+			WhenDisEq<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
 		self.polys(time)
@@ -316,7 +322,7 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<Self::Kind>: When<T::Kind>
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: When<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -327,7 +333,7 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<Self::Kind>: WhenEq<T::Kind>
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: WhenEq<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)

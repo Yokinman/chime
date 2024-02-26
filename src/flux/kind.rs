@@ -52,12 +52,16 @@ pub trait FluxKind:
 }
 
 /// Multidimensional kind of change.
-pub trait FluxKindVec<const SIZE: usize>: FluxKind
-where
-	Self::Value: LinearVec<SIZE>,
-{
-	type Kind: FluxKind<Value = <Self::Value as LinearVec<SIZE>>::Value>;
+pub trait FluxKindVec<const SIZE: usize> {
+	type Kind: FluxKind;
 	fn index_kind(&self, index: usize) -> Self::Kind;
+}
+
+impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
+	type Kind = T;
+	fn index_kind(&self, index: usize) -> Self::Kind {
+		self[index]
+	}
 }
 
 /// Combining [`FluxKind`] types.
@@ -360,7 +364,7 @@ use private::*;
 
 impl<K> PolyValue for Poly<K> {}
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE> for Poly<K>
+impl<const SIZE: usize, K: FluxKind + FluxKindVec<SIZE>> PolyVec<SIZE> for Poly<K>
 where
 	K::Value: LinearVec<SIZE>
 {

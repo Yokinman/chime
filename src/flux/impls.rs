@@ -41,11 +41,13 @@ impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
-	type Kind = T::Kind;
+	type Kind = [T::Kind; SIZE];
 	fn index_base_time(&self, index: usize) -> Time {
 		self[index].base_time()
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+	fn index_poly(&self, index: usize, time: Time)
+		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>
+	{
 		self[index].poly(time)
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
@@ -71,11 +73,13 @@ where
 	T::Moment: MomentVec<SIZE>,
 {
 	type Moment = T::Moment;
-	type Kind = <T::Kind as FluxKindVec<SIZE>>::Kind;
+	type Kind = T::Kind;
 	fn index_base_time(&self, _index: usize) -> Time {
 		T::base_time(self)
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<Self::Kind> {
+	fn index_poly(&self, index: usize, time: Time)
+		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>
+	{
 		Poly::new(T::poly(self, time).into_inner().index_kind(index), time)
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
