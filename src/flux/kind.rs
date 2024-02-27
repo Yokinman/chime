@@ -53,14 +53,12 @@ pub trait FluxKind:
 
 /// Multidimensional kind of change.
 pub trait FluxKindVec<const SIZE: usize>: Clone + Send + Sync + 'static {
-	type Kind: FluxKind<Value=Self::Value>;
-	type Value: Linear;
+	type Kind: FluxKind;
 	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 	type Kind = T;
-	type Value = T::Value;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		self[index]
 	}
@@ -453,15 +451,19 @@ where
 	}
 }
 
-fn dis_root_filter_map<T: FluxKind, const SIZE: usize>(
+fn dis_root_filter_map<T: FluxKind, const SIZE: usize, A, B>(
 	pos_poly: Poly<T>,
 	dis_poly: Poly<impl FluxKind<Value=T::Value>>,
 	diff_poly: Poly<impl FluxKind<Value=T::Value>>,
-	a_pos: PolyVec<impl FluxKindVec<SIZE, Value=T::Value>, SIZE>,
-	b_pos: PolyVec<impl FluxKindVec<SIZE, Value=T::Value>, SIZE>,
+	a_pos: PolyVec<A, SIZE>,
+	b_pos: PolyVec<B, SIZE>,
 ) -> impl RootFilterMap
 where
 	T::Value: PartialEq + Mul<Output=T::Value>,
+	A: FluxKindVec<SIZE>,
+	B: FluxKindVec<SIZE>,
+	A::Kind: FluxKind<Value=T::Value>,
+	B::Kind: FluxKind<Value=T::Value>,
 {
 	move |mut time, is_end| {
 		// Covers the local range, but stops where the trend reverses and
@@ -620,7 +622,7 @@ where
 pub trait WhenDis<const SIZE: usize, B: FluxKind, D> {
 	fn when_dis(
 		self,
-		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B>, SIZE>,
 		order: Ordering,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter>;
@@ -628,7 +630,7 @@ pub trait WhenDis<const SIZE: usize, B: FluxKind, D> {
 
 impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for PolyVec<T, SIZE>
 where
-	T: FluxKindVec<SIZE, Kind=A, Value=A::Value>,
+	T: FluxKindVec<SIZE, Kind=A>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -642,7 +644,7 @@ where
 {
 	fn when_dis(
 		self,
-		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B>, SIZE>,
 		order: Ordering,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter> {
@@ -673,14 +675,14 @@ where
 pub trait WhenDisEq<const SIZE: usize, B: FluxKind, D> {
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B>, SIZE>,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter>;
 }
 
 impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for PolyVec<T, SIZE>
 where
-	T: FluxKindVec<SIZE, Kind=A, Value=A::Value>,
+	T: FluxKindVec<SIZE, Kind=A>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -694,7 +696,7 @@ where
 {
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B>, SIZE>,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter> {
 		use ops::*;
