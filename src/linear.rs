@@ -127,7 +127,7 @@ impl Linear for f32 {
 }
 
 /// Multidimensional vector type.
-pub trait LinearVec<const SIZE: usize> {
+pub trait LinearVec<const SIZE: usize>: Clone + Send + Sync + 'static {
 	type Value: Linear;
 	fn index(&self, index: usize) -> Self::Value;
 }

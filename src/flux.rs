@@ -253,9 +253,9 @@ pub trait FluxVec<const SIZE: usize> {
 		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>;
 	
 	fn polys(&self, time: Time)
-		-> [Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]
+		-> PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>
 	{
-		array::from_fn(|i| self.index_poly(i, time))
+		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
 	}
 	
 	fn to_moment_vec(self, time: Time) -> Self::Moment;
@@ -297,7 +297,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		[Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]:
+		PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>:
 			WhenDis<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
@@ -310,7 +310,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		[Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>; SIZE]:
+		PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>:
 			WhenDisEq<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
@@ -620,6 +620,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 
 impl<const SIZE: usize, T: LinearVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
 	type Kind = Constant<T::Value>;
+	type Value = T::Value;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		Constant(self.0.index(index))
 	}

@@ -52,13 +52,15 @@ pub trait FluxKind:
 }
 
 /// Multidimensional kind of change.
-pub trait FluxKindVec<const SIZE: usize> {
-	type Kind: FluxKind;
+pub trait FluxKindVec<const SIZE: usize>: Clone + Send + Sync + 'static {
+	type Kind: FluxKind<Value=Self::Value>;
+	type Value: Linear;
 	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 	type Kind = T;
+	type Value = T::Value;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		self[index]
 	}
@@ -284,6 +286,46 @@ impl<K: FluxKind> Mul<Scalar> for Poly<K> {
 	}
 }
 
+/// Multidimensional polynomial.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PolyVec<K, const SIZE: usize> {
+	inner: K,
+	time: Time,
+}
+
+impl<K, const SIZE: usize> PolyVec<K, SIZE> {
+	pub fn into_inner(self) -> K {
+		self.inner
+	}
+	
+	pub fn time(&self) -> Time {
+		self.time
+	}
+}
+
+impl<K: FluxKind, const SIZE: usize> PolyVec<K, SIZE> {	
+	pub fn at(&self, time: Time) -> K::Value {
+		self.inner.at(Scalar(if time > self.time {
+			(time - self.time).as_secs_f64()
+		} else {
+			-(self.time - time).as_secs_f64()
+		}))
+	}
+}
+
+impl<K: FluxKindVec<SIZE>, const SIZE: usize> PolyVec<K, SIZE> {
+	pub fn new(inner: K, time: Time) -> Self {
+		Self {
+			inner,
+			time,
+		}
+	}
+	
+	pub fn index_poly(&self, index: usize) -> Poly<K::Kind> {
+		Poly::new(self.inner.index_kind(index), self.time)
+	}
+}
+
 /// Roots of a [`Poly`]nomial.
 /// 
 /// For discontinuous change-over-time, roots should also include any moments
@@ -351,37 +393,6 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 	}
 }
 
-mod private {
-	//! Sealed traits, only applied to [`super::Poly`] types.
-	pub trait PolyValue {}
-	pub trait PolyVec<const SIZE: usize>: Clone + Send + Sync + 'static {
-		type Kind: super::FluxKind<Value=Self::Value>;
-		type Value: super::Linear;
-		fn index_poly(&self, index: usize) -> super::Poly<Self::Kind>;
-	}
-}
-use private::*;
-
-impl<K> PolyValue for Poly<K> {}
-
-impl<const SIZE: usize, K: FluxKind + FluxKindVec<SIZE>> PolyVec<SIZE> for Poly<K>
-where
-	K::Value: LinearVec<SIZE>
-{
-	type Kind = K::Kind;
-	type Value = <K::Kind as FluxKind>::Value;
-	fn index_poly(&self, index: usize) -> Poly<Self::Kind> {
-		Poly::new(self.inner.index_kind(index), self.time)
-	}
-}
-impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE> for [Poly<K>; SIZE] {
-	type Kind = K;
-	type Value = K::Value;
-	fn index_poly(&self, index: usize) -> Poly<Self::Kind> {
-		self[index]
-	}
-}
-
 /// Function that converts a root value to a Time, or ignores it.
 pub(crate) trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
 impl<T: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
@@ -446,8 +457,8 @@ fn dis_root_filter_map<T: FluxKind, const SIZE: usize>(
 	pos_poly: Poly<T>,
 	dis_poly: Poly<impl FluxKind<Value=T::Value>>,
 	diff_poly: Poly<impl FluxKind<Value=T::Value>>,
-	a_pos: impl PolyVec<SIZE, Value=T::Value>,
-	b_pos: impl PolyVec<SIZE, Value=T::Value>,
+	a_pos: PolyVec<impl FluxKindVec<SIZE, Value=T::Value>, SIZE>,
+	b_pos: PolyVec<impl FluxKindVec<SIZE, Value=T::Value>, SIZE>,
 ) -> impl RootFilterMap
 where
 	T::Value: PartialEq + Mul<Output=T::Value>,
@@ -570,7 +581,7 @@ where
 }
 
 /// [`crate::Flux::when`] predictive comparison.
-pub trait When<B>: PolyValue {
+pub trait When<B> {
 	fn when(self, order: Ordering, poly: Poly<B>) -> TimeRanges<impl TimeIter>;
 }
 
@@ -588,7 +599,7 @@ where
 }
 
 /// [`crate::Flux::when_eq`] predictive comparison.
-pub trait WhenEq<B>: PolyValue {
+pub trait WhenEq<B> {
 	fn when_eq(self, poly: Poly<B>) -> TimeRanges<impl TimeIter>;
 }
 
@@ -606,18 +617,18 @@ where
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
+pub trait WhenDis<const SIZE: usize, B: FluxKind, D> {
 	fn when_dis(
 		self,
-		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
 		order: Ordering,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter>;
 }
 
-impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for T
+impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDis<SIZE, B, D> for PolyVec<T, SIZE>
 where
-	T: PolyVec<SIZE, Kind=A, Value=A::Value>,
+	T: FluxKindVec<SIZE, Kind=A, Value=A::Value>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -631,7 +642,7 @@ where
 {
 	fn when_dis(
 		self,
-		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
 		order: Ordering,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter> {
@@ -659,17 +670,17 @@ where
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B: FluxKind, D>: PolyVec<SIZE> {
+pub trait WhenDisEq<const SIZE: usize, B: FluxKind, D> {
 	fn when_dis_eq(
 		self,
-		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter>;
 }
 
-impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for T
+impl<T, A: FluxKind, const SIZE: usize, B: FluxKind, D> WhenDisEq<SIZE, B, D> for PolyVec<T, SIZE>
 where
-	T: PolyVec<SIZE, Kind=A, Value=A::Value>,
+	T: FluxKindVec<SIZE, Kind=A, Value=A::Value>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: ops::Sqr,
 	<<A as ops::Sub<B>>::Output as ops::Sqr>::Output:
@@ -683,7 +694,7 @@ where
 {
 	fn when_dis_eq(
 		self,
-		poly: impl PolyVec<SIZE, Kind=B, Value=B::Value>,
+		poly: PolyVec<impl FluxKindVec<SIZE, Kind=B, Value=B::Value>, SIZE>,
 		dis: Poly<D>
 	) -> TimeRanges<impl TimeIter> {
 		use ops::*;
@@ -713,13 +724,13 @@ where
 fn consistent_sign_pred() {
 	use crate::sum::Sum;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
-		let poly = [
-			Poly::new(Sum::new(-2., [5., -2.]), time),
-			Poly::new(Sum::zero(), time)
-		];
+		let poly = PolyVec::new([
+			Sum::new(-2., [5., -2.]),
+			Sum::zero()
+		], time);
 		poly
 			.when_dis(
-				[Poly::new(Sum::<f64, 2>::zero(), time); 2],
+				PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
 				Ordering::Greater,
 				Poly::new(crate::Constant::from(1.), time),
 			)

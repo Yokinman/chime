@@ -163,6 +163,7 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 
 impl<const SIZE: usize, T: LinearVec<SIZE>, const D: usize> FluxKindVec<SIZE> for Sum<T, D> {
 	type Kind = Sum<T::Value, D>;
+	type Value = T::Value;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		Sum(
 			self.0.index(index),
@@ -917,14 +918,14 @@ mod tests {
 		);
 		
 		 // Distance Check:
-		let a = [
-			Poly::new(Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]), SEC),
-			Poly::new(Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.]), SEC)
-		];
-		let b = [
-			Poly::new(Constant::from(-3.8808053943969956e-5), SEC),
-			Poly::new(Constant::from(-193.99999999999997), SEC)
-		];
+		let a = PolyVec::new([
+			Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]),
+			Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.])
+		], SEC);
+		let b = PolyVec::new([
+			Constant::from(-3.8808053943969956e-5),
+			Constant::from(-193.99999999999997)
+		], SEC);
 		let dis = Poly::new(Constant::from(12.), SEC);
 		assert_eq!(
 			crate::kind::WhenDisEq::when_dis_eq(a, b, dis)
