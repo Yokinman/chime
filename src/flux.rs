@@ -254,11 +254,7 @@ pub trait FluxVec<const SIZE: usize> {
 	fn index_poly(&self, index: usize, time: Time)
 		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>;
 	
-	fn polys(&self, time: Time)
-		-> PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>
-	{
-		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
-	}
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind>;
 	
 	fn to_moment_vec(self, time: Time) -> Self::Moment;
 	
@@ -297,12 +293,12 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>:
-			WhenDis<SIZE, [<T::Kind as FluxKindVec<SIZE>>::Kind; SIZE], D::Kind>,
+		PolyVec<SIZE, Self::Kind>:
+			WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
-		self.polys(time)
-			.when_dis(other.polys(time), order, dis.poly(time))
+		self.poly_vec(time)
+			.when_dis(other.poly_vec(time), order, dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -310,12 +306,12 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>:
-			WhenDisEq<SIZE, [<T::Kind as FluxKindVec<SIZE>>::Kind; SIZE], D::Kind>,
+		PolyVec<SIZE, Self::Kind>:
+			WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
-		self.polys(time)
-			.when_dis_eq(other.polys(time), dis.poly(time))
+		self.poly_vec(time)
+			.when_dis_eq(other.poly_vec(time), dis.poly(time))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.

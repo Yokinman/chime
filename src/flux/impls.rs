@@ -1,10 +1,11 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
+use std::array;
 use std::vec::Vec;
 
 use crate::{Constant, Flux, FluxVec, Moment, MomentVec};
 use crate::time::Time;
-use crate::kind::{FluxKind, FluxKindVec, Poly};
+use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
 use crate::linear::{Linear, LinearIsoVec, LinearVec};
 
 impl<T: Linear> Flux for T {
@@ -52,6 +53,9 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	{
 		self[index].poly(time).with_iso()
 	}
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
+		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
+	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.map(|x| x.to_moment(time))
 	}
@@ -84,7 +88,10 @@ where
 	fn index_poly(&self, index: usize, time: Time)
 		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>
 	{
-		Poly::new(T::poly(self, time).into_inner().index_kind(index), time)
+		Poly::new(self.poly(time).into_inner().index_kind(index), time)
+	}
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
+		PolyVec::new(self.poly(time).into_inner(), time)
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.to_moment(time)
