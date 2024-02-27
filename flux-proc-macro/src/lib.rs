@@ -300,6 +300,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		proc_macro2::Span::mixed_site()
 	);
 	flux_item.ident = flux_ident.clone();
+	let mut moment_value_type: syn::Type = syn::parse_quote!{()};
 	let mut moment_fields = Default::default();
 	let mut flux_fields = Default::default();
 	for field in &mut flux_item.fields {
@@ -311,7 +312,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let field_ty: syn::Type = syn::parse_quote!{
 				<<#flux_ident as #flux::_hidden::InnerFlux>::Kind as #flux::kind::FluxKind>::Value
 			};
-			let moment_value_type = std::mem::replace(&mut field.ty, field_ty.clone());
+			moment_value_type = std::mem::replace(&mut field.ty, field_ty.clone());
 			moment_fields = quote::quote!{
 				#moment_fields
 				#ident: <#moment_value_type as #flux::linear::LinearIso::<#field_ty>>
@@ -361,6 +362,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux::FluxValue<#flux_ident #ty_generics>;
+			type Value = #moment_value_type;
 			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
 				#flux::FluxValue::new(#flux_ident { #flux_fields }, time)
 			}

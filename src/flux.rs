@@ -24,6 +24,7 @@ pub use chime_flux_proc_macro::flux;
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
 	type Flux: Flux<Moment=Self>;
+	type Value: LinearIso<<<Self::Flux as Flux>::Kind as FluxKind>::Value>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
 	fn to_flux(self, time: Time) -> Self::Flux;
@@ -37,7 +38,7 @@ pub trait Flux {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
 	
-	type Moment: Moment;
+	type Moment: Moment<Flux=Self>;
 	
 	/// The kind of change over time.
 	type Kind: FluxKind;
@@ -58,8 +59,7 @@ pub trait Flux {
 	/// Sets a moment in the timeline (affects all moments).
 	fn set_moment(&mut self, time: Time, moment: Self::Moment)
 	where
-		Self: Sized,
-		<Self as Flux>::Moment: Moment<Flux=Self>,
+		Self: Sized
 	{
 		*self = moment.to_flux(time);
 	}
@@ -92,8 +92,7 @@ pub trait Flux {
 	/// ```
 	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment>
 	where
-		Self: Clone,
-		<Self as Flux>::Moment: Moment<Flux=Self>
+		Self: Clone
 	{
 		let moment = Some(self.clone().to_moment(time));
 		MomentRefMut {
@@ -115,17 +114,18 @@ pub trait Flux {
 	}
 	
 	/// A polynomial description of this flux at the given time.
-	fn poly(&self, time: Time) -> Poly<Self::Kind> {
+	fn poly(&self, time: Time) -> Poly<Self::Kind, <Self::Moment as Moment>::Value> {
 		let mut poly = Self::Kind::from_value(self.value(time));
 		self.change(poly.as_accum(0, time));
-		Poly::new(poly, time)
+		Poly::new(poly, time).with_iso()
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
 	fn when<T>(&self, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<Self::Kind>: When<T::Kind>
+		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
+			When<T::Kind>
 	{
 		let time = self.base_time();
 		self.poly(time).when(order, other.poly(time))
@@ -135,7 +135,8 @@ pub trait Flux {
 	fn when_eq<T>(&self, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<Self::Kind>: WhenEq<T::Kind>
+		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
+			WhenEq<T::Kind>
 	{
 		let time = self.base_time();
 		self.poly(time).when_eq(other.poly(time))
@@ -230,6 +231,7 @@ where
 /// Multidimensional interface for a vector that changes over time.
 pub trait MomentVec<const SIZE: usize> {
 	type Flux: FluxVec<SIZE, Moment=Self>;
+	type Value: LinearIsoVec<SIZE, <<Self::Flux as FluxVec<SIZE>>::Kind as FluxKindVec<SIZE>>::Value>;
 	
 	/// Constructs the entirety of a [`FluxVec`] from a single moment.
 	fn to_flux_vec(self, time: Time) -> Self::Flux;
@@ -237,7 +239,7 @@ pub trait MomentVec<const SIZE: usize> {
 
 /// Multidimensional change over time.
 pub trait FluxVec<const SIZE: usize> {
-	type Moment: MomentVec<SIZE>;
+	type Moment: MomentVec<SIZE, Flux=Self>;
 	type Kind: FluxKindVec<SIZE>;
 	
 	fn index_base_time(&self, index: usize) -> Time;
@@ -250,10 +252,10 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	fn index_poly(&self, index: usize, time: Time)
-		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>;
+		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>;
 	
 	fn polys(&self, time: Time)
-		-> PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>
+		-> PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>
 	{
 		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
 	}
@@ -262,8 +264,7 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	fn set_moment_vec(&mut self, time: Time, moment: Self::Moment)
 	where
-		Self: Sized,
-		<Self as FluxVec<SIZE>>::Moment: MomentVec<SIZE, Flux=Self>,
+		Self: Sized
 	{
 		*self = moment.to_flux_vec(time);
 	}
@@ -281,8 +282,7 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	fn at_vec_mut(&mut self, time: Time) -> MomentVecRefMut<SIZE, Self::Moment>
 	where
-		Self: Clone,
-		<Self as FluxVec<SIZE>>::Moment: MomentVec<SIZE, Flux=Self>
+		Self: Clone
 	{
 		let moment = Some(self.clone().to_moment_vec(time));
 		MomentVecRefMut {
@@ -297,8 +297,8 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>:
-			WhenDis<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
+		PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>:
+			WhenDis<SIZE, [<T::Kind as FluxKindVec<SIZE>>::Kind; SIZE], D::Kind>,
 	{
 		let time = self.max_base_time();
 		self.polys(time)
@@ -310,8 +310,8 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<[<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE], SIZE>:
-			WhenDisEq<SIZE, <T::Kind as FluxKindVec<SIZE>>::Kind, D::Kind>,
+		PolyVec<SIZE, [<Self::Kind as FluxKindVec<SIZE>>::Kind; SIZE]>:
+			WhenDisEq<SIZE, [<T::Kind as FluxKindVec<SIZE>>::Kind; SIZE], D::Kind>,
 	{
 		let time = self.max_base_time();
 		self.polys(time)
@@ -322,7 +322,8 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: When<T::Kind>
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>:
+			When<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -333,7 +334,8 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: WhenEq<T::Kind>
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>:
+			WhenEq<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -465,6 +467,7 @@ impl<T> Change<T> {
 
 impl<T: Moment> Moment for Change<T> {
 	type Flux = Change<T::Flux>;
+	type Value = T::Value;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		Change {
 			rate: self.rate.to_flux(time),
@@ -528,7 +531,10 @@ impl<T> DerefMut for FluxValue<T> {
 	}
 }
 
-impl<T: _hidden::InnerFlux> Flux for FluxValue<T> {
+impl<T: _hidden::InnerFlux> Flux for FluxValue<T>
+where
+	T::Moment: Moment<Flux=Self>
+{
 	type Moment = T::Moment;
 	type Kind = T::Kind;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
@@ -620,6 +626,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 
 impl<const SIZE: usize, T: LinearVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
 	type Kind = Constant<T::Value>;
+	type Value = T;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		Constant(self.0.index(index))
 	}
