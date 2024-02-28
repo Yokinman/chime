@@ -182,7 +182,7 @@ impl LinearIso<f32> for f64 {
 }
 
 /// Multidimensional linear map.
-pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>> {
+pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Send + Sync + 'static {
 	type Value: LinearIso<T::Value>;
 	fn index(&self, index: usize) -> &Self::Value;
 }

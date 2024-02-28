@@ -4,7 +4,6 @@ pub mod time;
 pub mod kind;
 mod impls;
 
-use std::array;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -251,10 +250,13 @@ pub trait FluxVec<const SIZE: usize> {
 		time
 	}
 	
-	fn index_poly(&self, index: usize, time: Time)
-		-> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>;
+	fn index_poly(&self, index: usize, time: Time) -> Poly<
+		<Self::Kind as FluxKindVec<SIZE>>::Kind,
+		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value
+	>;
 	
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind>;
+	fn poly_vec(&self, time: Time)
+		-> PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>;
 	
 	fn to_moment_vec(self, time: Time) -> Self::Moment;
 	
@@ -293,7 +295,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, Self::Kind>:
+		PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>:
 			WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
@@ -306,7 +308,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, Self::Kind>:
+		PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>:
 			WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.max_base_time();
@@ -318,7 +320,7 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>:
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
 			When<T::Kind>
 	{
 		let time = self.index_base_time(index);
@@ -330,7 +332,7 @@ pub trait FluxVec<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &T) -> TimeRanges<impl TimeIter>
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value>:
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
 			WhenEq<T::Kind>
 	{
 		let time = self.index_base_time(index);
@@ -600,9 +602,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn from_value(value: Self::Value) -> Self {
 		Constant(value)
 	}
-	fn as_accum(&mut self, _depth: usize, _time: Time) -> Self::Accum<'_> {
-		()
-	}
+	fn as_accum(&mut self, _depth: usize, _time: Time) -> Self::Accum<'_> {}
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.0
 	}
