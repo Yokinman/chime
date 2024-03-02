@@ -147,21 +147,21 @@ impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
 pub trait LinearIso<T: Linear>: Sized + Send + Sync + 'static {
-	fn map(value: Self) -> T;
-	fn inv_map(value: T) -> Self;
+	fn into_linear(value: Self) -> T;
+	fn from_linear(value: T) -> Self;
 	// fn identity(value: Self) -> Self {
 	// 	Self::inv_map(Self::map(value))
 	// }
 	fn linear_id(value: T) -> T {
-		Self::map(Self::inv_map(value))
+		Self::into_linear(Self::from_linear(value))
 	}
 }
 
 impl<T: Linear> LinearIso<T> for T {
-	fn map(value: T) -> T {
+	fn into_linear(value: T) -> T {
 		value
 	}
-	fn inv_map(value: T) -> T {
+	fn from_linear(value: T) -> T {
 		value
 	}
 	fn linear_id(value: T) -> T {
@@ -170,19 +170,19 @@ impl<T: Linear> LinearIso<T> for T {
 }
 
 impl LinearIso<f64> for f32 {
-	fn map(value: f32) -> f64 {
+	fn into_linear(value: f32) -> f64 {
 		value as f64
 	}
-	fn inv_map(value: f64) -> f32 {
+	fn from_linear(value: f64) -> f32 {
 		value as f32
 	}
 }
 
 impl LinearIso<f32> for f64 {
-	fn map(value: f64) -> f32 {
+	fn into_linear(value: f64) -> f32 {
 		value as f32
 	}
-	fn inv_map(value: f32) -> f64 {
+	fn from_linear(value: f32) -> f64 {
 		value as f64
 	}
 }
@@ -207,10 +207,10 @@ where
 macro_rules! impl_iso_for_int {
 	($b:ty: $($a:ty),+) => {$(
 		impl LinearIso<$b> for $a {
-			fn map(value: $a) -> $b {
+			fn into_linear(value: $a) -> $b {
 				value as $b
 			}
-			fn inv_map(value: $b) -> $a {
+			fn from_linear(value: $b) -> $a {
 				value.round() as $a
 			}
 		}
@@ -264,10 +264,10 @@ mod glam_stuff {
 	macro_rules! impl_iso_for_vec {
 		($b:ty, $b_as_a:ident : $a:ty, $a_as_b:ident : $size:literal, $a_value:ty) => {
 			impl LinearIso<$b> for $a {
-				fn map(value: $a) -> $b {
+				fn into_linear(value: $a) -> $b {
 					value.$a_as_b()
 				}
-				fn inv_map(value: $b) -> $a {
+				fn from_linear(value: $b) -> $a {
 					value.round().$b_as_a()
 				}
 			}
