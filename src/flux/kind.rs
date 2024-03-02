@@ -437,7 +437,6 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 	
 	const MANT_MASK: u64 = (1 << 52) - 1;
 	const EXP_MASK: u64 = (1 << 11) - 1;
-	const REM_MASK: u128 = (1 << 44) - 1;
 	
 	let bits = t.to_bits();
 	let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
@@ -454,7 +453,7 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		// No integer part.
 		let nanos_tmp = ((mant as u128) << (44 + exp)) * 1_000_000_000;
 		let mut nanos = (nanos_tmp >> (44 + 52)) as u32;
-		if sign == -1. && (nanos_tmp & REM_MASK) != 0 {
+		if sign == -1. && (t * 1e9).fract() != 0. {
 			nanos += 1;
 		}
 		Time::new(0, nanos)
@@ -462,7 +461,7 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 		let secs = mant >> (52 - exp);
 		let nanos_tmp = (((mant << exp) & MANT_MASK) as u128) * 1_000_000_000;
 		let mut nanos = (nanos_tmp >> 52) as u32;
-		if sign == -1. && (nanos_tmp & REM_MASK) != 0 {
+		if sign == -1. && (t * 1e9).fract() != 0. {
 			nanos += 1;
 		}
 		Time::new(secs, nanos)
