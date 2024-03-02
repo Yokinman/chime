@@ -985,22 +985,26 @@ mod tests {
 		
 		assert_time_ranges!(
 			a_pos.when_dis(&b_pos, Ordering::Less, &dis),
+			// https://www.desmos.com/calculator/spxyoloyx9
 			[
 				(Time::ZERO, Time::from_secs_f64(0.0823337)),
-				(Time::from_secs_f64(2.46704544), Time::from_secs_f64(4.116193987))
+				(Time::from_secs_f64(2.246506069), Time::from_secs_f64(4.116193987)),
 			]
 		);
 		
 		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
-		assert_times!(
+		assert_time_ranges!(
 			a_pos.when_dis_eq(&b_pos, &2.),
-			[Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.84545191)]
+			[
+				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
+			]
 		);
 		assert_time_ranges!(
 			a_pos.when_dis(&b_pos, Ordering::Equal, &2.),
 			[
-				(Time::from_secs_f64(0.414068993), Time::from_secs_f64(0.414068993)),
-				(Time::from_secs_f64(0.84545191), Time::from_secs_f64(0.84545191))
+				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))
 			]
 		);
 		

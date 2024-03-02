@@ -488,8 +488,6 @@ fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
 pub(crate) trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
 impl<T: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
 
-const ROOT_FILTER_TRIES: usize = 100; // Arbitrary number
-
 fn root_filter_map<T, I, J>(
 	a_poly: Poly<T, I>,
 	b_poly: Poly<impl FluxKind<Value=T::Value>, J>,
@@ -502,47 +500,80 @@ where
 	J: LinearIso<T::Value>,
 {
 	move |mut time, is_end| {
-		// Covers the local range and the range immediately preceding it, but
-		// stops where the trend reverses. Careful, this logic is precise.
-		let mut next_time = if is_end {
-			time.checked_add(time::NANOSEC)?
-		} else {
-			time.checked_sub(time::NANOSEC)?
-		};
+		// Covers the zero range, but stops where the trend reverses, and also
+		// undershoots to handle rounding. Careful, this logic is precise.
+		
 		let sign = diff_poly.rate_at(time).sign();
-		for i in 0..2 {
-			if i != 0 {
-				if is_end {
+		
+		 // Rounding Buffer:
+		if !is_end {
+			loop {
+				let mut inc_time = time::NANOSEC;
+				while let Some(next_time) = time.checked_sub(inc_time) {
+					 // Rate Reversal:
+					let rate = diff_poly.rate_at(next_time);
+					if sign != rate.sign() && !rate.is_zero() {
+						if inc_time == time::NANOSEC {
+							return Some(time)
+						}
+						break
+					}
+					
+					 // Undershoot Actual Distance:
+					let mut a = a_poly.at(next_time);
+					let mut b = b_poly.at(next_time);
+					let real_diff = (a - b) * Scalar(0.5);
+					a = I::linear_id(a);
+					b = J::linear_id(b);
+					if
+						a != I::linear_id(a + real_diff) &&
+						b != J::linear_id(b + real_diff)
+					{
+						 // Undershoot Predicted Distance:
+						let pred_diff = diff_poly.at(next_time) * Scalar(0.5);
+						if
+							a != I::linear_id(a + pred_diff) &&
+							b != J::linear_id(b + pred_diff)
+						{
+							break
+						}
+					}
+					
+					time = next_time;
+					inc_time += inc_time;
+				}
+				if inc_time == time::NANOSEC {
 					break
 				}
-				time = next_time;
-				next_time = if is_end {
-					time.checked_add(time::NANOSEC)?
-				} else {
-					time.checked_sub(time::NANOSEC)?
-				};
 			}
-			let diff = if is_end {
-				T::Value::zero()
-			} else {
-				a_poly.at(time) - b_poly.at(time)
-			};
-			for _ in 0..ROOT_FILTER_TRIES {
+			
+			 // Undershoot Zero:
+			return time.checked_sub(time::NANOSEC)
+		}
+		
+		 // Fully Cover Zero Range:
+		loop {
+			let mut inc_time = time::NANOSEC;
+			while let Some(next_time) = time.checked_add(inc_time) {
+				 // Rate Reversal:
 				let rate = diff_poly.rate_at(next_time);
 				if sign != rate.sign() && !rate.is_zero() {
-					return Some(time)
-				}
-				if diff != a_poly.at(next_time) - b_poly.at(next_time) {
 					break
 				}
+				
+				 // Stop Before Change:
+				if I::linear_id(a_poly.at(next_time)) != J::linear_id(b_poly.at(next_time)) {
+					break
+				}
+				
 				time = next_time;
-				next_time = if is_end {
-					time.checked_add(time::NANOSEC)?
-				} else {
-					time.checked_sub(time::NANOSEC)?
-				};
+				inc_time += inc_time;
+			}
+			if inc_time == time::NANOSEC {
+				break
 			}
 		}
+		
 		Some(time)
 	}
 }
@@ -566,8 +597,13 @@ where
 	L: LinearIso<D::Value>,
 {
 	move |mut time, is_end| {
-		// Covers the local range, but stops where the trend reverses and
-		// undershoots to avoid rounding past. Careful, this logic is precise.
+		// Covers the zero range, but stops where the trend reverses, and also
+		// undershoots to handle rounding. Careful, this logic is precise.
+		
+		// ^ If the difference between the predicted & actual distance is below
+		// the amount of rounding a point can have, predictions can be missed.
+		// For example, a pair of IVec2 points can round towards each other
+		// up to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance.
 		
 		// !!! Tricky issue - if the peak of a value occurs near 0, and its rate
 		// of change at 0 is briefly moving away from the target value, only to
@@ -576,7 +612,8 @@ where
 		// to a value moving towards its target more than it should. This can
 		// occur repeatedly in sequence, letting a value round past its target.
 		// - Including the point at 0 would be awkward, since the rate of change
-		//   is moving away. Events shouldn't have to expect this.
+		//   is moving away. Events shouldn't have to expect this. Could there
+		//   be a level of tolerance to do with the type's rounding precision?
 		// - Rewriting all system internals to use a custom Time type, which
 		//   pairs `std::time::Duration` with a floating-point type to measure
 		//   sub-nanosecond offsets would work. One issue is that events would
@@ -586,103 +623,101 @@ where
 		//   ensure that the rounding doesn't happen. I don't really know if
 		//   this would work, and I think it would cause its own issues.
 		
-		let mut next_time = if is_end {
-			time.checked_add(time::NANOSEC)?
-		} else {
-			time.checked_sub(time::NANOSEC)?
-		};
 		let sign = diff_poly.rate_at(time).sign();
 		
 		 // Rounding Buffer:
 		if !is_end {
 			let round_factor = Scalar(0.5 / (SIZE as f64).sqrt());
-			for _ in 0..ROOT_FILTER_TRIES {
-				let rate = diff_poly.rate_at(next_time);
-				if sign != rate.sign() && !rate.is_zero() {
-					return Some(time)
-				}
-				
-				 // Calculate Accurate Distances:
-				let dis = dis_poly.at(next_time);
-				let mut a_dis = D::Value::zero();
-				let mut b_dis = D::Value::zero();
-				let mut a_diff = D::Value::zero();
-				for i in 0..SIZE {
-					let a = a_pos.index_poly(i).at(next_time);
-					let b = b_pos.index_poly(i).at(next_time);
-					a_dis = a_dis + a*a;
-					b_dis = b_dis + b*b;
-					let x = a - b;
-					a_diff = a_diff + x*x;
-				}
-				a_dis = a_dis.sqrt();
-				b_dis = b_dis.sqrt();
-				a_diff = Mul::<Scalar>::mul(a_diff.sqrt() - dis, round_factor);
-				
-				// !!! To maintain a balance, it'll need to be:
-				// - `rnd(a_dis) != rnd(a_dis + a_diff) && ..`
-				// and the individual components will need to be rounded, like:
-				// - `a_dis = a_dis + rnd(a)*rnd(a)`
-				// Don't mess with `a_diff`, it should be fine.
-				// Probably round `dis` by its own interface isomorphism.
-				
-				// !!! This could probably be refined, but it works for now:
-				if a_dis != a_dis + a_diff && b_dis != b_dis + a_diff && dis != dis + a_diff {
-					let b_diff = Mul::<Scalar>::mul(pos_poly.at(next_time).sqrt() - dis, round_factor);
-					if a_dis != a_dis + b_diff && b_dis != b_dis + b_diff && dis != dis + b_diff {
+			loop {
+				let mut inc_time = time::NANOSEC;
+				while let Some(next_time) = time.checked_sub(inc_time) {
+					 // Rate Reversal:
+					let rate = diff_poly.rate_at(next_time);
+					if sign != rate.sign() && !rate.is_zero() {
+						if inc_time == time::NANOSEC {
+							return Some(time)
+						}
 						break
 					}
+					
+					 // Calculate Actual Distances:
+					let dis = dis_poly.at(next_time);
+					let mut a_dis = D::Value::zero();
+					let mut b_dis = D::Value::zero();
+					let mut real_diff = D::Value::zero();
+					for i in 0..SIZE {
+						let a = a_pos.index_poly(i).at(next_time);
+						let b = b_pos.index_poly(i).at(next_time);
+						a_dis = a_dis + a*a;
+						b_dis = b_dis + b*b;
+						let x = a - b;
+						real_diff = real_diff + x*x;
+					}
+					a_dis = I::Value::linear_id(a_dis.sqrt());
+					b_dis = J::Value::linear_id(b_dis.sqrt());
+					real_diff = Mul::<Scalar>::mul(real_diff.sqrt() - dis, round_factor);
+					let c_dis = L::linear_id(dis);
+					
+					 // Undershoot Actual Distances:
+					if
+						a_dis != I::Value::linear_id(a_dis + real_diff) &&
+						b_dis != J::Value::linear_id(b_dis + real_diff) &&
+						c_dis != L::linear_id(c_dis + real_diff)
+					{
+						 // Undershoot Predicted Distances:
+						let pred_diff = Mul::<Scalar>::mul(
+							pos_poly.at(next_time).sqrt() - dis,
+							round_factor
+						);
+						if
+							a_dis != I::Value::linear_id(a_dis + pred_diff) &&
+							b_dis != J::Value::linear_id(b_dis + pred_diff) &&
+							c_dis != L::linear_id(c_dis + pred_diff)
+						{
+							break
+						}
+					}
+					
+					time = next_time;
+					inc_time += inc_time;
+				}
+				if inc_time == time::NANOSEC {
+					break
+				}
+			}
+			
+			 // Undershoot Zero:
+			return time.checked_sub(time::NANOSEC)
+		}
+		
+		 // Fully Cover Zero Range:
+		loop {
+			let mut inc_time = time::NANOSEC;
+			while let Some(next_time) = time.checked_add(inc_time) {
+				 // Rate Reversal:
+				let rate = diff_poly.rate_at(next_time);
+				if sign != rate.sign() && !rate.is_zero() {
+					break
+				}
+				
+				 // Stop Before Change:
+				let mut pos = D::Value::zero();
+				for i in 0..SIZE {
+					let x = I::Value::linear_id(a_pos.index_poly(i).at(next_time))
+						- J::Value::linear_id(b_pos.index_poly(i).at(next_time));
+					pos = pos + x*x;
+				}
+				let dis = L::linear_id(dis_poly.at(next_time));
+				if pos != dis*dis {
+					break
 				}
 				
 				time = next_time;
-				next_time = if is_end {
-					time.checked_add(time::NANOSEC)?
-				} else {
-					time.checked_sub(time::NANOSEC)?
-				};
+				inc_time += inc_time;
 			}
-			time = next_time;
-			next_time = if is_end {
-				time.checked_add(time::NANOSEC)?
-			} else {
-				time.checked_sub(time::NANOSEC)?
-			};
-		}
-		
-		 // Fully Cover Local Range:
-		let mut diff = D::Value::zero();
-		if !is_end {
-			for i in 0..SIZE {
-				let x = a_pos.index_poly(i).at(time) - b_pos.index_poly(i).at(time);
-				diff = diff + x*x;
-			}
-			let dis = dis_poly.at(time);
-			diff = diff - dis*dis;
-		}
-		for _ in 0..ROOT_FILTER_TRIES {
-			let rate = diff_poly.rate_at(next_time);
-			if sign != rate.sign() && !rate.is_zero() {
-				return Some(time)
-			}
-			
-			 // Calculate Accurate Distance:
-			let mut pos = D::Value::zero();
-			for i in 0..SIZE {
-				let x = a_pos.index_poly(i).at(next_time) - b_pos.index_poly(i).at(next_time);
-				pos = pos + x*x;
-			}
-			let dis = dis_poly.at(next_time);
-			
-			if diff != pos - dis*dis {
+			if inc_time == time::NANOSEC {
 				break
 			}
-			
-			time = next_time;
-			next_time = if is_end {
-				time.checked_add(time::NANOSEC)?
-			} else {
-				time.checked_sub(time::NANOSEC)?
-			};
 		}
 		
 		Some(time)
