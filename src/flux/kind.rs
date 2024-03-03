@@ -500,68 +500,24 @@ where
 	J: LinearIso<T::Value>,
 {
 	move |mut time, is_end| {
-		// Covers the zero range, but stops where the trend reverses, and also
-		// undershoots to handle rounding. Careful, this logic is precise.
+		// Covers the range of equality, but stops where the trend reverses.
 		
 		let sign = diff_poly.rate_at(time).sign();
 		
-		 // Rounding Buffer:
-		if !is_end {
-			loop {
-				let mut inc_time = time::NANOSEC;
-				while let Some(next_time) = time.checked_sub(inc_time) {
-					 // Rate Reversal:
-					let rate = diff_poly.rate_at(next_time);
-					if sign != rate.sign() && !rate.is_zero() {
-						if inc_time == time::NANOSEC {
-							return Some(time)
-						}
-						break
-					}
-					
-					 // Undershoot Actual Distance:
-					let mut a = a_poly.at(next_time);
-					let mut b = b_poly.at(next_time);
-					let real_diff = (a - b) * Scalar(0.5);
-					a = I::linear_id(a);
-					b = J::linear_id(b);
-					if
-						a != I::linear_id(a + real_diff) &&
-						b != J::linear_id(b + real_diff)
-					{
-						 // Undershoot Predicted Distance:
-						let pred_diff = diff_poly.at(next_time) * Scalar(0.5);
-						if
-							a != I::linear_id(a + pred_diff) &&
-							b != J::linear_id(b + pred_diff)
-						{
-							break
-						}
-					}
-					
-					time = next_time;
-					inc_time += inc_time;
-				}
-				if inc_time == time::NANOSEC {
-					break
-				}
-			}
-			
-			 // Undershoot Zero:
-			return time.checked_sub(time::NANOSEC)
-		}
-		
-		 // Fully Cover Zero Range:
 		loop {
 			let mut inc_time = time::NANOSEC;
-			while let Some(next_time) = time.checked_add(inc_time) {
-				 // Rate Reversal:
+			while let Some(next_time) = if is_end {
+				time.checked_add(inc_time)
+			} else {
+				time.checked_sub(inc_time)
+			} {
+				 // Stop Before Rate Reverses:
 				let rate = diff_poly.rate_at(next_time);
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
 				
-				 // Stop Before Change:
+				 // Stop Before Inequality:
 				if I::linear_id(a_poly.at(next_time)) != J::linear_id(b_poly.at(next_time)) {
 					break
 				}
@@ -597,13 +553,10 @@ where
 	L: LinearIso<D::Value>,
 {
 	move |mut time, is_end| {
-		// Covers the zero range, but stops where the trend reverses, and also
-		// undershoots to handle rounding. Careful, this logic is precise.
-		
-		// ^ If the difference between the predicted & actual distance is below
-		// the amount of rounding a point can have, predictions can be missed.
-		// For example, a pair of IVec2 points can round towards each other
-		// up to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance.
+		// Covers the range of equality, but stops where the trend reverses.
+		// To handle rounding, the lower bound of equality is undershot.
+		// > For example, a pair of IVec2 points can round towards each other up
+		// > to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
 		// !!! Tricky issue - if the peak of a value occurs near 0, and its rate
 		// of change at 0 is briefly moving away from the target value, only to
@@ -631,7 +584,7 @@ where
 			loop {
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
-					 // Rate Reversal:
+					 // Stop Before Rate Reverses:
 					let rate = diff_poly.rate_at(next_time);
 					if sign != rate.sign() && !rate.is_zero() {
 						if inc_time == time::NANOSEC {
@@ -686,21 +639,20 @@ where
 				}
 			}
 			
-			 // Undershoot Zero:
-			return time.checked_sub(time::NANOSEC)
+			return Some(time)
 		}
 		
 		 // Fully Cover Zero Range:
 		loop {
 			let mut inc_time = time::NANOSEC;
 			while let Some(next_time) = time.checked_add(inc_time) {
-				 // Rate Reversal:
+				 // Stop Before Rate Reverses:
 				let rate = diff_poly.rate_at(next_time);
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
 				
-				 // Stop Before Change:
+				 // Stop Before Inequality:
 				let mut pos = D::Value::zero();
 				for i in 0..SIZE {
 					let x = I::Value::linear_id(a_pos.index_poly(i).at(next_time))
