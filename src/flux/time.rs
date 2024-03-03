@@ -92,15 +92,16 @@ impl<I: TimeIter> Times<I> {
 					self.heap.push(Reverse(t));
 					
 					 // Flip Order:
-					if t >= basis {
-						if self.doubled_time.is_some() && t == basis {
+					if self.doubled_time.is_some() {
+						if t == Time::ZERO {
 							*order = Ordering::Greater;
-						}
-						if !is_finite {
+						} else if !is_finite {
 							break
 						}
-					} else if self.doubled_time.is_none() {
+					} else if t < basis {
 						*order = order.reverse();
+					} else if !is_finite {
+						break
 					}
 				} else {
 					break
@@ -212,6 +213,8 @@ where
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some((time, is_end)) = self.times.pop_doubled() {
+			// !!! The whole concept of order for TimeRanges needs to be
+			// reworked in some way to account for filters returning None.
 			(self.filter)(time, is_end)
 				.and_then(|t| if is_end {
 					t.checked_add(NANOSEC)
