@@ -30,11 +30,11 @@ pub trait FluxKind:
 	
 	fn to_time(self, time: Scalar) -> Self;
 	
-	/// The order at or immediately preceding the value at time=0.
+	/// The order at or immediately preceding the value at a time.
 	/// 
-	/// This should be the first non-zero [`FluxKind::value`] of this kind or
-	/// its derivatives; reversed for odd derivatives.
-	fn initial_order(&self) -> Option<Ordering>
+	/// This should be the first non-zero [`FluxKind::at`] value of this kind
+	/// or its derivatives; reversed for odd derivatives.
+	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd;
 	
@@ -241,6 +241,17 @@ impl<K: FluxKind, I> Poly<K, I> {
 		}
 		self
 	}
+	
+	pub fn initial_order(&self, time: Time) -> Option<Ordering>
+	where
+		K::Value: PartialOrd
+	{
+		self.inner.initial_order(Scalar(if time > self.time {
+			(time - self.time).as_secs_f64()
+		} else {
+			-(self.time - time).as_secs_f64()
+		}))
+	}
 }
 
 impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
@@ -271,10 +282,14 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
-		let basis_order = self.inner.initial_order().unwrap_or(Ordering::Equal);
-		let times = self.inner.roots().into_times()
-			.filter_map(move |t| t.try_into_time(basis).ok());
-		TimeRanges::new(times, basis, basis_order, order)
+		let mut times = self.inner.roots().into_times()
+			.filter_map(move |t| t.try_into_time(basis).ok())
+			.peekable();
+		let initial_time = times.peek().copied().unwrap_or(Time::ZERO);
+		let basis_order = self
+			.initial_order(initial_time)
+			.unwrap_or(Ordering::Equal);
+		TimeRanges::new(times, initial_time, basis_order, order)
 			.into_filtered(f)
 	}
 	

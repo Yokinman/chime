@@ -130,30 +130,40 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		self
 	}
 	
-	fn initial_order(&self) -> Option<Ordering>
+	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
 		Self::Value: PartialOrd
 	{
-		let order = self.iter()
-			.enumerate()
-			.find_map(|(degree, x)| {
-				let order = x.partial_cmp(&T::zero());
-				if order != Some(Ordering::Equal) {
-					if degree % 2 == 0 {
-						order
-					} else {
-						order.map(|o| o.reverse())
-					}
-				} else {
-					None
-				}
-			});
-		
-		if order.is_none() && self.is_zero() {
-			Some(Ordering::Equal)
-		} else {
-			order
+		if self.is_zero() {
+			return Some(Ordering::Equal)
 		}
+		
+		let order = self.at(time).partial_cmp(&T::zero());
+		if order != Some(Ordering::Equal) || D == 0 {
+			return order
+		}
+		
+		// !!! Alternative: Translate polynomial using `to_time` and then check
+		// leading terms in order. Unknown which is more precise/faster.
+		let mut deriv = *self;
+		for degree in 1..=D {
+			deriv.0 = deriv.1[0];
+			for d in 1..D {
+				deriv.1[d-1] = deriv.1[d] * Scalar((d+1) as f64)
+			}
+			deriv.1[D-1] = T::zero();
+			
+			let order = deriv.at(time).partial_cmp(&T::zero());
+			if order != Some(Ordering::Equal) {
+				return if degree % 2 == 0 {
+					order
+				} else {
+					order.map(Ordering::reverse)
+				}
+			}
+		}
+		
+		None
 	}
 	
 	fn zero() -> Self {

@@ -612,7 +612,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn to_time(self, _time: Scalar) -> Self {
 		self
 	}
-	fn initial_order(&self) -> Option<Ordering> where T: PartialOrd {
+	fn initial_order(&self, _time: Scalar) -> Option<Ordering> where T: PartialOrd {
 		self.0.partial_cmp(&T::zero())
 	}
 	fn zero() -> Self {
