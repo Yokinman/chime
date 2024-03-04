@@ -253,9 +253,12 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// All real-valued roots of this polynomial.
-	pub fn real_roots(&self) -> impl Iterator<Item=f64> + Send + Sync + Clone
+	#[allow(dead_code)]
+	pub(crate) fn real_roots(&self) -> impl Iterator<Item=f64> + Send + Sync + Clone
 	where
-		K: Roots
+		K: Roots,
+		<K as Roots>::Output: IntoIterator<Item=f64>,
+		<<K as Roots>::Output as IntoIterator>::IntoIter: Send + Sync + Clone,
 	{
 		self.inner.roots().into_iter()
 			.filter(|r| r.is_finite())
@@ -269,8 +272,8 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	{
 		let basis = self.time;
 		let basis_order = self.inner.initial_order().unwrap_or(Ordering::Equal);
-		let times = self.real_roots()
-			.filter_map(move |x| time_try_from_secs(x, basis).ok());
+		let times = self.inner.roots().into_times()
+			.filter_map(move |t| t.try_into_time(basis).ok());
 		TimeRanges::new(times, basis, basis_order, order)
 			.into_filtered(f)
 	}
@@ -287,8 +290,8 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		} else {
 			Ordering::Greater
 		};
-		let times = self.real_roots()
-			.filter_map(move |x| time_try_from_secs(x, basis).ok());
+		let times = self.inner.roots().into_times()
+			.filter_map(move |t| t.try_into_time(basis).ok());
 		TimeRanges::new(times, basis, basis_order, Ordering::Equal)
 			.into_filtered(f)
 	}
@@ -423,64 +426,107 @@ impl<const SIZE: usize, K: FluxKindVec<SIZE>, I: LinearIsoVec<SIZE, K::Value>> P
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
 pub trait Roots: FluxKind {
-	type Output: IntoIterator<Item=f64, IntoIter = <Self as Roots>::IntoIter>;
-	type IntoIter: Iterator<Item=f64> + Send + Sync + Clone;
-	// !!! Item=Self::Value (requires Self::Value to implement some kind of
-	// time conversion method)
+	type Output: IntoTimes;
 	fn roots(self) -> <Self as Roots>::Output;
 }
 
-/// `Duration::try_from_secs_f64`, but always rounds down.
-fn time_try_from_secs(mut t: f64, basis: Time) -> Result<Time, Time> {
-	let sign = t.signum();
-	t *= sign;
+/// Conversion from some [`Roots::Output`] into an iterator of time.
+pub trait IntoTimes {
+	type TimeIter: Iterator<Item=LinearTime> + Send + Sync + Clone;
+	fn into_times(self) -> Self::TimeIter;
+}
+
+impl<const N: usize> IntoTimes for [f64; N] {
+	type TimeIter = std::array::IntoIter<LinearTime, N>;
+	fn into_times(self) -> Self::TimeIter {
+		let mut times = self.map(LinearTime::from_secs_f64);
+		times.sort_unstable();
+		times.into_iter()
+	}
+}
+
+/// Interface for creating [`Time`] values to override conversion.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct LinearTime(f64);
+
+impl LinearTime {
+	pub fn from_secs_f64(secs: f64) -> Self {
+		Self(secs)
+	}
 	
-	const MANT_MASK: u64 = (1 << 52) - 1;
-	const EXP_MASK: u64 = (1 << 11) - 1;
-	
-	let bits = t.to_bits();
-	let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
-	let exp = (((bits >> 52) & EXP_MASK) as i16) - 1023;
-	
-	let time = if exp < -30 {
-		// Too small; `1ns < 2s^-30`.
-		if sign == -1. && t != 0. {
-			Time::new(0, 1)
+	/// Conversion into [`Time`], but always rounds down.
+	pub(crate) fn try_into_time(self, basis: Time) -> Result<Time, Time> {
+		let LinearTime(mut t) = self;
+		let sign = t.signum();
+		t *= sign;
+		
+		const MANT_MASK: u64 = (1 << 52) - 1;
+		const EXP_MASK: u64 = (1 << 11) - 1;
+		
+		let bits = t.to_bits();
+		let mant = (bits & MANT_MASK) | (MANT_MASK + 1);
+		let exp = (((bits >> 52) & EXP_MASK) as i16) - 1023;
+		
+		let time = if exp < -30 {
+			// Too small; `1ns < 2s^-30`.
+			if sign == -1. && t != 0. {
+				Time::new(0, 1)
+			} else {
+				Time::ZERO
+			}
+		} else if exp < 0 {
+			// No integer part.
+			let nanos_tmp = ((mant as u128) << (44 + exp)) * 1_000_000_000;
+			let mut nanos = (nanos_tmp >> (44 + 52)) as u32;
+			if sign == -1. && (t * 1e9).fract() != 0. {
+				nanos += 1;
+			}
+			Time::new(0, nanos)
+		} else if exp < 52 {
+			let secs = mant >> (52 - exp);
+			let nanos_tmp = (((mant << exp) & MANT_MASK) as u128) * 1_000_000_000;
+			let mut nanos = (nanos_tmp >> 52) as u32;
+			if sign == -1. && (t * 1e9).fract() != 0. {
+				nanos += 1;
+			}
+			Time::new(secs, nanos)
+		} else if exp < 64 {
+			// No fractional part.
+			Time::from_secs(mant << (exp - 52))
 		} else {
-			Time::ZERO
-		}
-	} else if exp < 0 {
-		// No integer part.
-		let nanos_tmp = ((mant as u128) << (44 + exp)) * 1_000_000_000;
-		let mut nanos = (nanos_tmp >> (44 + 52)) as u32;
-		if sign == -1. && (t * 1e9).fract() != 0. {
-			nanos += 1;
-		}
-		Time::new(0, nanos)
-	} else if exp < 52 {
-		let secs = mant >> (52 - exp);
-		let nanos_tmp = (((mant << exp) & MANT_MASK) as u128) * 1_000_000_000;
-		let mut nanos = (nanos_tmp >> 52) as u32;
-		if sign == -1. && (t * 1e9).fract() != 0. {
-			nanos += 1;
-		}
-		Time::new(secs, nanos)
-	} else if exp < 64 {
-		// No fractional part.
-		Time::from_secs(mant << (exp - 52))
-	} else {
-		// Too big.
-		return if sign == -1. {
-			Err(Time::ZERO)
+			// Too big.
+			return if sign == -1. {
+				Err(Time::ZERO)
+			} else {
+				Err(Time::MAX)
+			}
+		};
+		
+		if sign == -1. {
+			basis.checked_sub(time).ok_or(Time::ZERO)
 		} else {
-			Err(Time::MAX)
+			basis.checked_add(time).ok_or(Time::MAX)
 		}
-	};
-	
-	if sign == -1. {
-		basis.checked_sub(time).ok_or(Time::ZERO)
-	} else {
-		basis.checked_add(time).ok_or(Time::MAX)
+	}
+}
+
+impl Ord for LinearTime {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.0.total_cmp(&other.0)
+	}
+}
+
+impl PartialOrd for LinearTime {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Eq for LinearTime {}
+
+impl PartialEq for LinearTime {
+	fn eq(&self, other: &Self) -> bool {
+		self.cmp(other) == Ordering::Equal
 	}
 }
 

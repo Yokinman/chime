@@ -308,7 +308,6 @@ impl_deg_order!(1);
 
 impl Roots for Sum<f64, 0> {
 	type Output = [f64; 0];
-	type IntoIter = <[f64; 0] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		[]
 	}
@@ -316,7 +315,6 @@ impl Roots for Sum<f64, 0> {
 
 impl Roots for Sum<f64, 1> {
 	type Output = [f64; 1];
-	type IntoIter = <[f64; 1] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b]) = self;
 		[-a / b]
@@ -325,7 +323,6 @@ impl Roots for Sum<f64, 1> {
 
 impl Roots for Sum<f64, 2> {
 	type Output = [f64; 2];
-	type IntoIter = <[f64; 2] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c]) = self;
 		let mut n = -b / c;
@@ -349,7 +346,6 @@ impl Roots for Sum<f64, 2> {
 
 impl Roots for Sum<f64, 3> {
 	type Output = [f64; 3];
-	type IntoIter = <[f64; 3] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d]) = self;
 		
@@ -441,7 +437,6 @@ impl Roots for Sum<f64, 3> {
 
 impl Roots for Sum<f64, 4> {
 	type Output = [f64; 4];
-	type IntoIter = <[f64; 4] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let Sum(a, [b, c, d, e]) = self;
 		
@@ -534,10 +529,10 @@ impl Roots for Sum<f64, 4> {
 #[cfg(feature = "glam")]
 impl<const D: usize> Roots for Sum<glam::DVec2, D>
 where
-	Sum<f64, D>: FluxKind<Value=f64> + Roots
+	Sum<f64, D>: FluxKind<Value=f64> + Roots,
+	<Sum<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
 {
 	type Output = [f64; D];
-	type IntoIter = <[f64; D] as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut root_list = [f64::NAN; D];
 		let mut root_count = 0;
@@ -582,7 +577,6 @@ where
 	Sum<T, D>: FluxKind<Value=T> + Roots
 {
 	type Output = <Sum<T, D> as Roots>::Output;
-	type IntoIter = <<Self as Roots>::Output as IntoIterator>::IntoIter;
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut b_poly = Sum::zero();
 		let mut iter = self.into_iter();
@@ -691,7 +685,9 @@ mod tests {
 	
 	fn assert_roots<K: FluxKind>(p: K, expected_roots: &[f64])
 	where
-		K: Roots
+		K: Roots,
+		<K as Roots>::Output: IntoIterator<Item=f64>,
+		<<K as Roots>::Output as IntoIterator>::IntoIter: Send + Sync + Clone,
 	{
 		let mut r = Poly::from(p).real_roots().into_iter()
 			.collect::<Vec<f64>>();
