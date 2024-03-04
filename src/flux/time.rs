@@ -348,6 +348,15 @@ impl<I: TimeIter> TimeRanges<I> {
 			basis: self.basis,
 		}
 	}
+	
+	/// Decrements the lower bound of each range by 1 nanosecond.  
+	pub fn pre(self) -> TimeRanges<impl TimeIter> {
+		self.into_filtered(|t, is_end| if is_end {
+			Some(t)
+		} else {
+			t.checked_sub(NANOSEC)
+		})
+	}
 }
 
 impl From<Time> for TimeRanges<std::iter::Once<Time>> {
