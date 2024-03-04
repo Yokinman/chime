@@ -1,8 +1,7 @@
 //! Working with time.
 
 use std::ops::{BitAnd, BitOr, BitXor, Bound, Not, RangeBounds};
-use std::cmp::{Ordering, Reverse};
-use std::collections::BinaryHeap;
+use std::cmp::Ordering;
 
 /// An amount of time.
 pub type Time = std::time::Duration;
@@ -34,7 +33,6 @@ impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 #[must_use]
 #[derive(Clone)]
 pub(crate) struct Times<I> {
-	heap: BinaryHeap<Reverse<Time>>,
 	iter: I,
 	next_time: Option<Time>,
 	
@@ -53,7 +51,6 @@ impl<I: TimeIter> Times<I> {
 		basis_order: &mut Ordering
 	) -> Self {
 		let mut times = Self {
-			heap: BinaryHeap::new(),
 			iter: iter.into_iter(),
 			next_time: None,
 			doubled_time: None,
@@ -62,45 +59,32 @@ impl<I: TimeIter> Times<I> {
 			*basis_order = Ordering::Less;
 			times.doubled_time = Some(None);
 		}
-		times.fill_heap(basis, basis_order);
+		times.shift_basis(basis, basis_order);
 		times.pop();
 		times
 	}
 	
-	fn fill_heap(&mut self, basis: Time, order: &mut Ordering) {
-		//! Consumes the iterator into a binary heap if it has a known upper
-		//! limit. Otherwise, it just maintains a minimum heap size.
-		
-		let mut is_finite = true;
+	fn shift_basis(&mut self, basis: Time, order: &mut Ordering) {
+		//! Moves the basis to the first time value. 
 		
 		let size = match self.iter.size_hint() {
-			(_, Some(size @ ..=256)) => size,
-			(_, Some(_)) => {
-				is_finite = false;
-				256
-			},
-			(size, None) => {
-				is_finite = false;
-				size + 4
-			},
+			(_, Some(size)) => size,
+			(size, None) => size + 4,
 		};
 		
 		if size != 0 {
-			self.heap.reserve(size);
+			assert!(size < 256, "think about this later");
+			let mut iter = self.iter.clone();
 			for _ in 0..size {
-				if let Some(t) = self.iter.next() {
-					self.heap.push(Reverse(t));
-					
-					 // Flip Order:
+				if let Some(t) = iter.next() {
 					if self.doubled_time.is_some() {
 						if t == Time::ZERO {
-							*order = Ordering::Greater;
-						} else if !is_finite {
-							break
+							*order = order.reverse();
 						}
+						break
 					} else if t < basis {
 						*order = order.reverse();
-					} else if !is_finite {
+					} else {
 						break
 					}
 				} else {
@@ -119,12 +103,7 @@ impl<I: TimeIter> Times<I> {
 					.or_else(|| self.pop())
 			}
 		} else {
-			let time = if let Some(Reverse(t)) = self.heap.pop() {
-				Some(t)
-			} else {
-				self.iter.next()
-			};
-			std::mem::replace(&mut self.next_time, time)
+			std::mem::replace(&mut self.next_time, self.iter.next())
 		}
 	}
 	
@@ -190,11 +169,7 @@ impl<I: TimeIter> Iterator for Times<I> {
 		None
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let (_, upper) = self.iter.size_hint();
-		(0, upper.map(|x| x + self.heap.len()))
-	}
-	fn count(self) -> usize {
-		self.iter.count() + self.heap.len()
+		(0, self.iter.size_hint().1)
 	}
 }
 
