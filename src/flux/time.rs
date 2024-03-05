@@ -42,56 +42,17 @@ pub(crate) struct Times<I> {
 
 impl<I: TimeIter> Times<I> {
 	pub fn new(iter: impl IntoIterator<IntoIter=I>) -> Self {
-		Self::with_basis(iter, Time::ZERO, &mut Ordering::Less)
+		Self::with_basis(iter)
 	}
 	
-	pub fn with_basis(
-		iter: impl IntoIterator<IntoIter=I>,
-		basis: Time,
-		basis_order: &mut Ordering
-	) -> Self {
+	pub fn with_basis(iter: impl IntoIterator<IntoIter=I>) -> Self {
 		let mut times = Self {
 			iter: iter.into_iter(),
 			next_time: None,
 			doubled_time: None,
 		};
-		if basis_order.is_eq() {
-			*basis_order = Ordering::Less;
-			times.doubled_time = Some(None);
-		}
-		times.shift_basis(basis, basis_order);
 		times.pop();
 		times
-	}
-	
-	fn shift_basis(&mut self, basis: Time, order: &mut Ordering) {
-		//! Moves the basis to the first time value. 
-		
-		let size = match self.iter.size_hint() {
-			(_, Some(size)) => size,
-			(size, None) => size + 4,
-		};
-		
-		if size != 0 {
-			assert!(size < 256, "think about this later");
-			let mut iter = self.iter.clone();
-			for _ in 0..size {
-				if let Some(t) = iter.next() {
-					if self.doubled_time.is_some() {
-						if t == Time::ZERO {
-							*order = order.reverse();
-						}
-						break
-					} else if t < basis {
-						*order = order.reverse();
-					} else {
-						break
-					}
-				} else {
-					break
-				}
-			}
-		}
 	}
 	
 	fn pop(&mut self) -> Option<Time> {
@@ -223,7 +184,6 @@ impl TimeRanges<std::iter::Empty<Time>> {
 	pub fn empty() -> TimeRanges<std::iter::Empty<Time>> {
 		Self::new(
 			std::iter::empty(),
-			Time::ZERO,
 			Ordering::Greater,
 			Ordering::Equal
 		)
@@ -258,26 +218,22 @@ impl TimeRanges<std::iter::Chain<std::option::IntoIter<Time>, std::option::IntoI
 				}
 				TimeRanges::new(
 					Some(a).into_iter().chain(Some(b)),
-					Time::ZERO,
 					Ordering::Greater,
 					Ordering::Less
 				)
 			},
 			(Bound::Excluded(a), Bound::Unbounded) => TimeRanges::new(
 				Some(a).into_iter().chain(None),
-				Time::ZERO,
 				Ordering::Greater,
 				Ordering::Less
 			),
 			(Bound::Unbounded, Bound::Excluded(b)) => TimeRanges::new(
 				Some(b).into_iter().chain(None),
-				Time::ZERO,
 				Ordering::Greater,
 				Ordering::Greater
 			),
 			(Bound::Unbounded, Bound::Unbounded) => TimeRanges::new(
 				None.into_iter().chain(None),
-				Time::ZERO,
 				Ordering::Greater,
 				Ordering::Greater
 			),
@@ -289,19 +245,20 @@ impl TimeRanges<std::iter::Chain<std::option::IntoIter<Time>, std::option::IntoI
 impl<I: TimeIter> TimeRanges<I> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
-		basis: Time,
-		basis_order: Ordering,
-		order: Ordering,
+		initial_order: Ordering,
+		border: Ordering,
 	) -> TimeRanges<I>
 	{
-		let mut order = if order == basis_order {
-			Ordering::Greater
-		} else if order == Ordering::Equal {
-			Ordering::Equal
-		} else {
-			Ordering::Less
-		};
-		let times = Times::with_basis(iter, basis, &mut order);
+		let mut times = Times::with_basis(iter);
+		let mut order = Ordering::Less;
+		if border == initial_order {
+			order = Ordering::Greater;
+		} else if border == Ordering::Equal {
+			if times.next_time == Some(Time::ZERO) {
+				order = Ordering::Greater;
+			}
+			times.doubled_time = Some(None);
+		}
 		TimeRanges {
 			times,
 			order,
@@ -338,7 +295,6 @@ impl From<Time> for TimeRanges<std::iter::Once<Time>> {
 	fn from(value: Time) -> Self {
 		TimeRanges::new(
 			std::iter::once(value),
-			Time::ZERO,
 			Ordering::Greater,
 			Ordering::Equal
 		)
@@ -415,7 +371,6 @@ impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
 					| (((rhs.order == Ordering::Greater) as u8) << 1),
 				has_extra: false,
 			},
-			Time::ZERO,
 			Ordering::Greater,
 			self.order.min(rhs.order),
 		)
@@ -434,7 +389,6 @@ impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
 					| (((rhs.order == Ordering::Greater) as u8) << 1)),
 				has_extra: false,
 			},
-			Time::ZERO,
 			Ordering::Greater,
 			self.order.max(rhs.order),
 		)
@@ -453,7 +407,6 @@ impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
 					| (((rhs.order == Ordering::Greater) as u8) << 1),
 				extra: None,
 			},
-			Time::ZERO,
 			Ordering::Greater,
 			if self.order == rhs.order {
 				Ordering::Less
@@ -476,7 +429,6 @@ impl<I: TimeIter> Not for TimeRanges<I> {
 				extra: None,
 				prev: Time::ZERO,
 			},
-			Time::ZERO,
 			Ordering::Greater,
 			self.order.reverse(),
 		)
@@ -835,9 +787,9 @@ mod tests {
 	#[test]
 	fn range_logic() {
 		let t = SEC;
-		let a = TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Time::ZERO, Ordering::Less, Ordering::Less);
-		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Time::ZERO, Ordering::Less, Ordering::Greater);
-		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], 20*t, Ordering::Greater, Ordering::Equal);
+		let a = TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
+		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
+		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
 		assert_eq!(Vec::from_iter(a.clone()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
@@ -958,7 +910,6 @@ mod tests {
 		
 		let ranges = TimeRanges::new(
 			RootIter(roots.into_iter()),
-			Time::ZERO,
 			Ordering::Greater,
 			Ordering::Less,
 		);
@@ -972,7 +923,6 @@ mod tests {
 		
 		let b_ranges = TimeRanges::new(
 			RootIter(b_roots.into_iter()),
-			Time::ZERO,
 			Ordering::Greater,
 			Ordering::Less,
 		);

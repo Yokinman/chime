@@ -285,11 +285,10 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		let mut times = self.inner.roots().into_times()
 			.filter_map(move |t| t.try_into_time(basis).ok())
 			.peekable();
-		let initial_time = times.peek().copied().unwrap_or(Time::ZERO);
-		let basis_order = self
-			.initial_order(initial_time)
+		let initial_order = self
+			.initial_order(times.peek().copied().unwrap_or(Time::ZERO))
 			.unwrap_or(Ordering::Equal);
-		TimeRanges::new(times, initial_time, basis_order, order)
+		TimeRanges::new(times, initial_order, order)
 			.into_filtered(f)
 	}
 	
@@ -307,7 +306,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		};
 		let times = self.inner.roots().into_times()
 			.filter_map(move |t| t.try_into_time(basis).ok());
-		TimeRanges::new(times, basis, basis_order, Ordering::Equal)
+		TimeRanges::new(times, basis_order, Ordering::Equal)
 			.into_filtered(f)
 	}
 }
