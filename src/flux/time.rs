@@ -177,7 +177,6 @@ where
 pub struct TimeRanges<I> {
 	times: Times<I>,
 	is_end: bool,
-	basis: Option<Time>,
 }
 
 impl TimeRanges<std::iter::Empty<Time>> {
@@ -246,14 +245,14 @@ impl<I: TimeIter> TimeRanges<I> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
 		initial_order: Ordering,
-		border: Ordering,
+		order: Ordering,
 	) -> TimeRanges<I>
 	{
 		let mut times = Times::with_basis(iter);
 		let mut is_end = false;
-		if border == initial_order {
+		if order == initial_order {
 			is_end = true;
-		} else if border == Ordering::Equal {
+		} else if order.is_eq() {
 			if times.next_time == Some(Time::ZERO) {
 				is_end = true;
 			}
@@ -262,7 +261,6 @@ impl<I: TimeIter> TimeRanges<I> {
 		TimeRanges {
 			times,
 			is_end,
-			basis: Some(Time::ZERO),
 		}
 	}
 	
@@ -277,7 +275,6 @@ impl<I: TimeIter> TimeRanges<I> {
 				is_end: self.is_end,
 			}),
 			is_end: self.is_end,
-			basis: self.basis,
 		}
 	}
 	
@@ -310,11 +307,9 @@ impl Default for TimeRanges<std::iter::Empty<Time>> {
 impl<I: TimeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
-		let basis = self.basis?;
 		let range = if self.is_end {
 			self.is_end = false;
 			if let Some(b) = self.times.pop() {
-				assert!(basis <= b, "times must be ordered: {:?}", (basis, b));
 				if b == Time::ZERO {
 					self.next()
 				} else {
@@ -326,7 +321,6 @@ impl<I: TimeIter> Iterator for TimeRanges<I> {
 		} else {
 			let mut range = None;
 			while let Some(a) = self.times.pop() {
-				assert!(basis <= a, "times must be ordered: {:?}", (basis, a));
 				range = if let Some(b) = self.times.pop() {
 					assert!(a <= b, "times must be ordered: {:?}", (a, b));
 					
@@ -347,7 +341,6 @@ impl<I: TimeIter> Iterator for TimeRanges<I> {
 		};
 		
 		if let Some((a, b)) = range {
-			self.basis = b.checked_add(NANOSEC);
 			Some((a, b))
 		} else {
 			None
