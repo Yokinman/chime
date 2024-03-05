@@ -176,7 +176,7 @@ where
 #[derive(Clone)]
 pub struct TimeRanges<I> {
 	times: Times<I>,
-	order: Ordering,
+	is_end: bool,
 	basis: Option<Time>,
 }
 
@@ -250,18 +250,18 @@ impl<I: TimeIter> TimeRanges<I> {
 	) -> TimeRanges<I>
 	{
 		let mut times = Times::with_basis(iter);
-		let mut order = Ordering::Less;
+		let mut is_end = false;
 		if border == initial_order {
-			order = Ordering::Greater;
+			is_end = true;
 		} else if border == Ordering::Equal {
 			if times.next_time == Some(Time::ZERO) {
-				order = Ordering::Greater;
+				is_end = true;
 			}
 			times.doubled_time = Some(None);
 		}
 		TimeRanges {
 			times,
-			order,
+			is_end,
 			basis: Some(Time::ZERO),
 		}
 	}
@@ -274,9 +274,9 @@ impl<I: TimeIter> TimeRanges<I> {
 			times: Times::new(TimeFilter {
 				times: self.times,
 				filter: f,
-				is_end: self.order.is_gt(),
+				is_end: self.is_end,
 			}),
-			order: self.order,
+			is_end: self.is_end,
 			basis: self.basis,
 		}
 	}
@@ -311,8 +311,8 @@ impl<I: TimeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
 		let basis = self.basis?;
-		let range = if self.order == Ordering::Greater {
-			self.order = Ordering::Less;
+		let range = if self.is_end {
+			self.is_end = false;
 			if let Some(b) = self.times.pop() {
 				assert!(basis <= b, "times must be ordered: {:?}", (basis, b));
 				if b == Time::ZERO {
@@ -367,12 +367,15 @@ impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
 		TimeRanges::new(
 			JoinedTimeRanges {
 				iter: OrdTimes::new(self.times, rhs.times),
-				flag: ((self.order == Ordering::Greater) as u8)
-					| (((rhs.order == Ordering::Greater) as u8) << 1),
+				flag: (self.is_end as u8) | ((rhs.is_end as u8) << 1),
 				has_extra: false,
 			},
 			Ordering::Greater,
-			self.order.min(rhs.order),
+			if self.is_end & rhs.is_end {
+				Ordering::Greater
+			} else {
+				Ordering::Less
+			},
 		)
 	}
 }
@@ -385,12 +388,15 @@ impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
 		TimeRanges::new(
 			JoinedTimeRanges {
 				iter: OrdTimes::new(self.times, rhs.times),
-				flag: !(((self.order == Ordering::Greater) as u8)
-					| (((rhs.order == Ordering::Greater) as u8) << 1)),
+				flag: !((self.is_end as u8) | ((rhs.is_end as u8) << 1)),
 				has_extra: false,
 			},
 			Ordering::Greater,
-			self.order.max(rhs.order),
+			if self.is_end | rhs.is_end {
+				Ordering::Greater
+			} else {
+				Ordering::Less
+			},
 		)
 	}
 }
@@ -403,16 +409,15 @@ impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
 		TimeRanges::new(
 			SplitTimeRanges {
 				iter: OrdTimes::new(self.times, rhs.times),
-				flag: ((self.order == Ordering::Greater) as u8)
-					| (((rhs.order == Ordering::Greater) as u8) << 1),
+				flag: (self.is_end as u8) | ((rhs.is_end as u8) << 1),
 				extra: None,
 			},
 			Ordering::Greater,
-			if self.order == rhs.order {
-				Ordering::Less
-			} else {
+			if self.is_end ^ rhs.is_end {
 				Ordering::Greater
-			}
+			} else {
+				Ordering::Less
+			},
 		)
 	}
 }
@@ -425,12 +430,16 @@ impl<I: TimeIter> Not for TimeRanges<I> {
 		TimeRanges::new(
 			InvTimes {
 				iter: self.times,
-				flag: self.order == Ordering::Greater,
+				flag: self.is_end,
 				extra: None,
 				prev: Time::ZERO,
 			},
 			Ordering::Greater,
-			self.order.reverse(),
+			if !self.is_end {
+				Ordering::Greater
+			} else {
+				Ordering::Less
+			},
 		)
 	}
 }
