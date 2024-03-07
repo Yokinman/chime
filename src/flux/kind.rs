@@ -615,26 +615,8 @@ where
 	move |mut time, is_end| {
 		// Covers the range of equality, but stops where the trend reverses.
 		// To handle rounding, the lower bound of equality is undershot.
-		// > For example, a pair of IVec2 points can round towards each other up
-		// > to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
-		
-		// !!! Tricky issue - if the peak of a value occurs near 0, and its rate
-		// of change at 0 is briefly moving away from the target value, only to
-		// immediately start towards the target, an event may be delayed by a
-		// full nanosecond. This compounds with the issue of rounding, leading
-		// to a value moving towards its target more than it should. This can
-		// occur repeatedly in sequence, letting a value round past its target.
-		// - Including the point at 0 would be awkward, since the rate of change
-		//   is moving away. Events shouldn't have to expect this. Could there
-		//   be a level of tolerance to do with the type's rounding precision?
-		// - Rewriting all system internals to use a custom Time type, which
-		//   pairs `std::time::Duration` with a floating-point type to measure
-		//   sub-nanosecond offsets would work. One issue is that events would
-		//   have to opt-in, since Bevy's `Time::elapsed` method uses Duration.
-		// - Could refactor system internals to make it so that when an event
-		//   occurs, its prediction values are automatically shifted around to
-		//   ensure that the rounding doesn't happen. I don't really know if
-		//   this would work, and I think it would cause its own issues.
+		// For example, a pair of IVec2 points can round towards each other up
+		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
 		let sign = diff_poly.rate_at(time).sign();
 		
