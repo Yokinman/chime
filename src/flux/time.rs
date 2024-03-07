@@ -33,6 +33,180 @@ impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeRangeIter 
 pub(crate) trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
 impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 
+/// Upper or lower bound for a [`TimeRange`].
+type TimeBound = std::ops::Bound<Time>;
+
+fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
+	match bound {
+		TimeBound::Included(x) => TimeBound::Excluded(x),
+		TimeBound::Excluded(x) => TimeBound::Included(x),
+		TimeBound::Unbounded => if is_end {
+			TimeBound::Excluded(Time::MAX)
+		} else {
+			TimeBound::Excluded(Time::ZERO)
+		},
+	}
+}
+
+/// Range of time. A <= B.
+#[derive(Copy, Clone, Debug)]
+pub struct TimeRange(TimeBound, TimeBound);
+
+impl TimeRange {
+	//             Range Examples           :|0| |1| |2|:
+	// `TimeRange(Included(0), Included(2))`:|_________|:
+	// `TimeRange(Included(0), Excluded(2))`:|_______|  :
+	// `TimeRange(Excluded(0), Included(1))`:  |___|    :
+	// `TimeRange(Excluded(0), Excluded(1))`:  |_|      :
+	// `TimeRange(Excluded(0), Included(0))`:  |        :
+	// `TimeRange(Unbounded,   Included(1))`:______|    :
+	// `TimeRange(Unbounded,   Unbounded  )`:___________:
+	
+	/// Compares the lower bounds of two ranges.
+	fn cmp_lower(&self, other: &Self) -> Ordering {
+		match (&self.0, &other.0) {
+			(TimeBound::Included(a), TimeBound::Included(b)) |
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Unbounded, TimeBound::Unbounded) => {
+				Ordering::Equal
+			},
+			(_, TimeBound::Unbounded) => Ordering::Greater,
+			(TimeBound::Unbounded, _) => Ordering::Less,
+		}
+	}
+	
+	/// Compares the upper bounds of two ranges.
+	fn cmp_upper(&self, other: &Self) -> Ordering {
+		match (&self.1, &other.1) {
+			(TimeBound::Included(a), TimeBound::Included(b)) |
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Unbounded, TimeBound::Unbounded) => {
+				Ordering::Equal
+			},
+			(_, TimeBound::Unbounded) => Ordering::Less,
+			(TimeBound::Unbounded, _) => Ordering::Greater,
+		}
+	}
+	
+	/// Compares the lower bound of self to the upper bound of other.
+	fn cmp_lower_to_upper(&self, other: &TimeRange) -> Ordering {
+		match (&self.0, &other.1) {
+			(TimeBound::Included(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) |
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b)
+			},
+			_ => Ordering::Less,
+		}
+	}
+	
+	/// State of overlap between two ranges. Outside, inside, or adjacent.
+	fn overlap(&self, other: &TimeRange) -> Overlap {
+		match self.cmp_lower_to_upper(other) {
+			Ordering::Less => match other.cmp_lower_to_upper(self) {
+				Ordering::Less => Overlap::Inside,
+				Ordering::Greater => Overlap::Outside,
+				Ordering::Equal => Overlap::Adjacent,
+			},
+			Ordering::Greater => Overlap::Outside,
+			Ordering::Equal => Overlap::Adjacent,
+		}
+	}
+	
+	/// Intersection of two ranges, if overlapping or adjacent.
+	fn and(self, other: TimeRange) -> Option<TimeRange> {
+		match self.overlap(&other) {
+			Overlap::Outside => None,
+			Overlap::Inside | Overlap::Adjacent => {
+				let a = if self.cmp_lower(&other).is_lt() {
+					other.0
+				} else {
+					self.0
+				};
+				let b = if self.cmp_upper(&other).is_lt() {
+					self.1
+				} else {
+					other.1
+				};
+				Some(TimeRange(a, b))
+			},
+		}
+	}
+	
+	/// Union of two ranges, if overlapping or adjacent.
+	fn or(self, other: TimeRange) -> Result<TimeRange, (TimeRange, TimeRange)> {
+		match self.overlap(&other) {
+			Overlap::Outside => Err((self, other)),
+			Overlap::Inside | Overlap::Adjacent => {
+				let a = if self.cmp_lower(&other).is_lt() {
+					self.0
+				} else {
+					other.0
+				};
+				let b = if self.cmp_upper(&other).is_lt() {
+					other.1
+				} else {
+					self.1
+				};
+				Ok(TimeRange(a, b))
+			},
+		}
+	}
+	
+	/// Symmetric difference of two ranges, or union if adjacent.
+	fn xor(self, other: TimeRange) -> Result<(TimeRange, TimeRange), TimeRange> {
+		match self.overlap(&other) {
+			Overlap::Outside => Ok((self, other)),
+			Overlap::Inside => { 
+				let (x1, x2) = if self.cmp_lower(&other).is_lt() {
+					(self.0, other.0)
+				} else {
+					(other.0, self.0)
+				};
+				let (y1, y2) = if self.cmp_upper(&other).is_lt() {
+					(self.1, other.1)
+				} else {
+					(other.1, self.1)
+				};
+				Ok((
+					TimeRange(x1, reverse_bound(x2, false)),
+					TimeRange(reverse_bound(y1, true), y2)
+				))
+			},
+			Overlap::Adjacent => Err(self.or(other)
+				.expect("should always work")),
+		}
+	}
+}
+
+/// Overlap between two ranges.
+enum Overlap {
+	Outside,
+	Inside,
+	Adjacent,
+}
+
 /// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
 #[must_use]
 #[derive(Clone)]
@@ -573,181 +747,6 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimes<A, B> {
 				None
 			}
 		)
-	}
-}
-
-/// Upper or lower bound for a [`TimeRange`].
-type TimeBound = std::ops::Bound<Time>;
-
-fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
-	match bound {
-		TimeBound::Included(x) => TimeBound::Excluded(x),
-		TimeBound::Excluded(x) => TimeBound::Included(x),
-		TimeBound::Unbounded => if is_end {
-			TimeBound::Excluded(Time::MAX)
-		} else {
-			TimeBound::Excluded(Time::ZERO)
-		},
-	}
-}
-
-/// Overlap between two ranges.
-#[derive(PartialEq)]
-enum RangeOverlap {
-	Outside,
-	Inside,
-	Adjacent,
-}
-
-/// Range of time. A <= B.
-#[derive(Copy, Clone, Debug)]
-pub struct TimeRange(TimeBound, TimeBound);
-
-impl TimeRange {
-	//             Range Examples           :|0| |1| |2|:
-	// `TimeRange(Included(0), Included(2))`:|_________|:
-	// `TimeRange(Included(0), Excluded(2))`:|_______|  :
-	// `TimeRange(Excluded(0), Included(1))`:  |___|    :
-	// `TimeRange(Excluded(0), Excluded(1))`:  |_|      :
-	// `TimeRange(Excluded(0), Included(0))`:  |        :
-	// `TimeRange(Unbounded,   Included(1))`:______|    :
-	// `TimeRange(Unbounded,   Unbounded  )`:___________:
-	
-	/// Compares the lower bounds of two ranges.
-	fn cmp_lower(&self, other: &Self) -> Ordering {
-		match (&self.0, &other.0) {
-			(TimeBound::Included(a), TimeBound::Included(b)) |
-			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
-				a.cmp(b)
-			},
-			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
-				a.cmp(b).then(Ordering::Less)
-			},
-			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
-				a.cmp(b).then(Ordering::Greater)
-			},
-			(TimeBound::Unbounded, TimeBound::Unbounded) => {
-				Ordering::Equal
-			},
-			(_, TimeBound::Unbounded) => Ordering::Greater,
-			(TimeBound::Unbounded, _) => Ordering::Less,
-		}
-	}
-	
-	/// Compares the upper bounds of two ranges.
-	fn cmp_upper(&self, other: &Self) -> Ordering {
-		match (&self.1, &other.1) {
-			(TimeBound::Included(a), TimeBound::Included(b)) |
-			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
-				a.cmp(b)
-			},
-			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
-				a.cmp(b).then(Ordering::Greater)
-			},
-			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
-				a.cmp(b).then(Ordering::Less)
-			},
-			(TimeBound::Unbounded, TimeBound::Unbounded) => {
-				Ordering::Equal
-			},
-			(_, TimeBound::Unbounded) => Ordering::Less,
-			(TimeBound::Unbounded, _) => Ordering::Greater,
-		}
-	}
-	
-	/// Compares the lower bound of self to the upper bound of other.
-	fn cmp_lower_to_upper(&self, other: &TimeRange) -> Ordering {
-		match (&self.0, &other.1) {
-			(TimeBound::Included(a), TimeBound::Included(b)) => {
-				a.cmp(b).then(Ordering::Less)
-			},
-			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
-				a.cmp(b).then(Ordering::Greater)
-			},
-			(TimeBound::Included(a), TimeBound::Excluded(b)) |
-			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
-				a.cmp(b)
-			},
-			_ => Ordering::Less,
-		}
-	}
-	
-	/// State of overlap between two ranges. Outside, inside, or adjacent.
-	fn overlap(&self, other: &TimeRange) -> RangeOverlap {
-		match self.cmp_lower_to_upper(other) {
-			Ordering::Less => match other.cmp_lower_to_upper(self) {
-				Ordering::Less => RangeOverlap::Inside,
-				Ordering::Greater => RangeOverlap::Outside,
-				Ordering::Equal => RangeOverlap::Adjacent,
-			},
-			Ordering::Greater => RangeOverlap::Outside,
-			Ordering::Equal => RangeOverlap::Adjacent,
-		}
-	}
-	
-	/// Intersection of two ranges, if overlapping or adjacent.
-	fn and(self, other: TimeRange) -> Option<TimeRange> {
-		match self.overlap(&other) {
-			RangeOverlap::Outside => None,
-			RangeOverlap::Inside | RangeOverlap::Adjacent => {
-				let a = if self.cmp_lower(&other).is_lt() {
-					other.0
-				} else {
-					self.0
-				};
-				let b = if self.cmp_upper(&other).is_lt() {
-					self.1
-				} else {
-					other.1
-				};
-				Some(TimeRange(a, b))
-			},
-		}
-	}
-	
-	/// Union of two ranges, if overlapping or adjacent.
-	fn or(self, other: TimeRange) -> Result<TimeRange, (TimeRange, TimeRange)> {
-		match self.overlap(&other) {
-			RangeOverlap::Outside => Err((self, other)),
-			RangeOverlap::Inside | RangeOverlap::Adjacent => {
-				let a = if self.cmp_lower(&other).is_lt() {
-					self.0
-				} else {
-					other.0
-				};
-				let b = if self.cmp_upper(&other).is_lt() {
-					other.1
-				} else {
-					self.1
-				};
-				Ok(TimeRange(a, b))
-			},
-		}
-	}
-	
-	/// Symmetric difference of two ranges, or union if adjacent.
-	fn xor(self, other: TimeRange) -> Result<(TimeRange, TimeRange), TimeRange> {
-		match self.overlap(&other) {
-			RangeOverlap::Outside => Ok((self, other)),
-			RangeOverlap::Inside => { 
-				let (x1, x2) = if self.cmp_lower(&other).is_lt() {
-					(self.0, other.0)
-				} else {
-					(other.0, self.0)
-				};
-				let (y1, y2) = if self.cmp_upper(&other).is_lt() {
-					(self.1, other.1)
-				} else {
-					(other.1, self.1)
-				};
-				Ok((
-					TimeRange(x1, reverse_bound(x2, false)),
-					TimeRange(reverse_bound(y1, true), y2)
-				))
-			},
-			RangeOverlap::Adjacent => Err(self.or(other)
-				.expect("should always work")),
-		}
 	}
 }
 
