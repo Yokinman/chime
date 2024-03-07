@@ -14,7 +14,7 @@ use crate::{
 	kind::*,
 };
 
-use self::time::{Time, TimeIter, TimeRanges};
+use self::time::{Time, TimeRangeIter, TimeRanges};
 
 pub use self::impls::*;
 
@@ -120,7 +120,7 @@ pub trait Flux {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T>(&self, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
+	fn when<T>(&self, order: Ordering, other: &T) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
@@ -131,7 +131,7 @@ pub trait Flux {
 	}
 	
 	/// Times when this is equal to another flux.
-	fn when_eq<T>(&self, other: &T) -> TimeRanges<impl TimeIter>
+	fn when_eq<T>(&self, other: &T) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
@@ -291,7 +291,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D) -> TimeRanges<impl TimeIter>
+	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
@@ -304,7 +304,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis_eq<T, D>(&self, other: &T, dis: &D) -> TimeRanges<impl TimeIter>
+	fn when_dis_eq<T, D>(&self, other: &T, dis: &D) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
@@ -317,7 +317,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeIter>
+	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
@@ -329,7 +329,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Times when a component is equal to another flux.
-	fn when_index_eq<T>(&self, index: usize, other: &T) -> TimeRanges<impl TimeIter>
+	fn when_index_eq<T>(&self, index: usize, other: &T) -> TimeRanges<impl TimeRangeIter>
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:

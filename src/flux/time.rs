@@ -26,12 +26,12 @@ mod units {
 pub use units::*;
 
 /// Iterator types usable by [`TimeRanges`].
-pub trait TimeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static {}
-impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeIter for T {}
+pub trait TimeRangeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static {}
+impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeRangeIter for T {}
 
 /// Iterator types usable by [`Times`].
-pub trait TimeIter2: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
-impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter2 for T {}
+pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
+impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 
 /// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
 #[must_use]
@@ -44,7 +44,7 @@ pub(crate) struct Times<I> {
 	doubled_time: Option<Option<Time>>,
 }
 
-impl<I: TimeIter2> Times<I> {
+impl<I: TimeIter> Times<I> {
 	pub fn new(iter: impl IntoIterator<IntoIter=I>) -> Self {
 		Self {
 			iter: iter.into_iter(),
@@ -60,7 +60,7 @@ impl Default for Times<std::iter::Empty<Time>> {
 	}
 }
 
-impl<I: TimeIter2> Iterator for Times<I> {
+impl<I: TimeIter> Iterator for Times<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		 // Inclusive Points:
@@ -119,7 +119,7 @@ pub(crate) struct TimeFilter<I, F> {
 	filter: F,
 }
 
-impl<I: TimeIter, F> Iterator for TimeFilter<I, F>
+impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
 where
 	F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
 {
@@ -182,7 +182,7 @@ impl TimeRanges<std::iter::Once<TimeRange>> {
 	}
 }
 
-impl<I: TimeIter2> TimeRanges<Times<I>> {
+impl<I: TimeIter> TimeRanges<Times<I>> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
 		initial_order: Ordering,
@@ -201,7 +201,7 @@ impl<I: TimeIter2> TimeRanges<Times<I>> {
 	}
 }
 
-impl<I: TimeIter> TimeRanges<I> {
+impl<I: TimeRangeIter> TimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
 	where
 		F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
@@ -215,7 +215,7 @@ impl<I: TimeIter> TimeRanges<I> {
 	}
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
-	pub fn pre(self) -> TimeRanges<impl TimeIter> {
+	pub fn pre(self) -> TimeRanges<impl TimeRangeIter> {
 		self.into_filtered(|t, is_end| if is_end {
 			Some(t)
 		} else {
@@ -241,7 +241,7 @@ impl Default for TimeRanges<std::iter::Empty<TimeRange>> {
 	}
 }
 
-impl<I: TimeIter> Iterator for TimeRanges<I> {
+impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.times.next()? {
@@ -304,7 +304,7 @@ impl<I: TimeIter> Iterator for TimeRanges<I> {
 	}
 }
 
-impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
+impl<A: TimeRangeIter, B: TimeRangeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
 	type Output = TimeRanges<InterTimeRanges<A, B>>;
 	
 	/// Intersection of ranges.
@@ -317,7 +317,7 @@ impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
 	}
 }
 
-impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
+impl<A: TimeRangeIter, B: TimeRangeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
 	type Output = TimeRanges<UnionTimeRanges<A, B>>;
 	
 	/// Union of ranges.
@@ -330,7 +330,7 @@ impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
 	}
 }
 
-impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
+impl<A: TimeRangeIter, B: TimeRangeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
 	type Output = TimeRanges<DiffTimeRanges<A, B>>;
 	
 	/// Symmetric difference of ranges.
@@ -344,7 +344,7 @@ impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
 	}
 }
 
-impl<I: TimeIter> Not for TimeRanges<I> {
+impl<I: TimeRangeIter> Not for TimeRanges<I> {
 	type Output = TimeRanges<InvTimes<I>>;
 	
 	/// Inverse of ranges.
@@ -365,7 +365,7 @@ pub struct InvTimes<I> {
 	prev: Option<TimeBound>,
 }
 
-impl<I: TimeIter> Iterator for InvTimes<I> {
+impl<I: TimeRangeIter> Iterator for InvTimes<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(TimeRange(mut a, mut b)) = self.iter.next() {
@@ -399,7 +399,7 @@ pub struct InterTimeRanges<A, B> {
 	iter: OrdTimes<A, B>,
 }
 
-impl<A: TimeIter, B: TimeIter> Iterator for InterTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for InterTimeRanges<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some((a, Some(b))) = self.iter.next() {
@@ -420,7 +420,7 @@ pub struct UnionTimeRanges<A, B> {
 	iter: OrdTimes<A, B>,
 }
 
-impl<A: TimeIter, B: TimeIter> Iterator for UnionTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for UnionTimeRanges<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.next() {
@@ -456,7 +456,7 @@ pub struct DiffTimeRanges<A, B> {
 	range: Option<TimeRange>,
 }
 
-impl<A: TimeIter, B: TimeIter> Iterator for DiffTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for DiffTimeRanges<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.peek() {
@@ -505,7 +505,7 @@ struct OrdTimes<A, B> {
 	b_next: Option<TimeRange>,
 }
 
-impl<A: TimeIter, B: TimeIter> OrdTimes<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimes<A, B> {
 	fn new(mut a_iter: A, mut b_iter: B) -> Self {
 		let a_next = a_iter.next();
 		let b_next = b_iter.next();
@@ -533,7 +533,7 @@ impl<A: TimeIter, B: TimeIter> OrdTimes<A, B> {
 	}
 }
 
-impl<A: TimeIter, B: TimeIter> Iterator for OrdTimes<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimes<A, B> {
 	type Item = (TimeRange, Option<TimeRange>);
 	fn next(&mut self) -> Option<Self::Item> {
 		match (self.a_next, self.b_next) {

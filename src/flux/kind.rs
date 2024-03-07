@@ -7,7 +7,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
 use crate::time;
-use crate::time::{Time, TimeIter, TimeRanges};
+use crate::time::{Time, TimeRangeIter, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
@@ -276,7 +276,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeIter>
+	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -293,7 +293,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeIter>
+	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
@@ -739,7 +739,7 @@ where
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B: FluxKind> {
 	fn when(self, order: Ordering, poly: Poly<B, impl LinearIso<B::Value>>)
-		-> TimeRanges<impl TimeIter>;
+		-> TimeRanges<impl TimeRangeIter>;
 }
 
 impl<A: FluxKind, B: FluxKind, I: LinearIso<A::Value>> When<B> for Poly<A, I>
@@ -749,7 +749,7 @@ where
 	A::Value: PartialOrd,
 {
 	fn when(self, order: Ordering, poly: Poly<B, impl LinearIso<B::Value>>)
-		-> TimeRanges<impl TimeIter>
+		-> TimeRanges<impl TimeRangeIter>
 	{
 		let diff_poly = self - poly;
 		diff_poly
@@ -760,7 +760,7 @@ where
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B: FluxKind> {
 	fn when_eq(self, poly: Poly<B, impl LinearIso<B::Value>>)
-		-> TimeRanges<impl TimeIter>;
+		-> TimeRanges<impl TimeRangeIter>;
 }
 
 impl<A: FluxKind, B: FluxKind, I: LinearIso<A::Value>> WhenEq<B> for Poly<A, I>
@@ -770,7 +770,7 @@ where
 	A::Value: PartialEq,
 {
 	fn when_eq(self, poly: Poly<B, impl LinearIso<B::Value>>)
-		-> TimeRanges<impl TimeIter>
+		-> TimeRanges<impl TimeRangeIter>
 	{
 		let diff_poly = self - poly;
 		diff_poly
@@ -785,7 +785,7 @@ pub trait WhenDis<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind> {
 		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
 		order: Ordering,
 		dis: Poly<D, impl LinearIso<D::Value>>
-	) -> TimeRanges<impl TimeIter>;
+	) -> TimeRanges<impl TimeRangeIter>;
 }
 
 impl<const SIZE: usize, A, B, D, I> WhenDis<SIZE, B, D> for PolyVec<SIZE, A, I>
@@ -810,7 +810,7 @@ where
 		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
 		order: Ordering,
 		dis: Poly<D, impl LinearIso<D::Value>>
-	) -> TimeRanges<impl TimeIter> {
+	) -> TimeRanges<impl TimeRangeIter> {
 		use ops::*;
 		
 		let basis = self.time();
@@ -836,7 +836,7 @@ pub trait WhenDisEq<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind> {
 		self,
 		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
 		dis: Poly<D, impl LinearIso<D::Value>>
-	) -> TimeRanges<impl TimeIter>;
+	) -> TimeRanges<impl TimeRangeIter>;
 }
 
 impl<const SIZE: usize, A, B, D, I> WhenDisEq<SIZE, B, D> for PolyVec<SIZE, A, I>
@@ -860,7 +860,7 @@ where
 		self,
 		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
 		dis: Poly<D, impl LinearIso<D::Value>>
-	) -> TimeRanges<impl TimeIter> {
+	) -> TimeRanges<impl TimeRangeIter> {
 		use ops::*;
 		
 		let basis = self.time();
