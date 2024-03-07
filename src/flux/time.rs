@@ -1,6 +1,6 @@
 //! Working with time.
 
-use std::ops::{BitAnd, BitOr, BitXor, Bound, Not, RangeBounds};
+use std::ops::{BitAnd, BitOr, BitXor, Not, RangeBounds};
 use std::cmp::Ordering;
 
 /// An amount of time.
@@ -25,86 +25,32 @@ mod units {
 }
 pub use units::*;
 
-/// Iterator types usable by [`Times`].
-pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
-impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
+/// Iterator types usable by [`TimeRanges`].
+pub trait TimeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static {}
+impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeIter for T {}
 
-/// Iterator of [`Time`] values.
+/// Iterator types usable by [`Times`].
+pub trait TimeIter2: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
+impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter2 for T {}
+
+/// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
 #[must_use]
 #[derive(Clone)]
 pub(crate) struct Times<I> {
 	iter: I,
-	next_time: Option<Time>,
+	is_unbounded: bool,
 	
 	/// Used to convert points of time into ranges.
 	doubled_time: Option<Option<Time>>,
 }
 
-impl<I: TimeIter> Times<I> {
+impl<I: TimeIter2> Times<I> {
 	pub fn new(iter: impl IntoIterator<IntoIter=I>) -> Self {
-		Self::with_basis(iter)
-	}
-	
-	pub fn with_basis(iter: impl IntoIterator<IntoIter=I>) -> Self {
-		let mut times = Self {
+		Self {
 			iter: iter.into_iter(),
-			next_time: None,
+			is_unbounded: false,
 			doubled_time: None,
-		};
-		times.pop();
-		times
-	}
-	
-	fn pop(&mut self) -> Option<Time> {
-		if let Some((time, is_end)) = self.pop_doubled() {
-			if is_end {
-				time.checked_add(NANOSEC)
-			} else {
-				time.checked_sub(NANOSEC)
-					.or_else(|| self.pop())
-			}
-		} else {
-			std::mem::replace(&mut self.next_time, self.iter.next())
 		}
-	}
-	
-	fn pop_doubled(&mut self) -> Option<(Time, bool)> {
-		if let Some(doubled_time) = self.doubled_time.take() {
-			if let Some(doubled_time) = doubled_time {
-				self.doubled_time = Some(None);
-				return Some((doubled_time, true))
-			}
-			if let Some(time) = self.peek() {
-				self.pop();
-				
-				 // Combine Repeated/Adjacent Times:
-				let mut curr = time;
-				while let Some(next) = self.peek() {
-					if curr == next || curr.checked_add(NANOSEC) == Some(next) {
-						curr = next;
-						self.pop();
-					} else {
-						break
-					}
-				}
-				self.doubled_time = Some(Some(curr));
-				
-				return Some((time, false))
-			}
-			self.doubled_time = Some(None);
-		}
-		None
-	}
-	
-	pub(crate) fn peek(&self) -> Option<Time> {
-		if let Some(doubled_time) = self.doubled_time {
-			if let Some(doubled_time) = doubled_time {
-				return doubled_time.checked_add(NANOSEC)
-			} else if let Some(next_time) = self.next_time {
-				return next_time.checked_sub(NANOSEC).or(Some(NANOSEC))
-			}
-		}
-		self.next_time
 	}
 }
 
@@ -114,54 +60,84 @@ impl Default for Times<std::iter::Empty<Time>> {
 	}
 }
 
-impl<I: TimeIter> Iterator for Times<I> {
-	type Item = Time;
+impl<I: TimeIter2> Iterator for Times<I> {
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		if let Some(a) = self.pop() {
-			while let Some(b) = self.peek() {
-				if b > a {
-					break
-				}
-				assert_eq!(a, b, "times must be ordered: {:?}", (a, b));
-				self.pop();
+		 // Inclusive Points:
+		if let Some(doubled_time) = self.doubled_time.take() {
+			self.doubled_time = Some(None);
+			if let Some(time) = doubled_time {
+				let t = TimeBound::Included(time);
+				return Some(TimeRange(t, t))
 			}
-			return Some(a)
+			
+			 // Ignore Repeated Times:
+			if let Some(curr) = self.iter.next() {
+				self.doubled_time = Some(Some(curr));
+				let next = self.next();
+				for time in self.iter.by_ref() {
+					if curr != time {
+						self.doubled_time = Some(Some(time));
+						break
+					}
+				}
+				return next
+			}
+			
+			return None
 		}
-		None
+		
+		 // Exclusive Ranges:
+		let a = if self.is_unbounded {
+			self.is_unbounded = false;
+			Some(TimeBound::Unbounded)
+		} else {
+			self.iter.next().map(TimeBound::Excluded)
+		};
+		if let Some(a) = a {
+			let b = self.iter.next().map(TimeBound::Excluded)
+				.unwrap_or(TimeBound::Unbounded);
+			
+			if a == b && a != TimeBound::Unbounded {
+				self.next()
+			} else {
+				Some(TimeRange(a, b))
+			}
+		} else {
+			None
+		}
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		(0, self.iter.size_hint().1)
+		(0, self.iter.size_hint().1.and_then(|x| x.checked_add(1)))
 	}
 }
 
 /// Filters times for use with [`TimeRanges::into_filtered`].
 #[derive(Clone)]
 pub(crate) struct TimeFilter<I, F> {
-	times: Times<I>,
+	times: I,
 	filter: F,
-	is_end: bool,
 }
 
 impl<I: TimeIter, F> Iterator for TimeFilter<I, F>
 where
 	F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
 {
-	type Item = Time;
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		if let Some((time, is_end)) = self.times.pop_doubled() {
-			// !!! The whole concept of order for TimeRanges needs to be
-			// reworked in some way to account for filters returning None.
-			(self.filter)(time, is_end)
-				.and_then(|t| if is_end {
-					t.checked_add(NANOSEC)
-				} else {
-					t.checked_sub(NANOSEC)
-						.or_else(|| self.next())
-				})
-		} else if let Some(time) = self.times.pop() {
-			let is_end = self.is_end;
-			self.is_end = !is_end;
-			(self.filter)(time, is_end)
+		if let Some(TimeRange(a, b)) = self.times.next() {
+			Some(TimeRange(
+				match a {
+					TimeBound::Included(t) => (self.filter)(t, false).map(TimeBound::Included),
+					TimeBound::Excluded(t) => (self.filter)(t, false).map(TimeBound::Excluded),
+					TimeBound::Unbounded => None,
+				}.unwrap_or(TimeBound::Unbounded),
+				match b {
+					TimeBound::Included(t) => (self.filter)(t, true).map(TimeBound::Included),
+					TimeBound::Excluded(t) => (self.filter)(t, true).map(TimeBound::Excluded),
+					TimeBound::Unbounded => None,
+				}.unwrap_or(TimeBound::Unbounded)
+			))
 		} else {
 			None
 		}
@@ -171,110 +147,70 @@ where
 	}
 }
 
-/// Iterator of [`Time`] ranges.
+/// Iterator of [`TimeRange`]s.
 #[must_use]
 #[derive(Clone)]
 pub struct TimeRanges<I> {
-	times: Times<I>,
-	is_end: bool,
+	times: I
 }
 
-impl TimeRanges<std::iter::Empty<Time>> {
-	pub fn empty() -> TimeRanges<std::iter::Empty<Time>> {
-		Self::new(
-			std::iter::empty(),
-			Ordering::Greater,
-			Ordering::Equal
-		)
+impl TimeRanges<std::iter::Empty<TimeRange>> {
+	pub fn empty() -> Self {
+		Self {
+			times: std::iter::empty()
+		}
 	}
 }
 
-impl TimeRanges<std::iter::Chain<std::option::IntoIter<Time>, std::option::IntoIter<Time>>> {
+impl TimeRanges<std::iter::Once<TimeRange>> {
 	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
 			.expect("must be true: lower bound <= upper bound")
 	}
 	
 	pub fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
-		let a = match range.start_bound() {
-			Bound::Included(&Time::ZERO) => Bound::Unbounded,
-			Bound::Excluded(&Time::MAX) => return None,
-			Bound::Included(&t) => Bound::Excluded(t - NANOSEC),
-			Bound::Excluded(&t) => Bound::Excluded(t),
-			Bound::Unbounded => Bound::Unbounded,
-		};
-		let b = match range.end_bound() {
-			Bound::Included(&Time::MAX) => Bound::Unbounded,
-			Bound::Excluded(&Time::ZERO) => return None,
-			Bound::Included(&t) => Bound::Excluded(t + NANOSEC),
-			Bound::Excluded(&t) => Bound::Excluded(t),
-			Bound::Unbounded => Bound::Unbounded,
-		};
-		Some(match (a, b) {
-			(Bound::Excluded(a), Bound::Excluded(b)) => {
-				if a >= b || a == b - NANOSEC {
-					return None
-				}
-				TimeRanges::new(
-					Some(a).into_iter().chain(Some(b)),
-					Ordering::Greater,
-					Ordering::Less
-				)
-			},
-			(Bound::Excluded(a), Bound::Unbounded) => TimeRanges::new(
-				Some(a).into_iter().chain(None),
-				Ordering::Greater,
-				Ordering::Less
-			),
-			(Bound::Unbounded, Bound::Excluded(b)) => TimeRanges::new(
-				Some(b).into_iter().chain(None),
-				Ordering::Greater,
-				Ordering::Greater
-			),
-			(Bound::Unbounded, Bound::Unbounded) => TimeRanges::new(
-				None.into_iter().chain(None),
-				Ordering::Greater,
-				Ordering::Greater
-			),
-			_ => unreachable!()
+		let range = TimeRange(
+			range.start_bound().cloned(),
+			range.end_bound().cloned()
+		);
+		if range.cmp_lower_to_upper(&range).is_gt() {
+			return None
+		}
+		Some(Self {
+			times: std::iter::once(range)
 		})
 	}
 }
 
-impl<I: TimeIter> TimeRanges<I> {
+impl<I: TimeIter2> TimeRanges<Times<I>> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
 		initial_order: Ordering,
 		order: Ordering,
-	) -> TimeRanges<I>
+	) -> TimeRanges<Times<I>>
 	{
-		let mut times = Times::with_basis(iter);
-		let mut is_end = false;
+		let mut times = Times::new(iter);
 		if order == initial_order {
-			is_end = true;
+			times.is_unbounded = true;
 		} else if order.is_eq() {
-			if times.next_time == Some(Time::ZERO) {
-				is_end = true;
-			}
 			times.doubled_time = Some(None);
 		}
 		TimeRanges {
-			times,
-			is_end,
+			times
 		}
 	}
-	
+}
+
+impl<I: TimeIter> TimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
 	where
 		F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
 	{
 		TimeRanges {
-			times: Times::new(TimeFilter {
+			times: TimeFilter {
 				times: self.times,
 				filter: f,
-				is_end: self.is_end,
-			}),
-			is_end: self.is_end,
+			}
 		}
 	}
 	
@@ -288,17 +224,18 @@ impl<I: TimeIter> TimeRanges<I> {
 	}
 }
 
-impl From<Time> for TimeRanges<std::iter::Once<Time>> {
+impl From<Time> for TimeRanges<std::iter::Once<TimeRange>> {
 	fn from(value: Time) -> Self {
-		TimeRanges::new(
-			std::iter::once(value),
-			Ordering::Greater,
-			Ordering::Equal
-		)
+		TimeRanges {
+			times: std::iter::once(TimeRange(
+				TimeBound::Included(value),
+				TimeBound::Included(value)
+			))
+		}
 	}
 }
 
-impl Default for TimeRanges<std::iter::Empty<Time>> {
+impl Default for TimeRanges<std::iter::Empty<TimeRange>> {
 	fn default() -> Self {
 		Self::empty()
 	}
@@ -307,111 +244,103 @@ impl Default for TimeRanges<std::iter::Empty<Time>> {
 impl<I: TimeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
-		let range = if self.is_end {
-			self.is_end = false;
-			if let Some(b) = self.times.pop() {
+		match self.times.next()? {
+			TimeRange(TimeBound::Included(a), TimeBound::Included(b)) => {
+				debug_assert!(a <= b);
+				Some((a, b))
+			},
+			TimeRange(TimeBound::Included(a), TimeBound::Excluded(b)) => {
+				if a == b {
+					self.next()
+				} else {
+					debug_assert!(a < b);
+					Some((a, b - NANOSEC))
+				}
+			},
+			TimeRange(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				if a == b {
+					self.next()
+				} else {
+					debug_assert!(a < b);
+					Some((a + NANOSEC, b))
+				}
+			},
+			TimeRange(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				debug_assert!(a < b);
+				if a == b - NANOSEC {
+					self.next()
+				} else {
+					Some((a + NANOSEC, b - NANOSEC))
+				}
+			},
+			TimeRange(TimeBound::Included(a), TimeBound::Unbounded) => {
+				Some((a, Time::MAX))
+			},
+			TimeRange(TimeBound::Excluded(a), TimeBound::Unbounded) => {
+				if a == Time::MAX {
+					self.next()
+				} else {
+					Some((a + NANOSEC, Time::MAX))
+				}
+			},
+			TimeRange(TimeBound::Unbounded, TimeBound::Included(b)) => {
+				Some((Time::ZERO, b))
+			},
+			TimeRange(TimeBound::Unbounded, TimeBound::Excluded(b)) => {
 				if b == Time::ZERO {
 					self.next()
 				} else {
 					Some((Time::ZERO, b - NANOSEC))
 				}
-			} else {
+			},
+			TimeRange(TimeBound::Unbounded, TimeBound::Unbounded) => {
 				Some((Time::ZERO, Time::MAX))
-			}
-		} else {
-			let mut range = None;
-			while let Some(a) = self.times.pop() {
-				range = if let Some(b) = self.times.pop() {
-					assert!(a <= b, "times must be ordered: {:?}", (a, b));
-					
-					 // Ignore Zero-sized Ranges:
-					if a == b || a == b - NANOSEC {
-						continue
-					}
-					
-					Some((a + NANOSEC, b - NANOSEC))
-				} else if a == Time::MAX {
-					None
-				} else {
-					Some((a + NANOSEC, Time::MAX))
-				};
-				break
-			}
-			range
-		};
-		
-		if let Some((a, b)) = range {
-			Some((a, b))
-		} else {
-			None
+			},
 		}
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let (_, upper) = self.times.size_hint();
-		(0, upper.map(|x| 1 + x/2))
+		(0, upper)
 	}
 }
 
 impl<A: TimeIter, B: TimeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<JoinedTimeRanges<A, B>>;
+	type Output = TimeRanges<InterTimeRanges<A, B>>;
 	
 	/// Intersection of ranges.
 	fn bitand(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges::new(
-			JoinedTimeRanges {
-				iter: OrdTimes::new(self.times, rhs.times),
-				flag: (self.is_end as u8) | ((rhs.is_end as u8) << 1),
-				has_extra: false,
-			},
-			Ordering::Greater,
-			if self.is_end & rhs.is_end {
-				Ordering::Greater
-			} else {
-				Ordering::Less
-			},
-		)
+		TimeRanges {
+			times: InterTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times)
+			}
+		}
 	}
 }
 
 impl<A: TimeIter, B: TimeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<JoinedTimeRanges<A, B>>;
+	type Output = TimeRanges<UnionTimeRanges<A, B>>;
 	
 	/// Union of ranges.
 	fn bitor(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges::new(
-			JoinedTimeRanges {
-				iter: OrdTimes::new(self.times, rhs.times),
-				flag: !((self.is_end as u8) | ((rhs.is_end as u8) << 1)),
-				has_extra: false,
-			},
-			Ordering::Greater,
-			if self.is_end | rhs.is_end {
-				Ordering::Greater
-			} else {
-				Ordering::Less
-			},
-		)
+		TimeRanges {
+			times: UnionTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times)
+			}
+		}
 	}
 }
 
 impl<A: TimeIter, B: TimeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<SplitTimeRanges<A, B>>;
+	type Output = TimeRanges<DiffTimeRanges<A, B>>;
 	
-	/// Intersection of ranges.
+	/// Symmetric difference of ranges.
 	fn bitxor(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges::new(
-			SplitTimeRanges {
+		TimeRanges {
+			times: DiffTimeRanges {
 				iter: OrdTimes::new(self.times, rhs.times),
-				flag: (self.is_end as u8) | ((rhs.is_end as u8) << 1),
-				extra: None,
-			},
-			Ordering::Greater,
-			if self.is_end ^ rhs.is_end {
-				Ordering::Greater
-			} else {
-				Ordering::Less
-			},
-		)
+				range: None,
+			}
+		}
 	}
 }
 
@@ -420,342 +349,229 @@ impl<I: TimeIter> Not for TimeRanges<I> {
 	
 	/// Inverse of ranges.
 	fn not(self) -> Self::Output {
-		TimeRanges::new(
-			InvTimes {
+		TimeRanges {
+			times: InvTimes {
 				iter: self.times,
-				flag: self.is_end,
-				extra: None,
-				prev: Time::ZERO,
-			},
-			Ordering::Greater,
-			if !self.is_end {
-				Ordering::Greater
-			} else {
-				Ordering::Less
-			},
-		)
+				prev: None,
+			}
+		}
 	}
 }
 
-/// [`Not`] implementation for [`Times`] and [`TimeRanges`].
+/// [`Not`] implementation for [`TimeRanges`].
 #[derive(Clone)]
 pub struct InvTimes<I> {
-	iter: Times<I>,
-	flag: bool,
-	extra: Option<Time>,
-	prev: Time,
+	iter: I,
+	prev: Option<TimeBound>,
 }
 
 impl<I: TimeIter> Iterator for InvTimes<I> {
-	type Item = Time;
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		if self.extra.is_some() {
-			return std::mem::take(&mut self.extra)
-		}
-		while let Some(mut time) = self.iter.pop() {
-			self.flag = !self.flag;
-			time = time.max(self.prev);
-			
-			 // Adjacent Roots:
-			if let Some(next) = self.iter.peek() {
-				if next == time || next == time + NANOSEC {
-					if self.flag {
-						self.flag = !self.flag;
-						self.iter.pop();
-					} else if self.extra.is_none() {
-						self.extra = time.checked_sub(NANOSEC);
-					}
-					continue
-				}
-			}
-			
-			self.prev = time;
-			
-			let time = if self.flag {
-				if self.extra.is_some() {
-					std::mem::replace(&mut self.extra, time.checked_add(NANOSEC))
-				} else {
-					time.checked_add(NANOSEC)
-				}
-			} else if self.extra.is_some() {
-				std::mem::take(&mut self.extra)
+		if let Some(TimeRange(mut a, mut b)) = self.iter.next() {
+			a = reverse_bound(a, false);
+			b = reverse_bound(b, true);
+			let prev = self.prev.replace(b).unwrap_or(TimeBound::Unbounded);
+			return if a == prev {
+				self.next()
 			} else {
-				time.checked_sub(NANOSEC)
-			};
-			
-			if let Some(time) = time {
-				return Some(time)
-			} else {
-				continue
+				Some(TimeRange(prev, a))
 			}
 		}
-		None
+		if let Some(prev) = self.prev.replace(TimeBound::Unbounded) {
+			return if prev == TimeBound::Unbounded {
+				None
+			} else {
+				Some(TimeRange(prev, TimeBound::Unbounded))
+			}
+		}
+		Some(TimeRange(TimeBound::Unbounded, TimeBound::Unbounded))
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let (_, max) = self.iter.size_hint();
-		let extra_num = self.extra.is_some() as usize;
-		(
-			extra_num,
-			max.map(|x| x + extra_num)
-		)
+		let (min, max) = self.iter.size_hint();
+		(min, max.and_then(|x| x.checked_add(1)))
 	}
 }
 
-/// [`BitAnd`] and [`BitOr`] implementation for [`TimesRanges`].
+/// [`BitAnd`] implementation for [`TimesRanges`].
 #[derive(Clone)]
-pub struct JoinedTimeRanges<A, B> {
+pub struct InterTimeRanges<A, B> {
 	iter: OrdTimes<A, B>,
-	flag: u8,
-	has_extra: bool,
 }
 
-impl<A, B> JoinedTimeRanges<A, B> {
-	fn is_union(&self) -> bool {
-		//! As opposed to intersection.
-		self.flag >> 7 != 0
-	}
-}
-
-impl<A: TimeIter, B: TimeIter> Iterator for JoinedTimeRanges<A, B> {
-	type Item = Time;
+impl<A: TimeIter, B: TimeIter> Iterator for InterTimeRanges<A, B> {
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		if self.has_extra {
-			self.has_extra = false;
-			return Some(self.iter.prev())
-		}
-		while let Some(next) = self.iter.next() {
-			match next {
-				OrdTime::Less(time) => {
-					self.flag ^= 0b01;
-					if self.flag & 0b10 != 0 {
-						return Some(time)
-					}
-				},
-				OrdTime::Greater(time) => {
-					self.flag ^= 0b10;
-					if self.flag & 0b01 != 0 {
-						return Some(time)
-					}
-				},
-				OrdTime::Equal(time) => {
-					self.flag ^= 0b11;
-					if self.flag & 0b11 == 0b00 || self.flag & 0b11 == 0b11 {
-						return Some(time)
-					} else if self.is_union() {
-						self.has_extra = true;
-						return Some(time)
-					}
-				},
+		while let Some((a, Some(b))) = self.iter.next() {
+			if let Some(range) = a.and(b) {
+				return Some(range)
 			}
 		}
 		None
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let (_, max) = self.iter.size_hint();
-		let extra_num = self.has_extra as usize;
-		(
-			extra_num,
-			max.map(|x| x + extra_num),
-		)
+		(0, self.iter.size_hint().1)
+	}
+}
+
+/// [`BitOr`] implementation for [`TimesRanges`].
+#[derive(Clone)]
+pub struct UnionTimeRanges<A, B> {
+	iter: OrdTimes<A, B>,
+}
+
+impl<A: TimeIter, B: TimeIter> Iterator for UnionTimeRanges<A, B> {
+	type Item = TimeRange;
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.iter.next() {
+			Some((a, Some(b))) => {
+				match a.or(b) {
+					Ok(mut range) => {
+						while let Some(r) = self.iter.peek()
+							.and_then(|(x, _)| range.or(x).ok())
+						{
+							range = r;
+							self.iter.next();
+						}
+						Some(range)
+					},
+					Err((a, _)) => {
+						Some(a)
+					}
+				}
+			},
+			Some((a, None)) => Some(a),
+			None => None,
+		}
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, self.iter.size_hint().1)
 	}
 }
 
 /// [`BitXor`] implementation for [`TimesRanges`].
 #[derive(Clone)]
-pub struct SplitTimeRanges<A, B> {
+pub struct DiffTimeRanges<A, B> {
 	iter: OrdTimes<A, B>,
-	flag: u8,
-	extra: Option<Time>,
+	range: Option<TimeRange>,
 }
 
-impl<A: TimeIter, B: TimeIter> SplitTimeRanges<A, B> {
-	fn step(&mut self, flag: u8, a: Time) -> Option<Time> {
-		self.flag ^= flag;
-		
-		 // Equal:
-		if flag == 0b11 {
-			return match self.flag {
-				0b00 => None,
-				0b11 => match self.iter.peek() {
-					Some(OrdTime::Less(time)) if time == a => {
-						self.flag ^= 0b01;
-						self.iter.next();
-						Some(time)
-					},
-					Some(OrdTime::Greater(time)) if time == a => {
-						self.flag ^= 0b10;
-						self.iter.next();
-						Some(time)
-					},
-					Some(OrdTime::Equal(time)) if time == a => {
-						self.flag ^= 0b11;
-						self.iter.next();
-						None
-					},
-					_ => None
-				},
-				_ => {
-					self.extra = Some(a);
-					Some(a)
-				}
-			}
-		}
-		
-		 // Opposing Range isn't Active:
-		if self.flag & !flag == 0 {
-			return Some(a)
-		}
-		
-		let b = if flag == 0b01 {
-			self.iter.peek()
-		} else {
-			self.iter.peek().map(|t| t.reverse())
-		};
-		
-		 // Adjacent Roots:
-		if let Some(OrdTime::Less(next)) = b {
-			if next == a || next == a + NANOSEC {
-				if self.flag & flag != 0 {
-					self.flag ^= flag;
-					self.iter.next();
-				} else if self.extra.is_none() {
-					self.extra = a.checked_sub(NANOSEC);
-				}
-				return None
-			}
-		}
-		
-		if self.flag & flag != 0 {
-			if a != Time::MAX && b == Some(OrdTime::Greater(a + NANOSEC)) {
-				self.flag ^= !flag & 0b11;
-				self.iter.next();
-				std::mem::take(&mut self.extra)
-			} else if self.extra.is_some() {
-				std::mem::replace(&mut self.extra, a.checked_add(NANOSEC))
-			} else {
-				a.checked_add(NANOSEC)
-			}
-		} else if self.extra.is_some() {
-			std::mem::take(&mut self.extra)
-		} else {
-			a.checked_sub(NANOSEC)
-		}
-	}
-}
-
-impl<A: TimeIter, B: TimeIter> Iterator for SplitTimeRanges<A, B> {
-	type Item = Time;
+impl<A: TimeIter, B: TimeIter> Iterator for DiffTimeRanges<A, B> {
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		if self.extra.is_some() {
-			return std::mem::take(&mut self.extra)
+		match self.iter.peek() {
+			Some((mut a, Some(mut b))) => {
+				if let Some(range) = self.range.take() {
+					if a.1 == range.1 {
+						a = range;
+					} else if b.1 == range.1 {
+						b = range;
+					} else {
+						return Some(range)
+					}
+				}
+				
+				self.iter.next();
+				
+				match a.xor(b) {
+					Ok((x, y)) => {
+						self.range = Some(y);
+						Some(x)
+					},
+					Err(range) => {
+						self.range = Some(range);
+						self.next()
+					},
+				}
+			},
+			Some((a, None)) => {
+				self.iter.next();
+				self.range.take().or(Some(a))
+			},
+			None => self.range.take(),
 		}
-		while let Some(time) = self.iter.next() {
-			if let Some(time) = match time {
-				OrdTime::Less(t)    => self.step(0b01, t),
-				OrdTime::Greater(t) => self.step(0b10, t),
-				OrdTime::Equal(t)   => self.step(0b11, t),
-			} {
-				return Some(time)
-			}
-		}
-		None
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let (_, max) = self.iter.size_hint();
-		let extra_num = self.extra.is_some() as usize;
-		(
-			extra_num,
-			max.map(|x| x + extra_num)
-		)
+		(0, self.iter.size_hint().1)
 	}
 }
 
-/// Ordering paired with a time.
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum OrdTime {
-	Less(Time),
-	Greater(Time),
-	Equal(Time),
-}
-
-impl OrdTime {
-	fn reverse(self) -> Self {
-		match self {
-			OrdTime::Less(t) => OrdTime::Greater(t),
-			OrdTime::Greater(t) => OrdTime::Less(t),
-			t => t,
-		}
-	}
-}
-
-/// Orders two [`Times`] iterators in parallel.
+/// Orders two [`TimeRanges`] iterators in parallel.
 #[derive(Clone)]
 struct OrdTimes<A, B> {
-	a_iter: Times<A>,
-	b_iter: Times<B>,
-	prev: Time,
+	a_iter: A,
+	a_next: Option<TimeRange>,
+	b_iter: B,
+	b_next: Option<TimeRange>,
 }
 
 impl<A: TimeIter, B: TimeIter> OrdTimes<A, B> {
-	fn new(a_iter: Times<A>, b_iter: Times<B>) -> Self {
+	fn new(mut a_iter: A, mut b_iter: B) -> Self {
+		let a_next = a_iter.next();
+		let b_next = b_iter.next();
 		Self {
 			a_iter,
+			a_next,
 			b_iter,
-			prev: Time::ZERO,
+			b_next,
 		}
 	}
 	
-	fn peek(&mut self) -> Option<OrdTime> {
-		match (self.a_iter.peek(), self.b_iter.peek()) {
-			(Some(mut a), Some(mut b)) => {
-				a = a.max(self.prev);
-				b = b.max(self.prev);
-				match a.cmp(&b) {
-					Ordering::Less    => Some(OrdTime::Less(a)),
-					Ordering::Greater => Some(OrdTime::Greater(b)),
-					Ordering::Equal   => Some(OrdTime::Equal(a)),
+	fn peek(&self) -> Option<(TimeRange, Option<TimeRange>)> {
+		match (self.a_next, self.b_next) {
+			(Some(a), Some(b)) => {
+				if a.cmp_upper(&b).is_le() {
+					Some((a, Some(b)))
+				} else {
+					Some((b, Some(a)))
 				}
 			},
-			(Some(a), _) => Some(OrdTime::Less(a.max(self.prev))),
-			(_, Some(b)) => Some(OrdTime::Greater(b.max(self.prev))),
-			_ => None
+			(Some(a), _) => Some((a, None)),
+			(_, Some(b)) => Some((b, None)),
+			_ => None,
 		}
-	}
-	
-	fn prev(&self) -> Time {
-		self.prev
 	}
 }
 
 impl<A: TimeIter, B: TimeIter> Iterator for OrdTimes<A, B> {
-	type Item = OrdTime;
+	type Item = (TimeRange, Option<TimeRange>);
 	fn next(&mut self) -> Option<Self::Item> {
-		Some(match self.peek()? {
-			a @ OrdTime::Less(time) => {
-				self.prev = time;
-				self.a_iter.pop();
-				a
+		match (self.a_next, self.b_next) {
+			(Some(a), Some(b)) => match a.cmp_upper(&b) {
+				Ordering::Less => {
+					self.a_next = self.a_iter.next();
+					Some((a, Some(b)))
+				},
+				Ordering::Greater => {
+					self.b_next = self.b_iter.next();
+					Some((b, Some(a)))
+				},
+				Ordering::Equal => {
+					self.a_next = self.a_iter.next();
+					self.b_next = self.b_iter.next();
+					Some((a, Some(b)))
+				},
 			},
-			b @ OrdTime::Greater(time) => {
-				self.prev = time;
-				self.b_iter.pop();
-				b
+			(Some(a), None) => {
+				self.a_next = self.a_iter.next();
+				Some((a, None))
 			},
-			ab @ OrdTime::Equal(time) => {
-				self.prev = time;
-				self.a_iter.pop();
-				self.b_iter.pop();
-				ab
-			}
-		})
+			(None, Some(b)) => {
+				self.b_next = self.b_iter.next();
+				Some((b, None))
+			},
+			(None, None) => None,
+		}
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let (a_min, a_max) = self.a_iter.size_hint();
 		let (b_min, b_max) = self.b_iter.size_hint();
+		let extra_num = (self.a_next.is_some() as usize)
+			+ (self.b_next.is_some() as usize);
 		(
-			a_min.max(b_min),
+			a_min.max(b_min) + extra_num,
 			if let (Some(a_max), Some(b_max)) = (a_max, b_max) {
-				Some(a_max + b_max)
+				Some(a_max + b_max + extra_num)
 			} else {
 				None
 			}
@@ -763,31 +579,189 @@ impl<A: TimeIter, B: TimeIter> Iterator for OrdTimes<A, B> {
 	}
 }
 
+/// Upper or lower bound for a [`TimeRange`].
+type TimeBound = std::ops::Bound<Time>;
+
+fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
+	match bound {
+		TimeBound::Included(x) => TimeBound::Excluded(x),
+		TimeBound::Excluded(x) => TimeBound::Included(x),
+		TimeBound::Unbounded => if is_end {
+			TimeBound::Excluded(Time::MAX)
+		} else {
+			TimeBound::Excluded(Time::ZERO)
+		},
+	}
+}
+
+/// Overlap between two ranges.
+#[derive(PartialEq)]
+enum RangeOverlap {
+	Outside,
+	Inside,
+	Adjacent,
+}
+
+/// Range of time. A <= B.
+#[derive(Copy, Clone, Debug)]
+pub struct TimeRange(TimeBound, TimeBound);
+
+impl TimeRange {
+	//             Range Examples           :|0| |1| |2|:
+	// `TimeRange(Included(0), Included(2))`:|_________|:
+	// `TimeRange(Included(0), Excluded(2))`:|_______|  :
+	// `TimeRange(Excluded(0), Included(1))`:  |___|    :
+	// `TimeRange(Excluded(0), Excluded(1))`:  |_|      :
+	// `TimeRange(Excluded(0), Included(0))`:  |        :
+	// `TimeRange(Unbounded,   Included(1))`:______|    :
+	// `TimeRange(Unbounded,   Unbounded  )`:___________:
+	
+	/// Compares the lower bounds of two ranges.
+	fn cmp_lower(&self, other: &Self) -> Ordering {
+		match (&self.0, &other.0) {
+			(TimeBound::Included(a), TimeBound::Included(b)) |
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Unbounded, TimeBound::Unbounded) => {
+				Ordering::Equal
+			},
+			(_, TimeBound::Unbounded) => Ordering::Greater,
+			(TimeBound::Unbounded, _) => Ordering::Less,
+		}
+	}
+	
+	/// Compares the upper bounds of two ranges.
+	fn cmp_upper(&self, other: &Self) -> Ordering {
+		match (&self.1, &other.1) {
+			(TimeBound::Included(a), TimeBound::Included(b)) |
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Unbounded, TimeBound::Unbounded) => {
+				Ordering::Equal
+			},
+			(_, TimeBound::Unbounded) => Ordering::Less,
+			(TimeBound::Unbounded, _) => Ordering::Greater,
+		}
+	}
+	
+	/// Compares the lower bound of self to the upper bound of other.
+	fn cmp_lower_to_upper(&self, other: &TimeRange) -> Ordering {
+		match (&self.0, &other.1) {
+			(TimeBound::Included(a), TimeBound::Included(b)) => {
+				a.cmp(b).then(Ordering::Less)
+			},
+			(TimeBound::Excluded(a), TimeBound::Excluded(b)) => {
+				a.cmp(b).then(Ordering::Greater)
+			},
+			(TimeBound::Included(a), TimeBound::Excluded(b)) |
+			(TimeBound::Excluded(a), TimeBound::Included(b)) => {
+				a.cmp(b)
+			},
+			_ => Ordering::Less,
+		}
+	}
+	
+	/// State of overlap between two ranges. Outside, inside, or adjacent.
+	fn overlap(&self, other: &TimeRange) -> RangeOverlap {
+		match self.cmp_lower_to_upper(other) {
+			Ordering::Less => match other.cmp_lower_to_upper(self) {
+				Ordering::Less => RangeOverlap::Inside,
+				Ordering::Greater => RangeOverlap::Outside,
+				Ordering::Equal => RangeOverlap::Adjacent,
+			},
+			Ordering::Greater => RangeOverlap::Outside,
+			Ordering::Equal => RangeOverlap::Adjacent,
+		}
+	}
+	
+	/// Intersection of two ranges, if overlapping or adjacent.
+	fn and(self, other: TimeRange) -> Option<TimeRange> {
+		match self.overlap(&other) {
+			RangeOverlap::Outside => None,
+			RangeOverlap::Inside | RangeOverlap::Adjacent => {
+				let a = if self.cmp_lower(&other).is_lt() {
+					other.0
+				} else {
+					self.0
+				};
+				let b = if self.cmp_upper(&other).is_lt() {
+					self.1
+				} else {
+					other.1
+				};
+				Some(TimeRange(a, b))
+			},
+		}
+	}
+	
+	/// Union of two ranges, if overlapping or adjacent.
+	fn or(self, other: TimeRange) -> Result<TimeRange, (TimeRange, TimeRange)> {
+		match self.overlap(&other) {
+			RangeOverlap::Outside => Err((self, other)),
+			RangeOverlap::Inside | RangeOverlap::Adjacent => {
+				let a = if self.cmp_lower(&other).is_lt() {
+					self.0
+				} else {
+					other.0
+				};
+				let b = if self.cmp_upper(&other).is_lt() {
+					other.1
+				} else {
+					self.1
+				};
+				Ok(TimeRange(a, b))
+			},
+		}
+	}
+	
+	/// Symmetric difference of two ranges, or union if adjacent.
+	fn xor(self, other: TimeRange) -> Result<(TimeRange, TimeRange), TimeRange> {
+		match self.overlap(&other) {
+			RangeOverlap::Outside => Ok((self, other)),
+			RangeOverlap::Inside => { 
+				let (x1, x2) = if self.cmp_lower(&other).is_lt() {
+					(self.0, other.0)
+				} else {
+					(other.0, self.0)
+				};
+				let (y1, y2) = if self.cmp_upper(&other).is_lt() {
+					(self.1, other.1)
+				} else {
+					(other.1, self.1)
+				};
+				Ok((
+					TimeRange(x1, reverse_bound(x2, false)),
+					TimeRange(reverse_bound(y1, true), y2)
+				))
+			},
+			RangeOverlap::Adjacent => Err(self.or(other)
+				.expect("should always work")),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	
-	// #[test]
-	// fn time_logic() {
-	// 	let t = SEC;
-	// 	let a = Times::new([1*t, 2*t, 3*t]);
-	// 	let b = Times::new([2*t, 5*t]);
-	// 	assert_eq!(Vec::from_iter(a.clone() & b.clone()), [2*t]);
-	// 	assert_eq!(Vec::from_iter(a.clone() | b.clone()), [1*t, 2*t, 3*t, 5*t]);
-	// 	assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [1*t, 3*t, 5*t]);
-	// 	assert_eq!(Vec::from_iter(!!!b), [
-	// 		(Time::ZERO, 2*t - NANOSEC),
-	// 		(2*t + NANOSEC, 5*t - NANOSEC),
-	// 		(5*t + NANOSEC, Time::MAX)
-	// 	]);
-	// 	assert_eq!(
-	// 		Vec::from_iter(a.clone() & TimeRanges::new([], Time::ZERO, Ordering::Greater, Ordering::Greater)),
-	// 		Vec::from_iter(a.clone())
-	// 	);
-	// }
-	
 	#[test]
 	fn range_logic() {
+		assert!(TimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
+		assert!(TimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
 		let a = TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
 		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
@@ -807,7 +781,9 @@ mod tests {
 			(0*t, 0*t),
 			(7*t, 7*t),
 			(20*t, 20*t),
-			(50*t - NANOSEC, 50*t + NANOSEC),
+			(50*t - NANOSEC, 50*t - NANOSEC),
+			(50*t, 50*t),
+			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
 		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [
 			(3*t + NANOSEC, 5*t - NANOSEC),
@@ -848,7 +824,9 @@ mod tests {
 		assert_eq!(Vec::from_iter(c.clone() & a.clone()), [
 			(0*t, 0*t),
 			(7*t, 7*t),
-			(50*t - NANOSEC, 50*t + NANOSEC),
+			(50*t - NANOSEC, 50*t - NANOSEC),
+			(50*t, 50*t),
+			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
 		assert_eq!(Vec::from_iter(b.clone() & c.clone()), [
 			(50*t + NANOSEC, 50*t + NANOSEC),
@@ -864,7 +842,8 @@ mod tests {
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
 			(20*t, 40*t - NANOSEC),
-			(50*t - NANOSEC, Time::MAX),
+			(50*t - NANOSEC, 50*t - NANOSEC),
+			(50*t, Time::MAX),
 		]);
 		assert_eq!(Vec::from_iter(c.clone() ^ a.clone()), [
 			(0*t + NANOSEC, 2*t - NANOSEC),
@@ -879,78 +858,9 @@ mod tests {
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
 			(20*t, 40*t - NANOSEC),
-			(50*t - NANOSEC, 50*t),
+			(50*t - NANOSEC, 50*t - NANOSEC),
+			(50*t, 50*t),
 			(50*t + 2*NANOSEC, Time::MAX),
-		]);
-	}
-	
-	#[ignore]
-	#[test]
-	fn order_fix() {
-		// !!! This should be rewritten to just validate panicking.
-		
-		#[derive(Clone)]
-		struct RootIter(std::vec::IntoIter<Time>);
-		
-		impl Iterator for RootIter {
-			type Item = Time;
-			fn next(&mut self) -> Option<Self::Item> {
-				self.0.next()
-			}
-			fn size_hint(&self) -> (usize, Option<usize>) {
-				// No upper bound, so the time iterator assumes it's endless.
-				(0, None)
-			}
-		}
-		
-		let t = SEC;
-		let roots = vec![10*t, 20*t, 30*t, 40*t, 50*t, 7*t];
-		let b_roots = vec![10*t, 25*t, 30*t, 45*t, 5*t];
-		
-		let times = Times::new(RootIter(roots.clone().into_iter()));
-		assert_eq!(times.collect::<Vec<_>>(), [10*t, 20*t, 30*t, 40*t, 50*t]);
-		
-		let ranges = TimeRanges::new(
-			RootIter(roots.into_iter()),
-			Ordering::Greater,
-			Ordering::Less,
-		);
-		assert_eq!(ranges.clone().collect::<Vec<_>>(), [
-			// SHOULD be (7..10, 20..30, 40..50), but the iterator doesn't know
-			// all the roots. So instead, it corrects itself along the way:
-			(10*t + NANOSEC, 20*t - NANOSEC),
-			(20*t + NANOSEC, 30*t - NANOSEC),
-			(40*t + NANOSEC, 50*t - NANOSEC),
-		]);
-		
-		let b_ranges = TimeRanges::new(
-			RootIter(b_roots.into_iter()),
-			Ordering::Greater,
-			Ordering::Less,
-		);
-		assert_eq!(b_ranges.clone().collect::<Vec<_>>(), [
-			// This one is within range of all the roots by chance, so it works.
-			(5*t + NANOSEC, 10*t - NANOSEC),
-			(25*t + NANOSEC, 30*t - NANOSEC),
-			(45*t + NANOSEC, Time::MAX),
-		]);
-		
-		 // Operations:
-		assert_eq!((ranges.clone() & b_ranges.clone()).collect::<Vec<_>>(), [
-			(25*t + NANOSEC, 30*t - NANOSEC),
-			(45*t + NANOSEC, 50*t - NANOSEC),
-		]);
-		assert_eq!((ranges.clone() ^ b_ranges.clone()).collect::<Vec<_>>(), [
-			(10*t + NANOSEC, 20*t - NANOSEC),
-			(20*t + NANOSEC, 25*t),
-			(40*t + NANOSEC, 45*t),
-			(50*t, Time::MAX),
-		]);
-		assert_eq!((!ranges.clone()).collect::<Vec<_>>(), [
-			(0*t, 10*t),
-			(20*t, 20*t),
-			(30*t, 40*t),
-			(50*t, Time::MAX),
 		]);
 	}
 }
