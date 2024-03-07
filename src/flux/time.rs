@@ -29,43 +29,43 @@ pub use units::*;
 pub trait TimeRangeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static {}
 impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeRangeIter for T {}
 
-/// Iterator types usable by [`Times`].
-pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
+/// Iterator types usable by [`TimeRangeBuilder`].
+pub(crate) trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
 impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 
 /// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
 #[must_use]
 #[derive(Clone)]
-pub(crate) enum Times<I> {
-	Included(I, Option<Time>),
-	Excluded(I),
+pub(crate) enum TimeRangeBuilder<I> {
+	Inclusive(I, Option<Time>),
+	Exclusive(I),
 	Unbounded(Option<I>),
 }
 
-impl<I: TimeIter> Iterator for Times<I> {
+impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Times::Included(iter, queued_time) => {
+			TimeRangeBuilder::Inclusive(iter, queued_time) => {
 				if let Some(time) = queued_time.take() {
 					let t = TimeBound::Included(time);
 					Some(TimeRange(t, t))
-				} else if let Some(next_time) = iter.next() {
+				} else if let Some(time) = iter.next() {
 					 // Ignore Repeated Times:
-					for time in iter.by_ref() {
-						if next_time != time {
-							*queued_time = Some(time);
+					for next_time in iter.by_ref() {
+						if time != next_time {
+							*queued_time = Some(next_time);
 							break
 						}
 					}
 					
-					let t = TimeBound::Included(next_time);
+					let t = TimeBound::Included(time);
 					Some(TimeRange(t, t))
 				} else {
 					None
 				}
 			},
-			Times::Excluded(iter) => {
+			TimeRangeBuilder::Exclusive(iter) => {
 				if let Some(a) = iter.next().map(TimeBound::Excluded) {
 					let b = iter.next().map(TimeBound::Excluded)
 						.unwrap_or(TimeBound::Unbounded);
@@ -79,12 +79,12 @@ impl<I: TimeIter> Iterator for Times<I> {
 					None
 				}
 			},
-			Times::Unbounded(iter) => {
+			TimeRangeBuilder::Unbounded(iter) => {
 				let mut iter = iter.take().expect("this should always exist");
 				let next = iter.next().map(TimeBound::Excluded)
 					.unwrap_or(TimeBound::Unbounded);
 				
-				*self = Times::Excluded(iter);
+				*self = TimeRangeBuilder::Exclusive(iter);
 				
 				Some(TimeRange(TimeBound::Unbounded, next))
 			},
@@ -92,18 +92,18 @@ impl<I: TimeIter> Iterator for Times<I> {
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
-			Times::Included(iter, queued_time) => {
+			TimeRangeBuilder::Inclusive(iter, queued_time) => {
 				if queued_time.is_some() {
 					(1, iter.size_hint().1.and_then(|x| x.checked_add(1)))
 				} else {
 					(0, iter.size_hint().1)
 				}
 			},
-			Times::Excluded(iter) |
-			Times::Unbounded(Some(iter)) => {
+			TimeRangeBuilder::Exclusive(iter) |
+			TimeRangeBuilder::Unbounded(Some(iter)) => {
 				(0, iter.size_hint().1.map(|x| 1 + x/2))
 			},
-			Times::Unbounded(None) => unreachable!(),
+			TimeRangeBuilder::Unbounded(None) => unreachable!(),
 		}
 	}
 }
@@ -178,21 +178,21 @@ impl TimeRanges<std::iter::Once<TimeRange>> {
 	}
 }
 
-impl<I: TimeIter> TimeRanges<Times<I>> {
+impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
 		initial_order: Ordering,
 		order: Ordering,
-	) -> TimeRanges<Times<I>>
+	) -> TimeRanges<TimeRangeBuilder<I>>
 	{
 		let iter = iter.into_iter();
 		TimeRanges {
 			times: if order == initial_order {
-				Times::Unbounded(Some(iter))
+				TimeRangeBuilder::Unbounded(Some(iter))
 			} else if order.is_eq() {
-				Times::Included(iter, None)
+				TimeRangeBuilder::Inclusive(iter, None)
 			} else {
-				Times::Excluded(iter)
+				TimeRangeBuilder::Exclusive(iter)
 			}
 		}
 	}
