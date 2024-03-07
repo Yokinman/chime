@@ -49,19 +49,22 @@ fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
 }
 
 /// Range of time. A <= B.
+/// 
+/// Inclusivity examples:
+/// ```text
+///                                     :|0| |1| |2|:
+/// TimeRange(Included(0), Included(2)) :|_________|:
+/// TimeRange(Included(0), Excluded(2)) :|_______|  :
+/// TimeRange(Excluded(0), Included(1)) :  |___|    :
+/// TimeRange(Excluded(0), Excluded(1)) :  |_|      :
+/// TimeRange(Excluded(0), Included(0)) :  |        :
+/// TimeRange(Unbounded,   Included(1)) :______|    :
+/// TimeRange(Unbounded,   Unbounded  ) :___________:
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub struct TimeRange(TimeBound, TimeBound);
 
 impl TimeRange {
-	//             Range Examples           :|0| |1| |2|:
-	// `TimeRange(Included(0), Included(2))`:|_________|:
-	// `TimeRange(Included(0), Excluded(2))`:|_______|  :
-	// `TimeRange(Excluded(0), Included(1))`:  |___|    :
-	// `TimeRange(Excluded(0), Excluded(1))`:  |_|      :
-	// `TimeRange(Excluded(0), Included(0))`:  |        :
-	// `TimeRange(Unbounded,   Included(1))`:______|    :
-	// `TimeRange(Unbounded,   Unbounded  )`:___________:
-	
 	/// Compares the lower bounds of two ranges.
 	fn cmp_lower(&self, other: &Self) -> Ordering {
 		match (&self.0, &other.0) {
