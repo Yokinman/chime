@@ -282,11 +282,10 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
-		let mut times = self.inner.roots().into_times()
-			.filter_map(move |t| t.try_into_time(basis).ok())
-			.peekable();
+		let times = self.inner.roots().into_times()
+			.filter_map(move |t| t.try_into_time(basis).ok());
 		let initial_order = self
-			.initial_order(times.peek().copied().unwrap_or(Time::ZERO))
+			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
 		TimeRanges::new(times, initial_order, order)
 			.into_filtered(f)
