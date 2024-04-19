@@ -120,7 +120,9 @@ pub trait Flux {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T>(&self, order: Ordering, other: &T) -> impl Prediction
+	fn when<T>(&self, order: Ordering, other: &T)
+		-> <Poly<Self::Kind, <Self::Moment as Moment>::Value>
+			as When<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
@@ -131,7 +133,9 @@ pub trait Flux {
 	}
 	
 	/// Times when this is equal to another flux.
-	fn when_eq<T>(&self, other: &T) -> impl Prediction
+	fn when_eq<T>(&self, other: &T)
+		-> <Poly<Self::Kind, <Self::Moment as Moment>::Value>
+			as WhenEq<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
@@ -291,7 +295,9 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D) -> impl Prediction
+	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D)
+		-> <PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
+			as WhenDis<SIZE, T::Kind, D::Kind, <T::Moment as MomentVec<SIZE>>::Value, <D::Moment as Moment>::Value>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
@@ -304,7 +310,9 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis_eq<T, D>(&self, other: &T, dis: &D) -> impl Prediction
+	fn when_dis_eq<T, D>(&self, other: &T, dis: &D)
+		-> <PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
+			as WhenDisEq<SIZE, T::Kind, D::Kind, <T::Moment as MomentVec<SIZE>>::Value, <D::Moment as Moment>::Value>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
@@ -317,7 +325,9 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> impl Prediction
+	fn when_index<T>(&self, index: usize, order: Ordering, other: &T)
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
+			as When<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
@@ -329,7 +339,9 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Times when a component is equal to another flux.
-	fn when_index_eq<T>(&self, index: usize, other: &T) -> impl Prediction
+	fn when_index_eq<T>(&self, index: usize, other: &T)
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
+			as WhenEq<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
