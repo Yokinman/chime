@@ -641,22 +641,26 @@ where
 }
 
 /// ...
-struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> {
+pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L>
+where
+	E: FluxKind,
+	F: FluxKind,
+{
 	a_pos: PolyVec<SIZE, A, I>,
 	b_pos: PolyVec<SIZE, B, J>,
 	dis_poly: Poly<D, L>,
-	pos_poly: Poly<E, M>,
-	diff_poly: Poly<F, N>,
+	pos_poly: Poly<E, E::Value>,
+	diff_poly: Poly<F, F::Value>,
 }
 
-impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> Clone
-	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
+impl<const SIZE: usize, A, B, D, E, F, I, J, L> Clone
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L>
 where
 	A: Clone,
 	B: Clone,
 	D: Clone,
-	E: Clone,
-	F: Clone,
+	E: FluxKind,
+	F: FluxKind,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -669,8 +673,8 @@ where
 	}
 }
 
-impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> TimeFilterMap
-	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
+impl<const SIZE: usize, A, B, D, E, F, I, J, L> TimeFilterMap
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
@@ -683,8 +687,6 @@ where
 	I: LinearIsoVec<SIZE, A::Value>,
 	J: LinearIsoVec<SIZE, B::Value>,
 	L: LinearIso<D::Value>,
-	M: LinearIso<D::Value>,
-	N: LinearIso<D::Value>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -950,12 +952,13 @@ where
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D, J, L> {
+	type Pred: Prediction;
 	fn when_dis(
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
 		dis: Poly<D, L>,
-	) -> impl Prediction;
+	) -> Self::Pred;
 }
 
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
@@ -978,12 +981,23 @@ where
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
 	L: LinearIso<D::Value>,
 {
+	type Pred = Pred<
+		<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+		<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value,
+		DisTimeFilterMap<
+			SIZE,
+			A, B, D,
+			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			I, J, L
+		>
+	>;
 	fn when_dis(
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
 		dis: Poly<D, L>,
-	) -> impl Prediction {
+	) -> Self::Pred {
 		use ops::*;
 		
 		let basis = self.time();
