@@ -30,7 +30,9 @@ pub trait TimeRangeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'stati
 impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeRangeIter for T {}
 
 /// Iterator types usable by [`TimeRangeBuilder`].
-pub(crate) trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
+/// 
+/// !!! Seal this later.
+pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
 impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
 
 /// Upper or lower bound for a [`TimeRange`].
@@ -211,9 +213,11 @@ enum Overlap {
 }
 
 /// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
+/// 
+/// !!! Seal this later.
 #[must_use]
 #[derive(Clone)]
-pub(crate) enum TimeRangeBuilder<I> {
+pub enum TimeRangeBuilder<I> {
 	Inclusive(I, Option<Time>),
 	Exclusive(I),
 	Unbounded(Option<I>),
@@ -286,8 +290,10 @@ impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
 }
 
 /// Filters times for use with [`TimeRanges::into_filtered`].
+/// 
+/// !!! Seal this later.
 #[derive(Clone)]
-pub(crate) struct TimeFilter<I, F> {
+pub struct TimeFilter<I, F> {
 	times: I,
 	filter: F,
 }
