@@ -808,6 +808,67 @@ where
 	}
 }
 
+/// ...
+pub struct Pred<K, I, F> {
+	poly: Poly<K, I>,
+	order: Ordering,
+	filter: F,
+}
+
+impl<K, I, F> IntoIterator for Pred<K, I, F>
+where
+	K: Roots + PartialOrd,
+	K::Value: PartialOrd,
+	I: LinearIso<K::Value>,
+	F: TimeFilterMap + 'static,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::TimeFilter<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>, F>>;
+	fn into_iter(self) -> Self::IntoIter {
+		let basis = self.poly.time;
+		let basis_order = self.poly
+			.initial_order(Time::ZERO)
+			.unwrap_or(Ordering::Equal);
+		let times = RootFilterMap {
+			times: self.poly.inner.roots().into_times(),
+			basis,
+		};
+		TimeRanges::new(times, basis_order, self.order)
+			.into_filtered(self.filter)
+	}
+}
+
+/// ...
+pub struct PredEq<K, I, F> {
+	poly: Poly<K, I>,
+	filter: F,
+}
+
+impl<K, I, F> IntoIterator for PredEq<K, I, F>
+where
+	K: Roots + PartialEq,
+	K::Value: PartialEq,
+	I: LinearIso<K::Value>,
+	F: TimeFilterMap + 'static,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::TimeFilter<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>, F>>;
+	fn into_iter(self) -> Self::IntoIter {
+		let basis = self.poly.time;
+		let basis_order = if self.poly.inner.is_zero() {
+			Ordering::Equal
+		} else {
+			Ordering::Greater
+		};
+		let times = RootFilterMap {
+			times: self.poly.inner.roots().into_times(),
+			basis,
+		};
+		TimeRanges::new(times, basis_order, Ordering::Equal)
+			.into_filtered(self.filter)
+	}
+}
+
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B, J> {
 	fn when(self, order: Ordering, poly: Poly<B, J>)
