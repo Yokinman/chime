@@ -923,7 +923,8 @@ where
 
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B, J> {
-	fn when_eq(self, poly: Poly<B, J>) -> impl Prediction;
+	type Pred: Prediction;
+	fn when_eq(self, poly: Poly<B, J>) -> Self::Pred;
 }
 
 impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
@@ -935,7 +936,8 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B, J>) -> impl Prediction {
+	type Pred = PredEq<<A as ops::Sub<B>>::Output, I, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>>;
+	fn when_eq(self, poly: Poly<B, J>) -> Self::Pred {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_zero(DiffTimeFilterMap {
