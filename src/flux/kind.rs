@@ -832,20 +832,22 @@ where
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind> {
+pub trait WhenDis<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind, J: LinearIsoVec<SIZE, B::Value>, L: LinearIso<D::Value>> {
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
+		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
-		dis: Poly<D, impl LinearIso<D::Value>>
+		dis: Poly<D, L>
 	) -> TimeRanges<impl TimeRangeIter>;
 }
 
-impl<const SIZE: usize, A, B, D, I> WhenDis<SIZE, B, D> for PolyVec<SIZE, A, I>
+impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
+	for PolyVec<SIZE, A, I>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
 	I: LinearIsoVec<SIZE, A::Value>,
+	J: LinearIsoVec<SIZE, B::Value>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -857,12 +859,13 @@ where
 	<A::Kind as FluxKind>::Value:
 		Mul<Output = <A::Kind as FluxKind>::Value> + PartialOrd,
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
+	L: LinearIso<D::Value>,
 {
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B, impl LinearIsoVec<SIZE, B::Value>>,
+		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
-		dis: Poly<D, impl LinearIso<D::Value>>
+		dis: Poly<D, L>,
 	) -> TimeRanges<impl TimeRangeIter> {
 		use ops::*;
 		

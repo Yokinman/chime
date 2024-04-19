@@ -296,7 +296,7 @@ pub trait FluxVec<const SIZE: usize> {
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
 		PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>:
-			WhenDis<SIZE, T::Kind, D::Kind>,
+			WhenDis<SIZE, T::Kind, D::Kind, <T::Moment as MomentVec<SIZE>>::Value, <D::Moment as Moment>::Value>,
 	{
 		let time = self.max_base_time();
 		self.poly_vec(time)
