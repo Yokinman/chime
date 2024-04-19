@@ -1025,11 +1025,12 @@ where
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
+	type Pred: Prediction;
 	fn when_dis_eq(
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		dis: Poly<D, L>,
-	) -> impl Prediction;
+	) -> Self::Pred;
 }
 
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDisEq<SIZE, B, D, J, L> for PolyVec<SIZE, A, I>
@@ -1051,11 +1052,22 @@ where
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
 	L: LinearIso<D::Value>,
 {
+	type Pred = PredEq<
+		<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+		<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value,
+		DisTimeFilterMap<
+			SIZE,
+			A, B, D,
+			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			I, J, L
+		>
+	>;
 	fn when_dis_eq(
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		dis: Poly<D, L>,
-	) -> impl Prediction {
+	) -> Self::Pred {
 		use ops::*;
 		
 		let basis = self.time();
