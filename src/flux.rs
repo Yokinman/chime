@@ -120,7 +120,7 @@ pub trait Flux {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T>(&self, order: Ordering, other: &T) -> TimeRanges<impl TimeRangeIter>
+	fn when<T>(&self, order: Ordering, other: &T) -> impl Prediction
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
@@ -291,7 +291,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D) -> TimeRanges<impl TimeRangeIter>
+	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D) -> impl Prediction
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
@@ -317,7 +317,7 @@ pub trait FluxVec<const SIZE: usize> {
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> TimeRanges<impl TimeRangeIter>
+	fn when_index<T>(&self, index: usize, order: Ordering, other: &T) -> impl Prediction
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
@@ -783,16 +783,15 @@ mod tests {
 	
 	macro_rules! assert_time_ranges {
 		($ranges:expr, $cmp_ranges:expr) => {{
-			let ranges: TimeRanges<_> = $ranges;
-			let cmp_ranges = Vec::from_iter($cmp_ranges).into_iter();
+			let ranges = Vec::<(Time, Time)>::from_iter($ranges);
+			let cmp_ranges = Vec::<(Time, Time)>::from_iter($cmp_ranges);
 			assert_eq!(
-				ranges.clone().count(),
-				cmp_ranges.clone().count(),
+				ranges.len(),
+				cmp_ranges.len(),
 				"a: {:?}, b: {:?}",
-				ranges.collect::<Box<[_]>>(),
-				cmp_ranges.collect::<Box<[_]>>(),
+				ranges, cmp_ranges,
 			);
-			for ((a, b), (x, y)) in ranges.zip(cmp_ranges) {
+			for ((a, b), (x, y)) in ranges.into_iter().zip(cmp_ranges) {
 				let a_time = ((a.max(x) - x.min(a)).as_secs_f64() * 60.).floor();
 				let b_time = ((b.max(y) - y.min(b)).as_secs_f64() * 60.).floor();
 				assert_eq!(a_time, 0., "a: {:?}, x: {:?}", a, x);
@@ -925,7 +924,7 @@ mod tests {
 		b_pos.at_mut(10*SEC).value -= 100.0;
 		
 		 // Check After:
-		assert_eq!(a_pos.when(Ordering::Greater, &b_pos).collect::<Vec<_>>(), [
+		assert_eq!(Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)), [
 			(0*SEC, 8*SEC - time::NANOSEC),
 			(50*SEC + time::NANOSEC, Time::MAX)
 		]);

@@ -276,23 +276,17 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign<F>(&self, order: Ordering, f: F)
-		-> TimeRanges<time::TimeFilter<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>, F>>
+	fn when_sign<F>(self, order: Ordering, filter: F) -> Pred<K, I, F>
 	where
 		F: TimeFilterMap + 'static,
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
-		let basis = self.time;
-		let basis_order = self
-			.initial_order(Time::ZERO)
-			.unwrap_or(Ordering::Equal);
-		let times = RootFilterMap {
-			times: self.inner.roots().into_times(),
-			basis,
-		};
-		TimeRanges::new(times, basis_order, order)
-			.into_filtered(f)
+		Pred {
+			poly: self,
+			order,
+			filter,
+		}
 	}
 	
 	/// Times when the value is equal to zero.
@@ -912,7 +906,7 @@ where
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B, J> {
 	fn when(self, order: Ordering, poly: Poly<B, J>)
-		-> TimeRanges<impl TimeRangeIter>;
+		-> impl Prediction;
 }
 
 impl<A, B, I, J> When<B, J> for Poly<A, I>
@@ -925,7 +919,7 @@ where
 	A::Value: PartialOrd,
 {
 	fn when(self, order: Ordering, poly: Poly<B, J>)
-		-> TimeRanges<impl TimeRangeIter>
+		-> impl Prediction
 	{
 		let diff_poly = self - poly;
 		diff_poly
@@ -972,7 +966,7 @@ pub trait WhenDis<const SIZE: usize, B, D, J, L> {
 		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
 		dis: Poly<D, L>,
-	) -> TimeRanges<impl TimeRangeIter>;
+	) -> impl Prediction;
 }
 
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
@@ -1000,7 +994,7 @@ where
 		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
 		dis: Poly<D, L>,
-	) -> TimeRanges<impl TimeRangeIter> {
+	) -> impl Prediction {
 		use ops::*;
 		
 		let basis = self.time();
@@ -1092,12 +1086,11 @@ fn consistent_sign_pred() {
 			Sum::new(-2., [5., -2.]),
 			Sum::zero()
 		], time);
-		poly
-			.when_dis(
-				PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
-				Ordering::Greater,
-				Poly::new(crate::Constant::from(1.), time),
-			)
+		poly.when_dis(
+			PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
+			Ordering::Greater,
+			Poly::new(crate::Constant::from(1.), time),
+		).into_iter()
 			.map(|(a, b)| (
 				a.saturating_sub(time),
 				if b == Time::MAX {
