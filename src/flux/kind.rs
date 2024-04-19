@@ -837,7 +837,7 @@ pub trait WhenDis<const SIZE: usize, B, D, J, L> {
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		order: Ordering,
-		dis: Poly<D, L>
+		dis: Poly<D, L>,
 	) -> TimeRanges<impl TimeRangeIter>;
 }
 
@@ -893,7 +893,7 @@ where
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind, J: LinearIsoVec<SIZE, B::Value>, L: LinearIso<D::Value>> {
+pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
 	fn when_dis_eq(
 		self,
 		poly: PolyVec<SIZE, B, J>,
