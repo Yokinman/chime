@@ -573,7 +573,7 @@ impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> TimeFilterMap for 
 }
 
 /// ...
-struct DiffTimeFilterMap<A, B, D, I, J, L> {
+pub struct DiffTimeFilterMap<A, B, D, I, J, L> {
 	a_poly: Poly<A, I>,
 	b_poly: Poly<B, J>,
 	diff_poly: Poly<D, L>,
@@ -896,8 +896,8 @@ where
 
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B, J> {
-	fn when(self, order: Ordering, poly: Poly<B, J>)
-		-> impl Prediction;
+	type Pred: Prediction;
+	fn when(self, order: Ordering, poly: Poly<B, J>) -> Self::Pred;
 }
 
 impl<A, B, I, J> When<B, J> for Poly<A, I>
@@ -909,9 +909,8 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
 {
-	fn when(self, order: Ordering, poly: Poly<B, J>)
-		-> impl Prediction
-	{
+	type Pred = Pred<<A as ops::Sub<B>>::Output, I, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>>;
+	fn when(self, order: Ordering, poly: Poly<B, J>) -> Self::Pred {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_sign(order, DiffTimeFilterMap {
