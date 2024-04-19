@@ -832,7 +832,7 @@ where
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B: FluxKindVec<SIZE>, D: FluxKind, J: LinearIsoVec<SIZE, B::Value>, L: LinearIso<D::Value>> {
+pub trait WhenDis<const SIZE: usize, B, D, J, L> {
 	fn when_dis(
 		self,
 		poly: PolyVec<SIZE, B, J>,
