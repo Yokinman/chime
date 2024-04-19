@@ -7,7 +7,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
 use crate::time;
-use crate::time::{Time, TimeRangeIter, TimeRanges};
+use crate::time::{Time, TimeRanges};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
@@ -290,25 +290,16 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero<F>(&self, f: F)
-		-> TimeRanges<time::TimeFilter<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>, F>>
+	fn when_zero<F>(self, filter: F) -> PredEq<K, I, F>
 	where
 		F: TimeFilterMap + 'static,
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
-		let basis = self.time;
-		let basis_order = if self.inner.is_zero() {
-			Ordering::Equal
-		} else {
-			Ordering::Greater
-		};
-		let times = RootFilterMap {
-			times: self.inner.roots().into_times(),
-			basis,
-		};
-		TimeRanges::new(times, basis_order, Ordering::Equal)
-			.into_filtered(f)
+		PredEq {
+			poly: self,
+			filter,
+		}
 	}
 }
 
@@ -933,8 +924,7 @@ where
 
 /// [`crate::Flux::when_eq`] predictive comparison.
 pub trait WhenEq<B, J> {
-	fn when_eq(self, poly: Poly<B, J>)
-		-> TimeRanges<impl TimeRangeIter>;
+	fn when_eq(self, poly: Poly<B, J>) -> impl Prediction;
 }
 
 impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
@@ -946,9 +936,7 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B, J>)
-		-> TimeRanges<impl TimeRangeIter>
-	{
+	fn when_eq(self, poly: Poly<B, J>) -> impl Prediction {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_zero(DiffTimeFilterMap {
@@ -1026,7 +1014,7 @@ pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		dis: Poly<D, L>,
-	) -> TimeRanges<impl TimeRangeIter>;
+	) -> impl Prediction;
 }
 
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDisEq<SIZE, B, D, J, L> for PolyVec<SIZE, A, I>
@@ -1052,7 +1040,7 @@ where
 		self,
 		poly: PolyVec<SIZE, B, J>,
 		dis: Poly<D, L>,
-	) -> TimeRanges<impl TimeRangeIter> {
+	) -> impl Prediction {
 		use ops::*;
 		
 		let basis = self.time();
