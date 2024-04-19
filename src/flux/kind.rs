@@ -554,20 +554,42 @@ impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for 
 	}
 }
 
-fn root_filter_map<T, I, J>(
-	a_poly: Poly<T, I>,
-	b_poly: Poly<impl FluxKind<Value=T::Value>, J>,
-	diff_poly: Poly<impl FluxKind<Value=T::Value>, impl LinearIso<T::Value>>,
-) -> impl RootFilterMap
+/// ...
+struct DiffRootFilterMap<A, B, D, I, J, L> {
+	a_poly: Poly<A, I>,
+	b_poly: Poly<B, J>,
+	diff_poly: Poly<D, L>,
+}
+
+impl<A, B, D, I, J, L> Clone for DiffRootFilterMap<A, B, D, I, J, L>
 where
-	T: FluxKind,
-	T::Value: PartialEq,
-	I: LinearIso<T::Value>,
-	J: LinearIso<T::Value>,
+	A: Clone,
+	B: Clone,
+	D: Clone,
 {
-	move |mut time: Time, is_end: bool| {
+	fn clone(&self) -> Self {
+		Self {
+			a_poly: self.a_poly.clone(),
+			b_poly: self.b_poly.clone(),
+			diff_poly: self.diff_poly.clone(),
+		}
+	}
+}
+
+impl<A, B, D, I, J, L> RootFilterMap for DiffRootFilterMap<A, B, D, I, J, L>
+where
+	A: FluxKind,
+	B: FluxKind<Value=A::Value>,
+	D: FluxKind<Value=A::Value>,
+	A::Value: PartialEq,
+	I: LinearIso<A::Value>,
+	J: LinearIso<A::Value>,
+	L: LinearIso<A::Value>,
+{
+	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
 		
+		let Self { a_poly, b_poly, diff_poly } = self;
 		let sign = diff_poly.rate_at(time).sign();
 		
 		loop {
@@ -600,13 +622,37 @@ where
 	}
 }
 
-fn dis_root_filter_map<const SIZE: usize, A, B, D, I, J, L>(
+/// ...
+struct DisRootFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> {
 	a_pos: PolyVec<SIZE, A, I>,
 	b_pos: PolyVec<SIZE, B, J>,
 	dis_poly: Poly<D, L>,
-	pos_poly: Poly<impl FluxKind<Value=D::Value>, impl LinearIso<D::Value>>,
-	diff_poly: Poly<impl FluxKind<Value=D::Value>, impl LinearIso<D::Value>>,
-) -> impl RootFilterMap
+	pos_poly: Poly<E, M>,
+	diff_poly: Poly<F, N>,
+}
+
+impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> Clone
+	for DisRootFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
+where
+	A: Clone,
+	B: Clone,
+	D: Clone,
+	E: Clone,
+	F: Clone,
+{
+	fn clone(&self) -> Self {
+		Self {
+			a_pos: self.a_pos.clone(),
+			b_pos: self.b_pos.clone(),
+			dis_poly: self.dis_poly.clone(),
+			pos_poly: self.pos_poly.clone(),
+			diff_poly: self.diff_poly.clone(),
+		}
+	}
+}
+
+impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> RootFilterMap
+	for DisRootFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
@@ -614,16 +660,21 @@ where
 	D::Value: PartialEq + Mul<Output=D::Value>,
 	A::Kind: FluxKind<Value=D::Value>,
 	B::Kind: FluxKind<Value=D::Value>,
+	E: FluxKind<Value=D::Value>,
+	F: FluxKind<Value=D::Value>,
 	I: LinearIsoVec<SIZE, A::Value>,
 	J: LinearIsoVec<SIZE, B::Value>,
 	L: LinearIso<D::Value>,
+	M: LinearIso<D::Value>,
+	N: LinearIso<D::Value>,
 {
-	move |mut time: Time, is_end: bool| {
+	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
 		// To handle rounding, the lower bound of equality is undershot.
 		// For example, a pair of IVec2 points can round towards each other up
 		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
+		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
 		let sign = diff_poly.rate_at(time).sign();
 		
 		 // Rounding Buffer:
@@ -741,7 +792,11 @@ where
 	{
 		let diff_poly = self - poly;
 		diff_poly
-			.when_sign(order, root_filter_map(self, poly, diff_poly))
+			.when_sign(order, DiffRootFilterMap {
+				a_poly: self,
+				b_poly: poly,
+				diff_poly
+			})
 	}
 }
 
@@ -762,7 +817,11 @@ where
 	{
 		let diff_poly = self - poly;
 		diff_poly
-			.when_zero(root_filter_map(self, poly, diff_poly))
+			.when_zero(DiffRootFilterMap {
+				a_poly: self,
+				b_poly: poly,
+				diff_poly
+			})
 	}
 }
 
@@ -814,7 +873,13 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_sign(order, dis_root_filter_map(self, poly, dis, sum, diff_poly))
+			.when_sign(order, DisRootFilterMap {
+				a_pos: self,
+				b_pos: poly,
+				dis_poly: dis,
+				pos_poly: sum,
+				diff_poly,
+			})
 	}
 }
 
@@ -864,7 +929,13 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_zero(dis_root_filter_map(self, poly, dis, sum, diff_poly))
+			.when_zero(DisRootFilterMap {
+				a_pos: self,
+				b_pos: poly,
+				dis_poly: dis,
+				pos_poly: sum,
+				diff_poly,
+			})
 	}
 }
 
