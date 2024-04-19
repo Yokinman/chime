@@ -776,7 +776,7 @@ where
 }
 
 /// [`crate::Flux::when`] predictive comparison.
-pub trait When<B: FluxKind, J: LinearIso<B::Value>> {
+pub trait When<B, J> {
 	fn when(self, order: Ordering, poly: Poly<B, J>)
 		-> TimeRanges<impl TimeRangeIter>;
 }
