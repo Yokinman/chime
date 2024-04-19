@@ -544,8 +544,15 @@ impl PartialEq for LinearTime {
 }
 
 /// Function that converts a root value to a Time, or ignores it.
-pub(crate) trait RootFilterMap: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync {}
-impl<T: FnMut(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {}
+pub(crate) trait RootFilterMap: Clone + Send + Sync {
+	fn cool(&self, time: Time, is_end: bool) -> Option<Time>;
+}
+
+impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {
+	fn cool(&self, time: Time, is_end: bool) -> Option<Time> {
+		self(time, is_end)
+	}
+}
 
 fn root_filter_map<T, I, J>(
 	a_poly: Poly<T, I>,
@@ -558,7 +565,7 @@ where
 	I: LinearIso<T::Value>,
 	J: LinearIso<T::Value>,
 {
-	move |mut time, is_end| {
+	move |mut time: Time, is_end: bool| {
 		// Covers the range of equality, but stops where the trend reverses.
 		
 		let sign = diff_poly.rate_at(time).sign();
@@ -611,7 +618,7 @@ where
 	J: LinearIsoVec<SIZE, B::Value>,
 	L: LinearIso<D::Value>,
 {
-	move |mut time, is_end| {
+	move |mut time: Time, is_end: bool| {
 		// Covers the range of equality, but stops where the trend reverses.
 		// To handle rounding, the lower bound of equality is undershot.
 		// For example, a pair of IVec2 points can round towards each other up

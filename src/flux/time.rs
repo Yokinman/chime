@@ -294,20 +294,20 @@ pub(crate) struct TimeFilter<I, F> {
 
 impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
 where
-	F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
+	F: crate::kind::RootFilterMap + 'static
 {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(TimeRange(a, b)) = self.times.next() {
 			Some(TimeRange(
 				match a {
-					TimeBound::Included(t) => (self.filter)(t, false).map(TimeBound::Included),
-					TimeBound::Excluded(t) => (self.filter)(t, false).map(TimeBound::Excluded),
+					TimeBound::Included(t) => self.filter.cool(t, false).map(TimeBound::Included),
+					TimeBound::Excluded(t) => self.filter.cool(t, false).map(TimeBound::Excluded),
 					TimeBound::Unbounded => None,
 				}.unwrap_or(TimeBound::Unbounded),
 				match b {
-					TimeBound::Included(t) => (self.filter)(t, true).map(TimeBound::Included),
-					TimeBound::Excluded(t) => (self.filter)(t, true).map(TimeBound::Excluded),
+					TimeBound::Included(t) => self.filter.cool(t, true).map(TimeBound::Included),
+					TimeBound::Excluded(t) => self.filter.cool(t, true).map(TimeBound::Excluded),
 					TimeBound::Unbounded => None,
 				}.unwrap_or(TimeBound::Unbounded)
 			))
@@ -378,7 +378,7 @@ impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
 impl<I: TimeRangeIter> TimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
 	where
-		F: crate::kind::RootFilterMap<Output=Option<Time>> + 'static
+		F: crate::kind::RootFilterMap + 'static
 	{
 		TimeRanges {
 			times: TimeFilter {
@@ -390,7 +390,7 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
 	pub fn pre(self) -> TimeRanges<impl TimeRangeIter> {
-		self.into_filtered(|t, is_end| if is_end {
+		self.into_filtered(|t: Time, is_end: bool| if is_end {
 			Some(t)
 		} else {
 			t.checked_sub(NANOSEC)
