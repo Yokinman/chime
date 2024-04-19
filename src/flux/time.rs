@@ -294,7 +294,7 @@ pub(crate) struct TimeFilter<I, F> {
 
 impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
 where
-	F: crate::kind::RootFilterMap + 'static
+	F: crate::kind::TimeFilterMap + 'static
 {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
@@ -378,7 +378,7 @@ impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
 impl<I: TimeRangeIter> TimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
 	where
-		F: crate::kind::RootFilterMap + 'static
+		F: crate::kind::TimeFilterMap + 'static
 	{
 		TimeRanges {
 			times: TimeFilter {

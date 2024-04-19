@@ -276,7 +276,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
+	fn when_sign(&self, order: Ordering, f: impl TimeFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
 	where
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
@@ -292,7 +292,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, f: impl RootFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
+	fn when_zero(&self, f: impl TimeFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
 	where
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
@@ -544,24 +544,24 @@ impl PartialEq for LinearTime {
 }
 
 /// Function that converts a root value to a Time, or ignores it.
-pub(crate) trait RootFilterMap: Clone + Send + Sync {
+pub(crate) trait TimeFilterMap: Clone + Send + Sync {
 	fn cool(&self, time: Time, is_end: bool) -> Option<Time>;
 }
 
-impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> RootFilterMap for T {
+impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> TimeFilterMap for T {
 	fn cool(&self, time: Time, is_end: bool) -> Option<Time> {
 		self(time, is_end)
 	}
 }
 
 /// ...
-struct DiffRootFilterMap<A, B, D, I, J, L> {
+struct DiffTimeFilterMap<A, B, D, I, J, L> {
 	a_poly: Poly<A, I>,
 	b_poly: Poly<B, J>,
 	diff_poly: Poly<D, L>,
 }
 
-impl<A, B, D, I, J, L> Clone for DiffRootFilterMap<A, B, D, I, J, L>
+impl<A, B, D, I, J, L> Clone for DiffTimeFilterMap<A, B, D, I, J, L>
 where
 	A: Clone,
 	B: Clone,
@@ -576,7 +576,7 @@ where
 	}
 }
 
-impl<A, B, D, I, J, L> RootFilterMap for DiffRootFilterMap<A, B, D, I, J, L>
+impl<A, B, D, I, J, L> TimeFilterMap for DiffTimeFilterMap<A, B, D, I, J, L>
 where
 	A: FluxKind,
 	B: FluxKind<Value=A::Value>,
@@ -623,7 +623,7 @@ where
 }
 
 /// ...
-struct DisRootFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> {
+struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> {
 	a_pos: PolyVec<SIZE, A, I>,
 	b_pos: PolyVec<SIZE, B, J>,
 	dis_poly: Poly<D, L>,
@@ -632,7 +632,7 @@ struct DisRootFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> {
 }
 
 impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> Clone
-	for DisRootFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
 where
 	A: Clone,
 	B: Clone,
@@ -651,8 +651,8 @@ where
 	}
 }
 
-impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> RootFilterMap
-	for DisRootFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
+impl<const SIZE: usize, A, B, D, E, F, I, J, L, M, N> TimeFilterMap
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L, M, N>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
@@ -795,7 +795,7 @@ where
 	{
 		let diff_poly = self - poly;
 		diff_poly
-			.when_sign(order, DiffRootFilterMap {
+			.when_sign(order, DiffTimeFilterMap {
 				a_poly: self,
 				b_poly: poly,
 				diff_poly
@@ -823,7 +823,7 @@ where
 	{
 		let diff_poly = self - poly;
 		diff_poly
-			.when_zero(DiffRootFilterMap {
+			.when_zero(DiffTimeFilterMap {
 				a_poly: self,
 				b_poly: poly,
 				diff_poly
@@ -882,7 +882,7 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_sign(order, DisRootFilterMap {
+			.when_sign(order, DisTimeFilterMap {
 				a_pos: self,
 				b_pos: poly,
 				dis_poly: dis,
@@ -940,7 +940,7 @@ where
 		let diff_poly = sum - dis.sqr();
 		
 		diff_poly
-			.when_zero(DisRootFilterMap {
+			.when_zero(DisTimeFilterMap {
 				a_pos: self,
 				b_pos: poly,
 				dis_poly: dis,
