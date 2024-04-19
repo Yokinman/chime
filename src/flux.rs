@@ -135,7 +135,7 @@ pub trait Flux {
 	where
 		T: Flux,
 		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
-			WhenEq<T::Kind>
+			WhenEq<T::Kind, <T::Moment as Moment>::Value>
 	{
 		let time = self.base_time();
 		self.poly(time).when_eq(other.poly(time))
@@ -333,7 +333,7 @@ pub trait FluxVec<const SIZE: usize> {
 	where
 		T: Flux,
 		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
-			WhenEq<T::Kind>
+			WhenEq<T::Kind, <T::Moment as Moment>::Value>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)

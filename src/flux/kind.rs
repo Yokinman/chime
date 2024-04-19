@@ -804,18 +804,22 @@ where
 }
 
 /// [`crate::Flux::when_eq`] predictive comparison.
-pub trait WhenEq<B: FluxKind> {
-	fn when_eq(self, poly: Poly<B, impl LinearIso<B::Value>>)
+pub trait WhenEq<B: FluxKind, J: LinearIso<B::Value>> {
+	fn when_eq(self, poly: Poly<B, J>)
 		-> TimeRanges<impl TimeRangeIter>;
 }
 
-impl<A: FluxKind, B: FluxKind, I: LinearIso<A::Value>> WhenEq<B> for Poly<A, I>
+impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
 where
+	A: FluxKind,
+	B: FluxKind,
+	I: LinearIso<A::Value>,
+	J: LinearIso<B::Value>,
 	A: ops::Sub<B>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	A::Value: PartialEq,
 {
-	fn when_eq(self, poly: Poly<B, impl LinearIso<B::Value>>)
+	fn when_eq(self, poly: Poly<B, J>)
 		-> TimeRanges<impl TimeRangeIter>
 	{
 		let diff_poly = self - poly;
