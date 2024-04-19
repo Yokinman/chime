@@ -809,10 +809,37 @@ where
 }
 
 /// ...
+pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {}
+
+impl<K, I, F> Prediction for Pred<K, I, F>
+where
+	Pred<K, I, F>: IntoIterator<Item = (Time, Time)> + Clone,
+{}
+
+impl<K, I, F> Prediction for PredEq<K, I, F>
+where
+	PredEq<K, I, F>: IntoIterator<Item = (Time, Time)> + Clone,
+{}
+
+/// ...
 pub struct Pred<K, I, F> {
 	poly: Poly<K, I>,
 	order: Ordering,
 	filter: F,
+}
+
+impl<K, I, F> Clone for Pred<K, I, F>
+where
+	K: Clone,
+	F: Clone,
+{
+	fn clone(&self) -> Self {
+		Self {
+			poly: self.poly.clone(),
+			order: self.order,
+			filter: self.filter.clone(),
+		}
+	}
 }
 
 impl<K, I, F> IntoIterator for Pred<K, I, F>
@@ -842,6 +869,19 @@ where
 pub struct PredEq<K, I, F> {
 	poly: Poly<K, I>,
 	filter: F,
+}
+
+impl<K, I, F> Clone for PredEq<K, I, F>
+where
+	K: Clone,
+	F: Clone,
+{
+	fn clone(&self) -> Self {
+		Self {
+			poly: self.poly.clone(),
+			filter: self.filter.clone(),
+		}
+	}
 }
 
 impl<K, I, F> IntoIterator for PredEq<K, I, F>
