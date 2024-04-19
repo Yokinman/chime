@@ -776,18 +776,21 @@ where
 }
 
 /// [`crate::Flux::when`] predictive comparison.
-pub trait When<B: FluxKind> {
-	fn when(self, order: Ordering, poly: Poly<B, impl LinearIso<B::Value>>)
+pub trait When<B: FluxKind, J: LinearIso<B::Value>> {
+	fn when(self, order: Ordering, poly: Poly<B, J>)
 		-> TimeRanges<impl TimeRangeIter>;
 }
 
-impl<A: FluxKind, B: FluxKind, I: LinearIso<A::Value>> When<B> for Poly<A, I>
+impl<A, B, I, J> When<B, J> for Poly<A, I>
 where
-	A: ops::Sub<B>,
+	A: FluxKind + ops::Sub<B>,
+	B: FluxKind,
+	I: LinearIso<A::Value>,
+	J: LinearIso<B::Value>,
 	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
 {
-	fn when(self, order: Ordering, poly: Poly<B, impl LinearIso<B::Value>>)
+	fn when(self, order: Ordering, poly: Poly<B, J>)
 		-> TimeRanges<impl TimeRangeIter>
 	{
 		let diff_poly = self - poly;
