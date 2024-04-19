@@ -282,12 +282,14 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		K::Value: PartialOrd,
 	{
 		let basis = self.time;
-		let times = self.inner.roots().into_times()
-			.filter_map(move |t| t.try_into_time(basis).ok());
-		let initial_order = self
+		let basis_order = self
 			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
-		TimeRanges::new(times, initial_order, order)
+		let times = RootFilterMap {
+			times: self.inner.roots().into_times(),
+			basis,
+		};
+		TimeRanges::new(times, basis_order, order)
 			.into_filtered(f)
 	}
 	
@@ -303,8 +305,10 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 		} else {
 			Ordering::Greater
 		};
-		let times = self.inner.roots().into_times()
-			.filter_map(move |t| t.try_into_time(basis).ok());
+		let times = RootFilterMap {
+			times: self.inner.roots().into_times(),
+			basis,
+		};
 		TimeRanges::new(times, basis_order, Ordering::Equal)
 			.into_filtered(f)
 	}
@@ -540,6 +544,31 @@ impl Eq for LinearTime {}
 impl PartialEq for LinearTime {
 	fn eq(&self, other: &Self) -> bool {
 		self.cmp(other) == Ordering::Equal
+	}
+}
+
+/// ...
+#[derive(Clone)]
+pub struct RootFilterMap<T> {
+	times: T,
+	basis: Time,
+}
+
+impl<T> Iterator for RootFilterMap<T>
+where
+	T: Iterator<Item = LinearTime>,
+{
+	type Item = Time;
+	fn next(&mut self) -> Option<Self::Item> {
+		while let Some(root) = self.times.next() {
+			if let Ok(time) = root.try_into_time(self.basis) {
+				return Some(time)
+			}
+		}
+		None
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, self.times.size_hint().1)
 	}
 }
 
