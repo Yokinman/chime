@@ -276,8 +276,9 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign(&self, order: Ordering, f: impl TimeFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
+	fn when_sign<F>(&self, order: Ordering, f: F) -> TimeRanges<impl TimeRangeIter>
 	where
+		F: TimeFilterMap + 'static,
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
@@ -294,8 +295,9 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Times when the value is equal to zero.
-	fn when_zero(&self, f: impl TimeFilterMap + 'static) -> TimeRanges<impl TimeRangeIter>
+	fn when_zero<F>(&self, f: F) -> TimeRanges<impl TimeRangeIter>
 	where
+		F: TimeFilterMap + 'static,
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
