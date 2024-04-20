@@ -824,13 +824,13 @@ pub trait Prediction: IntoIterator<Item = (Time, Time)> {
 }
 
 macro_rules! impl_prediction {
-	(for<$($param:ident),+> $pred:ty) => {
-		impl<$($param),+> Prediction for $pred
+	(for<$($param:ident),*> $pred:ty) => {
+		impl<$($param),*> Prediction for $pred
 		where
 			Self: IntoIterator<Item = (Time, Time)>
 		{}
 		
-		impl<$($param,)+ T> std::ops::BitAnd<T> for $pred {
+		impl<$($param,)* T> std::ops::BitAnd<T> for $pred {
 			type Output = PredInter<Self, T>;
 			fn bitand(self, b_pred: T) -> Self::Output {
 				PredInter {
@@ -840,7 +840,7 @@ macro_rules! impl_prediction {
 			}
 		}
 		
-		impl<$($param,)+ T> std::ops::BitOr<T> for $pred {
+		impl<$($param,)* T> std::ops::BitOr<T> for $pred {
 			type Output = PredUnion<Self, T>;
 			fn bitor(self, b_pred: T) -> Self::Output {
 				PredUnion {
@@ -850,7 +850,7 @@ macro_rules! impl_prediction {
 			}
 		}
 		
-		impl<$($param,)+ T> std::ops::BitXor<T> for $pred {
+		impl<$($param,)* T> std::ops::BitXor<T> for $pred {
 			type Output = PredSymDiff<Self, T>;
 			fn bitxor(self, b_pred: T) -> Self::Output {
 				PredSymDiff {
@@ -860,7 +860,7 @@ macro_rules! impl_prediction {
 			}
 		}
 		
-		impl<$($param),+> std::ops::Not for $pred {
+		impl<$($param),*> std::ops::Not for $pred {
 			type Output = PredInv<Self>;
 			fn not(self) -> Self::Output {
 				PredInv {
@@ -869,8 +869,8 @@ macro_rules! impl_prediction {
 			}
 		}
 	};
-	($(for<$($param:ident),+> $pred:ty;)+) => {
-		$(impl_prediction!{for<$($param),+> $pred})+
+	($(for<$($param:ident),*> $pred:ty;)+) => {
+		$(impl_prediction!{for<$($param),*> $pred})+
 	};
 }
 
@@ -882,6 +882,7 @@ impl_prediction!{
 	for<A, B> PredUnion<A, B>;
 	for<A, B> PredSymDiff<A, B>;
 	for<P> PredInv<P>;
+	for<> DynPred;
 }
 
 /// ...
