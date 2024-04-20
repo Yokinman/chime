@@ -1148,7 +1148,7 @@ where
 	B: Prediction<TimeRanges = TimeRanges<J>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = TimeRanges<time::UnionTimeRanges<I, J>>;
+	type IntoIter = TimeRanges<time::TimeRangesUnion<I, J>>;
 	fn into_iter(self) -> Self::IntoIter {
 		self.a_pred.into_time_ranges()
 			.union(self.b_pred.into_time_ranges())

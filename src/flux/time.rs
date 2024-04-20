@@ -407,12 +407,12 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Union of ranges.
-	pub(crate) fn union<J>(self, rhs: TimeRanges<J>) -> TimeRanges<UnionTimeRanges<I, J>>
+	pub(crate) fn union<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesUnion<I, J>>
 	where
 		J: TimeRangeIter
 	{
 		TimeRanges {
-			times: UnionTimeRanges {
+			times: TimeRangesUnion {
 				iter: OrdTimes::new(self.times, rhs.times)
 			}
 		}
@@ -578,13 +578,13 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for InterTimeRanges<A, B> {
 	}
 }
 
-/// [`BitOr`] implementation for [`TimesRanges`].
+/// [`TimeRanges::union`].
 #[derive(Clone)]
-pub struct UnionTimeRanges<A, B> {
+pub struct TimeRangesUnion<A, B> {
 	iter: OrdTimes<A, B>,
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for UnionTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.next() {
