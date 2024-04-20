@@ -1,6 +1,6 @@
 //! Working with time.
 
-use std::ops::{BitAnd, BitOr, BitXor, Not, RangeBounds};
+use std::ops::RangeBounds;
 use std::cmp::Ordering;
 
 /// An amount of time.
@@ -393,6 +393,53 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 			}
 		}
 	}
+	
+	/// Intersection of ranges.
+	pub(crate) fn inter<J>(self, rhs: TimeRanges<J>) -> TimeRanges<InterTimeRanges<I, J>>
+	where
+		J: TimeRangeIter
+	{
+		TimeRanges {
+			times: InterTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times)
+			}
+		}
+	}
+	
+	/// Union of ranges.
+	pub(crate) fn union<J>(self, rhs: TimeRanges<J>) -> TimeRanges<UnionTimeRanges<I, J>>
+	where
+		J: TimeRangeIter
+	{
+		TimeRanges {
+			times: UnionTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times)
+			}
+		}
+	}
+	
+	/// Symmetric difference of ranges.
+	pub(crate) fn sym_diff<J>(self, rhs: TimeRanges<J>) -> TimeRanges<DiffTimeRanges<I, J>>
+	where
+		J: TimeRangeIter
+	{
+		TimeRanges {
+			times: DiffTimeRanges {
+				iter: OrdTimes::new(self.times, rhs.times),
+				range: None,
+			}
+		}
+	}
+	
+	/// Inverse of ranges.
+	pub(crate) fn inv(self) -> TimeRanges<InvTimes<I>> {
+		TimeRanges {
+			times: InvTimes {
+				iter: self.times,
+				prev: None,
+			}
+		}
+	}
 }
 
 impl From<Time> for TimeRanges<std::iter::Once<TimeRange>> {
@@ -472,60 +519,6 @@ impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let (_, upper) = self.times.size_hint();
 		(0, upper)
-	}
-}
-
-impl<A: TimeRangeIter, B: TimeRangeIter> BitAnd<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<InterTimeRanges<A, B>>;
-	
-	/// Intersection of ranges.
-	fn bitand(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges {
-			times: InterTimeRanges {
-				iter: OrdTimes::new(self.times, rhs.times)
-			}
-		}
-	}
-}
-
-impl<A: TimeRangeIter, B: TimeRangeIter> BitOr<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<UnionTimeRanges<A, B>>;
-	
-	/// Union of ranges.
-	fn bitor(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges {
-			times: UnionTimeRanges {
-				iter: OrdTimes::new(self.times, rhs.times)
-			}
-		}
-	}
-}
-
-impl<A: TimeRangeIter, B: TimeRangeIter> BitXor<TimeRanges<B>> for TimeRanges<A> {
-	type Output = TimeRanges<DiffTimeRanges<A, B>>;
-	
-	/// Symmetric difference of ranges.
-	fn bitxor(self, rhs: TimeRanges<B>) -> Self::Output {
-		TimeRanges {
-			times: DiffTimeRanges {
-				iter: OrdTimes::new(self.times, rhs.times),
-				range: None,
-			}
-		}
-	}
-}
-
-impl<I: TimeRangeIter> Not for TimeRanges<I> {
-	type Output = TimeRanges<InvTimes<I>>;
-	
-	/// Inverse of ranges.
-	fn not(self) -> Self::Output {
-		TimeRanges {
-			times: InvTimes {
-				iter: self.times,
-				prev: None,
-			}
-		}
 	}
 }
 
@@ -781,59 +774,59 @@ mod tests {
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(a.clone() & b.clone()), [
+		assert_eq!(Vec::from_iter(a.clone().inter(b.clone())), [
 			(3*t + NANOSEC, 5*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(50*t + NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(a.clone() | b.clone()), [
+		assert_eq!(Vec::from_iter(a.clone().union(b.clone())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 10*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX)
 		]);
-		assert_eq!(Vec::from_iter(a.clone() ^ b.clone()), [
+		assert_eq!(Vec::from_iter(a.clone().sym_diff(b.clone())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 3*t),
 			(5*t, 10*t - NANOSEC),
 			(40*t + 2*NANOSEC, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(a.clone() & a.clone()), Vec::from_iter(a.clone()));
-		assert_eq!(Vec::from_iter(b.clone() & b.clone()), Vec::from_iter(b.clone()));
-		assert_eq!(Vec::from_iter(c.clone() & c.clone()), Vec::from_iter(c.clone()));
-		assert_eq!(Vec::from_iter(a.clone() | a.clone()), Vec::from_iter(a.clone()));
-		assert_eq!(Vec::from_iter(b.clone() | b.clone()), Vec::from_iter(b.clone()));
-		assert_eq!(Vec::from_iter(c.clone() | c.clone()), Vec::from_iter(c.clone()));
-		assert_eq!(Vec::from_iter(a.clone() ^ a.clone()), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(b.clone() ^ b.clone()), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(c.clone() ^ c.clone()), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(!!!a.clone()), [
+		assert_eq!(Vec::from_iter(a.clone().inter(a.clone())), Vec::from_iter(a.clone()));
+		assert_eq!(Vec::from_iter(b.clone().inter(b.clone())), Vec::from_iter(b.clone()));
+		assert_eq!(Vec::from_iter(c.clone().inter(c.clone())), Vec::from_iter(c.clone()));
+		assert_eq!(Vec::from_iter(a.clone().union(a.clone())), Vec::from_iter(a.clone()));
+		assert_eq!(Vec::from_iter(b.clone().union(b.clone())), Vec::from_iter(b.clone()));
+		assert_eq!(Vec::from_iter(c.clone().union(c.clone())), Vec::from_iter(c.clone()));
+		assert_eq!(Vec::from_iter(a.clone().sym_diff(a.clone())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(b.clone().sym_diff(b.clone())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(c.clone().sym_diff(c.clone())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(a.clone().inv().inv().inv()), [
 			(2*t, 3*t),
 			(10*t, 20*t),
 			(40*t, 40*t + NANOSEC)
 		]);
-		assert_eq!(Vec::from_iter(!b.clone()), [
+		assert_eq!(Vec::from_iter(b.clone().inv()), [
 			(Time::ZERO, 2*t),
 			(5*t, 20*t),
 			(40*t, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(c.clone() & a.clone()), [
+		assert_eq!(Vec::from_iter(c.clone().inter(a.clone())), [
 			(0*t, 0*t),
 			(7*t, 7*t),
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(b.clone() & c.clone()), [
+		assert_eq!(Vec::from_iter(b.clone().inter(c.clone())), [
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(c.clone() | a.clone()), [
+		assert_eq!(Vec::from_iter(c.clone().union(a.clone())), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
 			(20*t, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b.clone() | c.clone()), [
+		assert_eq!(Vec::from_iter(b.clone().union(c.clone())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
@@ -841,7 +834,7 @@ mod tests {
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(c.clone() ^ a.clone()), [
+		assert_eq!(Vec::from_iter(c.clone().sym_diff(a.clone())), [
 			(0*t + NANOSEC, 2*t - NANOSEC),
 			(3*t + NANOSEC, 7*t - NANOSEC),
 			(7*t + NANOSEC, 10*t - NANOSEC),
@@ -849,7 +842,7 @@ mod tests {
 			(40*t + 2*NANOSEC, 50*t - 2*NANOSEC),
 			(50*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b.clone() ^ c.clone()), [
+		assert_eq!(Vec::from_iter(b.clone().sym_diff(c.clone())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
