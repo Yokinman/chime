@@ -419,12 +419,12 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Symmetric difference of ranges.
-	pub(crate) fn sym_diff<J>(self, rhs: TimeRanges<J>) -> TimeRanges<DiffTimeRanges<I, J>>
+	pub(crate) fn sym_diff<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesSymDiff<I, J>>
 	where
 		J: TimeRangeIter
 	{
 		TimeRanges {
-			times: DiffTimeRanges {
+			times: TimeRangesSymDiff {
 				iter: OrdTimes::new(self.times, rhs.times),
 				range: None,
 			}
@@ -613,14 +613,14 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for UnionTimeRanges<A, B> {
 	}
 }
 
-/// [`BitXor`] implementation for [`TimesRanges`].
+/// [`TimeRanges::sym_diff`].
 #[derive(Clone)]
-pub struct DiffTimeRanges<A, B> {
+pub struct TimeRangesSymDiff<A, B> {
 	iter: OrdTimes<A, B>,
 	range: Option<TimeRange>,
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for DiffTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.peek() {
