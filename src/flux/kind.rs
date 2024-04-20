@@ -893,6 +893,41 @@ impl_prediction!{
 	for<> DynPred;
 }
 
+impl Prediction for std::ops::Range<Time> {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
+impl Prediction for std::ops::RangeInclusive<Time> {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
+impl Prediction for std::ops::RangeTo<Time> {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
+impl Prediction for std::ops::RangeToInclusive<Time> {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
+impl Prediction for std::ops::RangeFull {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
 /// ...
 pub struct DynTimeRanges {
 	inner: Box<dyn Iterator<Item = (Time, Time)>>,
