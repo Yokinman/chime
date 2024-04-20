@@ -972,7 +972,7 @@ where
 
 /// ...
 pub struct DynTimeRanges {
-	inner: Box<dyn Iterator<Item = (Time, Time)>>,
+	inner: Box<dyn Iterator<Item = (Time, Time)> + Send + Sync>,
 }
 
 impl Iterator for DynTimeRanges {
@@ -1069,7 +1069,11 @@ pub struct DynPred {
 }
 
 impl DynPred {
-	pub fn new(pred: impl Prediction + 'static) -> Self {
+	pub fn new<T>(pred: T) -> Self
+	where
+		T: Prediction + 'static,
+		T::TimeRanges: Send + Sync,
+	{
 		Self {
 			inner: DynTimeRanges {
 				inner: Box::new(pred.into_time_ranges())
