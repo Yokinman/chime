@@ -882,6 +882,21 @@ impl_prediction!{
 }
 
 /// ...
+pub struct DynTimeRanges {
+	inner: Box<dyn Iterator<Item = (Time, Time)>>,
+}
+
+impl Iterator for DynTimeRanges {
+	type Item = (Time, Time);
+	fn next(&mut self) -> Option<Self::Item> {
+		self.inner.next()
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.inner.size_hint()
+	}
+}
+
+/// ...
 pub struct Pred<K, I> {
 	poly: Poly<K, I>,
 	order: Ordering,
@@ -956,6 +971,43 @@ where
 			basis,
 		};
 		TimeRanges::new(times, basis_order, Ordering::Equal)
+	}
+}
+
+/// ...
+trait AnyPrediction {
+	fn as_time_ranges(&mut self) -> DynTimeRanges;
+}
+
+impl<P> AnyPrediction for P
+where
+	P: Prediction + Clone + 'static
+{
+	fn as_time_ranges(&mut self) -> DynTimeRanges {
+		DynTimeRanges {
+			inner: Box::new(self.clone().into_iter())
+		}
+	}
+}
+
+/// ...
+pub struct DynPred {
+	inner: Box<dyn AnyPrediction>,
+}
+
+impl DynPred {
+	pub fn new(pred: impl Prediction + Clone + 'static) -> Self {
+		Self {
+			inner: Box::new(pred)
+		}
+	}
+}
+
+impl IntoIterator for DynPred {
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = DynTimeRanges;
+	fn into_iter(mut self) -> Self::IntoIter {
+		self.inner.as_time_ranges()
 	}
 }
 
