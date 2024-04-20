@@ -810,9 +810,12 @@ where
 }
 
 /// ...
-pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {
+pub trait Prediction: IntoIterator<Item = (Time, Time)> {
 	/// Decrements the lower bound of each range by 1 nanosecond.  
-	fn pre(self) -> PredFilter<Self, PreTimeFilterMap> {
+	fn pre(self) -> PredFilter<Self, PreTimeFilterMap>
+	where
+		Self: Sized
+	{
 		PredFilter {
 			pred: self,
 			filter: PreTimeFilterMap,
@@ -824,7 +827,7 @@ macro_rules! impl_prediction {
 	(for<$($param:ident),+> $pred:ty) => {
 		impl<$($param),+> Prediction for $pred
 		where
-			Self: IntoIterator<Item = (Time, Time)> + Clone
+			Self: IntoIterator<Item = (Time, Time)>
 		{}
 		
 		impl<$($param,)+ T> std::ops::BitAnd<T> for $pred {
