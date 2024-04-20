@@ -997,6 +997,24 @@ where
 	}
 }
 
+/// ...
+#[derive(Clone)]
+pub struct PredInv<P> {
+	pred: P,
+}
+
+impl<P, I> IntoIterator for PredInv<P>
+where
+	I: time::TimeRangeIter,
+	P: Prediction<IntoIter = TimeRanges<I>>,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::InvTimes<I>>;
+	fn into_iter(self) -> Self::IntoIter {
+		!self.pred.into_iter()
+	}
+}
+
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B, J> {
 	type Pred: Prediction;
