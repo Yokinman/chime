@@ -875,27 +875,6 @@ where
 }
 
 /// ...
-#[derive(Clone)]
-pub struct PredFilter<P, F> {
-	pred: P,
-	filter: F,
-}
-
-impl<I, P, F> IntoIterator for PredFilter<P, F>
-where
-	I: time::TimeRangeIter,
-	P: Prediction<IntoIter = TimeRanges<I>>,
-	F: TimeFilterMap + 'static,
-{
-	type Item = P::Item;
-	type IntoIter = TimeRanges<time::TimeFilter<I, F>>;
-	fn into_iter(self) -> Self::IntoIter {
-		self.pred.into_iter()
-			.into_filtered(self.filter)
-	}
-}
-
-/// ...
 pub struct PredEq<K, I> {
 	poly: Poly<K, I>,
 }
@@ -931,6 +910,27 @@ where
 			basis,
 		};
 		TimeRanges::new(times, basis_order, Ordering::Equal)
+	}
+}
+
+/// ...
+#[derive(Clone)]
+pub struct PredFilter<P, F> {
+	pred: P,
+	filter: F,
+}
+
+impl<I, P, F> IntoIterator for PredFilter<P, F>
+where
+	I: time::TimeRangeIter,
+	P: Prediction<IntoIter = TimeRanges<I>>,
+	F: TimeFilterMap + 'static,
+{
+	type Item = P::Item;
+	type IntoIter = TimeRanges<time::TimeFilter<I, F>>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.pred.into_iter()
+			.into_filtered(self.filter)
 	}
 }
 
