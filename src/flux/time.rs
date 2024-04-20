@@ -342,12 +342,12 @@ impl TimeRanges<std::iter::Empty<TimeRange>> {
 }
 
 impl TimeRanges<std::iter::Once<TimeRange>> {
-	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
+	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
 			.expect("must be true: lower bound <= upper bound")
 	}
 	
-	pub fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
+	pub(crate) fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
 		let range = TimeRange(
 			range.start_bound().cloned(),
 			range.end_bound().cloned()
