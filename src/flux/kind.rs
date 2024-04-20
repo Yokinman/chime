@@ -573,6 +573,20 @@ impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> TimeFilterMap for 
 }
 
 /// ...
+#[derive(Clone)]
+pub struct PreTimeFilterMap;
+
+impl TimeFilterMap for PreTimeFilterMap {
+	fn cool(&self, time: Time, is_end: bool) -> Option<Time> {
+		if is_end {
+			Some(time)
+		} else {
+			time.checked_sub(time::NANOSEC)
+		}
+	}
+}
+
+/// ...
 pub struct DiffTimeFilterMap<A, B, D, I, J, L> {
 	a_poly: Poly<A, I>,
 	b_poly: Poly<B, J>,
@@ -796,7 +810,15 @@ where
 }
 
 /// ...
-pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {}
+pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {
+	/// Decrements the lower bound of each range by 1 nanosecond.  
+	fn pre(self) -> PredFilter<Self, PreTimeFilterMap> {
+		PredFilter {
+			pred: self,
+			filter: PreTimeFilterMap,
+		}
+	}
+}
 
 impl<K, I> Prediction for Pred<K, I>
 where
