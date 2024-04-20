@@ -893,6 +893,13 @@ impl_prediction!{
 	for<> DynPred;
 }
 
+impl Prediction for Time {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self..=self)
+	}
+}
+
 impl Prediction for std::ops::Range<Time> {
 	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
