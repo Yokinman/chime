@@ -333,14 +333,6 @@ pub struct TimeRanges<I> {
 	times: I
 }
 
-impl TimeRanges<std::iter::Empty<TimeRange>> {
-	pub fn empty() -> Self {
-		Self {
-			times: std::iter::empty()
-		}
-	}
-}
-
 impl TimeRanges<std::iter::Once<TimeRange>> {
 	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
@@ -450,12 +442,6 @@ impl From<Time> for TimeRanges<std::iter::Once<TimeRange>> {
 				TimeBound::Included(value)
 			))
 		}
-	}
-}
-
-impl Default for TimeRanges<std::iter::Empty<TimeRange>> {
-	fn default() -> Self {
-		Self::empty()
 	}
 }
 
