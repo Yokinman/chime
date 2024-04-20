@@ -921,6 +921,13 @@ impl Prediction for std::ops::RangeToInclusive<Time> {
 	}
 }
 
+impl Prediction for std::ops::RangeFrom<Time> {
+	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
+	fn into_time_ranges(self) -> Self::TimeRanges {
+		TimeRanges::from_range(self)
+	}
+}
+
 impl Prediction for std::ops::RangeFull {
 	type TimeRanges = TimeRanges<std::iter::Once<time::TimeRange>>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
