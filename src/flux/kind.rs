@@ -934,6 +934,69 @@ where
 	}
 }
 
+/// ...
+#[derive(Clone)]
+pub struct PredInter<A, B> {
+	a_pred: A,
+	b_pred: B,
+}
+
+impl<A, B, I, J> IntoIterator for PredInter<A, B>
+where
+	I: time::TimeRangeIter,
+	J: time::TimeRangeIter,
+	A: Prediction<IntoIter = TimeRanges<I>>,
+	B: Prediction<IntoIter = TimeRanges<J>>,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::InterTimeRanges<I, J>>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.a_pred.into_iter() & self.b_pred.into_iter()
+	}
+}
+
+/// ...
+#[derive(Clone)]
+pub struct PredUnion<A, B> {
+	a_pred: A,
+	b_pred: B,
+}
+
+impl<A, B, I, J> IntoIterator for PredUnion<A, B>
+where
+	I: time::TimeRangeIter,
+	J: time::TimeRangeIter,
+	A: Prediction<IntoIter = TimeRanges<I>>,
+	B: Prediction<IntoIter = TimeRanges<J>>,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::UnionTimeRanges<I, J>>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.a_pred.into_iter() | self.b_pred.into_iter()
+	}
+}
+
+/// ...
+#[derive(Clone)]
+pub struct PredSymDiff<A, B> {
+	a_pred: A,
+	b_pred: B,
+}
+
+impl<A, B, I, J> IntoIterator for PredSymDiff<A, B>
+where
+	I: time::TimeRangeIter,
+	J: time::TimeRangeIter,
+	A: Prediction<IntoIter = TimeRanges<I>>,
+	B: Prediction<IntoIter = TimeRanges<J>>,
+{
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = TimeRanges<time::DiffTimeRanges<I, J>>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.a_pred.into_iter() ^ self.b_pred.into_iter()
+	}
+}
+
 /// [`crate::Flux::when`] predictive comparison.
 pub trait When<B, J> {
 	type Pred: Prediction;
