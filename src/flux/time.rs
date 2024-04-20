@@ -395,12 +395,12 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Intersection of ranges.
-	pub(crate) fn inter<J>(self, rhs: TimeRanges<J>) -> TimeRanges<InterTimeRanges<I, J>>
+	pub(crate) fn inter<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesInter<I, J>>
 	where
 		J: TimeRangeIter
 	{
 		TimeRanges {
-			times: InterTimeRanges {
+			times: TimeRangesInter {
 				iter: OrdTimes::new(self.times, rhs.times)
 			}
 		}
@@ -557,13 +557,13 @@ impl<I: TimeRangeIter> Iterator for InvTimes<I> {
 	}
 }
 
-/// [`BitAnd`] implementation for [`TimesRanges`].
+/// [`TimeRanges::inter`].
 #[derive(Clone)]
-pub struct InterTimeRanges<A, B> {
+pub struct TimeRangesInter<A, B> {
 	iter: OrdTimes<A, B>,
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for InterTimeRanges<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some((a, Some(b))) = self.iter.next() {

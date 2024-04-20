@@ -1126,7 +1126,7 @@ where
 	B: Prediction<TimeRanges = TimeRanges<J>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = TimeRanges<time::InterTimeRanges<I, J>>;
+	type IntoIter = TimeRanges<time::TimeRangesInter<I, J>>;
 	fn into_iter(self) -> Self::IntoIter {
 		self.a_pred.into_time_ranges()
 			.inter(self.b_pred.into_time_ranges())
