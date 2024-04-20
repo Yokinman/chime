@@ -820,20 +820,66 @@ pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {
 	}
 }
 
-impl<K, I> Prediction for Pred<K, I>
-where
-	Pred<K, I>: IntoIterator<Item = (Time, Time)> + Clone,
-{}
+macro_rules! impl_prediction {
+	(for<$($param:ident),+> $pred:ty) => {
+		impl<$($param),+> Prediction for $pred
+		where
+			Self: IntoIterator<Item = (Time, Time)> + Clone
+		{}
+		
+		impl<$($param,)+ T> std::ops::BitAnd<T> for $pred {
+			type Output = PredInter<Self, T>;
+			fn bitand(self, b_pred: T) -> Self::Output {
+				PredInter {
+					a_pred: self,
+					b_pred,
+				}
+			}
+		}
+		
+		impl<$($param,)+ T> std::ops::BitOr<T> for $pred {
+			type Output = PredUnion<Self, T>;
+			fn bitor(self, b_pred: T) -> Self::Output {
+				PredUnion {
+					a_pred: self,
+					b_pred,
+				}
+			}
+		}
+		
+		impl<$($param,)+ T> std::ops::BitXor<T> for $pred {
+			type Output = PredSymDiff<Self, T>;
+			fn bitxor(self, b_pred: T) -> Self::Output {
+				PredSymDiff {
+					a_pred: self,
+					b_pred,
+				}
+			}
+		}
+		
+		impl<$($param),+> std::ops::Not for $pred {
+			type Output = PredInv<Self>;
+			fn not(self) -> Self::Output {
+				PredInv {
+					pred: self,
+				}
+			}
+		}
+	};
+	($(for<$($param:ident),+> $pred:ty;)+) => {
+		$(impl_prediction!{for<$($param),+> $pred})+
+	};
+}
 
-impl<K, I> Prediction for PredEq<K, I>
-where
-	PredEq<K, I>: IntoIterator<Item = (Time, Time)> + Clone,
-{}
-
-impl<P, F> Prediction for PredFilter<P, F>
-where
-	PredFilter<P, F>: IntoIterator<Item = (Time, Time)> + Clone,
-{}
+impl_prediction!{
+	for<K, I> Pred<K, I>;
+	for<K, I> PredEq<K, I>;
+	for<P, F> PredFilter<P, F>;
+	for<A, B> PredInter<A, B>;
+	for<A, B> PredUnion<A, B>;
+	for<A, B> PredSymDiff<A, B>;
+	for<P> PredInv<P>;
+}
 
 /// ...
 pub struct Pred<K, I> {
