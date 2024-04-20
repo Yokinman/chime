@@ -810,7 +810,10 @@ where
 }
 
 /// ...
-pub trait Prediction: IntoIterator<Item = (Time, Time)> {
+pub trait Prediction {
+	type TimeRanges: Iterator<Item = (Time, Time)>;
+	fn into_time_ranges(self) -> Self::TimeRanges;
+	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
 	fn pre(self) -> PredFilter<Self, PreTimeFilterMap>
 	where
@@ -828,7 +831,12 @@ macro_rules! impl_prediction {
 		impl<$($param),*> Prediction for $pred
 		where
 			Self: IntoIterator<Item = (Time, Time)>
-		{}
+		{
+			type TimeRanges = <Self as IntoIterator>::IntoIter;
+			fn into_time_ranges(self) -> Self::TimeRanges {
+				self.into_iter()
+			}
+		}
 		
 		impl<$($param,)* T> std::ops::BitAnd<T> for $pred {
 			type Output = PredInter<Self, T>;
@@ -989,7 +997,7 @@ where
 {
 	fn as_time_ranges(&mut self) -> DynTimeRanges {
 		DynTimeRanges {
-			inner: Box::new(self.clone().into_iter())
+			inner: Box::new(self.clone().into_time_ranges())
 		}
 	}
 }
@@ -1025,13 +1033,13 @@ pub struct PredFilter<P, F> {
 impl<I, P, F> IntoIterator for PredFilter<P, F>
 where
 	I: time::TimeRangeIter,
-	P: Prediction<IntoIter = TimeRanges<I>>,
+	P: Prediction<TimeRanges = TimeRanges<I>>,
 	F: TimeFilterMap + 'static,
 {
-	type Item = P::Item;
+	type Item = (Time, Time);
 	type IntoIter = TimeRanges<time::TimeFilter<I, F>>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.pred.into_iter()
+		self.pred.into_time_ranges()
 			.into_filtered(self.filter)
 	}
 }
@@ -1047,13 +1055,13 @@ impl<A, B, I, J> IntoIterator for PredInter<A, B>
 where
 	I: time::TimeRangeIter,
 	J: time::TimeRangeIter,
-	A: Prediction<IntoIter = TimeRanges<I>>,
-	B: Prediction<IntoIter = TimeRanges<J>>,
+	A: Prediction<TimeRanges = TimeRanges<I>>,
+	B: Prediction<TimeRanges = TimeRanges<J>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::InterTimeRanges<I, J>>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_iter() & self.b_pred.into_iter()
+		self.a_pred.into_time_ranges() & self.b_pred.into_time_ranges()
 	}
 }
 
@@ -1068,13 +1076,13 @@ impl<A, B, I, J> IntoIterator for PredUnion<A, B>
 where
 	I: time::TimeRangeIter,
 	J: time::TimeRangeIter,
-	A: Prediction<IntoIter = TimeRanges<I>>,
-	B: Prediction<IntoIter = TimeRanges<J>>,
+	A: Prediction<TimeRanges = TimeRanges<I>>,
+	B: Prediction<TimeRanges = TimeRanges<J>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::UnionTimeRanges<I, J>>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_iter() | self.b_pred.into_iter()
+		self.a_pred.into_time_ranges() | self.b_pred.into_time_ranges()
 	}
 }
 
@@ -1089,13 +1097,13 @@ impl<A, B, I, J> IntoIterator for PredSymDiff<A, B>
 where
 	I: time::TimeRangeIter,
 	J: time::TimeRangeIter,
-	A: Prediction<IntoIter = TimeRanges<I>>,
-	B: Prediction<IntoIter = TimeRanges<J>>,
+	A: Prediction<TimeRanges = TimeRanges<I>>,
+	B: Prediction<TimeRanges = TimeRanges<J>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::DiffTimeRanges<I, J>>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_iter() ^ self.b_pred.into_iter()
+		self.a_pred.into_time_ranges() ^ self.b_pred.into_time_ranges()
 	}
 }
 
@@ -1108,12 +1116,12 @@ pub struct PredInv<P> {
 impl<P, I> IntoIterator for PredInv<P>
 where
 	I: time::TimeRangeIter,
-	P: Prediction<IntoIter = TimeRanges<I>>,
+	P: Prediction<TimeRanges = TimeRanges<I>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::InvTimes<I>>;
 	fn into_iter(self) -> Self::IntoIter {
-		!self.pred.into_iter()
+		!self.pred.into_time_ranges()
 	}
 }
 
