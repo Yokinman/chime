@@ -276,17 +276,17 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	fn when_sign<F>(self, order: Ordering, filter: F) -> Pred<K, I, F>
+	fn when_sign<F>(self, order: Ordering, filter: F) -> PredFilter<Pred<K, I>, F>
 	where
 		F: TimeFilterMap + 'static,
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
-		Pred {
+		let pred = Pred {
 			poly: self,
-			order,
-			filter,
-		}
+			order
+		};
+		PredFilter { pred, filter }
 	}
 	
 	/// Times when the value is equal to zero.
@@ -798,9 +798,9 @@ where
 /// ...
 pub trait Prediction: IntoIterator<Item = (Time, Time)> + Clone {}
 
-impl<K, I, F> Prediction for Pred<K, I, F>
+impl<K, I> Prediction for Pred<K, I>
 where
-	Pred<K, I, F>: IntoIterator<Item = (Time, Time)> + Clone,
+	Pred<K, I>: IntoIterator<Item = (Time, Time)> + Clone,
 {}
 
 impl<K, I> Prediction for PredEq<K, I>
@@ -814,35 +814,31 @@ where
 {}
 
 /// ...
-pub struct Pred<K, I, F> {
+pub struct Pred<K, I> {
 	poly: Poly<K, I>,
 	order: Ordering,
-	filter: F,
 }
 
-impl<K, I, F> Clone for Pred<K, I, F>
+impl<K, I> Clone for Pred<K, I>
 where
 	K: Clone,
-	F: Clone,
 {
 	fn clone(&self) -> Self {
 		Self {
 			poly: self.poly.clone(),
 			order: self.order,
-			filter: self.filter.clone(),
 		}
 	}
 }
 
-impl<K, I, F> IntoIterator for Pred<K, I, F>
+impl<K, I> IntoIterator for Pred<K, I>
 where
 	K: Roots + PartialOrd,
 	K::Value: PartialOrd,
 	I: LinearIso<K::Value>,
-	F: TimeFilterMap + 'static,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = TimeRanges<time::TimeFilter<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>, F>>;
+	type IntoIter = TimeRanges<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>>;
 	fn into_iter(self) -> Self::IntoIter {
 		let basis = self.poly.time;
 		let basis_order = self.poly
@@ -853,7 +849,6 @@ where
 			basis,
 		};
 		TimeRanges::new(times, basis_order, self.order)
-			.into_filtered(self.filter)
 	}
 }
 
@@ -932,7 +927,10 @@ where
 	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
 	A::Value: PartialOrd,
 {
-	type Pred = Pred<<A as ops::Sub<B>>::Output, I, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>>;
+	type Pred = PredFilter<
+		Pred<<A as ops::Sub<B>>::Output, I>,
+		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>,
+	>;
 	fn when(self, order: Ordering, poly: Poly<B, J>) -> Self::Pred {
 		let diff_poly = self - poly;
 		diff_poly
@@ -1002,9 +1000,11 @@ where
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
 	L: LinearIso<D::Value>,
 {
-	type Pred = Pred<
-		<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-		<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value,
+	type Pred = PredFilter<
+		Pred<
+			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value,
+		>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
