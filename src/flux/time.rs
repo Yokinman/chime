@@ -434,17 +434,6 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 }
 
-impl From<Time> for TimeRanges<std::iter::Once<TimeRange>> {
-	fn from(value: Time) -> Self {
-		TimeRanges {
-			times: std::iter::once(TimeRange(
-				TimeBound::Included(value),
-				TimeBound::Included(value)
-			))
-		}
-	}
-}
-
 impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
