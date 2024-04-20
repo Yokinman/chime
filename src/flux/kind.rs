@@ -1064,30 +1064,16 @@ where
 }
 
 /// ...
-trait AnyPrediction {
-	fn as_time_ranges(&mut self) -> DynTimeRanges;
-}
-
-impl<P> AnyPrediction for P
-where
-	P: Prediction + Clone + 'static
-{
-	fn as_time_ranges(&mut self) -> DynTimeRanges {
-		DynTimeRanges {
-			inner: Box::new(self.clone().into_time_ranges())
-		}
-	}
-}
-
-/// ...
 pub struct DynPred {
-	inner: Box<dyn AnyPrediction>,
+	inner: DynTimeRanges,
 }
 
 impl DynPred {
-	pub fn new(pred: impl Prediction + Clone + 'static) -> Self {
+	pub fn new(pred: impl Prediction + 'static) -> Self {
 		Self {
-			inner: Box::new(pred)
+			inner: DynTimeRanges {
+				inner: Box::new(pred.into_time_ranges())
+			}
 		}
 	}
 }
@@ -1096,7 +1082,7 @@ impl IntoIterator for DynPred {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = DynTimeRanges;
 	fn into_iter(mut self) -> Self::IntoIter {
-		self.inner.as_time_ranges()
+		self.inner
 	}
 }
 
