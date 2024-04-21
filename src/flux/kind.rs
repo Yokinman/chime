@@ -277,7 +277,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	/// Ranges when the sign is greater than, less than, or equal to zero.
 	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K, I>, F>
 	where
-		F: crate::pred::TimeFilterMap + 'static,
+		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialOrd,
 		K::Value: PartialOrd,
 	{
@@ -291,7 +291,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	/// Times when the value is equal to zero.
 	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K, I>, F>
 	where
-		F: crate::pred::TimeFilterMap + 'static,
+		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
 		K::Value: PartialEq,
 	{
