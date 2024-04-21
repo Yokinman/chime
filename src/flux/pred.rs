@@ -510,7 +510,7 @@ impl<I, P, F> IntoIterator for PredFilter<P, F>
 where
 	I: time::TimeRangeIter,
 	P: Prediction<TimeRanges = TimeRanges<I>>,
-	F: TimeFilterMap + 'static,
+	F: TimeFilterMap,
 {
 	type Item = (Time, Time);
 	type IntoIter = TimeRanges<time::TimeFilter<I, F>>;
