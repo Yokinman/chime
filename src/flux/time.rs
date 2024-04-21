@@ -292,7 +292,6 @@ impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
 /// Filters times for use with [`TimeRanges::into_filtered`].
 /// 
 /// !!! Seal this later.
-#[derive(Clone)]
 pub struct TimeFilter<I, F> {
 	times: I,
 	filter: F,
