@@ -259,13 +259,13 @@ where
 /// ...
 pub trait Prediction {
 	type TimeRanges: time::TimeRanges;
-	fn into_time_ranges(self) -> Self::TimeRanges;
+	fn into_ranges(self) -> Self::TimeRanges;
 	
 	fn into_inclusive_time_ranges(self) -> InclusiveTimeRanges<Self::TimeRanges>
 	where
 		Self: Sized
 	{
-		InclusiveTimeRanges::new(self.into_time_ranges())
+		InclusiveTimeRanges::new(self.into_ranges())
 	}
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
@@ -288,7 +288,7 @@ macro_rules! impl_prediction {
 			<Self as IntoIterator>::IntoIter: time::TimeRanges,
 		{
 			type TimeRanges = <Self as IntoIterator>::IntoIter;
-			fn into_time_ranges(self) -> Self::TimeRanges {
+			fn into_ranges(self) -> Self::TimeRanges {
 				self.into_iter()
 			}
 		}
@@ -350,57 +350,57 @@ impl_prediction!{
 
 impl Prediction for Time {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self..=self))
 	}
 }
 
 impl Prediction for std::ops::Range<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeInclusive<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeTo<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeToInclusive<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFrom<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFull {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl<P: Prediction> Prediction for Option<P> {
 	type TimeRanges = time::OptionTimeRanges<P::TimeRanges>;
-	fn into_time_ranges(self) -> Self::TimeRanges {
-		time::OptionTimeRanges::new(self.map(|x| x.into_time_ranges()))
+	fn into_ranges(self) -> Self::TimeRanges {
+		time::OptionTimeRanges::new(self.map(|x| x.into_ranges()))
 	}
 }
 
@@ -494,7 +494,7 @@ impl DynPred {
 		T::TimeRanges: Send + Sync + 'static,
 	{
 		Self {
-			inner: time::DynTimeRanges::new(pred.into_time_ranges())
+			inner: time::DynTimeRanges::new(pred.into_ranges())
 		}
 	}
 }
@@ -522,7 +522,7 @@ where
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeFilter<P::TimeRanges, F>;
 	fn into_iter(self) -> Self::IntoIter {
-		time::TimeFilter::new(self.pred.into_time_ranges(), self.filter)
+		time::TimeFilter::new(self.pred.into_ranges(), self.filter)
 	}
 }
 
@@ -542,8 +542,8 @@ where
 	type IntoIter = time::TimeRangesInter<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
 		time::TimeRangesInter::new(
-			self.a_pred.into_time_ranges(),
-			self.b_pred.into_time_ranges(),
+			self.a_pred.into_ranges(),
+			self.b_pred.into_ranges(),
 		)
 	}
 }
@@ -564,8 +564,8 @@ where
 	type IntoIter = time::TimeRangesUnion<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
 		time::TimeRangesUnion::new(
-			self.a_pred.into_time_ranges(),
-			self.b_pred.into_time_ranges(),
+			self.a_pred.into_ranges(),
+			self.b_pred.into_ranges(),
 		)
 	}
 }
@@ -586,8 +586,8 @@ where
 	type IntoIter = time::TimeRangesSymDiff<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
 		time::TimeRangesSymDiff::new(
-			self.a_pred.into_time_ranges(),
-			self.b_pred.into_time_ranges(),
+			self.a_pred.into_ranges(),
+			self.b_pred.into_ranges(),
 		)
 	}
 }
@@ -605,7 +605,7 @@ where
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangesInv<P::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		time::TimeRangesInv::new(self.pred.into_time_ranges())
+		time::TimeRangesInv::new(self.pred.into_ranges())
 	}
 }
 
