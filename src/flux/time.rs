@@ -298,7 +298,7 @@ pub struct TimeFilter<I, F> {
 
 impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
 where
-	F: crate::pred::TimeFilterMap + 'static
+	F: crate::pred::TimeFilterMap
 {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
