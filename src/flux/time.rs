@@ -254,7 +254,6 @@ enum Overlap {
 /// Converts an iterator of [`Time`]s into an iterator of [`TimeRange`]s.
 /// 
 /// !!! Seal this later.
-#[must_use]
 pub enum TimeRangeBuilder<I> {
 	Inclusive(I, Option<Time>),
 	Exclusive(I),
@@ -382,7 +381,6 @@ where
 }
 
 /// Iterator of [`TimeRange`]s.
-#[must_use]
 pub struct InclusiveTimeRanges<I> {
 	times: I
 }
