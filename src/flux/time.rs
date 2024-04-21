@@ -67,6 +67,22 @@ fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
 pub struct TimeRange(TimeBound, TimeBound);
 
 impl TimeRange {
+	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
+		Self::try_from_range(range)
+			.expect("must be true: lower bound <= upper bound")
+	}
+	
+	pub(crate) fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
+		let range = TimeRange(
+			range.start_bound().map(|x| *x),
+			range.end_bound().map(|x| *x),
+		);
+		if range.cmp_lower_to_upper(&range).is_gt() {
+			return None
+		}
+		Some(range)
+	}
+	
 	/// Compares the lower bounds of two ranges.
 	fn cmp_lower(&self, other: &Self) -> Ordering {
 		match (&self.0, &other.0) {
@@ -337,16 +353,8 @@ impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {
 	}
 	
 	pub(crate) fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
-		let range = TimeRange(
-			range.start_bound().cloned(),
-			range.end_bound().cloned()
-		);
-		if range.cmp_lower_to_upper(&range).is_gt() {
-			return None
-		}
-		Some(Self {
-			times: std::iter::once(range)
-		})
+		TimeRange::try_from_range(range)
+			.map(|r| Self { times: std::iter::once(r) })
 	}
 }
 
