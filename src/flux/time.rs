@@ -495,7 +495,6 @@ impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 }
 
 /// [`Not`] implementation for [`TimeRanges`].
-#[derive(Clone)]
 pub struct InvTimes<I> {
 	iter: I,
 	prev: Option<TimeBound>,
@@ -530,7 +529,6 @@ impl<I: TimeRangeIter> Iterator for InvTimes<I> {
 }
 
 /// [`TimeRanges::inter`].
-#[derive(Clone)]
 pub struct TimeRangesInter<A, B> {
 	iter: OrdTimes<A, B>,
 }
@@ -551,7 +549,6 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 }
 
 /// [`TimeRanges::union`].
-#[derive(Clone)]
 pub struct TimeRangesUnion<A, B> {
 	iter: OrdTimes<A, B>,
 }
@@ -586,7 +583,6 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
 }
 
 /// [`TimeRanges::sym_diff`].
-#[derive(Clone)]
 pub struct TimeRangesSymDiff<A, B> {
 	iter: OrdTimes<A, B>,
 	range: Option<TimeRange>,
@@ -633,7 +629,6 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
 }
 
 /// Orders two [`TimeRanges`] iterators in parallel.
-#[derive(Clone)]
 struct OrdTimes<A, B> {
 	a_iter: A,
 	a_next: Option<TimeRange>,
