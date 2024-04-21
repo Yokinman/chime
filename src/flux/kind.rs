@@ -6,8 +6,7 @@ use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
-use crate::time;
-use crate::time::{Time, TimeRanges};
+use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:

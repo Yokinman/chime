@@ -1,11 +1,9 @@
 //! ...
 
 use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul};
 
-use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
+use crate::linear::{Linear, LinearIso, LinearIsoVec, Scalar};
 use crate::time;
 use crate::time::{Time, TimeRanges};
 use crate::kind::*;
