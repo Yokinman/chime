@@ -52,7 +52,7 @@ pub trait FluxKind:
 }
 
 /// Multidimensional kind of change.
-pub trait FluxKindVec<const SIZE: usize>: Clone + Send + Sync {
+pub trait FluxKindVec<const SIZE: usize>: Clone {
 	type Kind: FluxKind;
 	type Value: LinearVec<SIZE, Value = <Self::Kind as FluxKind>::Value>;
 	fn index_kind(&self, index: usize) -> Self::Kind;
