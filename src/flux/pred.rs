@@ -5,7 +5,7 @@ use std::ops::{Add, Mul};
 
 use crate::linear::{Linear, LinearIso, LinearIsoVec, Scalar};
 use crate::time;
-use crate::time::{Time, InclusiveTimeRanges};
+use crate::time::Time;
 use crate::kind::*;
 
 /// Function that converts a root value to a Time, or ignores it.
