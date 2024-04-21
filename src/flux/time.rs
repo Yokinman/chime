@@ -373,7 +373,7 @@ impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
 impl<I: TimeRangeIter> TimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
 	where
-		F: crate::pred::TimeFilterMap + 'static
+		F: crate::pred::TimeFilterMap
 	{
 		TimeRanges {
 			times: TimeFilter {
