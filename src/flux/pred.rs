@@ -9,11 +9,11 @@ use crate::time::{Time, TimeRanges};
 use crate::kind::*;
 
 /// Function that converts a root value to a Time, or ignores it.
-pub(crate) trait TimeFilterMap: Clone + Send + Sync {
+pub(crate) trait TimeFilterMap: Clone {
 	fn cool(&self, time: Time, is_end: bool) -> Option<Time>;
 }
 
-impl<T: Fn(Time, bool) -> Option<Time> + Clone + Send + Sync> TimeFilterMap for T {
+impl<T: Fn(Time, bool) -> Option<Time> + Clone> TimeFilterMap for T {
 	fn cool(&self, time: Time, is_end: bool) -> Option<Time> {
 		self(time, is_end)
 	}
