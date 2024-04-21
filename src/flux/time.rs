@@ -26,14 +26,14 @@ mod units {
 pub use units::*;
 
 /// Iterator types usable by [`TimeRanges`].
-pub trait TimeRangeIter: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static {}
-impl<T: Iterator<Item=TimeRange> + Send + Sync + Clone + 'static> TimeRangeIter for T {}
+pub trait TimeRangeIter: Iterator<Item=TimeRange> + Send + Sync + 'static {}
+impl<T: Iterator<Item=TimeRange> + Send + Sync + 'static> TimeRangeIter for T {}
 
 /// Iterator types usable by [`TimeRangeBuilder`].
 /// 
 /// !!! Seal this later.
-pub trait TimeIter: Iterator<Item=Time> + Send + Sync + Clone + 'static {}
-impl<T: Iterator<Item=Time> + Send + Sync + Clone + 'static> TimeIter for T {}
+pub trait TimeIter: Iterator<Item=Time> + Send + Sync + 'static {}
+impl<T: Iterator<Item=Time> + Send + Sync + 'static> TimeIter for T {}
 
 /// Upper or lower bound for a [`TimeRange`].
 type TimeBound = std::ops::Bound<Time>;
