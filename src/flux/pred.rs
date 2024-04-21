@@ -286,7 +286,8 @@ macro_rules! impl_prediction {
 	(for<$($param:ident),*> $pred:ty) => {
 		impl<$($param),*> Prediction for $pred
 		where
-			Self: IntoIterator<Item = time::TimeRange>
+			Self: IntoIterator,
+			<Self as IntoIterator>::IntoIter: time::TimeRanges,
 		{
 			type TimeRanges = <Self as IntoIterator>::IntoIter;
 			fn into_time_ranges(self) -> Self::TimeRanges {

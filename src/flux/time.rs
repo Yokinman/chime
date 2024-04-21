@@ -25,9 +25,32 @@ mod units {
 }
 pub use units::*;
 
-/// Iterator types usable by [`InclusiveTimeRanges`].
+/// Iterators over an ordered sequence of [`TimeRange`] values.
 pub trait TimeRanges: Iterator<Item=TimeRange> {}
-impl<T: Iterator<Item=TimeRange>> TimeRanges for T {}
+
+macro_rules! impl_time_ranges {
+	(for<$($param:ident),*> $iter:ty) => {
+		impl<$($param),*> TimeRanges for $iter
+		where
+			Self: Iterator<Item=TimeRange>,
+		{}
+	};
+	($(for<$($param:ident),*> $iter:ty;)+) => {
+		$(impl_time_ranges!{for<$($param),*> $iter})+
+	};
+}
+
+impl_time_ranges!{
+	for<> std::iter::Once<TimeRange>;
+	for<T> TimeRangeBuilder<T>;
+	for<I, F> TimeFilter<I, F>;
+	for<A, B> TimeRangesInter<A, B>;
+	for<A, B> TimeRangesUnion<A, B>;
+	for<A, B> TimeRangesSymDiff<A, B>;
+	for<T> TimeRangesInv<T>;
+	for<T> OptionTimeRanges<T>;
+	for<> DynTimeRanges;
+}
 
 /// Iterator types usable by [`TimeRangeBuilder`].
 /// 
