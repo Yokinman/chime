@@ -238,6 +238,18 @@ pub enum TimeRangeBuilder<I> {
 	Unbounded(Option<I>),
 }
 
+impl<I> TimeRangeBuilder<I> {
+	pub(crate) fn new(iter: I, initial_order: Ordering, order: Ordering) -> Self {
+		if order == initial_order {
+			TimeRangeBuilder::Unbounded(Some(iter))
+		} else if order.is_eq() {
+			TimeRangeBuilder::Inclusive(iter, None)
+		} else {
+			TimeRangeBuilder::Exclusive(iter)
+		}
+	}
+}
+
 impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
@@ -373,13 +385,7 @@ impl<I: TimeIter> InclusiveTimeRanges<TimeRangeBuilder<I>> {
 	{
 		let iter = iter.into_iter();
 		InclusiveTimeRanges {
-			times: if order == initial_order {
-				TimeRangeBuilder::Unbounded(Some(iter))
-			} else if order.is_eq() {
-				TimeRangeBuilder::Inclusive(iter, None)
-			} else {
-				TimeRangeBuilder::Exclusive(iter)
-			}
+			times: TimeRangeBuilder::new(iter, initial_order, order)
 		}
 	}
 }
