@@ -1047,7 +1047,7 @@ impl DynPred {
 impl IntoIterator for DynPred {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::DynTimeRanges;
-	fn into_iter(mut self) -> Self::IntoIter {
+	fn into_iter(self) -> Self::IntoIter {
 		self.inner
 	}
 }
