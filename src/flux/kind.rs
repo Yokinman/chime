@@ -437,7 +437,7 @@ pub trait Roots: FluxKind {
 
 /// Conversion from some [`Roots::Output`] into an iterator of time.
 pub trait IntoTimes {
-	type TimeIter: Iterator<Item=LinearTime> + Send + Sync + Clone;
+	type TimeIter: Iterator<Item=LinearTime> + Send + Sync;
 	fn into_times(self) -> Self::TimeIter;
 }
 
