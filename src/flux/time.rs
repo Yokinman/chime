@@ -384,7 +384,7 @@ where
 /// Iterator of [`TimeRange`]s.
 #[must_use]
 pub struct InclusiveTimeRanges<I> {
-	pub(crate) times: I
+	times: I
 }
 
 impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {

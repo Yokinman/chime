@@ -265,9 +265,7 @@ pub trait Prediction {
 	where
 		Self: Sized
 	{
-		InclusiveTimeRanges {
-			times: self.into_time_ranges()
-		}
+		InclusiveTimeRanges::new(self.into_time_ranges())
 	}
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
