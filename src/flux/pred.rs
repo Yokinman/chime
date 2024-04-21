@@ -816,6 +816,7 @@ where
 #[test]
 fn consistent_sign_pred() {
 	use crate::sum::Sum;
+	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
 		let poly = PolyVec::new([
 			Sum::new(-2., [5., -2.]),
@@ -825,7 +826,8 @@ fn consistent_sign_pred() {
 			PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
 			Poly::new(crate::Constant::from(1.), time),
-		).into_inclusive_time_ranges()
+		).into_ranges()
+			.inclusive()
 			.map(|(a, b)| (
 				a.saturating_sub(time),
 				if b == Time::MAX {

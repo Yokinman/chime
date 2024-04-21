@@ -662,7 +662,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use super::time::SEC;
+	use super::time::{SEC, TimeRanges};
 	use crate::sum::Sum;
 	
 	#[flux(
@@ -796,7 +796,8 @@ mod tests {
 	macro_rules! assert_time_ranges {
 		($ranges:expr, $cmp_ranges:expr) => {{
 			let ranges = Vec::<(Time, Time)>::from_iter($ranges
-				.into_inclusive_time_ranges());
+				.into_ranges()
+				.inclusive());
 			let cmp_ranges = Vec::<(Time, Time)>::from_iter($cmp_ranges);
 			assert_eq!(
 				ranges.len(),
@@ -939,7 +940,8 @@ mod tests {
 		 // Check After:
 		assert_eq!(
 			Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)
-				.into_inclusive_time_ranges()),
+				.into_ranges()
+				.inclusive()),
 			[
 				(0*SEC, 8*SEC - time::NANOSEC),
 				(50*SEC + time::NANOSEC, Time::MAX)

@@ -26,7 +26,14 @@ mod units {
 pub use units::*;
 
 /// Iterators over an ordered sequence of [`TimeRange`] values.
-pub trait TimeRanges: Iterator<Item=TimeRange> {}
+pub trait TimeRanges: Iterator<Item=TimeRange> {
+	fn inclusive(self) -> InclusiveTimeRanges<Self>
+	where
+		Self: Sized
+	{
+		InclusiveTimeRanges::new(self)
+	}
+}
 
 macro_rules! impl_time_ranges {
 	(for<$($param:ident),*> $iter:ty) => {
