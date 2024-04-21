@@ -26,8 +26,8 @@ mod units {
 pub use units::*;
 
 /// Iterator types usable by [`InclusiveTimeRanges`].
-pub trait TimeRangeIter: Iterator<Item=TimeRange> {}
-impl<T: Iterator<Item=TimeRange>> TimeRangeIter for T {}
+pub trait TimeRanges: Iterator<Item=TimeRange> {}
+impl<T: Iterator<Item=TimeRange>> TimeRanges for T {}
 
 /// Iterator types usable by [`TimeRangeBuilder`].
 /// 
@@ -330,7 +330,7 @@ impl<I, F> TimeFilter<I, F> {
 	}
 }
 
-impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
+impl<I: TimeRanges, F> Iterator for TimeFilter<I, F>
 where
 	F: crate::pred::TimeFilterMap
 {
@@ -390,7 +390,7 @@ impl<I: TimeIter> InclusiveTimeRanges<TimeRangeBuilder<I>> {
 	}
 }
 
-impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
+impl<I: TimeRanges> InclusiveTimeRanges<I> {
 	pub(crate) fn into_filtered<F>(self, f: F) -> InclusiveTimeRanges<TimeFilter<I, F>>
 	where
 		F: crate::pred::TimeFilterMap
@@ -403,7 +403,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 	/// Intersection of ranges.
 	pub(crate) fn inter<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesInter<I, J>>
 	where
-		J: TimeRangeIter
+		J: TimeRanges
 	{
 		InclusiveTimeRanges {
 			times: TimeRangesInter::new(self.times, rhs.times)
@@ -413,7 +413,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 	/// Union of ranges.
 	pub(crate) fn union<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesUnion<I, J>>
 	where
-		J: TimeRangeIter
+		J: TimeRanges
 	{
 		InclusiveTimeRanges {
 			times: TimeRangesUnion::new(self.times, rhs.times)
@@ -423,7 +423,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 	/// Symmetric difference of ranges.
 	pub(crate) fn sym_diff<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesSymDiff<I, J>>
 	where
-		J: TimeRangeIter
+		J: TimeRanges
 	{
 		InclusiveTimeRanges {
 			times: TimeRangesSymDiff::new(self.times, rhs.times)
@@ -438,7 +438,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 	}
 }
 
-impl<I: TimeRangeIter> Iterator for InclusiveTimeRanges<I> {
+impl<I: TimeRanges> Iterator for InclusiveTimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.times.next()? {
@@ -516,7 +516,7 @@ impl<I> TimeRangesInv<I> {
 	}
 }
 
-impl<I: TimeRangeIter> Iterator for TimeRangesInv<I> {
+impl<I: TimeRanges> Iterator for TimeRangesInv<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(TimeRange(mut a, mut b)) = self.iter.next() {
@@ -551,8 +551,8 @@ pub struct TimeRangesInter<A, B> {
 
 impl<A, B> TimeRangesInter<A, B>
 where
-	A: TimeRangeIter,
-	B: TimeRangeIter,
+	A: TimeRanges,
+	B: TimeRanges,
 {
 	pub(crate) fn new(a: A, b: B) -> Self {
 		Self {
@@ -561,7 +561,7 @@ where
 	}
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
+impl<A: TimeRanges, B: TimeRanges> Iterator for TimeRangesInter<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some((a, Some(b))) = self.iter.next() {
@@ -583,8 +583,8 @@ pub struct TimeRangesUnion<A, B> {
 
 impl<A, B> TimeRangesUnion<A, B>
 where
-	A: TimeRangeIter,
-	B: TimeRangeIter,
+	A: TimeRanges,
+	B: TimeRanges,
 {
 	pub(crate) fn new(a: A, b: B) -> Self {
 		Self {
@@ -593,7 +593,7 @@ where
 	}
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
+impl<A: TimeRanges, B: TimeRanges> Iterator for TimeRangesUnion<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.next() {
@@ -630,8 +630,8 @@ pub struct TimeRangesSymDiff<A, B> {
 
 impl<A, B> TimeRangesSymDiff<A, B>
 where
-	A: TimeRangeIter,
-	B: TimeRangeIter,
+	A: TimeRanges,
+	B: TimeRanges,
 {
 	pub(crate) fn new(a: A, b: B) -> Self {
 		Self {
@@ -641,7 +641,7 @@ where
 	}
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
+impl<A: TimeRanges, B: TimeRanges> Iterator for TimeRangesSymDiff<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.iter.peek() {
@@ -689,7 +689,7 @@ struct OrdTimeRanges<A, B> {
 	b_next: Option<TimeRange>,
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimeRanges<A, B> {
+impl<A: TimeRanges, B: TimeRanges> OrdTimeRanges<A, B> {
 	fn new(mut a_iter: A, mut b_iter: B) -> Self {
 		let a_next = a_iter.next();
 		let b_next = b_iter.next();
@@ -717,7 +717,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimeRanges<A, B> {
 	}
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimeRanges<A, B> {
+impl<A: TimeRanges, B: TimeRanges> Iterator for OrdTimeRanges<A, B> {
 	type Item = (TimeRange, Option<TimeRange>);
 	fn next(&mut self) -> Option<Self::Item> {
 		match (self.a_next, self.b_next) {
@@ -776,7 +776,7 @@ impl<T> OptionTimeRanges<T> {
 
 impl<T> Iterator for OptionTimeRanges<T>
 where
-	T: TimeRangeIter
+	T: TimeRanges
 {
 	type Item = T::Item;
 	fn next(&mut self) -> Option<Self::Item> {
@@ -797,12 +797,12 @@ where
 
 /// ...
 pub struct DynTimeRanges {
-	inner: Box<dyn TimeRangeIter + Send + Sync>,
+	inner: Box<dyn TimeRanges + Send + Sync>,
 }
 
 impl DynTimeRanges {
 	pub(crate) fn new(
-		inner: impl TimeRangeIter + Send + Sync + 'static
+		inner: impl TimeRanges + Send + Sync + 'static
 	) -> Self {
 		Self {
 			inner: Box::new(inner)

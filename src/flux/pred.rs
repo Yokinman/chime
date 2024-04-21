@@ -258,7 +258,7 @@ where
 
 /// ...
 pub trait Prediction {
-	type TimeRanges: time::TimeRangeIter;
+	type TimeRanges: time::TimeRanges;
 	fn into_time_ranges(self) -> Self::TimeRanges;
 	
 	fn into_inclusive_time_ranges(self) -> InclusiveTimeRanges<Self::TimeRanges>
