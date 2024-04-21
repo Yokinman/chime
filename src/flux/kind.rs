@@ -264,11 +264,10 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	
 	/// All real-valued roots of this polynomial.
 	#[allow(dead_code)]
-	pub(crate) fn real_roots(&self) -> impl Iterator<Item=f64> + Send + Sync + Clone
+	pub(crate) fn real_roots(&self) -> impl Iterator<Item=f64>
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,
-		<<K as Roots>::Output as IntoIterator>::IntoIter: Send + Sync + Clone,
 	{
 		self.inner.roots().into_iter()
 			.filter(|r| r.is_finite())
