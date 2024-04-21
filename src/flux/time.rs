@@ -394,45 +394,6 @@ impl<I> InclusiveTimeRanges<I> {
 	}
 }
 
-impl<I: TimeRanges> InclusiveTimeRanges<I> {
-	/// Intersection of ranges.
-	pub(crate) fn inter<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesInter<I, J>>
-	where
-		J: TimeRanges
-	{
-		InclusiveTimeRanges {
-			times: TimeRangesInter::new(self.times, rhs.times)
-		}
-	}
-	
-	/// Union of ranges.
-	pub(crate) fn union<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesUnion<I, J>>
-	where
-		J: TimeRanges
-	{
-		InclusiveTimeRanges {
-			times: TimeRangesUnion::new(self.times, rhs.times)
-		}
-	}
-	
-	/// Symmetric difference of ranges.
-	pub(crate) fn sym_diff<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesSymDiff<I, J>>
-	where
-		J: TimeRanges
-	{
-		InclusiveTimeRanges {
-			times: TimeRangesSymDiff::new(self.times, rhs.times)
-		}
-	}
-	
-	/// Inverse of ranges.
-	pub(crate) fn inv(self) -> InclusiveTimeRanges<TimeRangesInv<I>> {
-		InclusiveTimeRanges {
-			times: TimeRangesInv::new(self.times)
-		}
-	}
-}
-
 impl<I: TimeRanges> Iterator for InclusiveTimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
@@ -819,6 +780,40 @@ impl Iterator for DynTimeRanges {
 mod tests {
 	use super::*;
 	
+	fn inter<A, B>(a: InclusiveTimeRanges<A>, b: InclusiveTimeRanges<B>)
+		-> InclusiveTimeRanges<TimeRangesInter<A, B>>
+	where
+		A: TimeRanges,
+		B: TimeRanges,
+	{
+		InclusiveTimeRanges::new(TimeRangesInter::new(a.times, b.times))
+	}
+	
+	fn union<A, B>(a: InclusiveTimeRanges<A>, b: InclusiveTimeRanges<B>)
+		-> InclusiveTimeRanges<TimeRangesUnion<A, B>>
+	where
+		A: TimeRanges,
+		B: TimeRanges,
+	{
+		InclusiveTimeRanges::new(TimeRangesUnion::new(a.times, b.times))
+	}
+	
+	fn sym_diff<A, B>(a: InclusiveTimeRanges<A>, b: InclusiveTimeRanges<B>)
+		-> InclusiveTimeRanges<TimeRangesSymDiff<A, B>>
+	where
+		A: TimeRanges,
+		B: TimeRanges,
+	{
+		InclusiveTimeRanges::new(TimeRangesSymDiff::new(a.times, b.times))
+	}
+	
+	fn inv<T>(ranges: InclusiveTimeRanges<T>) -> InclusiveTimeRanges<TimeRangesInv<T>>
+	where
+		T: TimeRanges,
+	{
+		InclusiveTimeRanges::new(TimeRangesInv::new(ranges.times))
+	}
+	
 	#[test]
 	fn range_logic() {
 		assert!(TimeRange::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
@@ -846,59 +841,59 @@ mod tests {
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(a().inter(b())), [
+		assert_eq!(Vec::from_iter(inter(a(), b())), [
 			(3*t + NANOSEC, 5*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(50*t + NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(a().union(b())), [
+		assert_eq!(Vec::from_iter(union(a(), b())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 10*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX)
 		]);
-		assert_eq!(Vec::from_iter(a().sym_diff(b())), [
+		assert_eq!(Vec::from_iter(sym_diff(a(), b())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 3*t),
 			(5*t, 10*t - NANOSEC),
 			(40*t + 2*NANOSEC, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(a().inter(a())), Vec::from_iter(a()));
-		assert_eq!(Vec::from_iter(b().inter(b())), Vec::from_iter(b()));
-		assert_eq!(Vec::from_iter(c().inter(c())), Vec::from_iter(c()));
-		assert_eq!(Vec::from_iter(a().union(a())), Vec::from_iter(a()));
-		assert_eq!(Vec::from_iter(b().union(b())), Vec::from_iter(b()));
-		assert_eq!(Vec::from_iter(c().union(c())), Vec::from_iter(c()));
-		assert_eq!(Vec::from_iter(a().sym_diff(a())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(b().sym_diff(b())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(c().sym_diff(c())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(a().inv().inv().inv()), [
+		assert_eq!(Vec::from_iter(inter(a(), a())), Vec::from_iter(a()));
+		assert_eq!(Vec::from_iter(inter(b(), b())), Vec::from_iter(b()));
+		assert_eq!(Vec::from_iter(inter(c(), c())), Vec::from_iter(c()));
+		assert_eq!(Vec::from_iter(union(a(), a())), Vec::from_iter(a()));
+		assert_eq!(Vec::from_iter(union(b(), b())), Vec::from_iter(b()));
+		assert_eq!(Vec::from_iter(union(c(), c())), Vec::from_iter(c()));
+		assert_eq!(Vec::from_iter(sym_diff(a(), a())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(sym_diff(b(), b())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(sym_diff(c(), c())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(inv(inv(inv(a())))), [
 			(2*t, 3*t),
 			(10*t, 20*t),
 			(40*t, 40*t + NANOSEC)
 		]);
-		assert_eq!(Vec::from_iter(b().inv()), [
+		assert_eq!(Vec::from_iter(inv(b())), [
 			(Time::ZERO, 2*t),
 			(5*t, 20*t),
 			(40*t, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(c().inter(a())), [
+		assert_eq!(Vec::from_iter(inter(c(), a())), [
 			(0*t, 0*t),
 			(7*t, 7*t),
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(b().inter(c())), [
+		assert_eq!(Vec::from_iter(inter(b(), c())), [
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(c().union(a())), [
+		assert_eq!(Vec::from_iter(union(c(), a())), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
 			(20*t, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b().union(c())), [
+		assert_eq!(Vec::from_iter(union(b(), c())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
@@ -906,7 +901,7 @@ mod tests {
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(c().sym_diff(a())), [
+		assert_eq!(Vec::from_iter(sym_diff(c(), a())), [
 			(0*t + NANOSEC, 2*t - NANOSEC),
 			(3*t + NANOSEC, 7*t - NANOSEC),
 			(7*t + NANOSEC, 10*t - NANOSEC),
@@ -914,7 +909,7 @@ mod tests {
 			(40*t + 2*NANOSEC, 50*t - 2*NANOSEC),
 			(50*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b().sym_diff(c())), [
+		assert_eq!(Vec::from_iter(sym_diff(b(), c())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
