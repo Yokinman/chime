@@ -146,7 +146,7 @@ impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: Linear>: Sized + Send + Sync + 'static {
+pub trait LinearIso<T: Linear>: Sized {
 	fn into_linear(value: Self) -> T;
 	fn from_linear(value: T) -> Self;
 	// fn identity(value: Self) -> Self {
