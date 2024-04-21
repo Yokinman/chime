@@ -390,7 +390,7 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	{
 		TimeRanges {
 			times: TimeRangesInter {
-				iter: OrdTimes::new(self.times, rhs.times)
+				iter: OrdTimeRanges::new(self.times, rhs.times)
 			}
 		}
 	}
@@ -402,7 +402,7 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	{
 		TimeRanges {
 			times: TimeRangesUnion {
-				iter: OrdTimes::new(self.times, rhs.times)
+				iter: OrdTimeRanges::new(self.times, rhs.times)
 			}
 		}
 	}
@@ -414,7 +414,7 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	{
 		TimeRanges {
 			times: TimeRangesSymDiff {
-				iter: OrdTimes::new(self.times, rhs.times),
+				iter: OrdTimeRanges::new(self.times, rhs.times),
 				range: None,
 			}
 		}
@@ -530,7 +530,7 @@ impl<I: TimeRangeIter> Iterator for TimeRangesInv<I> {
 
 /// [`TimeRanges::inter`].
 pub struct TimeRangesInter<A, B> {
-	iter: OrdTimes<A, B>,
+	iter: OrdTimeRanges<A, B>,
 }
 
 impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
@@ -550,7 +550,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 
 /// [`TimeRanges::union`].
 pub struct TimeRangesUnion<A, B> {
-	iter: OrdTimes<A, B>,
+	iter: OrdTimeRanges<A, B>,
 }
 
 impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
@@ -584,7 +584,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
 
 /// [`TimeRanges::sym_diff`].
 pub struct TimeRangesSymDiff<A, B> {
-	iter: OrdTimes<A, B>,
+	iter: OrdTimeRanges<A, B>,
 	range: Option<TimeRange>,
 }
 
@@ -629,14 +629,14 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
 }
 
 /// Orders two [`TimeRanges`] iterators in parallel.
-struct OrdTimes<A, B> {
+struct OrdTimeRanges<A, B> {
 	a_iter: A,
 	a_next: Option<TimeRange>,
 	b_iter: B,
 	b_next: Option<TimeRange>,
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimes<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimeRanges<A, B> {
 	fn new(mut a_iter: A, mut b_iter: B) -> Self {
 		let a_next = a_iter.next();
 		let b_next = b_iter.next();
@@ -664,7 +664,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> OrdTimes<A, B> {
 	}
 }
 
-impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimes<A, B> {
+impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimeRanges<A, B> {
 	type Item = (TimeRange, Option<TimeRange>);
 	fn next(&mut self) -> Option<Self::Item> {
 		match (self.a_next, self.b_next) {
