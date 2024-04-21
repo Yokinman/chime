@@ -25,7 +25,7 @@ mod units {
 }
 pub use units::*;
 
-/// Iterator types usable by [`TimeRanges`].
+/// Iterator types usable by [`InclusiveTimeRanges`].
 pub trait TimeRangeIter: Iterator<Item=TimeRange> {}
 impl<T: Iterator<Item=TimeRange>> TimeRangeIter for T {}
 
@@ -288,7 +288,7 @@ impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
 	}
 }
 
-/// Filters times for use with [`TimeRanges::into_filtered`].
+/// Filters times for use with [`InclusiveTimeRanges::into_filtered`].
 /// 
 /// !!! Seal this later.
 pub struct TimeFilter<I, F> {
@@ -326,11 +326,11 @@ where
 
 /// Iterator of [`TimeRange`]s.
 #[must_use]
-pub struct TimeRanges<I> {
+pub struct InclusiveTimeRanges<I> {
 	times: I
 }
 
-impl TimeRanges<std::iter::Once<TimeRange>> {
+impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {
 	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
 			.expect("must be true: lower bound <= upper bound")
@@ -350,15 +350,15 @@ impl TimeRanges<std::iter::Once<TimeRange>> {
 	}
 }
 
-impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
+impl<I: TimeIter> InclusiveTimeRanges<TimeRangeBuilder<I>> {
 	pub(crate) fn new(
 		iter: impl IntoIterator<IntoIter=I>,
 		initial_order: Ordering,
 		order: Ordering,
-	) -> TimeRanges<TimeRangeBuilder<I>>
+	) -> InclusiveTimeRanges<TimeRangeBuilder<I>>
 	{
 		let iter = iter.into_iter();
-		TimeRanges {
+		InclusiveTimeRanges {
 			times: if order == initial_order {
 				TimeRangeBuilder::Unbounded(Some(iter))
 			} else if order.is_eq() {
@@ -370,12 +370,12 @@ impl<I: TimeIter> TimeRanges<TimeRangeBuilder<I>> {
 	}
 }
 
-impl<I: TimeRangeIter> TimeRanges<I> {
-	pub(crate) fn into_filtered<F>(self, f: F) -> TimeRanges<TimeFilter<I, F>>
+impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
+	pub(crate) fn into_filtered<F>(self, f: F) -> InclusiveTimeRanges<TimeFilter<I, F>>
 	where
 		F: crate::pred::TimeFilterMap
 	{
-		TimeRanges {
+		InclusiveTimeRanges {
 			times: TimeFilter {
 				times: self.times,
 				filter: f,
@@ -384,11 +384,11 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Intersection of ranges.
-	pub(crate) fn inter<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesInter<I, J>>
+	pub(crate) fn inter<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesInter<I, J>>
 	where
 		J: TimeRangeIter
 	{
-		TimeRanges {
+		InclusiveTimeRanges {
 			times: TimeRangesInter {
 				iter: OrdTimeRanges::new(self.times, rhs.times)
 			}
@@ -396,11 +396,11 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Union of ranges.
-	pub(crate) fn union<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesUnion<I, J>>
+	pub(crate) fn union<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesUnion<I, J>>
 	where
 		J: TimeRangeIter
 	{
-		TimeRanges {
+		InclusiveTimeRanges {
 			times: TimeRangesUnion {
 				iter: OrdTimeRanges::new(self.times, rhs.times)
 			}
@@ -408,11 +408,11 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Symmetric difference of ranges.
-	pub(crate) fn sym_diff<J>(self, rhs: TimeRanges<J>) -> TimeRanges<TimeRangesSymDiff<I, J>>
+	pub(crate) fn sym_diff<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesSymDiff<I, J>>
 	where
 		J: TimeRangeIter
 	{
-		TimeRanges {
+		InclusiveTimeRanges {
 			times: TimeRangesSymDiff {
 				iter: OrdTimeRanges::new(self.times, rhs.times),
 				range: None,
@@ -421,8 +421,8 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Inverse of ranges.
-	pub(crate) fn inv(self) -> TimeRanges<TimeRangesInv<I>> {
-		TimeRanges {
+	pub(crate) fn inv(self) -> InclusiveTimeRanges<TimeRangesInv<I>> {
+		InclusiveTimeRanges {
 			times: TimeRangesInv {
 				iter: self.times,
 				prev: None,
@@ -431,7 +431,7 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 }
 
-impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
+impl<I: TimeRangeIter> Iterator for InclusiveTimeRanges<I> {
 	type Item = (Time, Time);
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.times.next()? {
@@ -494,7 +494,7 @@ impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 	}
 }
 
-/// [`TimeRanges::inv`].
+/// [`InclusiveTimeRanges::inv`].
 pub struct TimeRangesInv<I> {
 	iter: I,
 	prev: Option<TimeBound>,
@@ -528,7 +528,7 @@ impl<I: TimeRangeIter> Iterator for TimeRangesInv<I> {
 	}
 }
 
-/// [`TimeRanges::inter`].
+/// [`InclusiveTimeRanges::inter`].
 pub struct TimeRangesInter<A, B> {
 	iter: OrdTimeRanges<A, B>,
 }
@@ -548,7 +548,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 	}
 }
 
-/// [`TimeRanges::union`].
+/// [`InclusiveTimeRanges::union`].
 pub struct TimeRangesUnion<A, B> {
 	iter: OrdTimeRanges<A, B>,
 }
@@ -582,7 +582,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
 	}
 }
 
-/// [`TimeRanges::sym_diff`].
+/// [`InclusiveTimeRanges::sym_diff`].
 pub struct TimeRangesSymDiff<A, B> {
 	iter: OrdTimeRanges<A, B>,
 	range: Option<TimeRange>,
@@ -628,7 +628,7 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
 	}
 }
 
-/// Orders two [`TimeRanges`] iterators in parallel.
+/// Orders two [`InclusiveTimeRanges`] iterators in parallel.
 struct OrdTimeRanges<A, B> {
 	a_iter: A,
 	a_next: Option<TimeRange>,
@@ -773,12 +773,12 @@ mod tests {
 	
 	#[test]
 	fn range_logic() {
-		assert!(TimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
-		assert!(TimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
+		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
+		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
-		let a = || TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
-		let b = || TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
-		let c = || TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
+		let a = || InclusiveTimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
+		let b = || InclusiveTimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
+		let c = || InclusiveTimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
 		assert_eq!(Vec::from_iter(a()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
