@@ -10,7 +10,7 @@ use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind:
-	'static + Copy + Clone + Debug + Send + Sync
+	'static + Copy + Clone + Debug
 	+ Mul<Scalar, Output=Self>
 {
 	type Value: Linear;
