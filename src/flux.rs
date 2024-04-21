@@ -2,6 +2,7 @@
 
 pub mod time;
 pub mod kind;
+pub mod pred;
 mod impls;
 
 use std::cmp::Ordering;
@@ -12,6 +13,7 @@ use std::ops::{Deref, DerefMut, Mul};
 use crate::{
 	linear::*,
 	kind::*,
+	pred::*,
 };
 
 use self::time::Time;

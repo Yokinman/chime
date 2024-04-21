@@ -8,6 +8,7 @@ use std::ops::{Add, Mul, Sub};
 use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
 use crate::time;
 use crate::time::{Time, TimeRanges};
+use crate::kind::*;
 
 /// Function that converts a root value to a Time, or ignores it.
 pub(crate) trait TimeFilterMap: Clone + Send + Sync {
@@ -399,8 +400,8 @@ impl<P: Prediction> Prediction for Option<P> {
 
 /// ...
 pub struct Pred<K, I> {
-	poly: Poly<K, I>,
-	order: Ordering,
+	pub(crate) poly: Poly<K, I>,
+	pub(crate) order: Ordering,
 }
 
 impl<K, I> Clone for Pred<K, I>
@@ -424,12 +425,12 @@ where
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>>;
 	fn into_iter(self) -> Self::IntoIter {
-		let basis = self.poly.time;
+		let basis = self.poly.time();
 		let basis_order = self.poly
 			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
 		let times = RootFilterMap {
-			times: self.poly.inner.roots().into_times(),
+			times: self.poly.into_inner().roots().into_times(),
 			basis,
 		};
 		TimeRanges::new(times, basis_order, self.order)
@@ -438,7 +439,7 @@ where
 
 /// ...
 pub struct PredEq<K, I> {
-	poly: Poly<K, I>,
+	pub(crate) poly: Poly<K, I>,
 }
 
 impl<K, I> Clone for PredEq<K, I>
@@ -461,14 +462,14 @@ where
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = TimeRanges<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>>;
 	fn into_iter(self) -> Self::IntoIter {
-		let basis = self.poly.time;
-		let basis_order = if self.poly.inner.is_zero() {
+		let basis = self.poly.time();
+		let basis_order = if self.poly.into_inner().is_zero() {
 			Ordering::Equal
 		} else {
 			Ordering::Greater
 		};
 		let times = RootFilterMap {
-			times: self.poly.inner.roots().into_times(),
+			times: self.poly.into_inner().roots().into_times(),
 			basis,
 		};
 		TimeRanges::new(times, basis_order, Ordering::Equal)
@@ -503,8 +504,8 @@ impl IntoIterator for DynPred {
 /// ...
 #[derive(Clone)]
 pub struct PredFilter<P, F> {
-	pred: P,
-	filter: F,
+	pub(crate) pred: P,
+	pub(crate) filter: F,
 }
 
 impl<I, P, F> IntoIterator for PredFilter<P, F>
@@ -719,8 +720,8 @@ where
 		
 		let mut sum = <<A::Kind as Sub<B::Kind>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index_poly(i).inner
-				.sub(poly.index_poly(i).to_time(basis).inner)
+			sum = sum + self.index_poly(i).into_inner()
+				.sub(poly.index_poly(i).to_time(basis).into_inner())
 				.sqr();
 		}
 		
@@ -791,8 +792,8 @@ where
 		
 		let mut sum = <<A::Kind as Sub<B::Kind>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index_poly(i).inner
-				.sub(poly.index_poly(i).to_time(basis).inner)
+			sum = sum + self.index_poly(i).into_inner()
+				.sub(poly.index_poly(i).to_time(basis).into_inner())
 				.sqr();
 		}
 		

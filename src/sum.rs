@@ -918,7 +918,7 @@ mod tests {
 		let a = Poly::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
 		let b = Poly::new(Constant::from(-194.), SEC);
 		assert_eq!(
-			Vec::from_iter(crate::kind::WhenEq::when_eq(a, b)),
+			Vec::from_iter(crate::pred::WhenEq::when_eq(a, b)),
 			[
 				(SEC-5*NANOSEC, SEC-3*NANOSEC),
 				(SEC+12*NANOSEC, SEC+14*NANOSEC)
@@ -936,7 +936,7 @@ mod tests {
 		], SEC);
 		let dis = Poly::new(Constant::from(12.), SEC);
 		assert_eq!(
-			Vec::from_iter(crate::kind::WhenDisEq::when_dis_eq(a, b, dis)),
+			Vec::from_iter(crate::pred::WhenDisEq::when_dis_eq(a, b, dis)),
 			[
 				(780910981*NANOSEC, 780910981*NANOSEC),
 				(SEC-13*NANOSEC, SEC-10*NANOSEC),
