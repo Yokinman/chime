@@ -262,17 +262,6 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 			.with_iso()
 	}
 	
-	/// All real-valued roots of this polynomial.
-	#[allow(dead_code)]
-	pub(crate) fn real_roots(&self) -> impl Iterator<Item=f64>
-	where
-		K: Roots,
-		<K as Roots>::Output: IntoIterator<Item=f64>,
-	{
-		self.inner.roots().into_iter()
-			.filter(|r| r.is_finite())
-	}
-	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
 	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K, I>, F>
 	where

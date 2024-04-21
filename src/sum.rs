@@ -663,6 +663,15 @@ mod tests {
 	use crate::time::*;
 	use super::*;
 	
+	fn real_roots<K>(poly: Poly<K, K::Value>) -> impl Iterator<Item=f64>
+	where
+		K: Roots,
+		<K as Roots>::Output: IntoIterator<Item=f64>,
+	{
+		poly.into_inner().roots().into_iter()
+			.filter(|r| r.is_finite())
+	}
+	
 	#[test]
 	fn add() {
 		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
@@ -699,7 +708,7 @@ mod tests {
 		<K as Roots>::Output: IntoIterator<Item=f64>,
 		<<K as Roots>::Output as IntoIterator>::IntoIter: Send + Sync + Clone,
 	{
-		let mut r = Poly::from(p).real_roots().into_iter()
+		let mut r = real_roots(Poly::from(p)).into_iter()
 			.collect::<Vec<f64>>();
 		let mut expected_roots = expected_roots.into_iter()
 			.copied()
@@ -740,7 +749,7 @@ mod tests {
 			Sum(20., [4., -7.]),
 			&[-10./7., 2.]
 		);
-		let r = Poly::from(Sum(-40./3., [-2./3., 17./100.])).real_roots()
+		let r = real_roots(Poly::from(Sum(-40./3., [-2./3., 17./100.])))
 			.into_iter().collect::<Vec<_>>();
 		assert_roots(
 			Sum(40./3., [2./3., -17./100.]),
@@ -767,10 +776,10 @@ mod tests {
 			&[3.54987407349455e-32]
 		);
 		assert_eq!(
-			Poly::from(Sum(
+			real_roots(Poly::from(Sum(
 				-236263115684.8131,
 				[-9476965815.566229, -95034754.784949, 1.0]
-			)).real_roots().count(),
+			))).count(),
 			3
 		);
 		
