@@ -706,7 +706,6 @@ mod tests {
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,
-		<<K as Roots>::Output as IntoIterator>::IntoIter: Send + Sync + Clone,
 	{
 		let mut r = real_roots(Poly::from(p)).into_iter()
 			.collect::<Vec<f64>>();
