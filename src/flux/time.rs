@@ -727,21 +727,21 @@ mod tests {
 		assert!(TimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
 		assert!(TimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
-		let a = TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
-		let b = TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
-		let c = TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
-		assert_eq!(Vec::from_iter(a.clone()), [
+		let a = || TimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
+		let b = || TimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
+		let c = || TimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
+		assert_eq!(Vec::from_iter(a()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b.clone()), [
+		assert_eq!(Vec::from_iter(b()), [
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(50*t + NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(c.clone()), [
+		assert_eq!(Vec::from_iter(c()), [
 			(0*t, 0*t),
 			(7*t, 7*t),
 			(20*t, 20*t),
@@ -749,59 +749,59 @@ mod tests {
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(a.clone().inter(b.clone())), [
+		assert_eq!(Vec::from_iter(a().inter(b())), [
 			(3*t + NANOSEC, 5*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(50*t + NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(a.clone().union(b.clone())), [
+		assert_eq!(Vec::from_iter(a().union(b())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 10*t - NANOSEC),
 			(20*t + NANOSEC, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX)
 		]);
-		assert_eq!(Vec::from_iter(a.clone().sym_diff(b.clone())), [
+		assert_eq!(Vec::from_iter(a().sym_diff(b())), [
 			(0*t, 2*t - NANOSEC),
 			(2*t + NANOSEC, 3*t),
 			(5*t, 10*t - NANOSEC),
 			(40*t + 2*NANOSEC, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(a.clone().inter(a.clone())), Vec::from_iter(a.clone()));
-		assert_eq!(Vec::from_iter(b.clone().inter(b.clone())), Vec::from_iter(b.clone()));
-		assert_eq!(Vec::from_iter(c.clone().inter(c.clone())), Vec::from_iter(c.clone()));
-		assert_eq!(Vec::from_iter(a.clone().union(a.clone())), Vec::from_iter(a.clone()));
-		assert_eq!(Vec::from_iter(b.clone().union(b.clone())), Vec::from_iter(b.clone()));
-		assert_eq!(Vec::from_iter(c.clone().union(c.clone())), Vec::from_iter(c.clone()));
-		assert_eq!(Vec::from_iter(a.clone().sym_diff(a.clone())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(b.clone().sym_diff(b.clone())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(c.clone().sym_diff(c.clone())), Vec::from_iter([]));
-		assert_eq!(Vec::from_iter(a.clone().inv().inv().inv()), [
+		assert_eq!(Vec::from_iter(a().inter(a())), Vec::from_iter(a()));
+		assert_eq!(Vec::from_iter(b().inter(b())), Vec::from_iter(b()));
+		assert_eq!(Vec::from_iter(c().inter(c())), Vec::from_iter(c()));
+		assert_eq!(Vec::from_iter(a().union(a())), Vec::from_iter(a()));
+		assert_eq!(Vec::from_iter(b().union(b())), Vec::from_iter(b()));
+		assert_eq!(Vec::from_iter(c().union(c())), Vec::from_iter(c()));
+		assert_eq!(Vec::from_iter(a().sym_diff(a())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(b().sym_diff(b())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(c().sym_diff(c())), Vec::from_iter([]));
+		assert_eq!(Vec::from_iter(a().inv().inv().inv()), [
 			(2*t, 3*t),
 			(10*t, 20*t),
 			(40*t, 40*t + NANOSEC)
 		]);
-		assert_eq!(Vec::from_iter(b.clone().inv()), [
+		assert_eq!(Vec::from_iter(b().inv()), [
 			(Time::ZERO, 2*t),
 			(5*t, 20*t),
 			(40*t, 50*t)
 		]);
-		assert_eq!(Vec::from_iter(c.clone().inter(a.clone())), [
+		assert_eq!(Vec::from_iter(c().inter(a())), [
 			(0*t, 0*t),
 			(7*t, 7*t),
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, 50*t),
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(b.clone().inter(c.clone())), [
+		assert_eq!(Vec::from_iter(b().inter(c())), [
 			(50*t + NANOSEC, 50*t + NANOSEC),
 		]);
-		assert_eq!(Vec::from_iter(c.clone().union(a.clone())), [
+		assert_eq!(Vec::from_iter(c().union(a())), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
 			(20*t, 40*t - NANOSEC),
 			(40*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b.clone().union(c.clone())), [
+		assert_eq!(Vec::from_iter(b().union(c())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
@@ -809,7 +809,7 @@ mod tests {
 			(50*t - NANOSEC, 50*t - NANOSEC),
 			(50*t, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(c.clone().sym_diff(a.clone())), [
+		assert_eq!(Vec::from_iter(c().sym_diff(a())), [
 			(0*t + NANOSEC, 2*t - NANOSEC),
 			(3*t + NANOSEC, 7*t - NANOSEC),
 			(7*t + NANOSEC, 10*t - NANOSEC),
@@ -817,7 +817,7 @@ mod tests {
 			(40*t + 2*NANOSEC, 50*t - 2*NANOSEC),
 			(50*t + 2*NANOSEC, Time::MAX),
 		]);
-		assert_eq!(Vec::from_iter(b.clone().sym_diff(c.clone())), [
+		assert_eq!(Vec::from_iter(b().sym_diff(c())), [
 			(0*t, 0*t),
 			(2*t + NANOSEC, 5*t - NANOSEC),
 			(7*t, 7*t),
