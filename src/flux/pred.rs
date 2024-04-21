@@ -261,13 +261,6 @@ pub trait Prediction {
 	type TimeRanges: time::TimeRanges;
 	fn into_ranges(self) -> Self::TimeRanges;
 	
-	fn into_inclusive_time_ranges(self) -> InclusiveTimeRanges<Self::TimeRanges>
-	where
-		Self: Sized
-	{
-		InclusiveTimeRanges::new(self.into_ranges())
-	}
-	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
 	fn pre(self) -> PredFilter<Self, PreTimeFilterMap>
 	where
