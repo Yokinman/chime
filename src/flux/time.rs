@@ -328,7 +328,6 @@ where
 
 /// Iterator of [`TimeRange`]s.
 #[must_use]
-#[derive(Clone)]
 pub struct TimeRanges<I> {
 	times: I
 }
