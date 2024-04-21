@@ -795,7 +795,8 @@ mod tests {
 	
 	macro_rules! assert_time_ranges {
 		($ranges:expr, $cmp_ranges:expr) => {{
-			let ranges = Vec::<(Time, Time)>::from_iter($ranges);
+			let ranges = Vec::<(Time, Time)>::from_iter($ranges
+				.into_inclusive_time_ranges());
 			let cmp_ranges = Vec::<(Time, Time)>::from_iter($cmp_ranges);
 			assert_eq!(
 				ranges.len(),
@@ -936,10 +937,14 @@ mod tests {
 		b_pos.at_mut(10*SEC).value -= 100.0;
 		
 		 // Check After:
-		assert_eq!(Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)), [
-			(0*SEC, 8*SEC - time::NANOSEC),
-			(50*SEC + time::NANOSEC, Time::MAX)
-		]);
+		assert_eq!(
+			Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)
+				.into_inclusive_time_ranges()),
+			[
+				(0*SEC, 8*SEC - time::NANOSEC),
+				(50*SEC + time::NANOSEC, Time::MAX)
+			]
+		);
 		assert_times!(a_pos.when_eq(&b_pos), [8*SEC, 50*SEC]);
 	}
 	

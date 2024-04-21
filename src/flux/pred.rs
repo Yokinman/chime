@@ -258,8 +258,17 @@ where
 
 /// ...
 pub trait Prediction {
-	type TimeRanges: Iterator<Item = (Time, Time)>;
+	type TimeRanges: time::TimeRangeIter;
 	fn into_time_ranges(self) -> Self::TimeRanges;
+	
+	fn into_inclusive_time_ranges(self) -> InclusiveTimeRanges<Self::TimeRanges>
+	where
+		Self: Sized
+	{
+		InclusiveTimeRanges {
+			times: self.into_time_ranges()
+		}
+	}
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
 	fn pre(self) -> PredFilter<Self, PreTimeFilterMap>
@@ -277,7 +286,7 @@ macro_rules! impl_prediction {
 	(for<$($param:ident),*> $pred:ty) => {
 		impl<$($param),*> Prediction for $pred
 		where
-			Self: IntoIterator<Item = (Time, Time)>
+			Self: IntoIterator<Item = time::TimeRange>
 		{
 			type TimeRanges = <Self as IntoIterator>::IntoIter;
 			fn into_time_ranges(self) -> Self::TimeRanges {
@@ -341,51 +350,51 @@ impl_prediction!{
 }
 
 impl Prediction for Time {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self..=self)
+		std::iter::once(time::TimeRange::from_range(self..=self))
 	}
 }
 
 impl Prediction for std::ops::Range<Time> {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeInclusive<Time> {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeTo<Time> {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeToInclusive<Time> {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFrom<Time> {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFull {
-	type TimeRanges = InclusiveTimeRanges<std::iter::Once<time::TimeRange>>;
+	type TimeRanges = std::iter::Once<time::TimeRange>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		InclusiveTimeRanges::from_range(self)
+		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
@@ -421,7 +430,7 @@ where
 	I: LinearIso<K::Value>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>>;
+	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_iter(self) -> Self::IntoIter {
 		let basis = self.poly.time();
 		let basis_order = self.poly
@@ -431,7 +440,7 @@ where
 			times: self.poly.into_inner().roots().into_times(),
 			basis,
 		};
-		InclusiveTimeRanges::new(times, basis_order, self.order)
+		time::TimeRangeBuilder::new(times, basis_order, self.order)
 	}
 }
 
@@ -458,7 +467,7 @@ where
 	I: LinearIso<K::Value>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>>;
+	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_iter(self) -> Self::IntoIter {
 		let basis = self.poly.time();
 		let basis_order = if self.poly.into_inner().is_zero() {
@@ -470,7 +479,7 @@ where
 			times: self.poly.into_inner().roots().into_times(),
 			basis,
 		};
-		InclusiveTimeRanges::new(times, basis_order, Ordering::Equal)
+		time::TimeRangeBuilder::new(times, basis_order, Ordering::Equal)
 	}
 }
 
@@ -506,17 +515,15 @@ pub struct PredFilter<P, F> {
 	pub(crate) filter: F,
 }
 
-impl<I, P, F> IntoIterator for PredFilter<P, F>
+impl<P, F> IntoIterator for PredFilter<P, F>
 where
-	I: time::TimeRangeIter,
-	P: Prediction<TimeRanges = InclusiveTimeRanges<I>>,
+	P: Prediction,
 	F: TimeFilterMap,
 {
-	type Item = (Time, Time);
-	type IntoIter = InclusiveTimeRanges<time::TimeFilter<I, F>>;
+	type Item = <Self::IntoIter as Iterator>::Item;
+	type IntoIter = time::TimeFilter<P::TimeRanges, F>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.pred.into_time_ranges()
-			.into_filtered(self.filter)
+		time::TimeFilter::new(self.pred.into_time_ranges(), self.filter)
 	}
 }
 
@@ -527,18 +534,18 @@ pub struct PredInter<A, B> {
 	b_pred: B,
 }
 
-impl<A, B, I, J> IntoIterator for PredInter<A, B>
+impl<A, B> IntoIterator for PredInter<A, B>
 where
-	I: time::TimeRangeIter,
-	J: time::TimeRangeIter,
-	A: Prediction<TimeRanges = InclusiveTimeRanges<I>>,
-	B: Prediction<TimeRanges = InclusiveTimeRanges<J>>,
+	A: Prediction,
+	B: Prediction,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangesInter<I, J>>;
+	type IntoIter = time::TimeRangesInter<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_time_ranges()
-			.inter(self.b_pred.into_time_ranges())
+		time::TimeRangesInter::new(
+			self.a_pred.into_time_ranges(),
+			self.b_pred.into_time_ranges(),
+		)
 	}
 }
 
@@ -549,18 +556,18 @@ pub struct PredUnion<A, B> {
 	b_pred: B,
 }
 
-impl<A, B, I, J> IntoIterator for PredUnion<A, B>
+impl<A, B> IntoIterator for PredUnion<A, B>
 where
-	I: time::TimeRangeIter,
-	J: time::TimeRangeIter,
-	A: Prediction<TimeRanges = InclusiveTimeRanges<I>>,
-	B: Prediction<TimeRanges = InclusiveTimeRanges<J>>,
+	A: Prediction,
+	B: Prediction,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangesUnion<I, J>>;
+	type IntoIter = time::TimeRangesUnion<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_time_ranges()
-			.union(self.b_pred.into_time_ranges())
+		time::TimeRangesUnion::new(
+			self.a_pred.into_time_ranges(),
+			self.b_pred.into_time_ranges(),
+		)
 	}
 }
 
@@ -571,18 +578,18 @@ pub struct PredSymDiff<A, B> {
 	b_pred: B,
 }
 
-impl<A, B, I, J> IntoIterator for PredSymDiff<A, B>
+impl<A, B> IntoIterator for PredSymDiff<A, B>
 where
-	I: time::TimeRangeIter,
-	J: time::TimeRangeIter,
-	A: Prediction<TimeRanges = InclusiveTimeRanges<I>>,
-	B: Prediction<TimeRanges = InclusiveTimeRanges<J>>,
+	A: Prediction,
+	B: Prediction,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangesSymDiff<I, J>>;
+	type IntoIter = time::TimeRangesSymDiff<A::TimeRanges, B::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.a_pred.into_time_ranges()
-			.sym_diff(self.b_pred.into_time_ranges())
+		time::TimeRangesSymDiff::new(
+			self.a_pred.into_time_ranges(),
+			self.b_pred.into_time_ranges(),
+		)
 	}
 }
 
@@ -592,16 +599,14 @@ pub struct PredInv<P> {
 	pred: P,
 }
 
-impl<P, I> IntoIterator for PredInv<P>
+impl<P> IntoIterator for PredInv<P>
 where
-	I: time::TimeRangeIter,
-	P: Prediction<TimeRanges = InclusiveTimeRanges<I>>,
+	P: Prediction,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = InclusiveTimeRanges<time::TimeRangesInv<I>>;
+	type IntoIter = time::TimeRangesInv<P::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		self.pred.into_time_ranges()
-			.inv()
+		time::TimeRangesInv::new(self.pred.into_time_ranges())
 	}
 }
 
@@ -821,7 +826,7 @@ fn consistent_sign_pred() {
 			PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
 			Poly::new(crate::Constant::from(1.), time),
-		).into_iter()
+		).into_inclusive_time_ranges()
 			.map(|(a, b)| (
 				a.saturating_sub(time),
 				if b == Time::MAX {

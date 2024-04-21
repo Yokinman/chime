@@ -361,7 +361,7 @@ where
 /// Iterator of [`TimeRange`]s.
 #[must_use]
 pub struct InclusiveTimeRanges<I> {
-	times: I
+	pub(crate) times: I
 }
 
 impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {
@@ -776,7 +776,7 @@ impl<T> OptionTimeRanges<T> {
 
 impl<T> Iterator for OptionTimeRanges<T>
 where
-	T: Iterator<Item = (Time, Time)>
+	T: TimeRangeIter
 {
 	type Item = T::Item;
 	fn next(&mut self) -> Option<Self::Item> {
@@ -797,12 +797,12 @@ where
 
 /// ...
 pub struct DynTimeRanges {
-	inner: Box<dyn Iterator<Item = (Time, Time)> + Send + Sync>,
+	inner: Box<dyn TimeRangeIter + Send + Sync>,
 }
 
 impl DynTimeRanges {
 	pub(crate) fn new(
-		inner: impl Iterator<Item = (Time, Time)> + Send + Sync + 'static
+		inner: impl TimeRangeIter + Send + Sync + 'static
 	) -> Self {
 		Self {
 			inner: Box::new(inner)
@@ -811,7 +811,7 @@ impl DynTimeRanges {
 }
 
 impl Iterator for DynTimeRanges {
-	type Item = (Time, Time);
+	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner.next()
 	}
