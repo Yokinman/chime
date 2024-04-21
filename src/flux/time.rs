@@ -262,13 +262,13 @@ pub enum TimeRangeBuilder<I> {
 }
 
 impl<I> TimeRangeBuilder<I> {
-	pub(crate) fn new(iter: I, initial_order: Ordering, order: Ordering) -> Self {
+	pub(crate) fn new(iter: impl IntoIterator<IntoIter = I>, initial_order: Ordering, order: Ordering) -> Self {
 		if order == initial_order {
-			TimeRangeBuilder::Unbounded(Some(iter))
+			TimeRangeBuilder::Unbounded(Some(iter.into_iter()))
 		} else if order.is_eq() {
-			TimeRangeBuilder::Inclusive(iter, None)
+			TimeRangeBuilder::Inclusive(iter.into_iter(), None)
 		} else {
-			TimeRangeBuilder::Exclusive(iter)
+			TimeRangeBuilder::Exclusive(iter.into_iter())
 		}
 	}
 }
@@ -399,17 +399,10 @@ impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {
 	}
 }
 
-impl<I: TimeIter> InclusiveTimeRanges<TimeRangeBuilder<I>> {
-	pub(crate) fn new(
-		iter: impl IntoIterator<IntoIter=I>,
-		initial_order: Ordering,
-		order: Ordering,
-	) -> InclusiveTimeRanges<TimeRangeBuilder<I>>
-	{
-		let iter = iter.into_iter();
-		InclusiveTimeRanges {
-			times: TimeRangeBuilder::new(iter, initial_order, order)
-		}
+impl<I> InclusiveTimeRanges<I> {
+	pub(crate) fn new(iter: impl IntoIterator<IntoIter = I>) -> Self {
+		let times = iter.into_iter();
+		InclusiveTimeRanges { times }
 	}
 }
 
@@ -852,9 +845,9 @@ mod tests {
 		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
 		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
-		let a = || InclusiveTimeRanges::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less);
-		let b = || InclusiveTimeRanges::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater);
-		let c = || InclusiveTimeRanges::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal);
+		let a = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less));
+		let b = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater));
+		let c = || InclusiveTimeRanges::new(TimeRangeBuilder::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal));
 		assert_eq!(Vec::from_iter(a()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
