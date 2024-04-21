@@ -397,9 +397,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 		J: TimeRangeIter
 	{
 		InclusiveTimeRanges {
-			times: TimeRangesInter {
-				iter: OrdTimeRanges::new(self.times, rhs.times)
-			}
+			times: TimeRangesInter::new(self.times, rhs.times)
 		}
 	}
 	
@@ -409,9 +407,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 		J: TimeRangeIter
 	{
 		InclusiveTimeRanges {
-			times: TimeRangesUnion {
-				iter: OrdTimeRanges::new(self.times, rhs.times)
-			}
+			times: TimeRangesUnion::new(self.times, rhs.times)
 		}
 	}
 	
@@ -421,10 +417,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 		J: TimeRangeIter
 	{
 		InclusiveTimeRanges {
-			times: TimeRangesSymDiff {
-				iter: OrdTimeRanges::new(self.times, rhs.times),
-				range: None,
-			}
+			times: TimeRangesSymDiff::new(self.times, rhs.times)
 		}
 	}
 	
@@ -541,6 +534,18 @@ pub struct TimeRangesInter<A, B> {
 	iter: OrdTimeRanges<A, B>,
 }
 
+impl<A, B> TimeRangesInter<A, B>
+where
+	A: TimeRangeIter,
+	B: TimeRangeIter,
+{
+	pub(crate) fn new(a: A, b: B) -> Self {
+		Self {
+			iter: OrdTimeRanges::new(a, b)
+		}
+	}
+}
+
 impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
@@ -559,6 +564,18 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesInter<A, B> {
 /// [`InclusiveTimeRanges::union`].
 pub struct TimeRangesUnion<A, B> {
 	iter: OrdTimeRanges<A, B>,
+}
+
+impl<A, B> TimeRangesUnion<A, B>
+where
+	A: TimeRangeIter,
+	B: TimeRangeIter,
+{
+	pub(crate) fn new(a: A, b: B) -> Self {
+		Self {
+			iter: OrdTimeRanges::new(a, b)
+		}
+	}
 }
 
 impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
@@ -594,6 +611,19 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesUnion<A, B> {
 pub struct TimeRangesSymDiff<A, B> {
 	iter: OrdTimeRanges<A, B>,
 	range: Option<TimeRange>,
+}
+
+impl<A, B> TimeRangesSymDiff<A, B>
+where
+	A: TimeRangeIter,
+	B: TimeRangeIter,
+{
+	pub(crate) fn new(a: A, b: B) -> Self {
+		Self {
+			iter: OrdTimeRanges::new(a, b),
+			range: None,
+		}
+	}
 }
 
 impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for TimeRangesSymDiff<A, B> {
