@@ -421,9 +421,9 @@ impl<I: TimeRangeIter> TimeRanges<I> {
 	}
 	
 	/// Inverse of ranges.
-	pub(crate) fn inv(self) -> TimeRanges<InvTimes<I>> {
+	pub(crate) fn inv(self) -> TimeRanges<TimeRangesInv<I>> {
 		TimeRanges {
-			times: InvTimes {
+			times: TimeRangesInv {
 				iter: self.times,
 				prev: None,
 			}
@@ -494,13 +494,13 @@ impl<I: TimeRangeIter> Iterator for TimeRanges<I> {
 	}
 }
 
-/// [`Not`] implementation for [`TimeRanges`].
-pub struct InvTimes<I> {
+/// [`TimeRanges::inv`].
+pub struct TimeRangesInv<I> {
 	iter: I,
 	prev: Option<TimeBound>,
 }
 
-impl<I: TimeRangeIter> Iterator for InvTimes<I> {
+impl<I: TimeRangeIter> Iterator for TimeRangesInv<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(TimeRange(mut a, mut b)) = self.iter.next() {

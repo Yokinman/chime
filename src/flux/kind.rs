@@ -1196,7 +1196,7 @@ where
 	P: Prediction<TimeRanges = TimeRanges<I>>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = TimeRanges<time::InvTimes<I>>;
+	type IntoIter = TimeRanges<time::TimeRangesInv<I>>;
 	fn into_iter(self) -> Self::IntoIter {
 		self.pred.into_time_ranges()
 			.inv()
