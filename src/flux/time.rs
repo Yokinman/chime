@@ -711,6 +711,38 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimeRanges<A, B> {
 }
 
 /// ...
+pub struct OptionTimeRanges<T> {
+	times: Option<T>,
+}
+
+impl<T> OptionTimeRanges<T> {
+	pub(crate) fn new(times: Option<T>) -> Self {
+		Self { times }
+	}
+}
+
+impl<T> Iterator for OptionTimeRanges<T>
+where
+	T: Iterator<Item = (Time, Time)>
+{
+	type Item = T::Item;
+	fn next(&mut self) -> Option<Self::Item> {
+		if let Some(times) = self.times.as_mut() {
+			times.next()
+		} else {
+			None
+		}
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		if let Some(times) = self.times.as_ref() {
+			times.size_hint()
+		} else {
+			(0, Some(0))
+		}
+	}
+}
+
+/// ...
 pub struct DynTimeRanges {
 	inner: Box<dyn Iterator<Item = (Time, Time)> + Send + Sync>,
 }

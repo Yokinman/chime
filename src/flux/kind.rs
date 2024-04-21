@@ -943,37 +943,9 @@ impl Prediction for std::ops::RangeFull {
 }
 
 impl<P: Prediction> Prediction for Option<P> {
-	type TimeRanges = OptionTimeRanges<P::TimeRanges>;
+	type TimeRanges = time::OptionTimeRanges<P::TimeRanges>;
 	fn into_time_ranges(self) -> Self::TimeRanges {
-		OptionTimeRanges {
-			times: self.map(|x| x.into_time_ranges())
-		}
-	}
-}
-
-/// ...
-pub struct OptionTimeRanges<T> {
-	times: Option<T>,
-}
-
-impl<T> Iterator for OptionTimeRanges<T>
-where
-	T: Iterator<Item = (Time, Time)>
-{
-	type Item = T::Item;
-	fn next(&mut self) -> Option<Self::Item> {
-		if let Some(times) = self.times.as_mut() {
-			times.next()
-		} else {
-			None
-		}
-	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		if let Some(times) = self.times.as_ref() {
-			times.size_hint()
-		} else {
-			(0, Some(0))
-		}
+		time::OptionTimeRanges::new(self.map(|x| x.into_time_ranges()))
 	}
 }
 
