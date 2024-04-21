@@ -395,15 +395,6 @@ impl<I> InclusiveTimeRanges<I> {
 }
 
 impl<I: TimeRanges> InclusiveTimeRanges<I> {
-	pub(crate) fn into_filtered<F>(self, f: F) -> InclusiveTimeRanges<TimeFilter<I, F>>
-	where
-		F: crate::pred::TimeFilterMap
-	{
-		InclusiveTimeRanges {
-			times: TimeFilter::new(self.times, f)
-		}
-	}
-	
 	/// Intersection of ranges.
 	pub(crate) fn inter<J>(self, rhs: InclusiveTimeRanges<J>) -> InclusiveTimeRanges<TimeRangesInter<I, J>>
 	where
