@@ -78,7 +78,7 @@ impl Mul<Scalar> for glam::DVec4 {
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
 pub trait Linear:
-	'static + Copy + Clone + Debug + Send + Sync
+	'static + Copy + Clone + Debug
 	+ Add<Output=Self>
 	+ Sub<Output=Self>
 	+ Mul<Scalar, Output=Self>
