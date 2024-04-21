@@ -312,6 +312,12 @@ pub struct TimeFilter<I, F> {
 	filter: F,
 }
 
+impl<I, F> TimeFilter<I, F> {
+	pub(crate) fn new(times: I, filter: F) -> Self {
+		Self { times, filter }
+	}
+}
+
 impl<I: TimeRangeIter, F> Iterator for TimeFilter<I, F>
 where
 	F: crate::pred::TimeFilterMap
@@ -384,10 +390,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 		F: crate::pred::TimeFilterMap
 	{
 		InclusiveTimeRanges {
-			times: TimeFilter {
-				times: self.times,
-				filter: f,
-			}
+			times: TimeFilter::new(self.times, f)
 		}
 	}
 	
