@@ -298,6 +298,3 @@ mod glam_stuff {
 	impl_iso_for_vec!(DVec3, as_vec3  : Vec3, as_dvec3  : 3, f32);
 	impl_iso_for_vec!(DVec4, as_vec4  : Vec4, as_dvec4  : 4, f32);
 }
-
-#[cfg(feature = "glam")]
-pub use glam_stuff::*;

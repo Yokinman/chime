@@ -16,8 +16,6 @@ use crate::{
 
 use self::time::Time;
 
-pub use self::impls::*;
-
 pub use chime_flux_proc_macro::flux;
 
 /// A discrete interface for a value that changes over time.
