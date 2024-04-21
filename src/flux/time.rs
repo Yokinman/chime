@@ -216,7 +216,6 @@ enum Overlap {
 /// 
 /// !!! Seal this later.
 #[must_use]
-#[derive(Clone)]
 pub enum TimeRangeBuilder<I> {
 	Inclusive(I, Option<Time>),
 	Exclusive(I),
