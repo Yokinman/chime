@@ -676,8 +676,8 @@ pub trait WhenDis<const SIZE: usize, B, D, J, L> {
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
 	for PolyVec<SIZE, A, I>
 where
-	A: FluxKindVec<SIZE> + 'static,
-	B: FluxKindVec<SIZE> + 'static,
+	A: FluxKindVec<SIZE>,
+	B: FluxKindVec<SIZE>,
 	I: LinearIsoVec<SIZE, A::Value>,
 	J: LinearIsoVec<SIZE, B::Value>,
 	A::Kind: ops::Sub<B::Kind>,
@@ -749,8 +749,8 @@ pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
 
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDisEq<SIZE, B, D, J, L> for PolyVec<SIZE, A, I>
 where
-	A: FluxKindVec<SIZE> + 'static,
-	B: FluxKindVec<SIZE> + 'static,
+	A: FluxKindVec<SIZE>,
+	B: FluxKindVec<SIZE>,
 	I: LinearIsoVec<SIZE, A::Value>,
 	J: LinearIsoVec<SIZE, B::Value>,
 	A::Kind: ops::Sub<B::Kind>,
