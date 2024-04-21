@@ -710,6 +710,31 @@ impl<A: TimeRangeIter, B: TimeRangeIter> Iterator for OrdTimeRanges<A, B> {
 	}
 }
 
+/// ...
+pub struct DynTimeRanges {
+	inner: Box<dyn Iterator<Item = (Time, Time)> + Send + Sync>,
+}
+
+impl DynTimeRanges {
+	pub(crate) fn new(
+		inner: impl Iterator<Item = (Time, Time)> + Send + Sync + 'static
+	) -> Self {
+		Self {
+			inner: Box::new(inner)
+		}
+	}
+}
+
+impl Iterator for DynTimeRanges {
+	type Item = (Time, Time);
+	fn next(&mut self) -> Option<Self::Item> {
+		self.inner.next()
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.inner.size_hint()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

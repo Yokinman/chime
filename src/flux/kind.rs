@@ -978,21 +978,6 @@ where
 }
 
 /// ...
-pub struct DynTimeRanges {
-	inner: Box<dyn Iterator<Item = (Time, Time)> + Send + Sync>,
-}
-
-impl Iterator for DynTimeRanges {
-	type Item = (Time, Time);
-	fn next(&mut self) -> Option<Self::Item> {
-		self.inner.next()
-	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		self.inner.size_hint()
-	}
-}
-
-/// ...
 pub struct Pred<K, I> {
 	poly: Poly<K, I>,
 	order: Ordering,
@@ -1072,26 +1057,24 @@ where
 
 /// ...
 pub struct DynPred {
-	inner: DynTimeRanges,
+	inner: time::DynTimeRanges,
 }
 
 impl DynPred {
 	pub fn new<T>(pred: T) -> Self
 	where
-		T: Prediction + 'static,
-		T::TimeRanges: Send + Sync,
+		T: Prediction,
+		T::TimeRanges: Send + Sync + 'static,
 	{
 		Self {
-			inner: DynTimeRanges {
-				inner: Box::new(pred.into_time_ranges())
-			}
+			inner: time::DynTimeRanges::new(pred.into_time_ranges())
 		}
 	}
 }
 
 impl IntoIterator for DynPred {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = DynTimeRanges;
+	type IntoIter = time::DynTimeRanges;
 	fn into_iter(mut self) -> Self::IntoIter {
 		self.inner
 	}
