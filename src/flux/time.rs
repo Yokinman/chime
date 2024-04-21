@@ -387,18 +387,6 @@ pub struct InclusiveTimeRanges<I> {
 	times: I
 }
 
-impl InclusiveTimeRanges<std::iter::Once<TimeRange>> {
-	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
-		Self::try_from_range(range)
-			.expect("must be true: lower bound <= upper bound")
-	}
-	
-	pub(crate) fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
-		TimeRange::try_from_range(range)
-			.map(|r| Self { times: std::iter::once(r) })
-	}
-}
-
 impl<I> InclusiveTimeRanges<I> {
 	pub(crate) fn new(iter: impl IntoIterator<IntoIter = I>) -> Self {
 		let times = iter.into_iter();
@@ -842,8 +830,8 @@ mod tests {
 	
 	#[test]
 	fn range_logic() {
-		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
-		assert!(InclusiveTimeRanges::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
+		assert!(TimeRange::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
+		assert!(TimeRange::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
 		let a = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less));
 		let b = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater));
