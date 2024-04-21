@@ -424,10 +424,7 @@ impl<I: TimeRangeIter> InclusiveTimeRanges<I> {
 	/// Inverse of ranges.
 	pub(crate) fn inv(self) -> InclusiveTimeRanges<TimeRangesInv<I>> {
 		InclusiveTimeRanges {
-			times: TimeRangesInv {
-				iter: self.times,
-				prev: None,
-			}
+			times: TimeRangesInv::new(self.times)
 		}
 	}
 }
@@ -499,6 +496,15 @@ impl<I: TimeRangeIter> Iterator for InclusiveTimeRanges<I> {
 pub struct TimeRangesInv<I> {
 	iter: I,
 	prev: Option<TimeBound>,
+}
+
+impl<I> TimeRangesInv<I> {
+	pub(crate) fn new(iter: I) -> Self {
+		Self {
+			iter,
+			prev: None,
+		}
+	}
 }
 
 impl<I: TimeRangeIter> Iterator for TimeRangesInv<I> {
