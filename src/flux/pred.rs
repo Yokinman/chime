@@ -596,9 +596,9 @@ where
 	P: Prediction,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangesInv<P::TimeRanges>;
+	type IntoIter = time::InvTimeRanges<P::TimeRanges>;
 	fn into_iter(self) -> Self::IntoIter {
-		time::TimeRangesInv::new(self.pred.into_ranges())
+		time::InvTimeRanges::new(self.pred.into_ranges())
 	}
 }
 

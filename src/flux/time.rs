@@ -54,7 +54,7 @@ impl_time_ranges!{
 	for<A, B> TimeRangesInter<A, B>;
 	for<A, B> TimeRangesUnion<A, B>;
 	for<A, B> TimeRangesSymDiff<A, B>;
-	for<T> TimeRangesInv<T>;
+	for<T> InvTimeRanges<T>;
 	for<T> OptionTimeRanges<T>;
 	for<> DynTimeRanges;
 }
@@ -460,12 +460,12 @@ impl<I: TimeRanges> Iterator for InclusiveTimeRanges<I> {
 }
 
 /// Inverted [`TimeRanges`].
-pub struct TimeRangesInv<I> {
+pub struct InvTimeRanges<I> {
 	iter: I,
 	prev: Option<TimeBound>,
 }
 
-impl<I> TimeRangesInv<I> {
+impl<I> InvTimeRanges<I> {
 	pub(crate) fn new(iter: I) -> Self {
 		Self {
 			iter,
@@ -474,7 +474,7 @@ impl<I> TimeRangesInv<I> {
 	}
 }
 
-impl<I: TimeRanges> Iterator for TimeRangesInv<I> {
+impl<I: TimeRanges> Iterator for InvTimeRanges<I> {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(TimeRange(mut a, mut b)) = self.iter.next() {
@@ -809,11 +809,11 @@ mod tests {
 		InclusiveTimeRanges::new(TimeRangesSymDiff::new(a.times, b.times))
 	}
 	
-	fn inv<T>(ranges: InclusiveTimeRanges<T>) -> InclusiveTimeRanges<TimeRangesInv<T>>
+	fn inv<T>(ranges: InclusiveTimeRanges<T>) -> InclusiveTimeRanges<InvTimeRanges<T>>
 	where
 		T: TimeRanges,
 	{
-		InclusiveTimeRanges::new(TimeRangesInv::new(ranges.times))
+		InclusiveTimeRanges::new(InvTimeRanges::new(ranges.times))
 	}
 	
 	#[test]
