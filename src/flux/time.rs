@@ -59,12 +59,6 @@ impl_time_ranges!{
 	for<> DynTimeRanges;
 }
 
-/// Iterator types usable by [`TimeRangeBuilder`].
-/// 
-/// !!! Seal this later.
-pub trait TimeIter: Iterator<Item=Time> {}
-impl<T: Iterator<Item=Time>> TimeIter for T {}
-
 /// Upper or lower bound for a [`TimeRange`].
 type TimeBound = std::ops::Bound<Time>;
 
@@ -279,7 +273,10 @@ impl<I> TimeRangeBuilder<I> {
 	}
 }
 
-impl<I: TimeIter> Iterator for TimeRangeBuilder<I> {
+impl<I> Iterator for TimeRangeBuilder<I>
+where
+	I: Iterator<Item = Time>
+{
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
