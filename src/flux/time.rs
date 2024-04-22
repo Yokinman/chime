@@ -342,7 +342,7 @@ where
 	}
 }
 
-/// Filters times for use with [`InclusiveTimeRanges::into_filtered`].
+/// Filters and/or maps the bounds of a [`TimeRanges`].
 /// 
 /// !!! Seal this later.
 pub struct TimeFilter<I, F> {
@@ -459,7 +459,7 @@ impl<I: TimeRanges> Iterator for InclusiveTimeRanges<I> {
 	}
 }
 
-/// [`InclusiveTimeRanges::inv`].
+/// Inverted [`TimeRanges`].
 pub struct TimeRangesInv<I> {
 	iter: I,
 	prev: Option<TimeBound>,
@@ -502,7 +502,7 @@ impl<I: TimeRanges> Iterator for TimeRangesInv<I> {
 	}
 }
 
-/// [`InclusiveTimeRanges::inter`].
+/// Intersection of two [`TimeRanges`].
 pub struct TimeRangesInter<A, B> {
 	iter: OrdTimeRanges<A, B>,
 }
@@ -534,7 +534,7 @@ impl<A: TimeRanges, B: TimeRanges> Iterator for TimeRangesInter<A, B> {
 	}
 }
 
-/// [`InclusiveTimeRanges::union`].
+/// Union of two [`TimeRanges`].
 pub struct TimeRangesUnion<A, B> {
 	iter: OrdTimeRanges<A, B>,
 }
@@ -580,7 +580,7 @@ impl<A: TimeRanges, B: TimeRanges> Iterator for TimeRangesUnion<A, B> {
 	}
 }
 
-/// [`InclusiveTimeRanges::sym_diff`].
+/// Symmetric difference of two [`TimeRanges`].
 pub struct TimeRangesSymDiff<A, B> {
 	iter: OrdTimeRanges<A, B>,
 	range: Option<TimeRange>,
