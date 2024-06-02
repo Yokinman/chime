@@ -89,12 +89,12 @@ pub trait Flux {
 	/// // modifications
 	/// self.set_moment(time, moment);
 	/// ```
-	fn at_mut(&mut self, time: Time) -> MomentRefMut<Self::Moment>
+	fn at_mut(&mut self, time: Time) -> MomentMut<Self::Moment>
 	where
 		Self: Clone
 	{
 		let moment = Some(self.clone().to_moment(time));
-		MomentRefMut {
+		MomentMut {
 			moment,
 			time,
 			borrow: self,
@@ -178,13 +178,13 @@ where
 }
 
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct MomentRefMut<'b, M: Moment> {
+pub struct MomentMut<'b, M: Moment> {
 	moment: Option<M>,
 	time: Time,
 	borrow: &'b mut M::Flux,
 }
 
-impl<M: Moment> Drop for MomentRefMut<'_, M> {
+impl<M: Moment> Drop for MomentMut<'_, M> {
 	fn drop(&mut self) {
 		if let Some(moment) = std::mem::take(&mut self.moment) {
 			self.borrow.set_moment(self.time, moment);
@@ -192,7 +192,7 @@ impl<M: Moment> Drop for MomentRefMut<'_, M> {
 	}
 }
 
-impl<M: Moment> Deref for MomentRefMut<'_, M> {
+impl<M: Moment> Deref for MomentMut<'_, M> {
 	type Target = M;
 	fn deref(&self) -> &Self::Target {
 		if let Some(moment) = self.moment.as_ref() {
@@ -203,7 +203,7 @@ impl<M: Moment> Deref for MomentRefMut<'_, M> {
 	}
 }
 
-impl<M: Moment> DerefMut for MomentRefMut<'_, M> {
+impl<M: Moment> DerefMut for MomentMut<'_, M> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		if let Some(moment) = self.moment.as_mut() {
 			moment
@@ -213,7 +213,7 @@ impl<M: Moment> DerefMut for MomentRefMut<'_, M> {
 	}
 }
 
-impl<M: Moment> Debug for MomentRefMut<'_, M>
+impl<M: Moment> Debug for MomentMut<'_, M>
 where
 	M: Debug
 {
@@ -222,7 +222,7 @@ where
 	}
 }
 
-impl<M: Moment> Display for MomentRefMut<'_, M>
+impl<M: Moment> Display for MomentMut<'_, M>
 where
 	M: Display
 {
