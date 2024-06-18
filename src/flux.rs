@@ -666,10 +666,10 @@ mod tests {
 	use crate::sum::Sum;
 	
 	#[flux(
-		kind = "Sum<f64, 4>",
+		kind = Sum<f64, 4>,
 		value = value,
 		change = |c| c + spd.per(SEC) + misc.per(SEC),
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Pos {
@@ -679,10 +679,10 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = "Sum<f64, 3>",
+		kind = Sum<f64, 3>,
 		value = value,
 		change = |c| c - fric.per(SEC) + accel.per(SEC),
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Spd {
@@ -692,9 +692,9 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = "Sum<f64, 0>",
+		kind = Sum<f64, 0>,
 		value = value,
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Fric {
@@ -702,10 +702,10 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = "Sum<f64, 2>",
+		kind = Sum<f64, 2>,
 		value = value,
 		change = |c| c + jerk.per(SEC),
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Accel {
@@ -714,10 +714,10 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = "Sum<f64, 1>",
+		kind = Sum<f64, 1>,
 		value = value,
 		change = |c| c + snap.per(SEC),
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Jerk {
@@ -726,9 +726,9 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = "Constant<f64>",
+		kind = Constant<f64>,
 		value = value,
-		crate = "crate",
+		crate = crate,
 	)]
 	#[derive(Clone, Debug, Default)]
 	struct Snap {
@@ -954,10 +954,10 @@ mod tests {
 	fn distance() {
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = "Sum<f64, 2>",
+			kind = Sum<f64, 2>,
 			value = value,
 			change = |c| c + spd.per(time::MINUTE),
-			crate = "crate",
+			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Pos {
@@ -967,10 +967,10 @@ mod tests {
 		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = "Sum<f64, 1>",
+			kind = Sum<f64, 1>,
 			value = value,
 			change = |c| c + acc.per(SEC),
-			crate = "crate",
+			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Spd {
@@ -980,9 +980,9 @@ mod tests {
 		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = "Constant<f64>",
+			kind = Constant<f64>,
 			value = value,
-			crate = "crate",
+			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Acc {

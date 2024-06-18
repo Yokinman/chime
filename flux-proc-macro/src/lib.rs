@@ -21,9 +21,9 @@ impl syn::parse::Parse for FluxParse {
 		
 		let mut prev_paths = HashSet::new();
 		while !input.is_empty() {
-			let field = syn::MetaNameValue::parse(input)?;
-			let ident = field.path.require_ident()?;
-			let value = field.value;
+			let field = syn::Path::parse(input)?;
+			let ident = field.require_ident()?;
+			input.parse::<Token![=]>()?;
 			
 			 // No Repeats:
 			if prev_paths.contains(ident) {
@@ -33,30 +33,17 @@ impl syn::parse::Parse for FluxParse {
 			
 			match ident.to_string().as_str() {
 				"kind" => {
-					if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), attrs }) = value {
-						assert!(attrs.is_empty(), "kind type must have no attributes");
-						kind_type = Some(s.parse()?);
-					} else {
-						panic!("kind type must be a string");
-					}
+					kind_type = Some(syn::Type::parse(input)?);
 				},
 				"value" => {
-					let mut is_field = false;
-					if let syn::Expr::Path(syn::ExprPath { path, attrs, qself: None }) = &value {
-						assert!(attrs.is_empty(), "value must have no attributes");
-						if let Some(ident) = path.get_ident() {
-							if ident != "self" {
-								is_field = true;
-							}
-						}
-					}
-					if is_field {
-						value_expr = Some(value);
-					} else {
+					let ident = syn::Ident::parse(input)?;
+					if ident == "self" {
 						panic!("expected value to be an identifier for a field");
 					}
+					value_expr = Some(syn::parse_quote!(#ident));
 				},
 				"change" => {
+					let value = syn::Expr::parse(input)?;
 					if let syn::Expr::Closure(_) = value {
 						change_expr = Some(value);
 					} else {
@@ -64,21 +51,16 @@ impl syn::parse::Parse for FluxParse {
 					}
 				},
 				"crate" => {
-					if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), attrs }) = value {
-						assert!(attrs.is_empty(), "no crate path attributes");
-						crate_path = Some(s.parse()?);
-					} else {
-						panic!("crate must be a path");
-					}
+					crate_path = Some(syn::Path::parse(input)?);
 				},
 				ident => panic!("invalid identifier -> {}", ident)
 			}
 			
 			if input.is_empty() {
 				break
-			} else {
-				input.parse::<Token![,]>()?;
 			}
+			
+			input.parse::<Token![,]>()?;
 		}
 		
 		Ok(FluxParse {

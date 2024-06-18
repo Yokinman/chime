@@ -11,7 +11,8 @@ keywords = []
 categories = ["mathematics", "game-development", "simulation"]
 
 [dependencies]
-chime-flux-proc-macro = "0.3.0"
+#chime-flux-proc-macro = "0.3.0"
+chime-flux-proc-macro = { path = "flux-proc-macro" }
 glam = { version = "0.25.0", optional = true }
 bevy_ecs = { version = "0.13.2", optional = true }
 
