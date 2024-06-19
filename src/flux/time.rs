@@ -256,20 +256,38 @@ enum Overlap {
 /// 
 /// !!! Seal this later.
 pub enum TimeRangeBuilder<I> {
-	Inclusive(I, Option<Time>),
-	Exclusive(I),
-	Unbounded(Option<I>),
+	Empty,
+	Inclusive(Time, I),
+	Exclusive(Time, I),
+	Unbounded(I),
 }
 
-impl<I> TimeRangeBuilder<I> {
-	pub(crate) fn new(iter: impl IntoIterator<IntoIter = I>, initial_order: Ordering, order: Ordering) -> Self {
+impl<I> TimeRangeBuilder<I>
+where
+	I: Iterator<Item = Time>
+{
+	pub(crate) fn new(
+		iter: impl IntoIterator<IntoIter = I>,
+		initial_order: Ordering,
+		order: Ordering,
+	) -> Self {
+		let mut iter = iter.into_iter();
+		
+		 // Starts Unbounded:
 		if order == initial_order {
-			TimeRangeBuilder::Unbounded(Some(iter.into_iter()))
-		} else if order.is_eq() {
-			TimeRangeBuilder::Inclusive(iter.into_iter(), None)
-		} else {
-			TimeRangeBuilder::Exclusive(iter.into_iter())
+			return TimeRangeBuilder::Unbounded(iter)
 		}
+		
+		 // Bounded by Initial Time:
+		if let Some(time) = iter.next() {
+			return if order.is_eq() {
+				TimeRangeBuilder::Inclusive(time, iter)
+			} else {
+				TimeRangeBuilder::Exclusive(time, iter)
+			}
+		}
+		
+		TimeRangeBuilder::Empty
 	}
 }
 
@@ -279,65 +297,79 @@ where
 {
 	type Item = TimeRange;
 	fn next(&mut self) -> Option<Self::Item> {
-		match self {
-			TimeRangeBuilder::Inclusive(iter, queued_time) => {
-				if let Some(time) = queued_time.take() {
-					let t = TimeBound::Included(time);
-					Some(TimeRange(t, t))
-				} else if let Some(time) = iter.next() {
-					 // Ignore Repeated Times:
-					for next_time in iter.by_ref() {
-						if time != next_time {
-							*queued_time = Some(next_time);
-							break
+		match std::mem::replace(self, TimeRangeBuilder::Empty) {
+			TimeRangeBuilder::Empty => None,
+			TimeRangeBuilder::Inclusive(time, mut iter) => {
+				let t = TimeBound::Included(time);
+				
+				 // Increase Time by Next Duration:
+				if let Some(mut add_time) = iter.next() {
+					while add_time == Time::ZERO {
+						 // Ignore Repeated Times:
+						for next_time in iter.by_ref() {
+							if next_time != Time::ZERO {
+								add_time = next_time;
+								break
+							}
 						}
 					}
-					
-					let t = TimeBound::Included(time);
-					Some(TimeRange(t, t))
+					*self = TimeRangeBuilder::Inclusive(time + add_time, iter);
 				} else {
-					None
+					*self = TimeRangeBuilder::Empty;
 				}
+				
+				Some(TimeRange(t, t))
 			},
-			TimeRangeBuilder::Exclusive(iter) => {
-				if let Some(a) = iter.next().map(TimeBound::Excluded) {
-					let b = iter.next().map(TimeBound::Excluded)
-						.unwrap_or(TimeBound::Unbounded);
-					
-					if a == b {
-						self.next()
-					} else {
-						Some(TimeRange(a, b))
+			TimeRangeBuilder::Exclusive(mut time, mut iter) => {
+				while let Some(add_time) = iter.next() {
+					if add_time != Time::ZERO {
+						let a = TimeBound::Excluded(time);
+						time += add_time;
+						let b = TimeBound::Excluded(time);
+						if let Some(add_time) = iter.next() {
+							time += add_time;
+							*self = TimeRangeBuilder::Exclusive(time, iter);
+						} else {
+							*self = TimeRangeBuilder::Empty;
+						}
+						return Some(TimeRange(a, b))
 					}
-				} else {
-					None
+					if let Some(add_time) = iter.next() {
+						time += add_time;
+					}
 				}
+				
+				*self = TimeRangeBuilder::Empty;
+				
+				Some(TimeRange(TimeBound::Excluded(time), TimeBound::Unbounded))
 			},
-			TimeRangeBuilder::Unbounded(iter) => {
-				let mut iter = iter.take().expect("this should always exist");
-				let next = iter.next().map(TimeBound::Excluded)
-					.unwrap_or(TimeBound::Unbounded);
-				
-				*self = TimeRangeBuilder::Exclusive(iter);
-				
-				Some(TimeRange(TimeBound::Unbounded, next))
+			TimeRangeBuilder::Unbounded(mut iter) => {
+				if let Some(time) = iter.next() {
+					if let Some(add_time) = iter.next() {
+						*self = TimeRangeBuilder::Exclusive(time + add_time, iter);
+					} else {
+						*self = TimeRangeBuilder::Empty;
+					}
+					Some(TimeRange(TimeBound::Unbounded, TimeBound::Excluded(time)))
+				} else {
+					*self = TimeRangeBuilder::Empty;
+					Some(TimeRange(TimeBound::Unbounded, TimeBound::Unbounded))
+				}
 			},
 		}
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
-			TimeRangeBuilder::Inclusive(iter, queued_time) => {
-				if queued_time.is_some() {
-					(1, iter.size_hint().1.and_then(|x| x.checked_add(1)))
-				} else {
-					(0, iter.size_hint().1)
-				}
+			TimeRangeBuilder::Empty => (0, Some(0)),
+			TimeRangeBuilder::Inclusive(_, iter) => {
+				let (_, max) = iter.size_hint();
+				(1, max.and_then(|x| x.checked_add(1)))
 			},
-			TimeRangeBuilder::Exclusive(iter) |
-			TimeRangeBuilder::Unbounded(Some(iter)) => {
-				(0, iter.size_hint().1.map(|x| 1 + x/2))
+			TimeRangeBuilder::Exclusive(_, iter) |
+			TimeRangeBuilder::Unbounded(iter) => {
+				let (_, max) = iter.size_hint();
+				(0, max.map(|x| 1 + x/2))
 			},
-			TimeRangeBuilder::Unbounded(None) => unreachable!(),
 		}
 	}
 }
@@ -821,9 +853,9 @@ mod tests {
 		assert!(TimeRange::try_from_range(5*NANOSEC..4*NANOSEC).is_none());
 		assert!(TimeRange::try_from_range(5*NANOSEC..5*NANOSEC).is_some());
 		let t = SEC;
-		let a = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 3*t, 10*t, 20*t, 40*t, 40*t, 40*t, 40*t + NANOSEC], Ordering::Less, Ordering::Less));
-		let b = || InclusiveTimeRanges::new(TimeRangeBuilder::new([2*t, 5*t, 20*t, 40*t, 50*t, 50*t, 50*t], Ordering::Less, Ordering::Greater));
-		let c = || InclusiveTimeRanges::new(TimeRangeBuilder::new([0*t, 7*t, 20*t, 20*t, 50*t - NANOSEC, 50*t, 50*t + NANOSEC], Ordering::Greater, Ordering::Equal));
+		let a = || InclusiveTimeRanges::new(TimeRangeBuilder::Unbounded([2*t, 1*t, 7*t, 10*t, 20*t, 0*t, 0*t, NANOSEC].into_iter()));
+		let b = || InclusiveTimeRanges::new(TimeRangeBuilder::Exclusive(2*t, [3*t, 15*t, 20*t, 10*t, 0*t, 0*t].into_iter()));
+		let c = || InclusiveTimeRanges::new(TimeRangeBuilder::Inclusive(0*t, [7*t, 13*t, 0*t, 30*t - NANOSEC, NANOSEC, NANOSEC].into_iter()));
 		assert_eq!(Vec::from_iter(a()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),

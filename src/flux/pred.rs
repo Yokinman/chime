@@ -431,6 +431,7 @@ where
 		let times = RootFilterMap {
 			times: self.poly.into_inner().roots().into_times(),
 			basis,
+			prev_time: Time::ZERO,
 		};
 		time::TimeRangeBuilder::new(times, basis_order, self.order)
 	}
@@ -470,6 +471,7 @@ where
 		let times = RootFilterMap {
 			times: self.poly.into_inner().roots().into_times(),
 			basis,
+			prev_time: Time::ZERO,
 		};
 		time::TimeRangeBuilder::new(times, basis_order, Ordering::Equal)
 	}

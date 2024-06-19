@@ -528,6 +528,7 @@ impl PartialEq for LinearTime {
 pub struct RootFilterMap<T> {
 	pub(crate) times: T,
 	pub(crate) basis: Time,
+	pub(crate) prev_time: Time,
 }
 
 impl<T> Iterator for RootFilterMap<T>
@@ -538,7 +539,9 @@ where
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some(root) = self.times.next() {
 			if let Ok(time) = root.try_into_time(self.basis) {
-				return Some(time)
+				let prev_time = self.prev_time;
+				self.prev_time = time;
+				return Some(time - prev_time)
 			}
 		}
 		None
