@@ -331,6 +331,7 @@ macro_rules! impl_prediction {
 }
 
 impl_prediction!{
+	for<I> time::TimeRangeBuilder<I>;
 	for<K, I> Pred<K, I>;
 	for<K, I> PredEq<K, I>;
 	for<P, F> PredFilter<P, F>;
