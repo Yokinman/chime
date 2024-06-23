@@ -181,6 +181,60 @@ where
 	}
 }
 
+/// Mutable moment-in-time interface for [`Flux::at_mut`].
+pub struct MomentMut<'b, M: Moment> {
+	moment: Option<M>,
+	time: Time,
+	borrow: &'b mut M::Flux,
+}
+
+impl<M: Moment> Drop for MomentMut<'_, M> {
+	fn drop(&mut self) {
+		if let Some(moment) = std::mem::take(&mut self.moment) {
+			self.borrow.set_moment(self.time, moment);
+		}
+	}
+}
+
+impl<M: Moment> Deref for MomentMut<'_, M> {
+	type Target = M;
+	fn deref(&self) -> &Self::Target {
+		if let Some(moment) = self.moment.as_ref() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<M: Moment> DerefMut for MomentMut<'_, M> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		if let Some(moment) = self.moment.as_mut() {
+			moment
+		} else {
+			unreachable!()
+		}
+	}
+}
+
+impl<M: Moment> Debug for MomentMut<'_, M>
+where
+	M: Debug
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Debug>::fmt(self, f)
+	}
+}
+
+impl<M: Moment> Display for MomentMut<'_, M>
+where
+	M: Display
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		<M as Display>::fmt(self, f)
+	}
+}
+
 #[cfg(feature = "bevy")]
 mod _moment_query_data_impls {
 	use bevy_ecs::archetype::Archetype;
@@ -330,60 +384,6 @@ mod _moment_query_data_impls {
 		fn matches_component_set((_, state): &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
 			<Mut<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
 		}
-	}
-}
-
-/// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct MomentMut<'b, M: Moment> {
-	moment: Option<M>,
-	time: Time,
-	borrow: &'b mut M::Flux,
-}
-
-impl<M: Moment> Drop for MomentMut<'_, M> {
-	fn drop(&mut self) {
-		if let Some(moment) = std::mem::take(&mut self.moment) {
-			self.borrow.set_moment(self.time, moment);
-		}
-	}
-}
-
-impl<M: Moment> Deref for MomentMut<'_, M> {
-	type Target = M;
-	fn deref(&self) -> &Self::Target {
-		if let Some(moment) = self.moment.as_ref() {
-			moment
-		} else {
-			unreachable!()
-		}
-	}
-}
-
-impl<M: Moment> DerefMut for MomentMut<'_, M> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		if let Some(moment) = self.moment.as_mut() {
-			moment
-		} else {
-			unreachable!()
-		}
-	}
-}
-
-impl<M: Moment> Debug for MomentMut<'_, M>
-where
-	M: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Debug>::fmt(self, f)
-	}
-}
-
-impl<M: Moment> Display for MomentMut<'_, M>
-where
-	M: Display
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Display>::fmt(self, f)
 	}
 }
 
