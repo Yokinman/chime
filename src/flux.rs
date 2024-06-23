@@ -236,12 +236,13 @@ where
 }
 
 #[cfg(feature = "bevy")]
-mod _moment_query_data_impls {
+mod bevy_moment {
 	use bevy_ecs::archetype::Archetype;
 	use bevy_ecs::component::{Component, ComponentId, Tick};
 	use bevy_ecs::entity::Entity;
 	use bevy_ecs::query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery};
 	use bevy_ecs::storage::{Table, TableRow};
+	use bevy_ecs::system::{Res, ResMut, Resource, SystemMeta, SystemParam};
 	use bevy_ecs::world::{World, unsafe_world_cell::UnsafeWorldCell};
 	use super::*;
 	
@@ -385,7 +386,89 @@ mod _moment_query_data_impls {
 			<Mut<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
 		}
 	}
+	
+	/// `SystemParam` for fetching a resource at the current `Time<Chime>`.
+	pub struct ResMoment<'w, M: Moment> {
+		inner: MomentRef<'w, M>,
+	}
+	
+	impl<'w, M: Moment> Deref for ResMoment<'w, M> {
+		type Target = MomentRef<'w, M>;
+		fn deref(&self) -> &Self::Target {
+			&self.inner
+		}
+	}
+	
+	/// `SystemParam` for fetching a mutable resource at the current `Time<Chime>`.
+	pub struct ResMomentMut<'w, M: Moment> {
+		inner: MomentMut<'w, M>,
+	}
+	
+	impl<'w, M: Moment> Deref for ResMomentMut<'w, M> {
+		type Target = MomentMut<'w, M>;
+		fn deref(&self) -> &Self::Target {
+			&self.inner
+		}
+	}
+	
+	impl<'w, M: Moment> DerefMut for ResMomentMut<'w, M> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.inner
+		}
+	}
+	
+	/// SAFETY:
+	/// Safety guarantees are inherited from `impl SystemParam for Res<T>`.
+	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
+	where
+		M: Moment,
+		M::Flux: Resource + Clone,
+	{
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, M::Flux> as SystemParam>::State);
+		type Item<'world, 'state> = ResMoment<'world, M>;
+		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
+			let res_state = <Res<'w, M::Flux> as SystemParam>::init_state(world, system_meta);
+			(time_state, res_state)
+		}
+		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
+			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
+				.elapsed();
+			let inner = <Res<'w, M::Flux> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+				.into_inner()
+				.at(time);
+			ResMoment { inner }
+		}
+	}
+	
+	/// SAFETY:
+	/// Safety guarantees are inherited from `impl SystemParam for Res<T>` and
+	/// `impl SystemParam for ResMut<T>`.
+	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
+	where
+		M: Moment,
+		M::Flux: Resource + Clone,
+	{
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, M::Flux> as SystemParam>::State);
+		type Item<'world, 'state> = ResMomentMut<'world, M>;
+		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
+			let res_state = <ResMut<'w, M::Flux> as SystemParam>::init_state(world, system_meta);
+			(time_state, res_state)
+		}
+		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
+			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
+				.elapsed();
+			let inner = <ResMut<'w, M::Flux> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+				.into_inner()
+				.at_mut(time);
+			ResMomentMut { inner }
+		}
+	}
 }
+
+#[cfg(feature = "bevy")]
+pub use bevy_moment::{ResMoment, ResMomentMut};
 
 /// Multidimensional interface for a vector that changes over time.
 pub trait MomentVec<const SIZE: usize> {
