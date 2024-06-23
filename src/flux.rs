@@ -20,6 +20,10 @@ use self::time::Time;
 
 pub use chime_flux_proc_macro::flux;
 
+/// Context for a `bevy_time::Time`.
+#[derive(Default)]
+pub struct Chime;
+
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
 	type Flux: Flux<Moment=Self>;
