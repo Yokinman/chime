@@ -181,6 +181,158 @@ where
 	}
 }
 
+#[cfg(feature = "bevy")]
+mod _moment_query_data_impls {
+	use bevy_ecs::archetype::Archetype;
+	use bevy_ecs::component::{Component, ComponentId, Tick};
+	use bevy_ecs::entity::Entity;
+	use bevy_ecs::query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery};
+	use bevy_ecs::storage::{Table, TableRow};
+	use bevy_ecs::world::{World, unsafe_world_cell::UnsafeWorldCell};
+	use super::*;
+	
+	type ChimeTime = bevy_time::Time<Chime>;
+	
+	type Ref<'b, M> = &'b <M as Moment>::Flux;
+	type Mut<'b, M> = &'b mut <M as Moment>::Flux;
+	
+	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
+	unsafe impl<'b, M> QueryData for MomentRef<'b, M>
+	where
+		M: Moment,
+		M::Flux: Component + Clone,
+	{
+		type ReadOnly = Self;
+	}
+	
+	/// SAFETY: access is read only.
+	unsafe impl<'b, M> ReadOnlyQueryData for MomentRef<'b, M>
+	where
+		M: Moment,
+		M::Flux: Component + Clone,
+	{}
+	
+	/// SAFETY: access of `MomentRef<T>` is a subset of `MomentMut<T>`.
+	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
+	where
+		M: Moment,
+		M::Flux: Component + Clone,
+	{
+		type ReadOnly = MomentRef<'b, M>;
+	}
+	
+	/// SAFETY:
+	/// Most safety guarantees are inherited from `impl QueryData for &T`.
+	/// This additionally requests a `Time` resource and takes care of adding
+	/// read access for that resource in `update_component_access`.
+	unsafe impl<'b, M> WorldQuery for MomentRef<'b, M>
+	where
+		M: Moment,
+		M::Flux: Component + Clone,
+	{
+		type Item<'a> = MomentRef<'a, M>;
+		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
+		type State = (ComponentId, <Ref<'b, M> as WorldQuery>::State);
+		fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+			item
+		}
+		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+			// !!! For parallelization, `last_run` could be used as a nanosecond
+			// offset. It's a hack but it's also the most usable option.
+			let time = world.get_resource::<ChimeTime>()
+				.expect("bevy_time::Time resource should exist in the world")
+				.elapsed();
+			(time, <Ref<'b, M> as WorldQuery>::init_fetch(world, state, last_run, this_run))
+		}
+		const IS_DENSE: bool = <Ref<'b, M> as WorldQuery>::IS_DENSE;
+		unsafe fn set_archetype<'w>((_, fetch): &mut Self::Fetch<'w>, (_, state): &Self::State, archetype: &'w Archetype, table: &'w Table) {
+			<Ref<'b, M> as WorldQuery>::set_archetype(fetch, state, archetype, table)
+		}
+		unsafe fn set_table<'w>((_, fetch): &mut Self::Fetch<'w>, (_, state): &Self::State, table: &'w Table) {
+			<Ref<'b, M> as WorldQuery>::set_table(fetch, state, table)
+		}
+		unsafe fn fetch<'w>((time, fetch): &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Self::Item<'w> {
+			<Ref<'b, M> as WorldQuery>::fetch(fetch, entity, table_row)
+				.at(*time)
+		}
+		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
+	        assert!(
+	            !access.access().has_write(*time_id),
+	            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+	                std::any::type_name::<ChimeTime>(),
+	        );
+	        access.access_mut().add_read(*time_id);
+			<Ref<'b, M> as WorldQuery>::update_component_access(state, access)
+		}
+		fn init_state(world: &mut World) -> Self::State {
+			(world.init_resource::<ChimeTime>(),
+				<Ref<'b, M> as WorldQuery>::init_state(world))
+		}
+		fn get_state(world: &World) -> Option<Self::State> {
+			world.components().resource_id::<ChimeTime>()
+				.zip(<Ref<'b, M> as WorldQuery>::get_state(world))
+		}
+		fn matches_component_set((_, state): &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+			<Ref<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
+		}
+	}
+	
+	/// SAFETY:
+	/// Most safety guarantees are inherited from `impl QueryData for &mut T`.
+	/// This additionally requests a `Time` resource and takes care of adding
+	/// read access for that resource in `update_component_access`.
+	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
+	where
+		M: Moment,
+		M::Flux: Component + Clone,
+	{
+		type Item<'a> = MomentMut<'a, M>;
+		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
+		type State = (ComponentId, <Mut<'b, M> as WorldQuery>::State);
+		fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+			item
+		}
+		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+			let time = world.get_resource::<ChimeTime>()
+				.expect("bevy_time::Time resource should exist in the world")
+				.elapsed();
+			(time, <Mut<'b, M> as WorldQuery>::init_fetch(world, state, last_run, this_run))
+		}
+		const IS_DENSE: bool = <Mut<'b, M> as WorldQuery>::IS_DENSE;
+		unsafe fn set_archetype<'w>((_, fetch): &mut Self::Fetch<'w>, (_, state): &Self::State, archetype: &'w Archetype, table: &'w Table) {
+			<Mut<'b, M> as WorldQuery>::set_archetype(fetch, state, archetype, table)
+		}
+		unsafe fn set_table<'w>((_, fetch): &mut Self::Fetch<'w>, (_, state): &Self::State, table: &'w Table) {
+			<Mut<'b, M> as WorldQuery>::set_table(fetch, state, table)
+		}
+		unsafe fn fetch<'w>((time, fetch): &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Self::Item<'w> {
+			<Mut<'b, M> as WorldQuery>::fetch(fetch, entity, table_row)
+				.into_inner()
+				.at_mut(*time)
+		}
+		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
+	        assert!(
+	            !access.access().has_write(*time_id),
+	            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+	                std::any::type_name::<ChimeTime>(),
+	        );
+	        access.access_mut().add_read(*time_id);
+			<Mut<'b, M> as WorldQuery>::update_component_access(state, access)
+		}
+		fn init_state(world: &mut World) -> Self::State {
+			(world.init_resource::<ChimeTime>(),
+				<Mut<'b, M> as WorldQuery>::init_state(world))
+		}
+		fn get_state(world: &World) -> Option<Self::State> {
+			world.components().resource_id::<ChimeTime>()
+				.zip(<Mut<'b, M> as WorldQuery>::get_state(world))
+		}
+		fn matches_component_set((_, state): &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+			<Mut<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
+		}
+	}
+}
+
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
 pub struct MomentMut<'b, M: Moment> {
 	moment: Option<M>,
