@@ -798,7 +798,7 @@ where
 	type Moment = T::Moment;
 	type Kind = T::Kind;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		self.inner.base_value()
+		self.inner.base_value(self.time)
 	}
 	fn base_time(&self) -> Time {
 		self.time
@@ -809,8 +809,7 @@ where
 		self.inner.change(accum)
 	}
 	fn to_moment(self, time: Time) -> Self::Moment {
-		let value = self.value(time);
-		self.inner.to_moment(time, value)
+		self.inner.to_moment(self.time, time)
 	}
 }
 
@@ -823,10 +822,10 @@ pub mod _hidden {
 	pub trait InnerFlux {
 		type Moment: Moment;
 		type Kind: FluxKind;
-		fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
+		fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value;
 		fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
 			-> <Self::Kind as FluxKind>::OutAccum<'a>;
-		fn to_moment(self, time: Time, base_value: <Self::Kind as FluxKind>::Value)
+		fn to_moment(self, base_time: Time, time: Time)
 			-> Self::Moment;
 	}
 }
@@ -874,7 +873,7 @@ where
 	type Moment = FluxRefMoment<'b, T>;
 	type Kind = T::Kind;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		self.inner.base_value()
+		self.inner.base_value(self.time)
 	}
 	fn base_time(&self) -> Time {
 		self.time

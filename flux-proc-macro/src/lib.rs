@@ -314,7 +314,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#moment_fields
 				#ident: <<Self::Moment as #flux::Moment>::Value
 					as #flux::linear::LinearIso::<#field_ty>>
-					::from_linear(base_value),
+					::from_linear(#flux::Flux::value(&#flux::FluxRef::new(&self, base_time), time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -378,14 +378,14 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
-			fn base_value(&self) -> <Self::Kind as #flux::kind::FluxKind>::Value
+			fn base_value(&self, base_time: #flux::time::Time) -> <Self::Kind as #flux::kind::FluxKind>::Value
 			#value_block
 			
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)
 				-> <Self::Kind as #flux::kind::FluxKind>::OutAccum<'a>
 			#change_block
 			
-			fn to_moment(self, time: #flux::time::Time, base_value: <Self::Kind as #flux::kind::FluxKind>::Value) -> Self::Moment {
+			fn to_moment(self, base_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 		}
