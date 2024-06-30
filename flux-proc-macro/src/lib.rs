@@ -9,6 +9,7 @@ struct FluxParse {
 	kind_type: Option<syn::Type>,
 	value_expr: Option<syn::Expr>,
 	change_expr: Option<syn::Expr>,
+	flux_type: Option<syn::Type>,
 	crate_path: Option<syn::Path>,
 }
 
@@ -17,6 +18,7 @@ impl syn::parse::Parse for FluxParse {
 		let mut kind_type = None;
 		let mut value_expr = None;
 		let mut change_expr = None;
+		let mut flux_type = None;
 		let mut crate_path = None;
 		
 		let mut prev_paths = HashSet::new();
@@ -50,6 +52,9 @@ impl syn::parse::Parse for FluxParse {
 						panic!("change expression must be a closure");
 					}
 				},
+				"flux" => {
+					flux_type = Some(syn::Type::parse(input)?);
+				},
 				"crate" => {
 					crate_path = Some(syn::Path::parse(input)?);
 				},
@@ -67,6 +72,7 @@ impl syn::parse::Parse for FluxParse {
 			kind_type,
 			value_expr,
 			change_expr,
+			flux_type,
 			crate_path,
 		})
 	}
@@ -220,12 +226,18 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		value_idents,
 		change_block,
 		change_idents,
+		flux_type,
 		flux,
 	) = match syn::parse(arg_stream) {
-		Ok(FluxParse { kind_type, value_expr, change_expr, crate_path }) => {
+		Ok(FluxParse { kind_type, value_expr, change_expr, flux_type, crate_path }) => {
 			let kind_type = kind_type.expect("must specify kind type (kind_type = Type)");
 			let value_expr = value_expr.expect("must specify value expression (value = expr)");
 			let change_expr = change_expr.unwrap_or_else(|| syn::parse_quote!{|x| x});
+			let flux_type = flux_type.unwrap_or_else(|| {
+				let ident = item.ident.clone();
+				let generics = item.generics.clone();
+				syn::parse_quote!{#ident #generics}
+			});
 			let crate_path = crate_path.unwrap_or_else(|| syn::parse_quote!{::chime});
 			
 			let mut value_idents = HashSet::new();
@@ -269,6 +281,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				value_idents,
 				change_block,
 				change_idents,
+				flux_type,
 				crate_path.to_token_stream(),
 			)
 		},
