@@ -762,8 +762,19 @@ impl<T> FluxValue<T> {
 	pub fn new(inner: T, time: Time) -> Self {
 		Self { inner, time }
 	}
+	
 	pub fn time(&self) -> Time {
 		self.time
+	}
+	
+	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> FluxRef<'_, U>
+	where
+		U: _hidden::InnerFlux,
+	{
+		FluxRef {
+			inner: f(&self.inner),
+			time: self.time,
+		}
 	}
 }
 
