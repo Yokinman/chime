@@ -820,6 +820,64 @@ pub mod _hidden {
 	}
 }
 
+/// ...
+pub struct FluxRefMoment<'a, T> {
+	_inner: &'a T,
+}
+
+impl<'a, T> Moment for FluxRefMoment<'a, T>
+where
+	T: _hidden::InnerFlux,
+	T::Moment: Moment<Flux=FluxValue<T>>,
+{
+	type Flux = FluxRef<'a, T>;
+	type Value = <T::Moment as Moment>::Value;
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		unimplemented!()
+	}
+}
+
+/// ...
+pub struct FluxRef<'a, T> {
+	inner: &'a T,
+	time: Time,
+}
+
+impl<'a, T> FluxRef<'a, T> {
+	pub fn new(inner: &'a T, time: Time) -> Self {
+		Self { inner, time }
+	}
+}
+
+impl<T> Deref for FluxRef<'_, T> {
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
+}
+
+impl<'b, T: _hidden::InnerFlux> Flux for FluxRef<'b, T>
+where
+	T::Moment: Moment<Flux=FluxValue<T>>
+{
+	type Moment = FluxRefMoment<'b, T>;
+	type Kind = T::Kind;
+	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+		self.inner.base_value()
+	}
+	fn base_time(&self) -> Time {
+		self.time
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{
+		self.inner.change(accum)
+	}
+	fn to_moment(self, _time: Time) -> Self::Moment {
+		unimplemented!()
+	}
+}
+
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
