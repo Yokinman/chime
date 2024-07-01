@@ -41,6 +41,10 @@ pub trait Flux {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
 	
+	type Inner: InnerFlux<Moment=Self::Moment, Kind=Self::Kind>;
+	
+	fn into_inner_flux(self) -> Self::Inner;
+	
 	type Moment: Moment<Flux=Self>;
 	
 	/// The kind of change over time.
@@ -715,33 +719,33 @@ impl<T> Change<T> {
 }
 
 impl<T: Moment> Moment for Change<T> {
-	type Flux = Change<T::Flux>;
+	type Flux = FluxValue<Change<<T::Flux as Flux>::Inner>>;
 	type Value = T::Value;
 	fn to_flux(self, time: Time) -> Self::Flux {
-		Change {
-			rate: self.rate.to_flux(time),
-			unit: self.unit,
-		}
+		FluxValue::new(
+			Change {
+				rate: self.rate.to_flux(time).into_inner_flux(),
+				unit: self.unit,
+			},
+			time,
+		)
 	}
 }
 
-impl<T: Flux> Flux for Change<T> {
+impl<T: InnerFlux> InnerFlux for Change<T> {
 	type Moment = Change<T::Moment>;
 	type Kind = T::Kind;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		self.rate.base_value()
-	}
-	fn base_time(&self) -> Time {
-		self.rate.base_time()
+	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+		self.rate.base_value(base_time)
 	}
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
 		-> <Self::Kind as FluxKind>::OutAccum<'a>
 	{
 		self.rate.change(accum)
 	}
-	fn to_moment(self, time: Time) -> Self::Moment {
+	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
 		Change {
-			rate: self.rate.to_moment(time),
+			rate: self.rate.to_moment(base_time, time),
 			unit: self.unit,
 		}
 	}
@@ -795,6 +799,10 @@ impl<T: _hidden::InnerFlux> Flux for FluxValue<T>
 where
 	T::Moment: Moment<Flux=Self>
 {
+	type Inner = T;
+	fn into_inner_flux(self) -> Self::Inner {
+		self.inner
+	}
 	type Moment = T::Moment;
 	type Kind = T::Kind;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
@@ -829,6 +837,7 @@ pub mod _hidden {
 			-> Self::Moment;
 	}
 }
+use crate::_hidden::InnerFlux;
 
 /// ...
 pub struct FluxRefMoment<'a, T> {
@@ -870,6 +879,10 @@ impl<'b, T: _hidden::InnerFlux> Flux for FluxRef<'b, T>
 where
 	T::Moment: Moment<Flux=FluxValue<T>>
 {
+	type Inner = FluxRefImpl<'b, T>;
+	fn into_inner_flux(self) -> Self::Inner {
+		unimplemented!()
+	}
 	type Moment = FluxRefMoment<'b, T>;
 	type Kind = T::Kind;
 	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
@@ -884,6 +897,26 @@ where
 		self.inner.change(accum)
 	}
 	fn to_moment(self, _time: Time) -> Self::Moment {
+		unimplemented!()
+	}
+}
+
+/// !!! Temporary?
+pub struct FluxRefImpl<'a, T>(&'a T);
+
+impl<'b, T: InnerFlux> InnerFlux for FluxRefImpl<'b, T>
+where
+	T::Moment: Moment<Flux=FluxValue<T>>,
+{
+	type Moment = FluxRefMoment<'b, T>;
+	type Kind = T::Kind;
+	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+		unimplemented!()
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+		unimplemented!()
+	}
+	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
 		unimplemented!()
 	}
 }
