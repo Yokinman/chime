@@ -1317,21 +1317,22 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
-		assert_time_ranges!(
-			a_pos.when_dis_eq(&b_pos, &2.),
-			[
-				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
-				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
-			]
-		);
-		assert_time_ranges!(
-			a_pos.when_dis(&b_pos, Ordering::Equal, &2.),
-			[
-				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
-				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))
-			]
-		);
+		// !!! Add `when_constant`-style methods.
+		// let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
+		// assert_time_ranges!(
+		// 	a_pos.when_dis_eq(&b_pos, &2.),
+		// 	[
+		// 		(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+		// 		(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
+		// 	]
+		// );
+		// assert_time_ranges!(
+		// 	a_pos.when_dis(&b_pos, Ordering::Equal, &2.),
+		// 	[
+		// 		(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+		// 		(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))
+		// 	]
+		// );
 		
 		// https://www.desmos.com/calculator/23ic1ikyt3
 	}

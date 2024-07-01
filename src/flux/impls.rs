@@ -8,32 +8,6 @@ use crate::time::Time;
 use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
 use crate::linear::{Linear, LinearIsoVec, LinearVec};
 
-impl<T: Linear> Flux for T {
-	type Moment = Self;
-	type Kind = Constant<Self>;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
-		*self
-	}
-	fn base_time(&self) -> Time {
-		Time::ZERO
-	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
-	{}
-	fn to_moment(self, _time: Time) -> Self::Moment {
-		self
-	}
-}
-
-impl<T: Linear> Moment for T {
-	type Flux = Self;
-	type Value = Self;
-	fn to_flux(self, _time: Time) -> Self::Flux {
-		self
-	}
-}
-
-
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
 	type Value = [T::Value; SIZE];
