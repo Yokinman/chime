@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
+use crate::_hidden::InnerFlux;
 
 /// Summation over time.
 /// 
@@ -84,10 +85,11 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		}
 	}
 	
-	fn as_accum(&mut self, depth: usize, time: time::Time) -> Self::Accum<'_> {
+	fn as_accum(&mut self, depth: usize, base_time: time::Time, time: time::Time) -> Self::Accum<'_> {
 		SumAccum {
 			poly: self,
 			depth,
+			base_time,
 			time,
 		}
 	}
@@ -601,12 +603,14 @@ where
 pub struct SumAccum<'a, K: FluxKind> {
 	poly: &'a mut K,
 	depth: usize,
+	base_time: time::Time,
 	time: time::Time,
 }
 
-impl<K: FluxKind, V: Flux> Add<Change<&V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: InnerFlux> Add<Change<&V>> for SumAccum<'_, K>
 where
-	(K, V::Kind): SumAccumHelper<K, V::Kind>
+	(K, V::Kind): SumAccumHelper<K, V::Kind>,
+	V::Moment: Moment<Flux=FluxValue<V>>,
 {
 	type Output = Self;
 	fn add(mut self, rhs: Change<&V>) -> Self {
@@ -615,9 +619,10 @@ where
 	}
 }
 
-impl<K: FluxKind, V: Flux> Sub<Change<&V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: InnerFlux> Sub<Change<&V>> for SumAccum<'_, K>
 where
-	(K, V::Kind): SumAccumHelper<K, V::Kind>
+	(K, V::Kind): SumAccumHelper<K, V::Kind>,
+	V::Moment: Moment<Flux=FluxValue<V>>,
 {
 	type Output = Self;
 	fn sub(mut self, rhs: Change<&V>) -> Self {
@@ -629,12 +634,14 @@ where
 /// Used to remove redundant trait bounds.
 #[doc(hidden)]
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
-	fn eval<V: Flux<Kind=B>>(
+	fn eval<V: InnerFlux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		flux: &V,
 		unit: time::Time,
-	);
+	)
+	where
+		V::Moment: Moment<Flux=FluxValue<V>>;
 }
 
 impl<A, B> SumAccumHelper<A, B> for (A, B)
@@ -643,14 +650,18 @@ where
 	B: FluxKind<Value=A::Value> + SumShiftUp,
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
-	fn eval<V: Flux<Kind=B>>(
+	fn eval<V: InnerFlux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		flux: &V,
 		unit: time::Time,
-	) {
-		let mut sub_poly = B::from_value(flux.value(kind.time));
-		flux.change(sub_poly.as_accum(kind.depth + 1, kind.time));
+	)
+	where
+		V::Moment: Moment<Flux=FluxValue<V>>
+	{
+		let flux_ref = FluxRef::new(flux, kind.base_time);
+		let mut sub_poly = B::from_value(flux_ref.value(kind.time));
+		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
 		*kind.poly = *kind.poly + (sub_poly.shift_up()
 			* Scalar((time_scale / ((kind.depth + 1) as f64)) * scalar));

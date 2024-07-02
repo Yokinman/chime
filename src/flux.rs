@@ -123,7 +123,7 @@ pub trait Flux {
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind, <Self::Moment as Moment>::Value> {
 		let mut poly = Self::Kind::from_value(self.value(time));
-		self.change(poly.as_accum(0, time));
+		self.change(poly.as_accum(0, self.base_time(), time));
 		Poly::new(poly, time).with_iso()
 	}
 	
@@ -954,7 +954,7 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn from_value(value: Self::Value) -> Self {
 		Constant(value)
 	}
-	fn as_accum(&mut self, _depth: usize, _time: Time) -> Self::Accum<'_> {}
+	fn as_accum(&mut self, _depth: usize, _base_time: Time, _time: Time) -> Self::Accum<'_> {}
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.0
 	}
@@ -1292,11 +1292,29 @@ mod tests {
 	
 	#[test]
 	fn distance() {
+		#[derive(Debug)]
+		struct PosFlux {
+			value: f64,
+			spd: SpdFlux,
+		}
+		
+		#[derive(Debug)]
+		struct SpdFlux {
+			value: f64,
+			acc: AccFlux,
+		}
+		
+		#[derive(Debug)]
+		struct AccFlux {
+			value: f64,
+		}
+		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
 			kind = Sum<f64, 2>,
 			value = value,
 			change = |c| c + spd.per(time::MINUTE),
+			flux = PosFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]
@@ -1310,6 +1328,7 @@ mod tests {
 			kind = Sum<f64, 1>,
 			value = value,
 			change = |c| c + acc.per(SEC),
+			flux = SpdFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]
@@ -1322,6 +1341,7 @@ mod tests {
 		#[flux(
 			kind = Constant<f64>,
 			value = value,
+			flux = AccFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]

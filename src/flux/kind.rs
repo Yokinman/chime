@@ -21,7 +21,7 @@ pub trait FluxKind:
 	
 	fn from_value(value: Self::Value) -> Self;
 	
-	fn as_accum(&mut self, depth: usize, time: Time) -> Self::Accum<'_>;
+	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_>;
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	

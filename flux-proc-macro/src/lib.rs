@@ -333,11 +333,11 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::Flux::to_moment(self.#ident, time),
+				#ident: #flux::Flux::to_moment(#flux::FluxValue::new(self.#ident, base_time), time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::Moment::to_flux(self.#ident, time),
+				#ident: #flux::Flux::into_inner_flux(#flux::Moment::to_flux(self.#ident, time)),
 			};
 		}
 		
@@ -361,20 +361,14 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		#item
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
-			type Flux = #flux::FluxValue<#flux_ident #ty_generics>;
+			type Flux = #flux::FluxValue<#flux_type>;
 			type Value = #moment_value_type;
 			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
-				#flux::FluxValue::new(#flux_ident { #flux_fields }, time)
+				#flux::FluxValue::new(#flux_type { #flux_fields }, time)
 			}
 		}
 		
-		// ??? Unsure if `item.attrs` and `item.vis` should be inherited by
-		// `flux_item` as they currently are.
-		// ??? Unsure if `flux_item` should be placed in a private module, so
-		// it's only accessible through `flux::Moment::Flux`.
-		#flux_item
-		
-		impl #impl_generics #flux::_hidden::InnerFlux for #flux_ident #ty_generics #where_clause {
+		impl #impl_generics #flux::_hidden::InnerFlux for #flux_type #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
