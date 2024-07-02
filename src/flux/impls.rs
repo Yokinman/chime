@@ -3,7 +3,7 @@
 use std::array;
 use std::vec::Vec;
 
-use crate::{Constant, Flux, FluxValue, FluxVec, Moment, MomentVec};
+use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
 use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
