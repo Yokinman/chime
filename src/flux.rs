@@ -1023,8 +1023,8 @@ where
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
 /// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Constant<T>(T);
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct Constant<T>(pub T);
 
 impl<T> Deref for Constant<T> {
 	type Target = T;
