@@ -126,6 +126,29 @@ impl Linear for f32 {
 	}
 }
 
+/// ...
+pub trait LinearPlus {
+	type Inner: Linear;
+	type Outer: LinearIso<Self::Inner>;
+}
+
+impl<T> LinearPlus for T
+where
+	T: Linear,
+{
+	type Inner = T;
+	type Outer = T;
+}
+
+impl<A, B> LinearPlus for Iso<A, B>
+where
+	A: Linear,
+	B: LinearIso<A>,
+{
+	type Inner = A;
+	type Outer = B;
+}
+
 /// Multidimensional vector type.
 pub trait LinearVec<const SIZE: usize>: Clone {
 	type Value: Linear;
@@ -304,7 +327,6 @@ mod glam_stuff {
 pub struct Iso<A, B>(Option<A>, B);
 
 mod _iso_impls {
-	use std::fmt::Debug;
 	use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 	use super::{Iso, Linear, LinearIso, Scalar};
 	
@@ -372,19 +394,19 @@ mod _iso_impls {
 		}
 	}
 	
-	impl<A, B> Linear for Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A> + Copy + Clone + Debug + 'static,
-	{
-		fn sqrt(self) -> Self {
-			Iso::new(A::sqrt(self.into_inner()))
-		}
-		fn sign(self) -> Self {
-			Iso::new(A::sign(self.into_inner()))
-		}
-		fn zero() -> Self {
-			Iso::new(A::zero())
-		}
-	}
+	// impl<A, B> Linear for Iso<A, B>
+	// where
+	// 	A: Linear,
+	// 	B: LinearIso<A> + Copy + Clone + Debug + 'static,
+	// {
+	// 	fn sqrt(self) -> Self {
+	// 		Iso::new(A::sqrt(self.into_inner()))
+	// 	}
+	// 	fn sign(self) -> Self {
+	// 		Iso::new(A::sign(self.into_inner()))
+	// 	}
+	// 	fn zero() -> Self {
+	// 		Iso::new(A::zero())
+	// 	}
+	// }
 }
