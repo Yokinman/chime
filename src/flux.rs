@@ -645,6 +645,30 @@ pub trait FluxVec<const SIZE: usize> {
 			.when_eq(other.poly(time))
 	}
 	
+	/// Ranges when a component is above/below/equal to a constant.
+	fn when_index_constant<T>(&self, index: usize, order: Ordering, other: T)
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
+			as When<Constant<T>, T>>::Pred
+	where
+		T: Linear,
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
+			When<Constant<T>, T>
+	{
+		self.when_index(index, order, &FluxValue::new(Constant::from(other), Time::ZERO))
+	}
+	
+	/// Times when a component is equal to a constant.
+	fn when_index_eq_constant<T>(&self, index: usize, other: T)
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
+			as WhenEq<Constant<T>, T>>::Pred
+	where
+		T: Linear,
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
+			WhenEq<Constant<T>, T>
+	{
+		self.when_index_eq(index, &FluxValue::new(Constant::from(other), Time::ZERO))
+	}
+	
 	// !!!
 	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
 	// - to fit a line segment, filter predicted times.
