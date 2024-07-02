@@ -1008,13 +1008,13 @@ where
 {
 	type Moment = FluxRefMoment<'b, T>;
 	type Kind = T::Kind;
-	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
 		unimplemented!()
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
 		unimplemented!()
 	}
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
 		unimplemented!()
 	}
 }
