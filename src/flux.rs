@@ -1099,10 +1099,8 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux(Time::ZERO);
-		pos.value = pos.value(10*SEC);
+		*pos = pos.clone().to_moment(10*SEC);
 		pos.time = 10*SEC;
-		pos.spd.accel.at_mut(20*SEC);
-		pos.spd.accel.jerk.at_mut(10*SEC);
 		pos
 	}
 	
@@ -1169,12 +1167,7 @@ mod tests {
 	#[test]
 	fn value() {
 		let mut pos = position();
-		
-		 // Times:
 		assert_eq!(pos.base_time(), 10*SEC);
-		assert_eq!(pos.spd.base_time(), 0*SEC);
-		assert_eq!(pos.spd.accel.base_time(), 20*SEC);
-		assert_eq!(pos.spd.accel.jerk.base_time(), 10*SEC);
 		
 		 // Values:
 		assert_eq!(pos.at(0*SEC).round(), 32.);
