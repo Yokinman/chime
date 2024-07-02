@@ -552,7 +552,7 @@ pub trait FluxVec<const SIZE: usize> {
 			.when_dis(other.poly_vec(time), order, dis.poly(time))
 	}
 	
-	/// Ranges when the distance to another vector is above/below/equal to X.
+	/// Ranges when the distance to another vector is equal to X.
 	fn when_dis_eq<T, D>(&self, other: &T, dis: &D)
 		-> <PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
 			as WhenDisEq<SIZE, T::Kind, D::Kind, <T::Moment as MomentVec<SIZE>>::Value, <D::Moment as Moment>::Value>>::Pred
@@ -565,6 +565,32 @@ pub trait FluxVec<const SIZE: usize> {
 		let time = self.max_base_time();
 		self.poly_vec(time)
 			.when_dis_eq(other.poly_vec(time), dis.poly(time))
+	}
+	
+	/// Ranges when the distance to another vector is above/below/equal to a constant.
+	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
+		-> <PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
+			as WhenDis<SIZE, T::Kind, Constant<D>, <T::Moment as MomentVec<SIZE>>::Value, D>>::Pred
+	where
+		T: FluxVec<SIZE> + ?Sized,
+		D: Linear,
+		PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>:
+			WhenDis<SIZE, T::Kind, Constant<D>, <T::Moment as MomentVec<SIZE>>::Value, D>,
+	{
+		self.when_dis(other, order, &FluxValue::new(Constant::from(dis), Time::ZERO))
+	}
+	
+	/// Ranges when the distance to another vector is equal to a constant.
+	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
+		-> <PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
+			as WhenDisEq<SIZE, T::Kind, Constant<D>, <T::Moment as MomentVec<SIZE>>::Value, D>>::Pred
+	where
+		T: FluxVec<SIZE> + ?Sized,
+		D: Linear,
+		PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>:
+			WhenDisEq<SIZE, T::Kind, Constant<D>, <T::Moment as MomentVec<SIZE>>::Value, D>,
+	{
+		self.when_dis_eq(other, &FluxValue::new(Constant::from(dis), Time::ZERO))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
@@ -838,6 +864,30 @@ pub mod _hidden {
 	}
 }
 use crate::_hidden::InnerFlux;
+
+// ??? impl InnerFlux for T where T: FluxKind
+
+impl<T: Linear> InnerFlux for Constant<T> {
+	type Moment = Self;
+	type Kind = Self;
+	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
+		self.0
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+		accum
+	}
+	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
+		self
+	}
+}
+
+impl<T: Linear> Moment for Constant<T> {
+	type Flux = FluxValue<Self>;
+	type Value = T;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		FluxValue::new(self, time)
+	}
+}
 
 /// ...
 pub struct FluxRefMoment<'a, T> {
@@ -1363,22 +1413,21 @@ mod tests {
 			]
 		);
 		
-		// !!! Add `when_constant`-style methods.
-		// let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
-		// assert_time_ranges!(
-		// 	a_pos.when_dis_eq(&b_pos, &2.),
-		// 	[
-		// 		(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
-		// 		(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
-		// 	]
-		// );
-		// assert_time_ranges!(
-		// 	a_pos.when_dis(&b_pos, Ordering::Equal, &2.),
-		// 	[
-		// 		(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
-		// 		(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))
-		// 	]
-		// );
+		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
+		assert_time_ranges!(
+			a_pos.when_dis_eq_constant(&b_pos, 2.),
+			[
+				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
+			]
+		);
+		assert_time_ranges!(
+			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2.),
+			[
+				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
+				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))
+			]
+		);
 		
 		// https://www.desmos.com/calculator/23ic1ikyt3
 	}
