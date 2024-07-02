@@ -152,6 +152,30 @@ pub trait Flux {
 		let time = self.base_time();
 		self.poly(time).when_eq(other.poly(time))
 	}
+	
+	/// Ranges when this is above/below/equal to a constant.
+	fn when_constant<T>(&self, order: Ordering, other: T)
+		-> <Poly<Self::Kind, <Self::Moment as Moment>::Value>
+			as When<Constant<T>, T>>::Pred
+	where
+		T: Linear,
+		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
+			When<Constant<T>, T>
+	{
+		self.when(order, &FluxValue::new(Constant::from(other), Time::ZERO))
+	}
+	
+	/// Times when this is equal to a constant.
+	fn when_eq_constant<T>(&self, other: T)
+		-> <Poly<Self::Kind, <Self::Moment as Moment>::Value>
+			as WhenEq<Constant<T>, T>>::Pred
+	where
+		T: Linear,
+		Poly<Self::Kind, <Self::Moment as Moment>::Value>:
+			WhenEq<Constant<T>, T>
+	{
+		self.when_eq(&FluxValue::new(Constant::from(other), Time::ZERO))
+	}
 }
 
 /// Immutable moment-in-time interface for [`Flux::at`].
