@@ -298,3 +298,93 @@ mod glam_stuff {
 	impl_iso_for_vec!(DVec3, as_vec3  : Vec3, as_dvec3  : 3, f32);
 	impl_iso_for_vec!(DVec4, as_vec4  : Vec4, as_dvec4  : 4, f32);
 }
+
+/// ...
+#[derive(Copy, Clone, Debug)]
+pub struct Iso<A, B>(Option<A>, B);
+
+mod _iso_impls {
+	use std::fmt::Debug;
+	use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+	use super::{Iso, Linear, LinearIso, Scalar};
+	
+	impl<A, B> Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		pub fn new(inner: A) -> Self {
+			Iso(Some(inner), LinearIso::<A>::from_linear(inner))
+		}
+		
+		pub fn into_inner(self) -> A {
+			let Iso(inner, outer) = self;
+			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
+	}
+	
+	impl<A, B> Deref for Iso<A, B> {
+		type Target = B;
+		fn deref(&self) -> &Self::Target {
+			let Iso(_, outer) = self;
+			outer
+		}
+	}
+	
+	impl<A, B> DerefMut for Iso<A, B> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			let Iso(inner, outer) = self;
+			*inner = None;
+			outer
+		}
+	}
+	
+	impl<A, B> Add for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Output = Self;
+		fn add(self, rhs: Self) -> Self::Output {
+			Iso::new(self.into_inner() + rhs.into_inner())
+		}
+	}
+	
+	impl<A, B> Sub for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Output = Self;
+		fn sub(self, rhs: Self) -> Self::Output {
+			Iso::new(self.into_inner() - rhs.into_inner())
+		}
+	}
+	
+	impl<A, B> Mul<Scalar> for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Output = Self;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			Iso::new(self.into_inner() * rhs)
+		}
+	}
+	
+	impl<A, B> Linear for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A> + Copy + Clone + Debug + 'static,
+	{
+		fn sqrt(self) -> Self {
+			Iso::new(A::sqrt(self.into_inner()))
+		}
+		fn sign(self) -> Self {
+			Iso::new(A::sign(self.into_inner()))
+		}
+		fn zero() -> Self {
+			Iso::new(A::zero())
+		}
+	}
+}
