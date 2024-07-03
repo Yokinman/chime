@@ -27,7 +27,7 @@ pub struct Chime;
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
 	type Flux: Flux<Moment=Self>;
-	type Value: LinearIso<<<Self::Flux as Flux>::Kind as FluxKind>::Value>;
+	type Value: LinearIso<<<<Self::Flux as Flux>::Kind as FluxKind>::Value as LinearPlus>::Inner>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
 	fn to_flux(self, time: Time) -> Self::Flux;
@@ -1039,13 +1039,13 @@ impl<T> DerefMut for Constant<T> {
 	}
 }
 
-impl<T: Linear> From<T> for Constant<T> {
+impl<T: LinearPlus> From<T> for Constant<T> {
 	fn from(value: T) -> Self {
 		Constant(value)
 	}
 }
 
-impl<T: Linear> FluxKind for Constant<T> {
+impl<T: LinearPlus> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
 	type OutAccum<'a> = ();
@@ -1062,8 +1062,12 @@ impl<T: Linear> FluxKind for Constant<T> {
 	fn to_time(self, _time: Scalar) -> Self {
 		self
 	}
-	fn initial_order(&self, _time: Scalar) -> Option<Ordering> where T: PartialOrd {
-		self.0.partial_cmp(&T::zero())
+	fn initial_order(&self, _time: Scalar) -> Option<Ordering>
+	where
+		T::Inner: PartialOrd
+	{
+		self.0.into_inner()
+			.partial_cmp(&<T::Inner as Linear>::zero())
 	}
 	fn zero() -> Self {
 		Self::from(T::zero())
@@ -1078,10 +1082,10 @@ impl<const SIZE: usize, T: LinearVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
 	}
 }
 
-impl<T: Linear> Mul<Scalar> for Constant<T> {
+impl<T: LinearPlus> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0 * rhs;
+		self.0 = T::from_inner(self.0.into_inner() * rhs);
 		self
 	}
 }

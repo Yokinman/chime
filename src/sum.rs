@@ -11,10 +11,10 @@ use crate::_hidden::InnerFlux;
 /// - `Sum<1>`: `a + bx`
 /// - `Sum<2>`: `a + bx + cx^2`
 /// - etc.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug)]
 pub struct Sum<T, const DEGREE: usize>(T, [T; DEGREE]);
 
-impl<T: Linear, const D: usize> Sum<T, D> {
+impl<T: LinearPlus, const D: usize> Sum<T, D> {
 	pub fn new(value: T, coeffs: [T; D]) -> Self {
 		Self(value, coeffs)
 	}
@@ -33,7 +33,7 @@ impl<T: Linear, const D: usize> Sum<T, D> {
 	}
 }
 
-impl<T: Linear, const D: usize> From<T> for Sum<T, D> {
+impl<T: LinearPlus, const D: usize> From<T> for Sum<T, D> {
 	fn from(value: T) -> Self {
 		Self::from_value(value)
 	}
@@ -60,18 +60,36 @@ impl<T, const D: usize> IndexMut<usize> for Sum<T, D> {
 	}
 }
 
-impl<T: Linear, const D: usize> Mul<Scalar> for Sum<T, D> {
+impl<T, const D: usize> PartialEq for Sum<T, D>
+where
+	T: LinearPlus,
+	T::Inner: PartialEq,
+{
+	fn eq(&self, other: &Self) -> bool {
+		if self.0.into_inner() != other.0.into_inner() {
+			return false
+		}
+		for i in 0..D {
+			if self.1[i].into_inner() != other.1[i].into_inner() {
+				return false
+			}
+		}
+		true
+	}
+}
+
+impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0 * rhs;
+		self.0 = T::from_inner(self.0.into_inner() * rhs);
 		for i in 0..D {
-			self.1[i] = self.1[i] * rhs;
+			self.1[i] = T::from_inner(self.1[i].into_inner() * rhs);
 		}
 		self
 	}
 }
 
-impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
+impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	type Value = T;
 	
 	type Accum<'a> = SumAccum<'a, Self>;
@@ -98,18 +116,18 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		if time == Scalar(0.) {
 			return self.0
 		}
-		let mut value = T::zero();
+		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
-			value = value*time + self.1[D - degree]
+			value = value*time + self.1[D - degree].into_inner();
 		}
-		value*time + self.0
+		T::from_inner(value*time + self.0.into_inner())
 	}
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value {
 		let mut poly = self.clone();
 		poly.0 = poly.1[0];
 		for d in 1..D {
-			poly.1[d-1] = poly.1[d] * Scalar((d+1) as f64)
+			poly.1[d-1] = T::from_inner(poly.1[d].into_inner() * Scalar((d+1) as f64));
 		}
 		poly.1[D-1] = T::zero();
 		poly.at(time)
@@ -122,9 +140,9 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		self.0 = self.at(time);
 		let mut deriv = self;
 		for degree in 1..=D {
-			deriv.0 = deriv.1[0] * Scalar(1. / (degree as f64));
+			deriv.0 = T::from_inner(deriv.1[0].into_inner() * Scalar(1. / (degree as f64)));
 			for d in 1..D {
-				deriv.1[d-1] = deriv.1[d] * Scalar(((d+1) as f64) / (degree as f64))
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner() * Scalar(((d+1) as f64) / (degree as f64)));
 			}
 			deriv.1[D-1] = T::zero();
 			self.1[degree-1] = deriv.at(time);
@@ -134,13 +152,14 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 	
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
-		Self::Value: PartialOrd
+		<Self::Value as LinearPlus>::Inner: PartialOrd
 	{
 		if self.is_zero() {
 			return Some(Ordering::Equal)
 		}
 		
-		let order = self.at(time).partial_cmp(&T::zero());
+		let order = self.at(time).into_inner()
+			.partial_cmp(&<T::Inner as Linear>::zero());
 		if order != Some(Ordering::Equal) || D == 0 {
 			return order
 		}
@@ -151,11 +170,12 @@ impl<T: Linear, const D: usize> FluxKind for Sum<T, D> {
 		for degree in 1..=D {
 			deriv.0 = deriv.1[0];
 			for d in 1..D {
-				deriv.1[d-1] = deriv.1[d] * Scalar((d+1) as f64)
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner() * Scalar((d+1) as f64));
 			}
 			deriv.1[D-1] = T::zero();
 			
-			let order = deriv.at(time).partial_cmp(&T::zero());
+			let order = deriv.at(time).into_inner()
+				.partial_cmp(&<T::Inner as Linear>::zero());
 			if order != Some(Ordering::Equal) {
 				return if degree % 2 == 0 {
 					order
@@ -205,7 +225,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: K) -> Self {
-		self.0 = self.0 + rhs.value();
+		self.0 = K::Value::from_inner(self.0.into_inner() + rhs.value().into_inner());
 		self
 	}
 }
@@ -675,7 +695,7 @@ mod tests {
 	use crate::pred::Prediction;
 	use super::*;
 	
-	fn real_roots<K>(poly: Poly<K, K::Value>) -> impl Iterator<Item=f64>
+	fn real_roots<K>(poly: Poly<K, <K::Value as LinearPlus>::Inner>) -> impl Iterator<Item=f64>
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,

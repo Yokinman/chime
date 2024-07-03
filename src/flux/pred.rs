@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Mul};
 
-use crate::linear::{Linear, LinearIso, LinearIsoVec, Scalar};
+use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearPlus, Scalar};
 use crate::time;
 use crate::time::Time;
 use crate::kind::*;
@@ -60,16 +60,16 @@ where
 	A: FluxKind,
 	B: FluxKind<Value=A::Value>,
 	D: FluxKind<Value=A::Value>,
-	A::Value: PartialEq,
-	I: LinearIso<A::Value>,
-	J: LinearIso<A::Value>,
-	L: LinearIso<A::Value>,
+	<A::Value as LinearPlus>::Inner: PartialEq,
+	I: LinearIso<<A::Value as LinearPlus>::Inner>,
+	J: LinearIso<<A::Value as LinearPlus>::Inner>,
+	L: LinearIso<<A::Value as LinearPlus>::Inner>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
-		let sign = diff_poly.rate_at(time).sign();
+		let sign = diff_poly.rate_at(time).into_inner().sign();
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -79,13 +79,15 @@ where
 				time.checked_sub(inc_time)
 			} {
 				 // Stop Before Rate Reverses:
-				let rate = diff_poly.rate_at(next_time);
+				let rate = diff_poly.rate_at(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
 				
 				 // Stop Before Inequality:
-				if I::linear_id(a_poly.at(next_time)) != J::linear_id(b_poly.at(next_time)) {
+				if I::linear_id(a_poly.at(next_time).into_inner())
+					!= J::linear_id(b_poly.at(next_time).into_inner())
+				{
 					break
 				}
 				
@@ -110,8 +112,8 @@ where
 	a_pos: PolyVec<SIZE, A, I>,
 	b_pos: PolyVec<SIZE, B, J>,
 	dis_poly: Poly<D, L>,
-	pos_poly: Poly<E, E::Value>,
-	diff_poly: Poly<F, F::Value>,
+	pos_poly: Poly<E, <E::Value as LinearPlus>::Inner>,
+	diff_poly: Poly<F, <F::Value as LinearPlus>::Inner>,
 }
 
 impl<const SIZE: usize, A, B, D, E, F, I, J, L> Clone
@@ -140,14 +142,14 @@ where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
 	D: FluxKind,
-	D::Value: PartialEq + Mul<Output=D::Value>,
+	<D::Value as LinearPlus>::Inner: PartialEq + Mul<Output = <D::Value as LinearPlus>::Inner>,
 	A::Kind: FluxKind<Value=D::Value>,
 	B::Kind: FluxKind<Value=D::Value>,
 	E: FluxKind<Value=D::Value>,
 	F: FluxKind<Value=D::Value>,
 	I: LinearIsoVec<SIZE, A::Value>,
 	J: LinearIsoVec<SIZE, B::Value>,
-	L: LinearIso<D::Value>,
+	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -156,7 +158,7 @@ where
 		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
-		let sign = diff_poly.rate_at(time).sign();
+		let sign = diff_poly.rate_at(time).into_inner().sign();
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -165,7 +167,7 @@ where
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
-					let rate = diff_poly.rate_at(next_time);
+					let rate = diff_poly.rate_at(next_time).into_inner();
 					if sign != rate.sign() && !rate.is_zero() {
 						if inc_time == time::NANOSEC {
 							return Some(time)
@@ -174,13 +176,13 @@ where
 					}
 					
 					 // Calculate Actual Distances:
-					let dis = dis_poly.at(next_time);
-					let mut a_dis = D::Value::zero();
-					let mut b_dis = D::Value::zero();
-					let mut real_diff = D::Value::zero();
+					let dis = dis_poly.at(next_time).into_inner();
+					let mut a_dis = <<D::Value as LinearPlus>::Inner as Linear>::zero();
+					let mut b_dis = <<D::Value as LinearPlus>::Inner as Linear>::zero();
+					let mut real_diff = <<D::Value as LinearPlus>::Inner as Linear>::zero();
 					for i in 0..SIZE {
-						let a = a_pos.index_poly(i).at(next_time);
-						let b = b_pos.index_poly(i).at(next_time);
+						let a = a_pos.index_poly(i).at(next_time).into_inner();
+						let b = b_pos.index_poly(i).at(next_time).into_inner();
 						a_dis = a_dis + a*a;
 						b_dis = b_dis + b*b;
 						let x = a - b;
@@ -199,7 +201,7 @@ where
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Mul::<Scalar>::mul(
-							pos_poly.at(next_time).sqrt() - dis,
+							pos_poly.at(next_time).into_inner().sqrt() - dis,
 							round_factor
 						);
 						if
@@ -227,19 +229,19 @@ where
 			let mut inc_time = time::NANOSEC;
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
-				let rate = diff_poly.rate_at(next_time);
+				let rate = diff_poly.rate_at(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
 				
 				 // Stop Before Inequality:
-				let mut pos = D::Value::zero();
+				let mut pos = <<D::Value as LinearPlus>::Inner as Linear>::zero();
 				for i in 0..SIZE {
-					let x = I::Value::linear_id(a_pos.index_poly(i).at(next_time))
-						- J::Value::linear_id(b_pos.index_poly(i).at(next_time));
+					let x = I::Value::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
+						- J::Value::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
 					pos = pos + x*x;
 				}
-				let dis = L::linear_id(dis_poly.at(next_time));
+				let dis = L::linear_id(dis_poly.at(next_time).into_inner());
 				if pos != dis*dis {
 					break
 				}
@@ -418,9 +420,9 @@ where
 
 impl<K, I> IntoIterator for Pred<K, I>
 where
-	K: Roots + PartialOrd,
-	K::Value: PartialOrd,
-	I: LinearIso<K::Value>,
+	K: Roots + PartialEq,
+	<K::Value as LinearPlus>::Inner: PartialOrd,
+	I: LinearIso<<K::Value as LinearPlus>::Inner>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -457,8 +459,8 @@ where
 impl<K, I> IntoIterator for PredEq<K, I>
 where
 	K: Roots + PartialEq,
-	K::Value: PartialEq,
-	I: LinearIso<K::Value>,
+	<K::Value as LinearPlus>::Inner: PartialEq,
+	I: LinearIso<<K::Value as LinearPlus>::Inner>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -615,10 +617,10 @@ impl<A, B, I, J> When<B, J> for Poly<A, I>
 where
 	A: FluxKind + ops::Sub<B>,
 	B: FluxKind,
-	I: LinearIso<A::Value>,
-	J: LinearIso<B::Value>,
-	<A as ops::Sub<B>>::Output: Roots + PartialOrd,
-	A::Value: PartialOrd,
+	I: LinearIso<<A::Value as LinearPlus>::Inner>,
+	J: LinearIso<<B::Value as LinearPlus>::Inner>,
+	<A as ops::Sub<B>>::Output: Roots + PartialEq,
+	<A::Value as LinearPlus>::Inner: PartialOrd,
 {
 	type Pred = PredFilter<
 		Pred<<A as ops::Sub<B>>::Output, I>,
@@ -645,10 +647,10 @@ impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
 where
 	A: FluxKind + ops::Sub<B>,
 	B: FluxKind,
-	I: LinearIso<A::Value>,
-	J: LinearIso<B::Value>,
+	I: LinearIso<<A::Value as LinearPlus>::Inner>,
+	J: LinearIso<<B::Value as LinearPlus>::Inner>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
-	A::Value: PartialEq,
+	<A::Value as LinearPlus>::Inner: PartialEq,
 {
 	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output, I>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>>;
 	fn when_eq(self, poly: Poly<B, J>) -> Self::Pred {
@@ -687,16 +689,16 @@ where
 		+ ops::Sub<<D as ops::Sqr>::Output,
 			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
 		+ Roots
-		+ PartialOrd,
-	<A::Kind as FluxKind>::Value:
-		Mul<Output = <A::Kind as FluxKind>::Value> + PartialOrd,
+		+ PartialEq,
+	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
+		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialOrd,
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
-	L: LinearIso<D::Value>,
+	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<
 		Pred<
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value,
+			<<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value as LinearPlus>::Inner,
 		>,
 		DisTimeFilterMap<
 			SIZE,
@@ -761,15 +763,15 @@ where
 			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	<A::Kind as FluxKind>::Value:
-		Mul<Output = <A::Kind as FluxKind>::Value> + PartialEq,
+	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
+		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialEq,
 	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
-	L: LinearIso<D::Value>,
+	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<
 		PredEq<
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value
+			<<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value as LinearPlus>::Inner
 		>,
 		DisTimeFilterMap<
 			SIZE,

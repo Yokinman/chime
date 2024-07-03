@@ -126,10 +126,15 @@ impl Linear for f32 {
 	}
 }
 
-/// ...
-pub trait LinearPlus {
+/// Underlying [`Linear`] type paired with an interfacing [`LinearIso`] type.
+pub trait LinearPlus: Copy + Debug + 'static {
 	type Inner: Linear;
 	type Outer: LinearIso<Self::Inner>;
+	fn from_inner(inner: Self::Inner) -> Self;
+	fn into_inner(self) -> Self::Inner;
+	fn zero() -> Self {
+		Self::from_inner(Linear::zero())
+	}
 }
 
 impl<T> LinearPlus for T
@@ -138,6 +143,12 @@ where
 {
 	type Inner = T;
 	type Outer = T;
+	fn from_inner(inner: Self::Inner) -> Self {
+		inner
+	}
+	fn into_inner(self) -> Self::Inner {
+		self
+	}
 }
 
 impl<A, B> LinearPlus for Iso<A, B>
@@ -147,6 +158,13 @@ where
 {
 	type Inner = A;
 	type Outer = B;
+	fn from_inner(inner: Self::Inner) -> Self {
+		Iso(Some(inner), LinearIso::<A>::from_linear(inner))
+	}
+	fn into_inner(self) -> Self::Inner {
+		let Iso(inner, outer) = self;
+		inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+	}
 }
 
 /// Multidimensional vector type.
@@ -169,7 +187,7 @@ impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: Linear>: Sized {
+pub trait LinearIso<T: Linear>: Sized + Copy + Debug + 'static {
 	fn into_linear(value: Self) -> T;
 	fn from_linear(value: T) -> Self;
 	// fn identity(value: Self) -> Self {
@@ -327,23 +345,8 @@ mod glam_stuff {
 pub struct Iso<A, B>(Option<A>, B);
 
 mod _iso_impls {
-	use std::ops::{Add, Deref, DerefMut, Mul, Sub};
-	use super::{Iso, Linear, LinearIso, Scalar};
-	
-	impl<A, B> Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A>,
-	{
-		pub fn new(inner: A) -> Self {
-			Iso(Some(inner), LinearIso::<A>::from_linear(inner))
-		}
-		
-		pub fn into_inner(self) -> A {
-			let Iso(inner, outer) = self;
-			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
-		}
-	}
+	use std::ops::{Deref, DerefMut};
+	use super::Iso;
 	
 	impl<A, B> Deref for Iso<A, B> {
 		type Target = B;
@@ -360,53 +363,4 @@ mod _iso_impls {
 			outer
 		}
 	}
-	
-	impl<A, B> Add for Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A>,
-	{
-		type Output = Self;
-		fn add(self, rhs: Self) -> Self::Output {
-			Iso::new(self.into_inner() + rhs.into_inner())
-		}
-	}
-	
-	impl<A, B> Sub for Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A>,
-	{
-		type Output = Self;
-		fn sub(self, rhs: Self) -> Self::Output {
-			Iso::new(self.into_inner() - rhs.into_inner())
-		}
-	}
-	
-	impl<A, B> Mul<Scalar> for Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A>,
-	{
-		type Output = Self;
-		fn mul(self, rhs: Scalar) -> Self::Output {
-			Iso::new(self.into_inner() * rhs)
-		}
-	}
-	
-	// impl<A, B> Linear for Iso<A, B>
-	// where
-	// 	A: Linear,
-	// 	B: LinearIso<A> + Copy + Clone + Debug + 'static,
-	// {
-	// 	fn sqrt(self) -> Self {
-	// 		Iso::new(A::sqrt(self.into_inner()))
-	// 	}
-	// 	fn sign(self) -> Self {
-	// 		Iso::new(A::sign(self.into_inner()))
-	// 	}
-	// 	fn zero() -> Self {
-	// 		Iso::new(A::zero())
-	// 	}
-	// }
 }

@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearVec, Scalar};
+use crate::linear::{LinearIso, LinearIsoVec, LinearPlus, LinearVec, Scalar};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
@@ -13,7 +13,7 @@ pub trait FluxKind:
 	'static + Copy + Clone + Debug
 	+ Mul<Scalar, Output=Self>
 {
-	type Value: Linear;
+	type Value: LinearPlus;
 	
 	type Accum<'a>;
 	
@@ -35,7 +35,7 @@ pub trait FluxKind:
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
-		Self::Value: PartialOrd;
+		<Self::Value as LinearPlus>::Inner: PartialOrd;
 	
 	fn zero() -> Self;
 	
@@ -54,13 +54,13 @@ pub trait FluxKind:
 /// Multidimensional kind of change.
 pub trait FluxKindVec<const SIZE: usize>: Clone {
 	type Kind: FluxKind;
-	type Value: LinearVec<SIZE, Value = <Self::Kind as FluxKind>::Value>;
+	type Value: LinearVec<SIZE, Value = <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>;
 	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 	type Kind = T;
-	type Value = [T::Value; SIZE];
+	type Value = [<T::Value as LinearPlus>::Inner; SIZE];
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		self[index]
 	}
@@ -178,7 +178,7 @@ where
 	}
 }
 
-impl<K: FluxKind> Poly<K, K::Value> {
+impl<K: FluxKind> Poly<K, <K::Value as LinearPlus>::Inner> {
 	pub fn new(inner: K, time: Time) -> Self {
 		Self {
 			inner,
@@ -197,7 +197,7 @@ impl<K: FluxKind> Poly<K, K::Value> {
 }
 
 impl<K: FluxKind, I> Poly<K, I> {
-	pub fn with_iso<T: LinearIso<K::Value>>(self) -> Poly<K, T> {
+	pub fn with_iso<T: LinearIso<<K::Value as LinearPlus>::Inner>>(self) -> Poly<K, T> {
 		Poly {
 			inner: self.inner,
 			time: self.time,
@@ -243,7 +243,7 @@ impl<K: FluxKind, I> Poly<K, I> {
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
-		K::Value: PartialOrd
+		<K::Value as LinearPlus>::Inner: PartialOrd
 	{
 		self.inner.initial_order(Scalar(if time > self.time {
 			(time - self.time).as_secs_f64()
@@ -253,7 +253,7 @@ impl<K: FluxKind, I> Poly<K, I> {
 	}
 }
 
-impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
+impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Poly<K, I> {
 	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output, I>
 	where
 		K: ops::Sqr
@@ -266,8 +266,8 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K, I>, F>
 	where
 		F: crate::pred::TimeFilterMap,
-		K: Roots + PartialOrd,
-		K::Value: PartialOrd,
+		K: Roots + PartialEq,
+		<K::Value as LinearPlus>::Inner: PartialOrd,
 	{
 		let pred = crate::pred::Pred {
 			poly: self,
@@ -281,7 +281,7 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
-		K::Value: PartialEq,
+		<K::Value as LinearPlus>::Inner: PartialEq,
 	{
 		crate::pred::PredFilter {
 			pred: crate::pred::PredEq { poly: self },
@@ -290,14 +290,14 @@ impl<K: FluxKind, I: LinearIso<K::Value>> Poly<K, I> {
 	}
 }
 
-impl<K: FluxKind, I: LinearIso<K::Value>> Default for Poly<K, I> {
+impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Default for Poly<K, I> {
 	fn default() -> Self {
 		Poly::new(K::zero(), Time::ZERO)
 			.with_iso()
 	}
 }
 
-impl<K: FluxKind> From<K> for Poly<K, K::Value> {
+impl<K: FluxKind> From<K> for Poly<K, <K::Value as LinearPlus>::Inner> {
 	fn from(value: K) -> Self {
 		Self::new(value, Time::ZERO)
 	}

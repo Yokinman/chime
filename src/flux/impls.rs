@@ -7,7 +7,7 @@ use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
 use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
-use crate::linear::{Linear, LinearIsoVec, LinearVec};
+use crate::linear::{Linear, LinearIsoVec, LinearPlus, LinearVec};
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
@@ -93,11 +93,11 @@ where
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
 	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		let mut value = <Self::Kind as FluxKind>::Value::zero();
+		let mut value = Linear::zero();
 		for item in self {
-			value = value + item.base_value(base_time);
+			value = value + item.base_value(base_time).into_inner();
 		}
-		value
+		LinearPlus::from_inner(value)
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
 		-> <Self::Kind as FluxKind>::OutAccum<'a>
