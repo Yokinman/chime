@@ -133,13 +133,12 @@ pub mod ops {
 }
 
 /// A polynomial wrapper for [`FluxKind`].
-pub struct Poly<K, I> {
+pub struct Poly<K> {
 	inner: K,
 	time: Time,
-	iso: PhantomData<I>,
 }
 
-impl<K, I> Clone for Poly<K, I>
+impl<K> Clone for Poly<K>
 where
 	K: Clone
 {
@@ -147,17 +146,16 @@ where
 		Self {
 			inner: self.inner.clone(),
 			time: self.time,
-			iso: self.iso,
 		}
 	}
 }
 
-impl<K, I> Copy for Poly<K, I>
+impl<K> Copy for Poly<K>
 where
 	K: Copy
 {}
 
-impl<K, I> Debug for Poly<K, I>
+impl<K> Debug for Poly<K>
 where
 	K: Debug
 {
@@ -169,7 +167,7 @@ where
 	}
 }
 
-impl<K, I> PartialEq for Poly<K, I>
+impl<K> PartialEq for Poly<K>
 where
 	K: PartialEq
 {
@@ -178,12 +176,11 @@ where
 	}
 }
 
-impl<K: FluxKind> Poly<K, <K::Value as LinearPlus>::Inner> {
+impl<K: FluxKind> Poly<K> {
 	pub fn new(inner: K, time: Time) -> Self {
 		Self {
 			inner,
 			time,
-			iso: PhantomData,
 		}
 	}
 	
@@ -196,15 +193,7 @@ impl<K: FluxKind> Poly<K, <K::Value as LinearPlus>::Inner> {
 	}
 }
 
-impl<K: FluxKind, I> Poly<K, I> {
-	pub fn with_iso<T: LinearIso<<K::Value as LinearPlus>::Inner>>(self) -> Poly<K, T> {
-		Poly {
-			inner: self.inner,
-			time: self.time,
-			iso: PhantomData,
-		}
-	}
-	
+impl<K: FluxKind> Poly<K> {
 	pub fn into_inner(self) -> K {
 		self.inner
 	}
@@ -253,17 +242,16 @@ impl<K: FluxKind, I> Poly<K, I> {
 	}
 }
 
-impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Poly<K, I> {
-	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output, I>
+impl<K: FluxKind> Poly<K> {
+	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
 	{
 		Poly::new(self.inner.sqr(), self.time)
-			.with_iso()
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K, I>, F>
+	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K>, F>
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
@@ -277,7 +265,7 @@ impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Poly<K, I> {
 	}
 	
 	/// Times when the value is equal to zero.
-	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K, I>, F>
+	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K>, F>
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
@@ -290,48 +278,45 @@ impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Poly<K, I> {
 	}
 }
 
-impl<K: FluxKind, I: LinearIso<<K::Value as LinearPlus>::Inner>> Default for Poly<K, I> {
+impl<K: FluxKind> Default for Poly<K> {
 	fn default() -> Self {
 		Poly::new(K::zero(), Time::ZERO)
-			.with_iso()
 	}
 }
 
-impl<K: FluxKind> From<K> for Poly<K, <K::Value as LinearPlus>::Inner> {
+impl<K: FluxKind> From<K> for Poly<K> {
 	fn from(value: K) -> Self {
 		Self::new(value, Time::ZERO)
 	}
 }
 
-impl<A: FluxKind, B: FluxKind, I, J> Add<Poly<B, J>> for Poly<A, I>
+impl<A: FluxKind, B: FluxKind> Add<Poly<B>> for Poly<A>
 where
 	A: ops::Add<B>
 {
-	type Output = Poly<<A as ops::Add<B>>::Output, I>;
-	fn add(self, rhs: Poly<B, J>) -> Self::Output {
+	type Output = Poly<<A as ops::Add<B>>::Output>;
+	fn add(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
-			inner: self.inner.add(rhs.to_time( self.time).inner),
+			inner: self.inner.add(rhs.to_time(self.time).inner),
 			time: self.time,
-			iso: PhantomData,
 		}
 	}
 }
 
-impl<A: FluxKind, B: FluxKind, I, J> Sub<Poly<B, J>> for Poly<A, I>
+impl<A: FluxKind, B: FluxKind> Sub<Poly<B>> for Poly<A>
 where
 	A: ops::Sub<B>
 {
-	type Output = Poly<<A as ops::Sub<B>>::Output, I>;
-	fn sub(self, rhs: Poly<B, J>) -> Self::Output {
+	type Output = Poly<<A as ops::Sub<B>>::Output>;
+	fn sub(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
 			inner: self.inner.sub(rhs.to_time(self.time).inner),
 			time: self.time,
-			iso: PhantomData,
 		}
 	}
 }
 
-impl<K, I> Mul<Scalar> for Poly<K, I>
+impl<K> Mul<Scalar> for Poly<K>
 where
 	K: Mul<Scalar, Output=K>
 {
@@ -343,13 +328,12 @@ where
 }
 
 /// Multidimensional polynomial.
-pub struct PolyVec<const SIZE: usize, K, I> {
+pub struct PolyVec<const SIZE: usize, K> {
 	inner: K,
 	time: Time,
-	iso: PhantomData<I>,
 }
 
-impl<const SIZE: usize, K, I> Clone for PolyVec<SIZE, K, I>
+impl<const SIZE: usize, K> Clone for PolyVec<SIZE, K>
 where
 	K: Clone
 {
@@ -357,17 +341,16 @@ where
 		Self {
 			inner: self.inner.clone(),
 			time: self.time,
-			iso: self.iso,
 		}
 	}
 }
 
-impl<const SIZE: usize, K, I> Copy for PolyVec<SIZE, K, I>
+impl<const SIZE: usize, K> Copy for PolyVec<SIZE, K>
 where
 	K: Copy
 {}
 
-impl<const SIZE: usize, K, I> PolyVec<SIZE, K, I> {
+impl<const SIZE: usize, K> PolyVec<SIZE, K> {
 	pub fn into_inner(self) -> K {
 		self.inner
 	}
@@ -377,7 +360,7 @@ impl<const SIZE: usize, K, I> PolyVec<SIZE, K, I> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKind, I> PolyVec<SIZE, K, I> {
+impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE, K> {
 	pub fn at(&self, time: Time) -> K::Value {
 		self.inner.at(Scalar(if time > self.time {
 			(time - self.time).as_secs_f64()
@@ -387,30 +370,27 @@ impl<const SIZE: usize, K: FluxKind, I> PolyVec<SIZE, K, I> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K, <K::Value as LinearPlusVec<SIZE>>::Inner> {
+impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
 	pub fn new(inner: K, time: Time) -> Self {
 		Self {
 			inner,
 			time,
-			iso: PhantomData,
 		}
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>, I> PolyVec<SIZE, K, I> {
-	pub fn with_iso<T: LinearIsoVec<SIZE, <K::Value as LinearPlusVec<SIZE>>::Inner>>(self) -> PolyVec<SIZE, K, T> {
+impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
+	pub fn with_iso(self) -> PolyVec<SIZE, K> {
 		PolyVec {
 			inner: self.inner,
 			time: self.time,
-			iso: PhantomData,
 		}
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>, I: LinearIsoVec<SIZE, <K::Value as LinearPlusVec<SIZE>>::Inner>> PolyVec<SIZE, K, I> {
-	pub fn index_poly(&self, index: usize) -> Poly<K::Kind, I::Value> {
+impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
+	pub fn index_poly(&self, index: usize) -> Poly<K::Kind> {
 		Poly::new(self.inner.index_kind(index), self.time)
-			.with_iso()
 	}
 }
 

@@ -695,7 +695,7 @@ mod tests {
 	use crate::pred::Prediction;
 	use super::*;
 	
-	fn real_roots<K>(poly: Poly<K, <K::Value as LinearPlus>::Inner>) -> impl Iterator<Item=f64>
+	fn real_roots<K>(poly: Poly<K>) -> impl Iterator<Item=f64>
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,

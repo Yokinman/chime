@@ -34,13 +34,13 @@ impl TimeFilterMap for PreTimeFilterMap {
 }
 
 /// ...
-pub struct DiffTimeFilterMap<A, B, D, I, J, L> {
-	a_poly: Poly<A, I>,
-	b_poly: Poly<B, J>,
-	diff_poly: Poly<D, L>,
+pub struct DiffTimeFilterMap<A, B, D> {
+	a_poly: Poly<A>,
+	b_poly: Poly<B>,
+	diff_poly: Poly<D>,
 }
 
-impl<A, B, D, I, J, L> Clone for DiffTimeFilterMap<A, B, D, I, J, L>
+impl<A, B, D> Clone for DiffTimeFilterMap<A, B, D>
 where
 	A: Clone,
 	B: Clone,
@@ -55,15 +55,12 @@ where
 	}
 }
 
-impl<A, B, D, I, J, L> TimeFilterMap for DiffTimeFilterMap<A, B, D, I, J, L>
+impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
 	A: FluxKind,
 	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	D: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	<A::Value as LinearPlus>::Inner: PartialEq,
-	I: LinearIso<<A::Value as LinearPlus>::Inner>,
-	J: LinearIso<<A::Value as LinearPlus>::Inner>,
-	L: LinearIso<<A::Value as LinearPlus>::Inner>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -85,8 +82,8 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				if I::linear_id(a_poly.at(next_time).into_inner())
-					!= J::linear_id(b_poly.at(next_time).into_inner())
+				if <A::Value as LinearPlus>::Outer::linear_id(a_poly.at(next_time).into_inner())
+					!= <B::Value as LinearPlus>::Outer::linear_id(b_poly.at(next_time).into_inner())
 				{
 					break
 				}
@@ -104,26 +101,22 @@ where
 }
 
 /// ...
-pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F, I, J, L>
-where
-	E: FluxKind,
-	F: FluxKind,
-{
-	a_pos: PolyVec<SIZE, A, I>,
-	b_pos: PolyVec<SIZE, B, J>,
-	dis_poly: Poly<D, L>,
-	pos_poly: Poly<E, <E::Value as LinearPlus>::Inner>,
-	diff_poly: Poly<F, <F::Value as LinearPlus>::Inner>,
+pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F> {
+	a_pos: PolyVec<SIZE, A>,
+	b_pos: PolyVec<SIZE, B>,
+	dis_poly: Poly<D>,
+	pos_poly: Poly<E>,
+	diff_poly: Poly<F>,
 }
 
-impl<const SIZE: usize, A, B, D, E, F, I, J, L> Clone
-	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L>
+impl<const SIZE: usize, A, B, D, E, F> Clone
+	for DisTimeFilterMap<SIZE, A, B, D, E, F>
 where
 	A: Clone,
 	B: Clone,
 	D: Clone,
-	E: FluxKind,
-	F: FluxKind,
+	E: Clone,
+	F: Clone,
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -136,8 +129,8 @@ where
 	}
 }
 
-impl<const SIZE: usize, A, B, D, E, F, I, J, L> TimeFilterMap
-	for DisTimeFilterMap<SIZE, A, B, D, E, F, I, J, L>
+impl<const SIZE: usize, A, B, D, E, F> TimeFilterMap
+	for DisTimeFilterMap<SIZE, A, B, D, E, F>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
@@ -147,9 +140,6 @@ where
 	B::Kind: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
 	E: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
 	F: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
-	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
-	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
-	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -188,16 +178,16 @@ where
 						let x = a - b;
 						real_diff = real_diff + x*x;
 					}
-					a_dis = I::Value::linear_id(a_dis.sqrt());
-					b_dis = J::Value::linear_id(b_dis.sqrt());
+					a_dis = <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
+					b_dis = <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
 					real_diff = Mul::<Scalar>::mul(real_diff.sqrt() - dis, round_factor);
-					let c_dis = L::linear_id(dis);
+					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis);
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != I::Value::linear_id(a_dis + real_diff) &&
-						b_dis != J::Value::linear_id(b_dis + real_diff) &&
-						c_dis != L::linear_id(c_dis + real_diff)
+						a_dis != <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + real_diff) &&
+						b_dis != <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + real_diff) &&
+						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + real_diff)
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Mul::<Scalar>::mul(
@@ -205,9 +195,9 @@ where
 							round_factor
 						);
 						if
-							a_dis != I::Value::linear_id(a_dis + pred_diff) &&
-							b_dis != J::Value::linear_id(b_dis + pred_diff) &&
-							c_dis != L::linear_id(c_dis + pred_diff)
+							a_dis != <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + pred_diff) &&
+							b_dis != <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + pred_diff) &&
+							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + pred_diff)
 						{
 							break
 						}
@@ -237,11 +227,11 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <<D::Value as LinearPlus>::Inner as Linear>::zero();
 				for i in 0..SIZE {
-					let x = I::Value::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
-						- J::Value::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
+					let x = <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
+						- <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
 					pos = pos + x*x;
 				}
-				let dis = L::linear_id(dis_poly.at(next_time).into_inner());
+				let dis = <D::Value as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
 				if pos != dis*dis {
 					break
 				}
@@ -334,8 +324,8 @@ macro_rules! impl_prediction {
 
 impl_prediction!{
 	for<I> time::TimeRangeBuilder<I>;
-	for<K, I> Pred<K, I>;
-	for<K, I> PredEq<K, I>;
+	for<K> Pred<K>;
+	for<K> PredEq<K>;
 	for<P, F> PredFilter<P, F>;
 	for<A, B> PredInter<A, B>;
 	for<A, B> PredUnion<A, B>;
@@ -401,12 +391,12 @@ impl<P: Prediction> Prediction for Option<P> {
 }
 
 /// ...
-pub struct Pred<K, I> {
-	pub(crate) poly: Poly<K, I>,
+pub struct Pred<K> {
+	pub(crate) poly: Poly<K>,
 	pub(crate) order: Ordering,
 }
 
-impl<K, I> Clone for Pred<K, I>
+impl<K> Clone for Pred<K>
 where
 	K: Clone,
 {
@@ -418,11 +408,10 @@ where
 	}
 }
 
-impl<K, I> IntoIterator for Pred<K, I>
+impl<K> IntoIterator for Pred<K>
 where
 	K: Roots + PartialEq,
 	<K::Value as LinearPlus>::Inner: PartialOrd,
-	I: LinearIso<<K::Value as LinearPlus>::Inner>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -441,11 +430,11 @@ where
 }
 
 /// ...
-pub struct PredEq<K, I> {
-	pub(crate) poly: Poly<K, I>,
+pub struct PredEq<K> {
+	pub(crate) poly: Poly<K>,
 }
 
-impl<K, I> Clone for PredEq<K, I>
+impl<K> Clone for PredEq<K>
 where
 	K: Clone,
 {
@@ -456,11 +445,10 @@ where
 	}
 }
 
-impl<K, I> IntoIterator for PredEq<K, I>
+impl<K> IntoIterator for PredEq<K>
 where
 	K: Roots + PartialEq,
 	<K::Value as LinearPlus>::Inner: PartialEq,
-	I: LinearIso<<K::Value as LinearPlus>::Inner>,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -608,25 +596,23 @@ where
 }
 
 /// [`crate::Flux::when`] predictive comparison.
-pub trait When<B, J> {
+pub trait When<B> {
 	type Pred: Prediction;
-	fn when(self, order: Ordering, poly: Poly<B, J>) -> Self::Pred;
+	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred;
 }
 
-impl<A, B, I, J> When<B, J> for Poly<A, I>
+impl<A, B> When<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
 	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-	I: LinearIso<<A::Value as LinearPlus>::Inner>,
-	J: LinearIso<<B::Value as LinearPlus>::Inner>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	<A::Value as LinearPlus>::Inner: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A as ops::Sub<B>>::Output, I>,
-		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>,
+		Pred<<A as ops::Sub<B>>::Output>,
+		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
-	fn when(self, order: Ordering, poly: Poly<B, J>) -> Self::Pred {
+	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_sign(order, DiffTimeFilterMap {
@@ -638,22 +624,20 @@ where
 }
 
 /// [`crate::Flux::when_eq`] predictive comparison.
-pub trait WhenEq<B, J> {
+pub trait WhenEq<B> {
 	type Pred: Prediction;
-	fn when_eq(self, poly: Poly<B, J>) -> Self::Pred;
+	fn when_eq(self, poly: Poly<B>) -> Self::Pred;
 }
 
-impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
+impl<A, B> WhenEq<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
 	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-	I: LinearIso<<A::Value as LinearPlus>::Inner>,
-	J: LinearIso<<B::Value as LinearPlus>::Inner>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	<A::Value as LinearPlus>::Inner: PartialEq,
 {
-	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output, I>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output, I, J, I>>;
-	fn when_eq(self, poly: Poly<B, J>) -> Self::Pred {
+	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>>;
+	fn when_eq(self, poly: Poly<B>) -> Self::Pred {
 		let diff_poly = self - poly;
 		diff_poly
 			.when_zero(DiffTimeFilterMap {
@@ -665,23 +649,20 @@ where
 }
 
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B, D, J, L> {
+pub trait WhenDis<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B, J>,
+		poly: PolyVec<SIZE, B>,
 		order: Ordering,
-		dis: Poly<D, L>,
+		dis: Poly<D>,
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
-	for PolyVec<SIZE, A, I>
+impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
-	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
-	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -693,26 +674,21 @@ where
 	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
 		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialOrd,
 	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
-	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<
-		Pred<
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value as LinearPlus>::Inner,
-		>,
+		Pred<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			I, J, L
 		>
 	>;
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B, J>,
+		poly: PolyVec<SIZE, B>,
 		order: Ordering,
-		dis: Poly<D, L>,
+		dis: Poly<D>,
 	) -> Self::Pred {
 		use ops::*;
 		
@@ -740,21 +716,20 @@ where
 }
 
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
+pub trait WhenDisEq<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<SIZE, B, J>,
-		dis: Poly<D, L>,
+		poly: PolyVec<SIZE, B>,
+		dis: Poly<D>,
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D, I, J, L> WhenDisEq<SIZE, B, D, J, L> for PolyVec<SIZE, A, I>
+impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D>
+	for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
-	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
-	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -766,25 +741,20 @@ where
 	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
 		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialEq,
 	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
-	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<
-		PredEq<
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output as FluxKind>::Value as LinearPlus>::Inner
-		>,
+		PredEq<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
 			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			I, J, L
 		>
 	>;
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<SIZE, B, J>,
-		dis: Poly<D, L>,
+		poly: PolyVec<SIZE, B>,
+		dis: Poly<D>,
 	) -> Self::Pred {
 		use ops::*;
 		

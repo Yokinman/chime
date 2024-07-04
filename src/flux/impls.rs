@@ -23,17 +23,11 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	fn index_base_time(&self, index: usize) -> Time {
 		self[index].base_time()
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<
-		<Self::Kind as FluxKindVec<SIZE>>::Kind,
-		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
-	> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> {
 		self[index].poly(time)
 	}
-	fn poly_vec(&self, time: Time)
-		-> PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
-	{
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
 		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
-			.with_iso()
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.map(|x| x.to_moment(time))
@@ -64,18 +58,11 @@ where
 	fn index_base_time(&self, _index: usize) -> Time {
 		T::base_time(self)
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<
-		<Self::Kind as FluxKindVec<SIZE>>::Kind,
-		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
-	> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> {
 		Poly::new(self.poly(time).into_inner().index_kind(index), time)
-			.with_iso()
 	}
-	fn poly_vec(&self, time: Time)
-		-> PolyVec<SIZE, Self::Kind, <Self::Moment as MomentVec<SIZE>>::Value>
-	{
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
 		PolyVec::new(self.poly(time).into_inner(), time)
-			.with_iso()
 	}
 	fn to_moment_vec(self, time: Time) -> Self::Moment {
 		self.to_moment(time)
