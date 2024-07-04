@@ -180,6 +180,23 @@ impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
 	}
 }
 
+/// Multidimensional [`LinearPlus`].
+pub trait LinearPlusVec<const SIZE: usize>: Clone {
+	type Inner: LinearVec<SIZE, Value = <Self::Value as LinearPlus>::Inner>;
+	type Outer: LinearIsoVec<SIZE, Self::Inner, Value = <Self::Value as LinearPlus>::Outer>;
+	type Value: LinearPlus;
+	fn index(&self, index: usize) -> Self::Value;
+}
+
+impl<T: LinearPlus, const SIZE: usize> LinearPlusVec<SIZE> for [T; SIZE] {
+	type Inner = [T::Inner; SIZE];
+	type Outer = [T::Outer; SIZE];
+	type Value = T;
+	fn index(&self, index: usize) -> Self::Value {
+		self[index]
+	}
+}
+
 /// A mapping of a vector space that preserves addition & multiplication.
 /// 
 /// # Properties

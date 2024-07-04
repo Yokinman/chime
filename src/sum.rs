@@ -195,7 +195,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 
 impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
 where
-	T: LinearVec<SIZE>
+	T: LinearPlusVec<SIZE>
 {
 	type Kind = Sum<T::Value, D>;
 	type Value = T;

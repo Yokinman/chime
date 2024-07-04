@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Mul};
 
-use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearPlus, Scalar};
+use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearPlus, LinearPlusVec, Scalar};
 use crate::time;
 use crate::time::Time;
 use crate::kind::*;
@@ -58,8 +58,8 @@ where
 impl<A, B, D, I, J, L> TimeFilterMap for DiffTimeFilterMap<A, B, D, I, J, L>
 where
 	A: FluxKind,
-	B: FluxKind<Value=A::Value>,
-	D: FluxKind<Value=A::Value>,
+	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+	D: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	<A::Value as LinearPlus>::Inner: PartialEq,
 	I: LinearIso<<A::Value as LinearPlus>::Inner>,
 	J: LinearIso<<A::Value as LinearPlus>::Inner>,
@@ -143,12 +143,12 @@ where
 	B: FluxKindVec<SIZE>,
 	D: FluxKind,
 	<D::Value as LinearPlus>::Inner: PartialEq + Mul<Output = <D::Value as LinearPlus>::Inner>,
-	A::Kind: FluxKind<Value=D::Value>,
-	B::Kind: FluxKind<Value=D::Value>,
-	E: FluxKind<Value=D::Value>,
-	F: FluxKind<Value=D::Value>,
-	I: LinearIsoVec<SIZE, A::Value>,
-	J: LinearIsoVec<SIZE, B::Value>,
+	A::Kind: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
+	B::Kind: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
+	E: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
+	F: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
+	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
+	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
 	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
@@ -616,7 +616,7 @@ pub trait When<B, J> {
 impl<A, B, I, J> When<B, J> for Poly<A, I>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind,
+	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	I: LinearIso<<A::Value as LinearPlus>::Inner>,
 	J: LinearIso<<B::Value as LinearPlus>::Inner>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
@@ -646,7 +646,7 @@ pub trait WhenEq<B, J> {
 impl<A, B, I, J> WhenEq<B, J> for Poly<A, I>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind,
+	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	I: LinearIso<<A::Value as LinearPlus>::Inner>,
 	J: LinearIso<<B::Value as LinearPlus>::Inner>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
@@ -679,9 +679,9 @@ impl<const SIZE: usize, A, B, D, I, J, L> WhenDis<SIZE, B, D, J, L>
 	for PolyVec<SIZE, A, I>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE>,
-	I: LinearIsoVec<SIZE, A::Value>,
-	J: LinearIsoVec<SIZE, B::Value>,
+	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
+	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
+	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -692,7 +692,7 @@ where
 		+ PartialEq,
 	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
 		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialOrd,
-	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
+	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
 	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<
@@ -752,9 +752,9 @@ pub trait WhenDisEq<const SIZE: usize, B, D, J, L> {
 impl<const SIZE: usize, A, B, D, I, J, L> WhenDisEq<SIZE, B, D, J, L> for PolyVec<SIZE, A, I>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE>,
-	I: LinearIsoVec<SIZE, A::Value>,
-	J: LinearIsoVec<SIZE, B::Value>,
+	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
+	I: LinearIsoVec<SIZE, <A::Value as LinearPlusVec<SIZE>>::Inner>,
+	J: LinearIsoVec<SIZE, <B::Value as LinearPlusVec<SIZE>>::Inner>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -765,7 +765,7 @@ where
 		+ PartialEq,
 	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
 		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialEq,
-	D: FluxKind<Value = <A::Kind as FluxKind>::Value> + ops::Sqr,
+	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
 	L: LinearIso<<D::Value as LinearPlus>::Inner>,
 {
 	type Pred = PredFilter<

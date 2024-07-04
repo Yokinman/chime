@@ -501,7 +501,7 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 /// Multidimensional interface for a vector that changes over time.
 pub trait MomentVec<const SIZE: usize> {
 	type Flux: FluxVec<SIZE, Moment=Self>;
-	type Value: LinearIsoVec<SIZE, <<Self::Flux as FluxVec<SIZE>>::Kind as FluxKindVec<SIZE>>::Value>;
+	type Value: LinearIsoVec<SIZE, <<<Self::Flux as FluxVec<SIZE>>::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>;
 	
 	/// Constructs the entirety of a [`FluxVec`] from a single moment.
 	fn to_flux_vec(self, time: Time) -> Self::Flux;
@@ -523,7 +523,7 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	fn index_poly(&self, index: usize, time: Time) -> Poly<
 		<Self::Kind as FluxKindVec<SIZE>>::Kind,
-		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value
+		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
 	>;
 	
 	fn poly_vec(&self, time: Time)
@@ -619,12 +619,16 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when a component is above/below/equal to another flux.
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
-			as When<T::Kind, <T::Moment as Moment>::Value>>::Pred
+		-> <Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		> as When<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
-			When<T::Kind, <T::Moment as Moment>::Value>
+		Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		>: When<T::Kind, <T::Moment as Moment>::Value>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -633,12 +637,16 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Times when a component is equal to another flux.
 	fn when_index_eq<T>(&self, index: usize, other: &T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
-			as WhenEq<T::Kind, <T::Moment as Moment>::Value>>::Pred
+		-> <Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		> as WhenEq<T::Kind, <T::Moment as Moment>::Value>>::Pred
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
-			WhenEq<T::Kind, <T::Moment as Moment>::Value>
+		Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		>: WhenEq<T::Kind, <T::Moment as Moment>::Value>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -647,24 +655,32 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when a component is above/below/equal to a constant.
 	fn when_index_constant<T>(&self, index: usize, order: Ordering, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
-			as When<Constant<T>, T>>::Pred
+		-> <Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		> as When<Constant<T>, T>>::Pred
 	where
 		T: Linear,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
-			When<Constant<T>, T>
+		Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		>: When<Constant<T>, T>
 	{
 		self.when_index(index, order, &FluxValue::new(Constant::from(other), Time::ZERO))
 	}
 	
 	/// Times when a component is equal to a constant.
 	fn when_index_eq_constant<T>(&self, index: usize, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>
-			as WhenEq<Constant<T>, T>>::Pred
+		-> <Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		> as WhenEq<Constant<T>, T>>::Pred
 	where
 		T: Linear,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind, <<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value>:
-			WhenEq<Constant<T>, T>
+		Poly<
+			<Self::Kind as FluxKindVec<SIZE>>::Kind,
+			<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
+		>: WhenEq<Constant<T>, T>
 	{
 		self.when_index_eq(index, &FluxValue::new(Constant::from(other), Time::ZERO))
 	}
@@ -1074,7 +1090,7 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	}
 }
 
-impl<const SIZE: usize, T: LinearVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
+impl<const SIZE: usize, T: LinearPlusVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
 	type Kind = Constant<T::Value>;
 	type Value = T;
 	fn index_kind(&self, index: usize) -> Self::Kind {

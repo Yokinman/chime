@@ -7,7 +7,7 @@ use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
 use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
-use crate::linear::{Linear, LinearIsoVec, LinearPlus, LinearVec};
+use crate::linear::{Linear, LinearIsoVec, LinearPlus, LinearPlusVec, LinearVec};
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
@@ -25,7 +25,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	}
 	fn index_poly(&self, index: usize, time: Time) -> Poly<
 		<Self::Kind as FluxKindVec<SIZE>>::Kind,
-		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value
+		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
 	> {
 		self[index].poly(time)
 	}
@@ -44,7 +44,7 @@ impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
 where
 	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearVec<SIZE>,
 	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
-	T::Value: LinearIsoVec<SIZE, <<T::Flux as Flux>::Kind as FluxKindVec<SIZE>>::Value>,
+	T::Value: LinearIsoVec<SIZE, <<<T::Flux as Flux>::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>,
 {
 	type Flux = T::Flux;
 	type Value = T::Value;
@@ -66,7 +66,7 @@ where
 	}
 	fn index_poly(&self, index: usize, time: Time) -> Poly<
 		<Self::Kind as FluxKindVec<SIZE>>::Kind,
-		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <Self::Kind as FluxKindVec<SIZE>>::Value>>::Value
+		<<Self::Moment as MomentVec<SIZE>>::Value as LinearIsoVec<SIZE, <<Self::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>>::Value
 	> {
 		Poly::new(self.poly(time).into_inner().index_kind(index), time)
 			.with_iso()

@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{LinearIso, LinearIsoVec, LinearPlus, LinearVec, Scalar};
+use crate::linear::{LinearIso, LinearIsoVec, LinearPlus, LinearPlusVec, LinearVec, Scalar};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
@@ -54,13 +54,13 @@ pub trait FluxKind:
 /// Multidimensional kind of change.
 pub trait FluxKindVec<const SIZE: usize>: Clone {
 	type Kind: FluxKind;
-	type Value: LinearVec<SIZE, Value = <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>;
+	type Value: LinearPlusVec<SIZE, Value = <Self::Kind as FluxKind>::Value>;
 	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 	type Kind = T;
-	type Value = [<T::Value as LinearPlus>::Inner; SIZE];
+	type Value = [T::Value; SIZE];
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		self[index]
 	}
@@ -73,19 +73,19 @@ impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 pub mod ops {
 	use std::ops;
 	use super::FluxKind;
-	use crate::linear::Scalar;
+	use crate::linear::{LinearPlus, Scalar};
 	
 	/// Adding two kinds of change.
-	pub trait Add<K: FluxKind = Self>: FluxKind<Value=K::Value> {
-		type Output: FluxKind<Value=K::Value>;
+	pub trait Add<K: FluxKind = Self>: FluxKind {
+		type Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>;
 		fn add(self, kind: K) -> <Self as Add<K>>::Output;
 	}
 	
 	impl<A, B> Add<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value=A::Value>,
-		<A as ops::Add<B>>::Output: FluxKind<Value=A::Value>,
+		B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn add(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -94,16 +94,16 @@ pub mod ops {
 	}
 	
 	/// Differentiating two kinds of change.
-	pub trait Sub<K: FluxKind = Self>: FluxKind<Value=K::Value> {
-		type Output: FluxKind<Value=K::Value>;
+	pub trait Sub<K: FluxKind = Self>: FluxKind {
+		type Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>;
 		fn sub(self, kind: K) -> <Self as Sub<K>>::Output;
 	}
 	
 	impl<A, B> Sub<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value=A::Value>,
-		<A as ops::Add<B>>::Output: FluxKind<Value=A::Value>,
+		B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -116,14 +116,14 @@ pub mod ops {
 	
 	/// Squaring a kind of change.
 	pub trait Sqr: FluxKind {
-		type Output: FluxKind<Value=Self::Value>;
+		type Output: FluxKind<Value: LinearPlus<Inner = <Self::Value as LinearPlus>::Inner>>;
 		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
 	impl<K: FluxKind> Sqr for K
 	where
 		K: ops::Mul,
-		<K as ops::Mul>::Output: FluxKind<Value=K::Value>,
+		<K as ops::Mul>::Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>,
 	{
 		type Output = <K as ops::Mul>::Output;
 		fn sqr(self) -> <Self as Sqr>::Output {
@@ -387,7 +387,7 @@ impl<const SIZE: usize, K: FluxKind, I> PolyVec<SIZE, K, I> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K, K::Value> {
+impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K, <K::Value as LinearPlusVec<SIZE>>::Inner> {
 	pub fn new(inner: K, time: Time) -> Self {
 		Self {
 			inner,
@@ -398,7 +398,7 @@ impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K, K::Value> {
 }
 
 impl<const SIZE: usize, K: FluxKindVec<SIZE>, I> PolyVec<SIZE, K, I> {
-	pub fn with_iso<T: LinearIsoVec<SIZE, K::Value>>(self) -> PolyVec<SIZE, K, T> {
+	pub fn with_iso<T: LinearIsoVec<SIZE, <K::Value as LinearPlusVec<SIZE>>::Inner>>(self) -> PolyVec<SIZE, K, T> {
 		PolyVec {
 			inner: self.inner,
 			time: self.time,
@@ -407,7 +407,7 @@ impl<const SIZE: usize, K: FluxKindVec<SIZE>, I> PolyVec<SIZE, K, I> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>, I: LinearIsoVec<SIZE, K::Value>> PolyVec<SIZE, K, I> {
+impl<const SIZE: usize, K: FluxKindVec<SIZE>, I: LinearIsoVec<SIZE, <K::Value as LinearPlusVec<SIZE>>::Inner>> PolyVec<SIZE, K, I> {
 	pub fn index_poly(&self, index: usize) -> Poly<K::Kind, I::Value> {
 		Poly::new(self.inner.index_kind(index), self.time)
 			.with_iso()
