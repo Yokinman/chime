@@ -27,7 +27,6 @@ pub struct Chime;
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
 	type Flux: Flux<Moment=Self>;
-	type Value: LinearIso<<<<Self::Flux as Flux>::Kind as FluxKind>::Value as LinearPlus>::Inner>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
 	fn to_flux(self, time: Time) -> Self::Flux;
@@ -493,7 +492,6 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 /// Multidimensional interface for a vector that changes over time.
 pub trait MomentVec<const SIZE: usize> {
 	type Flux: FluxVec<SIZE, Moment=Self>;
-	type Value: LinearIsoVec<SIZE, <<<Self::Flux as FluxVec<SIZE>>::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>;
 	
 	/// Constructs the entirety of a [`FluxVec`] from a single moment.
 	fn to_flux_vec(self, time: Time) -> Self::Flux;
@@ -766,7 +764,6 @@ impl<T> Change<T> {
 
 impl<T: Moment> Moment for Change<T> {
 	type Flux = FluxValue<Change<<T::Flux as Flux>::Inner>>;
-	type Value = T::Value;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		FluxValue::new(
 			Change {
@@ -903,7 +900,6 @@ impl<T: Linear> InnerFlux for Constant<T> {
 
 impl<T: Linear> Moment for Constant<T> {
 	type Flux = FluxValue<Self>;
-	type Value = T;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		FluxValue::new(self, time)
 	}
@@ -920,7 +916,6 @@ where
 	T::Moment: Moment<Flux=FluxValue<T>>,
 {
 	type Flux = FluxRef<'a, T>;
-	type Value = <T::Moment as Moment>::Value;
 	fn to_flux(self, _time: Time) -> Self::Flux {
 		unimplemented!()
 	}

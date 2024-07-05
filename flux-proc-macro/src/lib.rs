@@ -295,9 +295,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		proc_macro2::Span::mixed_site()
 	);
 	flux_item.ident = flux_ident.clone();
-	let mut moment_value_type: syn::Type = syn::parse_quote!{
-		<<Self::Flux as #flux::Flux>::Kind as #flux::kind::FluxKind>::Value
-	};
 	let mut moment_fields = Default::default();
 	let mut flux_fields = Default::default();
 	for field in &mut flux_item.fields {
@@ -306,10 +303,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		 // Constant/Linear Types:
 		if value_idents.contains(&ident.unraw()) {
-			let field_ty = syn::parse_quote!{
-				<<Self as #flux::_hidden::InnerFlux>::Kind
-				as #flux::kind::FluxKind>::Value
-			};
 			moment_fields = quote::quote!{
 				#moment_fields
 				#ident: #flux::Flux::value(&#flux::FluxRef::new(&self, base_time), time),
@@ -318,7 +311,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#flux_fields
 				#ident: self.#ident,
 			};
-			moment_value_type = std::mem::replace(&mut field.ty, field_ty);
 		}
 		
 		 // Flux/Moment Types:
@@ -358,7 +350,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux::FluxValue<#flux_type>;
-			type Value = <#moment_value_type as #flux::linear::LinearPlus>::Inner;
 			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
 				#flux::FluxValue::new(#flux_type { #flux_fields }, time)
 			}

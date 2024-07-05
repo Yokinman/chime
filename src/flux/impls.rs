@@ -11,7 +11,6 @@ use crate::linear::{Linear, LinearIsoVec, LinearPlus, LinearPlusVec, LinearVec};
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
-	type Value = [T::Value; SIZE];
 	fn to_flux_vec(self, time: Time) -> Self::Flux {
 		self.map(|x| x.to_flux(time))
 	}
@@ -38,10 +37,8 @@ impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
 where
 	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearVec<SIZE>,
 	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
-	T::Value: LinearIsoVec<SIZE, <<<T::Flux as Flux>::Kind as FluxKindVec<SIZE>>::Value as LinearPlusVec<SIZE>>::Inner>,
 {
 	type Flux = T::Flux;
-	type Value = T::Value;
 	fn to_flux_vec(self, time: Time) -> Self::Flux {
 		self.to_flux(time)
 	}
@@ -107,7 +104,6 @@ where
 		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = FluxValue<Vec<<T::Flux as Flux>::Inner>>;
-	type Value = T::Value;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		FluxValue::new(
 			self.into_iter()
