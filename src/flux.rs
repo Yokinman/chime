@@ -151,22 +151,22 @@ pub trait Flux {
 	
 	/// Ranges when this is above/below/equal to a constant.
 	fn when_constant<T>(&self, order: Ordering, other: T)
-		-> <Poly<Self::Kind> as When<Constant<T>>>::Pred
+		-> <Poly<Self::Kind> as When<Constant<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
-		T: Linear,
-		Poly<Self::Kind>: When<Constant<T>>
+		T: LinearIso<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		Poly<Self::Kind>: When<Constant<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>>
 	{
-		self.when(order, &FluxValue::new(Constant::from(other), Time::ZERO))
+		self.when(order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when this is equal to a constant.
 	fn when_eq_constant<T>(&self, other: T)
-		-> <Poly<Self::Kind> as WhenEq<Constant<T>>>::Pred
+		-> <Poly<Self::Kind> as WhenEq<Constant<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
-		T: Linear,
-		Poly<Self::Kind>: WhenEq<Constant<T>>
+		T: LinearIso<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		Poly<Self::Kind>: WhenEq<Constant<<<Self::Kind as FluxKind>::Value as LinearPlus>::Inner>>
 	{
-		self.when_eq(&FluxValue::new(Constant::from(other), Time::ZERO))
+		self.when_eq(&FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 }
 
@@ -577,24 +577,24 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
 	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, Constant<D>>>::Pred
+		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
-		D: Linear,
-		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, Constant<D>>,
+		D: LinearIso<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>,
 	{
-		self.when_dis(other, order, &FluxValue::new(Constant::from(dis), Time::ZERO))
+		self.when_dis(other, order, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
 	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<D>>>::Pred
+		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
-		D: Linear,
-		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<D>>,
+		D: LinearIso<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>,
 	{
-		self.when_dis_eq(other, &FluxValue::new(Constant::from(dis), Time::ZERO))
+		self.when_dis_eq(other, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
@@ -623,22 +623,22 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when a component is above/below/equal to a constant.
 	fn when_index_constant<T>(&self, index: usize, order: Ordering, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> as When<Constant<T>>>::Pred
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> as When<Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
-		T: Linear,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: When<Constant<T>>
+		T: LinearIso<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: When<Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>
 	{
-		self.when_index(index, order, &FluxValue::new(Constant::from(other), Time::ZERO))
+		self.when_index(index, order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when a component is equal to a constant.
 	fn when_index_eq_constant<T>(&self, index: usize, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> as WhenEq<Constant<T>>>::Pred
+		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind> as WhenEq<Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>>::Pred
 	where
-		T: Linear,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: WhenEq<Constant<T>>
+		T: LinearIso<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>,
+		Poly<<Self::Kind as FluxKindVec<SIZE>>::Kind>: WhenEq<Constant<<<<Self::Kind as FluxKindVec<SIZE>>::Kind as FluxKind>::Value as LinearPlus>::Inner>>
 	{
-		self.when_index_eq(index, &FluxValue::new(Constant::from(other), Time::ZERO))
+		self.when_index_eq(index, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 	
 	// !!!
@@ -1359,73 +1359,53 @@ mod tests {
 	
 	#[test]
 	fn distance() {
-		#[derive(Debug)]
-		struct PosFlux {
-			value: f64,
-			spd: SpdFlux,
-		}
-		
-		#[derive(Debug)]
-		struct SpdFlux {
-			value: f64,
-			acc: AccFlux,
-		}
-		
-		#[derive(Debug)]
-		struct AccFlux {
-			value: f64,
-		}
-		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = Sum<f64, 2>,
+			kind = Sum<Iso<f64, i64>, 2>,
 			value = value,
 			change = |c| c + spd.per(time::MINUTE),
-			flux = PosFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Pos {
-			value: i64,
+			value: Iso<f64, i64>,
 			spd: Spd,
 		}
 		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = Sum<f64, 1>,
+			kind = Sum<Iso<f64, i64>, 1>,
 			value = value,
 			change = |c| c + acc.per(SEC),
-			flux = SpdFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Spd {
-			value: i64,
+			value: Iso<f64, i64>,
 			acc: Acc,
 		}
 		
 		#[derive(PartialOrd, PartialEq, Copy, Clone)]
 		#[flux(
-			kind = Constant<f64>,
+			kind = Constant<Iso<f64, i64>>,
 			value = value,
-			flux = AccFlux,
 			crate = crate,
 		)]
 		#[derive(Debug)]
 		struct Acc {
-			value: i64,
+			value: Iso<f64, i64>,
 		}
 		
 		let a_pos = [
-			Pos { value: 3, spd: Spd { value: 300, acc: Acc { value: -240 } } },
-			Pos { value: -4, spd: Spd { value: 120, acc: Acc { value: 1080 } } }
+			Pos { value: Iso::new(3), spd: Spd { value: Iso::new(300), acc: Acc { value: Iso::new(-240) } } },
+			Pos { value: Iso::new(-4), spd: Spd { value: Iso::new(120), acc: Acc { value: Iso::new(1080) } } }
 		].to_flux_vec(Time::ZERO);
 		let b_pos = [
-			Pos { value: 8, spd: Spd { value: 330, acc: Acc { value: -300 } } },
-			Pos { value: 4, spd: Spd { value: 600, acc: Acc { value: 720 } } }
+			Pos { value: Iso::new(8), spd: Spd { value: Iso::new(330), acc: Acc { value: Iso::new(-300) } } },
+			Pos { value: Iso::new(4), spd: Spd { value: Iso::new(600), acc: Acc { value: Iso::new(720) } } }
 		].to_flux_vec(Time::ZERO);
 		
-		let dis = Spd { value: 10, acc: Acc { value: 0 } }
+		let dis = Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } }
 			.to_flux(Time::ZERO);
 		
 		assert_time_ranges!(
@@ -1439,14 +1419,14 @@ mod tests {
 		
 		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
 		assert_time_ranges!(
-			a_pos.when_dis_eq_constant(&b_pos, 2.),
+			a_pos.when_dis_eq_constant(&b_pos, 2),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
 			]
 		);
 		assert_time_ranges!(
-			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2.),
+			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))

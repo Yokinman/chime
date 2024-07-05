@@ -358,12 +358,24 @@ mod glam_stuff {
 }
 
 /// ...
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Iso<A, B>(Option<A>, B);
 
 mod _iso_impls {
 	use std::ops::{Deref, DerefMut};
 	use super::Iso;
+	
+	impl<A, B> From<B> for Iso<A, B> {
+		fn from(value: B) -> Self {
+			Iso(None, value)
+		}
+	}
+	
+	impl<A, B> Iso<A, B> {
+		pub fn new(outer: B) -> Self {
+			Iso(None, outer)
+		}
+	}
 	
 	impl<A, B> Deref for Iso<A, B> {
 		type Target = B;

@@ -312,15 +312,11 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: <<Self::Moment as #flux::Moment>::Value
-					as #flux::linear::LinearIso::<#field_ty>>
-					::from_linear(#flux::Flux::value(&#flux::FluxRef::new(&self, base_time), time)),
+				#ident: #flux::Flux::value(&#flux::FluxRef::new(&self, base_time), time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: <Self::Value
-					as #flux::linear::LinearIso::<#moment_value_type>>
-					::into_linear(self.#ident),
+				#ident: self.#ident,
 			};
 			moment_value_type = std::mem::replace(&mut field.ty, field_ty);
 		}
@@ -362,7 +358,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux::FluxValue<#flux_type>;
-			type Value = #moment_value_type;
+			type Value = <#moment_value_type as #flux::linear::LinearPlus>::Inner;
 			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
 				#flux::FluxValue::new(#flux_type { #flux_fields }, time)
 			}

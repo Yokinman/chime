@@ -207,32 +207,34 @@ where
 	}
 }
 
-impl<T: Linear> Into<Constant<T>> for Sum<T, 0> {
+impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {
 		Constant::from(self[0])
 	}
 }
 
-impl<T: Linear> From<Constant<T>> for Sum<T, 0> {
+impl<T: LinearPlus> From<Constant<T>> for Sum<T, 0> {
 	fn from(value: Constant<T>) -> Self {
 		Self::from(*value)
 	}
 }
 
-impl<K: FluxKind, const D: usize> Add<K> for Sum<K::Value, D>
+impl<A, B, const D: usize> Add<B> for Sum<A, D>
 where
-	K: Into<Constant<K::Value>>
+	A: LinearPlus,
+	B: FluxKind + Into<Constant<B::Value>>,
+	B::Value: LinearPlus<Inner = A::Inner>,
 {
 	type Output = Self;
-	fn add(mut self, rhs: K) -> Self {
-		self.0 = K::Value::from_inner(self.0.into_inner() + rhs.value().into_inner());
+	fn add(mut self, rhs: B) -> Self {
+		self.0 = A::from_inner(self.0.into_inner() + rhs.value().into_inner());
 		self
 	}
 }
 
 /// Used for upgrading the degree of a [`Sum`].
 trait SumShiftUp: FluxKind {
-	type Up: FluxKind<Value=Self::Value>;
+	type Up: FluxKind<Value: LinearPlus<Inner = <Self::Value as LinearPlus>::Inner>>;
 	fn shift_up(self) -> <Self as SumShiftUp>::Up;
 }
 
@@ -256,7 +258,7 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: Linear> SumShiftUp for Sum<T, { $($num +)+ 0 }> {
+		impl<T: LinearPlus> SumShiftUp for Sum<T, { $($num +)+ 0 }> {
 			type Up = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn shift_up(self) -> <Self as SumShiftUp>::Up {
 				let mut sum = Sum::zero();
@@ -265,25 +267,37 @@ macro_rules! impl_deg_order {
 				sum
 			}
 		}
-		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, 0> {
-			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
-				rhs
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
+		where
+			A: LinearPlus,
+			B: LinearPlus<Inner = A::Inner>,
+		{
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				Sum::new(
+					A::from_inner(rhs.0.into_inner()),
+					rhs.1.map(|x| A::from_inner(LinearPlus::into_inner(x))),
+				)
 			}
 		}
-		impl<T: Linear> Add for Sum<T, { $($num +)+ 0 }> {
-			type Output = Self;
-			fn add(mut self, rhs: Self) -> Self {
-				self.0 = self.0 + rhs.0;
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
+		where
+			A: LinearPlus,
+			B: LinearPlus<Inner = A::Inner>,
+		{
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(mut self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				self.0 = A::from_inner(self.0.into_inner() + rhs.0.into_inner());
 				for i in 0..($($num +)+ 0) {
-					self.1[i] = self.1[i] + rhs.1[i];
+					self.1[i] = A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner());
 				}
 				self
 			}
 		}
-		impl<T: Linear> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
+		impl<T> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
 		where
-			T: Mul<Output = T>
+			T: LinearPlus,
+			T::Inner: Mul<Output = T::Inner>,
 		{
 			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
 			fn mul(self, rhs: Self) -> Self::Output {
@@ -292,12 +306,19 @@ macro_rules! impl_deg_order {
 				let Sum(b_value, b_terms) = rhs;
 				let mut terms = [T::zero(); { 2 * SIZE }];
 				for i in 0..SIZE {
-					terms[i] = terms[i] + a_terms[i]*b_value + a_value*b_terms[i];
+					terms[i] = T::from_inner(
+						terms[i].into_inner()
+						+ a_terms[i].into_inner()*b_value.into_inner()
+						+ a_value.into_inner()*b_terms[i].into_inner()
+					);
 					for j in 0..SIZE {
-						terms[i+j+1] = terms[i+j+1] + a_terms[i]*b_terms[j];
+						terms[i+j+1] = T::from_inner(
+							terms[i+j+1].into_inner()
+							+ a_terms[i].into_inner()*b_terms[j].into_inner()
+						);
 					}
 				}
-				Sum(a_value*b_value, terms)
+				Sum(T::from_inner(a_value.into_inner()*b_value.into_inner()), terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
@@ -313,24 +334,35 @@ macro_rules! impl_deg_add {
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
 	($a:tt, 8) => {/* break */};
 	($a:tt, $($num:tt)+) => {
-		impl<T: Linear> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
-			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn add(mut self, rhs: Sum<T, $a>) -> Self::Output {
-				self.0 = self.0 + rhs.0;
+		impl<A, B> Add<Sum<B, $a>> for Sum<A, { $($num +)+ 0 }>
+		where
+			A: LinearPlus,
+			B: LinearPlus<Inner = A::Inner>,
+		{
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(mut self, rhs: Sum<B, $a>) -> Self::Output {
+				self.0 = A::from_inner(self.0.into_inner() + rhs.0.into_inner());
 				for i in 0..($a) {
-					self.1[i] = self.1[i] + rhs.1[i];
+					self.1[i] = A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner());
 				}
 				self
 			}
 		}
-		impl<T: Linear> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
-			type Output = Sum<T, { $($num +)+ 0 }>;
-			fn add(self, mut rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
-				rhs.0 = rhs.0 + self.0;
-				for i in 0..($a) {
-					rhs.1[i] = rhs.1[i] + self.1[i];
-				}
-				rhs
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
+		where
+			A: LinearPlus,
+			B: LinearPlus<Inner = A::Inner>,
+		{
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				Sum::new(
+					A::from_inner(self.0.into_inner() + rhs.0.into_inner()),
+					std::array::from_fn(|i| if i < $a {
+						A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner())
+					} else {
+						A::from_inner(rhs.1[i].into_inner())
+					}),
+				)
 			}
 		}
 		impl_deg_add!($a, 1 $($num)+);
@@ -558,6 +590,22 @@ impl Roots for Sum<f64, 4> {
 	}
 }
 
+impl<A, B, const D: usize> Roots for Sum<Iso<A, B>, D>
+where
+	A: Linear,
+	B: LinearIso<A>,
+	Sum<A, D>: Roots,
+{
+	type Output = <Sum<A, D> as Roots>::Output;
+	fn roots(self) -> <Self as Roots>::Output {
+		let sum = Sum::<A, D>::new(
+			self.0.into_inner(),
+			self.1.map(|x| x.into_inner())
+		);
+		<Sum<A, D> as Roots>::roots(sum)
+	}
+}
+
 #[cfg(feature = "glam")]
 impl<const D: usize> Roots for Sum<glam::DVec2, D>
 where
@@ -667,7 +715,7 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
-	B: FluxKind<Value=A::Value> + SumShiftUp,
+	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>> + SumShiftUp,
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
 	fn eval<V: InnerFlux<Kind=B>>(
@@ -906,50 +954,39 @@ mod tests {
 	#[cfg(feature = "glam")]
 	#[test]
 	fn vec() {
-		struct PosFlux {
-			value: glam::DVec2,
-			spd: SpdFlux,
-		}
-		
-		struct SpdFlux {
-			value: glam::DVec2,
-		}
-		
 		#[flux(
-			kind = Sum<glam::DVec2, 1>,
+			kind = Sum<Iso<glam::DVec2, glam::IVec2>, 1>,
 			value = value,
 			change = |c| c + spd.per(SEC),
-			flux = PosFlux,
 			crate = crate,
 		)]
 		#[derive(PartialEq)]
 		struct Pos {
-			value: glam::IVec2,
+			value: Iso<glam::DVec2, glam::IVec2>,
 			spd: Spd,
 		}
 		
 		#[flux(
-			kind = Sum<glam::DVec2, 0>,
+			kind = Sum<Iso<glam::DVec2, glam::IVec2>, 0>,
 			value = value,
-			flux = SpdFlux,
 			crate = crate,
 		)]
 		#[derive(PartialEq)]
 		struct Spd {
-			value: glam::IVec2
+			value: Iso<glam::DVec2, glam::IVec2>
 		}
 		
 		let a_pos = Pos {
-			value: glam::IVec2::new(10, 10),
+			value: glam::IVec2::new(10, 10).into(),
 			spd: Spd {
-				value: glam::IVec2::new(6, 4)
+				value: glam::IVec2::new(6, 4).into()
 			}
 		}.to_flux(Time::default());
 		
 		let b_pos = Pos {
-			value: glam::IVec2::new(14, 18),
+			value: glam::IVec2::new(14, 18).into(),
 			spd: Spd {
-				value: glam::IVec2::new(4, 0)
+				value: glam::IVec2::new(4, 0).into()
 			}
 		}.to_flux(Time::default());
 		
