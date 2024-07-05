@@ -358,7 +358,7 @@ mod glam_stuff {
 }
 
 /// ...
-#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
 pub struct Iso<A, B>(Option<A>, B);
 
 mod _iso_impls {
