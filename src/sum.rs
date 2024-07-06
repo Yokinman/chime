@@ -27,6 +27,7 @@ impl<T: LinearPlus, const D: usize> Sum<T, D> {
 		std::iter::once(&mut self.0).chain(&mut self.1)
 	}
 	
+	#[allow(clippy::should_implement_trait)]
 	pub fn into_iter(self) -> impl Iterator<Item = T> {
 		// !!! impl IntoIterator
 		std::iter::once(self.0).chain(self.1)
@@ -207,6 +208,7 @@ where
 	}
 }
 
+#[allow(clippy::from_over_into)]
 impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {
 		Constant::from(self[0])
