@@ -58,9 +58,9 @@ where
 impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
 	A: FluxKind,
-	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-	D: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-	<A::Value as LinearPlus>::Inner: PartialEq,
+	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+	KindLinear<A>: PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -135,11 +135,11 @@ where
 	A: FluxKindVec<SIZE>,
 	B: FluxKindVec<SIZE>,
 	D: FluxKind,
-	<D::Value as LinearPlus>::Inner: PartialEq + Mul<Output = <D::Value as LinearPlus>::Inner>,
-	A::Kind: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
-	B::Kind: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
-	E: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
-	F: FluxKind<Value: LinearPlus<Inner = <D::Value as LinearPlus>::Inner>>,
+	KindLinear<D>: PartialEq + Mul<Output = KindLinear<D>>,
+	A::Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
+	B::Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
+	E: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
+	F: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -167,9 +167,9 @@ where
 					
 					 // Calculate Actual Distances:
 					let dis = dis_poly.at(next_time).into_inner();
-					let mut a_dis = <<D::Value as LinearPlus>::Inner as Linear>::zero();
-					let mut b_dis = <<D::Value as LinearPlus>::Inner as Linear>::zero();
-					let mut real_diff = <<D::Value as LinearPlus>::Inner as Linear>::zero();
+					let mut a_dis = <KindLinear<D> as Linear>::zero();
+					let mut b_dis = <KindLinear<D> as Linear>::zero();
+					let mut real_diff = <KindLinear<D> as Linear>::zero();
 					for i in 0..SIZE {
 						let a = a_pos.index_poly(i).at(next_time).into_inner();
 						let b = b_pos.index_poly(i).at(next_time).into_inner();
@@ -225,7 +225,7 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				let mut pos = <<D::Value as LinearPlus>::Inner as Linear>::zero();
+				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
 					let x = <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
 						- <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
@@ -411,7 +411,7 @@ where
 impl<K> IntoIterator for Pred<K>
 where
 	K: Roots + PartialEq,
-	<K::Value as LinearPlus>::Inner: PartialOrd,
+	KindLinear<K>: PartialOrd,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -448,7 +448,7 @@ where
 impl<K> IntoIterator for PredEq<K>
 where
 	K: Roots + PartialEq,
-	<K::Value as LinearPlus>::Inner: PartialEq,
+	KindLinear<K>: PartialEq,
 {
 	type Item = <Self::IntoIter as Iterator>::Item;
 	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -604,9 +604,9 @@ pub trait When<B> {
 impl<A, B> When<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
-	<A::Value as LinearPlus>::Inner: PartialOrd,
+	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
 		Pred<<A as ops::Sub<B>>::Output>,
@@ -632,9 +632,9 @@ pub trait WhenEq<B> {
 impl<A, B> WhenEq<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
-	<A::Value as LinearPlus>::Inner: PartialEq,
+	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>>;
 	fn when_eq(self, poly: Poly<B>) -> Self::Pred {
@@ -662,7 +662,7 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
+	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>>>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -671,9 +671,9 @@ where
 			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
-		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialOrd,
-	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
+	KindLinear<A::Kind>:
+		Mul<Output = KindLinear<A::Kind>> + PartialOrd,
+	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
 		Pred<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,
@@ -729,7 +729,7 @@ impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D>
 	for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>>>,
+	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>>>,
 	A::Kind: ops::Sub<B::Kind>,
 	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
 	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
@@ -738,9 +738,9 @@ where
 			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	<<A::Kind as FluxKind>::Value as LinearPlus>::Inner:
-		Mul<Output = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner> + PartialEq,
-	D: FluxKind<Value: LinearPlus<Inner = <<A::Kind as FluxKind>::Value as LinearPlus>::Inner>> + ops::Sqr,
+	KindLinear<A::Kind>:
+		Mul<Output = KindLinear<A::Kind>> + PartialEq,
+	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
 		PredEq<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,

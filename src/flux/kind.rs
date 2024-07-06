@@ -51,6 +51,9 @@ pub trait FluxKind:
 	}
 }
 
+/// Shortcut for the inner [`crate::linear::Linear`] type of a [`FluxKind`].
+pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
+
 /// Multidimensional kind of change.
 pub trait FluxKindVec<const SIZE: usize>: Clone {
 	type Kind: FluxKind;
@@ -72,20 +75,20 @@ impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 /// the same space, for combination or comparison purposes.
 pub mod ops {
 	use std::ops;
-	use super::FluxKind;
+	use super::{FluxKind, KindLinear};
 	use crate::linear::{LinearPlus, Scalar};
 	
 	/// Adding two kinds of change.
 	pub trait Add<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>;
+		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>;
 		fn add(self, kind: K) -> <Self as Add<K>>::Output;
 	}
 	
 	impl<A, B> Add<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn add(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -95,15 +98,15 @@ pub mod ops {
 	
 	/// Differentiating two kinds of change.
 	pub trait Sub<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>;
+		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>;
 		fn sub(self, kind: K) -> <Self as Sub<K>>::Output;
 	}
 	
 	impl<A, B> Sub<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
-		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>>,
+		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -116,14 +119,14 @@ pub mod ops {
 	
 	/// Squaring a kind of change.
 	pub trait Sqr: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = <Self::Value as LinearPlus>::Inner>>;
+		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
 		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
 	impl<K: FluxKind> Sqr for K
 	where
 		K: ops::Mul,
-		<K as ops::Mul>::Output: FluxKind<Value: LinearPlus<Inner = <K::Value as LinearPlus>::Inner>>,
+		<K as ops::Mul>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>,
 	{
 		type Output = <K as ops::Mul>::Output;
 		fn sqr(self) -> <Self as Sqr>::Output {
@@ -232,7 +235,7 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
-		<K::Value as LinearPlus>::Inner: PartialOrd
+		KindLinear<K>: PartialOrd
 	{
 		self.inner.initial_order(Scalar(if time > self.time {
 			(time - self.time).as_secs_f64()
@@ -255,7 +258,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
-		<K::Value as LinearPlus>::Inner: PartialOrd,
+		KindLinear<K>: PartialOrd,
 	{
 		let pred = crate::pred::Pred {
 			poly: self,
@@ -269,7 +272,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
-		<K::Value as LinearPlus>::Inner: PartialEq,
+		KindLinear<K>: PartialEq,
 	{
 		crate::pred::PredFilter {
 			pred: crate::pred::PredEq { poly: self },

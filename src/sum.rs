@@ -234,7 +234,7 @@ where
 
 /// Used for upgrading the degree of a [`Sum`].
 trait SumShiftUp: FluxKind {
-	type Up: FluxKind<Value: LinearPlus<Inner = <Self::Value as LinearPlus>::Inner>>;
+	type Up: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
 	fn shift_up(self) -> <Self as SumShiftUp>::Up;
 }
 
@@ -715,7 +715,7 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
-	B: FluxKind<Value: LinearPlus<Inner = <A::Value as LinearPlus>::Inner>> + SumShiftUp,
+	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>> + SumShiftUp,
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
 	fn eval<V: InnerFlux<Kind=B>>(
