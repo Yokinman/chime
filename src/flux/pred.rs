@@ -627,6 +627,8 @@ where
 pub trait WhenEq<B> {
 	type Pred: Prediction;
 	fn when_eq(self, poly: Poly<B>) -> Self::Pred;
+	// ??? Add `diff_poly` method, make `When` a sub-trait, elide the returned
+	// `DiffTimeFilterMap` type, and provide `when(_eq)` by default.
 }
 
 impl<A, B> WhenEq<B> for Poly<A>
