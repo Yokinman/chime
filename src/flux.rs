@@ -884,7 +884,7 @@ use crate::_hidden::InnerFlux;
 
 // ??? impl InnerFlux for T where T: FluxKind
 
-impl<T: Linear> InnerFlux for Constant<T> {
+impl<T: LinearPlus> InnerFlux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
 	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
@@ -898,7 +898,7 @@ impl<T: Linear> InnerFlux for Constant<T> {
 	}
 }
 
-impl<T: Linear> Moment for Constant<T> {
+impl<T: LinearPlus> Moment for Constant<T> {
 	type Flux = FluxValue<Self>;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		FluxValue::new(self, time)
