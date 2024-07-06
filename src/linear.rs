@@ -197,6 +197,23 @@ impl<T: LinearPlus, const SIZE: usize> LinearPlusVec<SIZE> for [T; SIZE] {
 	}
 }
 
+impl<A, B, const SIZE: usize> LinearPlusVec<SIZE> for Iso<A, B>
+where
+	A: LinearVec<SIZE>,
+	B: LinearIsoVec<SIZE, A>,
+{
+	type Inner = A;
+	type Outer = B;
+	type Value = Iso<A::Value, B::Value>;
+	fn index(&self, index: usize) -> Self::Value {
+		let Iso(inner, outer) = self;
+		let inner = inner.clone()
+			.map(|x| x.index(index))
+			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(outer.index(index).clone()));
+		Iso::from_inner(inner)
+	}
+}
+
 /// A mapping of a vector space that preserves addition & multiplication.
 /// 
 /// # Properties
@@ -246,7 +263,7 @@ impl LinearIso<f32> for f64 {
 }
 
 /// Multidimensional linear map.
-pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>> {
+pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
 	type Value: LinearIso<T::Value>;
 	fn index(&self, index: usize) -> &Self::Value;
 }

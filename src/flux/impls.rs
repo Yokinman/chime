@@ -35,7 +35,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
 where
-	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearVec<SIZE>,
+	<<T::Flux as Flux>::Kind as FluxKind>::Value: LinearPlusVec<SIZE>,
 	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
 {
 	type Flux = T::Flux;
@@ -46,7 +46,7 @@ where
 
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for T
 where
-	<T::Kind as FluxKind>::Value: LinearVec<SIZE>,
+	<T::Kind as FluxKind>::Value: LinearPlusVec<SIZE>,
 	T::Kind: FluxKindVec<SIZE>,
 	T::Moment: MomentVec<SIZE, Flux=Self>,
 {
