@@ -257,7 +257,7 @@ where
 #[cfg(feature = "bevy")]
 mod bevy_moment {
 	use bevy_ecs::archetype::Archetype;
-	use bevy_ecs::component::{Component, ComponentId, Tick};
+	use bevy_ecs::component::{Component, ComponentId, Components, Tick};
 	use bevy_ecs::entity::Entity;
 	use bevy_ecs::query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery};
 	use bevy_ecs::storage::{Table, TableRow};
@@ -342,9 +342,9 @@ mod bevy_moment {
 			(world.init_resource::<ChimeTime>(),
 				<Ref<'b, M> as WorldQuery>::init_state(world))
 		}
-		fn get_state(world: &World) -> Option<Self::State> {
-			world.components().resource_id::<ChimeTime>()
-				.zip(<Ref<'b, M> as WorldQuery>::get_state(world))
+		fn get_state(components: &Components) -> Option<Self::State> {
+			components.resource_id::<ChimeTime>()
+				.zip(<Ref<'b, M> as WorldQuery>::get_state(components))
 		}
 		fn matches_component_set((_, state): &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
 			<Ref<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
@@ -397,9 +397,9 @@ mod bevy_moment {
 			(world.init_resource::<ChimeTime>(),
 				<Mut<'b, M> as WorldQuery>::init_state(world))
 		}
-		fn get_state(world: &World) -> Option<Self::State> {
-			world.components().resource_id::<ChimeTime>()
-				.zip(<Mut<'b, M> as WorldQuery>::get_state(world))
+		fn get_state(components: &Components) -> Option<Self::State> {
+			components.resource_id::<ChimeTime>()
+				.zip(<Mut<'b, M> as WorldQuery>::get_state(components))
 		}
 		fn matches_component_set((_, state): &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
 			<Mut<'b, M> as WorldQuery>::matches_component_set(state, set_contains_id)
