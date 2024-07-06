@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Mul};
 
-use crate::linear::{Linear, LinearIso, LinearIsoVec, LinearPlus, LinearPlusVec, Scalar};
+use crate::linear::{Linear, LinearIso, LinearPlus, Scalar};
 use crate::time;
 use crate::time::Time;
 use crate::kind::*;

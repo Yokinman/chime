@@ -2,10 +2,9 @@
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{LinearIso, LinearIsoVec, LinearPlus, LinearPlusVec, LinearVec, Scalar};
+use crate::linear::{LinearPlus, LinearPlusVec, Scalar};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.

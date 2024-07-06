@@ -7,7 +7,7 @@ use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
 use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
-use crate::linear::{Linear, LinearIsoVec, LinearPlus, LinearPlusVec, LinearVec};
+use crate::linear::{Linear, LinearPlus, LinearPlusVec};
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
