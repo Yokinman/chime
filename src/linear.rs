@@ -291,8 +291,8 @@ macro_rules! impl_iso_for_int {
 		}
 	)+}
 }
-impl_iso_for_int!(f32: u8, u16, u32, u64, i8, i16, i32, i64);
-impl_iso_for_int!(f64: u8, u16, u32, u64, i8, i16, i32, i64);
+impl_iso_for_int!(f32: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 #[cfg(feature = "glam")]
 mod glam_stuff {
