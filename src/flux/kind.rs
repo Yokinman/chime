@@ -519,7 +519,7 @@ where
 {
 	type Item = Time;
 	fn next(&mut self) -> Option<Self::Item> {
-		while let Some(root) = self.times.next() {
+		for root in self.times.by_ref() {
 			if let Ok(time) = root.try_into_time(self.basis) {
 				let prev_time = self.prev_time;
 				self.prev_time = time;
