@@ -967,7 +967,7 @@ where
 }
 
 /// !!! Temporary?
-pub struct FluxRefImpl<'a, T>(&'a T);
+pub struct FluxRefImpl<'a, T>(PhantomData<&'a T>);
 
 impl<'b, T: InnerFlux> InnerFlux for FluxRefImpl<'b, T>
 where
