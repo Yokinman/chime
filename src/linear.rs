@@ -209,7 +209,7 @@ where
 		let Iso(inner, outer) = self;
 		let inner = inner.clone()
 			.map(|x| x.index(index))
-			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(outer.index(index).clone()));
+			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(*outer.index(index)));
 		Iso::from_inner(inner)
 	}
 }

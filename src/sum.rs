@@ -124,7 +124,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	}
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value {
-		let mut poly = self.clone();
+		let mut poly = *self;
 		poly.0 = poly.1[0];
 		for d in 1..D {
 			poly.1[d-1] = T::from_inner(poly.1[d].into_inner() * Scalar((d+1) as f64));
