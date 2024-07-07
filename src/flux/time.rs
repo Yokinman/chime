@@ -257,7 +257,7 @@ enum Overlap {
 /// !!! Seal this later.
 pub enum TimeRangeBuilder<I> {
 	Empty,
-	Inclusive(Time, I),
+	Points(Time, I),
 	Exclusive(Time, I),
 	Unbounded(I),
 }
@@ -281,7 +281,7 @@ where
 		 // Bounded by Initial Time:
 		if let Some(time) = iter.next() {
 			return if order.is_eq() {
-				TimeRangeBuilder::Inclusive(time, iter)
+				TimeRangeBuilder::Points(time, iter)
 			} else {
 				TimeRangeBuilder::Exclusive(time, iter)
 			}
@@ -299,7 +299,7 @@ where
 	fn next(&mut self) -> Option<Self::Item> {
 		match std::mem::replace(self, TimeRangeBuilder::Empty) {
 			TimeRangeBuilder::Empty => None,
-			TimeRangeBuilder::Inclusive(time, mut iter) => {
+			TimeRangeBuilder::Points(time, mut iter) => {
 				let t = TimeBound::Included(time);
 				
 				 // Increase Time by Next Duration:
@@ -313,7 +313,7 @@ where
 							}
 						}
 					}
-					*self = TimeRangeBuilder::Inclusive(time + add_time, iter);
+					*self = TimeRangeBuilder::Points(time + add_time, iter);
 				} else {
 					*self = TimeRangeBuilder::Empty;
 				}
@@ -361,7 +361,7 @@ where
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
 			TimeRangeBuilder::Empty => (0, Some(0)),
-			TimeRangeBuilder::Inclusive(_, iter) => {
+			TimeRangeBuilder::Points(_, iter) => {
 				let (_, max) = iter.size_hint();
 				(1, max.and_then(|x| x.checked_add(1)))
 			},
@@ -855,7 +855,7 @@ mod tests {
 		let t = SEC;
 		let a = || InclusiveTimeRanges::new(TimeRangeBuilder::Unbounded([2*t, 1*t, 7*t, 10*t, 20*t, 0*t, 0*t, NANOSEC].into_iter()));
 		let b = || InclusiveTimeRanges::new(TimeRangeBuilder::Exclusive(2*t, [3*t, 15*t, 20*t, 10*t, 0*t, 0*t].into_iter()));
-		let c = || InclusiveTimeRanges::new(TimeRangeBuilder::Inclusive(0*t, [7*t, 13*t, 0*t, 30*t - NANOSEC, NANOSEC, NANOSEC].into_iter()));
+		let c = || InclusiveTimeRanges::new(TimeRangeBuilder::Points(0*t, [7*t, 13*t, 0*t, 30*t - NANOSEC, NANOSEC, NANOSEC].into_iter()));
 		assert_eq!(Vec::from_iter(a()), [
 			(Time::ZERO, 2*t - NANOSEC),
 			(3*t + NANOSEC, 10*t - NANOSEC),
