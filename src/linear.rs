@@ -168,42 +168,28 @@ where
 }
 
 /// Multidimensional vector type.
-pub trait LinearVec<const SIZE: usize>: Clone {
-	type Output: Linear;
-	fn index(&self, index: usize) -> Self::Output;
-}
+pub trait LinearVec<const SIZE: usize>:
+	Vector<SIZE, Output: Linear>
+	+ Clone
+{}
 
 /// Multidimensional [`LinearPlus`].
-pub trait LinearPlusVec<const SIZE: usize>: Clone {
-	type Output: LinearPlus;
-	fn index(&self, index: usize) -> Self::Output;
-}
+pub trait LinearPlusVec<const SIZE: usize>:
+	Vector<SIZE, Output: LinearPlus>
+	+ Clone
+{}
 
 impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
 where
 	T: LinearVec<SIZE>,
-	T: LinearIsoVec<SIZE, T, Output= <T as LinearVec<SIZE>>::Output>,
-{
-	type Output = <T as LinearVec<SIZE>>::Output;
-	fn index(&self, index: usize) -> Self::Output {
-		LinearVec::<SIZE>::index(self, index)
-	}
-}
+	T: LinearIsoVec<SIZE, T>,
+{}
 
 impl<A, B, const SIZE: usize> LinearPlusVec<SIZE> for Iso<A, B>
 where
 	A: LinearVec<SIZE>,
 	B: LinearIsoVec<SIZE, A>,
-{
-	type Output = Iso<A::Output, B::Output>;
-	fn index(&self, index: usize) -> Self::Output {
-		let Iso(inner, outer) = self;
-		let inner = inner.clone()
-			.map(|x| x.index(index))
-			.unwrap_or_else(|| LinearIso::<A::Output>::into_linear(outer.index(index)));
-		Iso::from_inner(inner)
-	}
-}
+{}
 
 /// A mapping of a vector space that preserves addition & multiplication.
 /// 
@@ -254,20 +240,15 @@ impl LinearIso<f32> for f64 {
 }
 
 /// Multidimensional linear map.
-pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
-	type Output: LinearIso<T::Output>;
-	fn index(&self, index: usize) -> Self::Output;
-}
+pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>:
+	Vector<SIZE, Output: LinearIso<T::Output>>
+	+ Clone
+{}
 
 impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
 where
 	T: LinearVec<SIZE> + Linear,
-{
-	type Output = <T as LinearVec<SIZE>>::Output;
-	fn index(&self, index: usize) -> Self::Output {
-		LinearVec::index(self, index)
-	}
-}
+{}
 
 macro_rules! impl_iso_for_int {
 	($b:ty: $($a:ty),+) => {$(
@@ -284,10 +265,57 @@ macro_rules! impl_iso_for_int {
 impl_iso_for_int!(f32: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
+/// ...
+pub trait Vector<const SIZE: usize> {
+	type Output;
+	fn index(&self, index: usize) -> Self::Output;
+}
+
+impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
+where
+	A: LinearVec<SIZE>,
+	B: LinearIsoVec<SIZE, A>,
+{
+	type Output = Iso<A::Output, B::Output>;
+	fn index(&self, index: usize) -> Self::Output {
+		let Iso(inner, outer) = self;
+		let inner = inner.as_ref()
+			.map(|x| x.index(index))
+			.unwrap_or_else(|| LinearIso::into_linear(outer.index(index)));
+		Iso::from_inner(inner)
+	}
+}
+
 #[cfg(feature = "glam")]
 mod glam_stuff {
 	use glam::*;
 	use crate::linear::*;
+	
+	macro_rules! impl_vector {
+		($vec:ty, $size:literal, $value:ty) => {
+			impl Vector<$size> for $vec {
+				type Output = $value;
+				fn index(&self, index: usize) -> Self::Output {
+					if index >= $size {
+						panic!("index out of bounds")
+					}
+					self[index]
+				}
+			}
+		};
+	}
+	impl_vector!(Vec2, 2, f32);
+	impl_vector!(Vec3, 3, f32);
+	impl_vector!(Vec4, 4, f32);
+	impl_vector!(DVec2, 2, f64);
+	impl_vector!(DVec3, 3, f64);
+	impl_vector!(DVec4, 4, f64);
+	impl_vector!(IVec2, 2, i32);
+	impl_vector!(IVec3, 3, i32);
+	impl_vector!(IVec4, 4, i32);
+	impl_vector!(UVec2, 2, u32);
+	impl_vector!(UVec3, 3, u32);
+	impl_vector!(UVec4, 4, u32);
 	
 	macro_rules! impl_linear_for_vec {
 		($a_vec:tt $(, $b_vec:tt)+) => {
@@ -306,15 +334,7 @@ mod glam_stuff {
 					Self::ZERO
 				}
 			}
-			impl LinearVec<$size> for $vec {
-				type Output = $value;
-				fn index(&self, index: usize) -> Self::Output {
-					if index >= $size {
-						panic!("index out of bounds")
-					}
-					self[index]
-				}
-			}
+			impl LinearVec<$size> for $vec {}
 		};
 	}
 	impl_linear_for_vec!(
@@ -336,13 +356,8 @@ mod glam_stuff {
 					value.round().$b_as_a()
 				}
 			}
-			impl LinearIsoVec<$size, $b> for $a {
-				type Output = $a_value;
-				fn index(&self, index: usize) -> Self::Output {
-					self[index]
-				}
-			}
-		}
+			impl LinearIsoVec<$size, $b> for $a {}
+		};
 	}
 	impl_iso_for_vec!(Vec2, as_uvec2  : UVec2, as_vec2  : 2, u32);
 	impl_iso_for_vec!(Vec3, as_uvec3  : UVec3, as_vec3  : 3, u32);
