@@ -182,7 +182,7 @@ pub trait LinearPlusVec<const SIZE: usize>: Clone {
 impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
 where
 	T: LinearVec<SIZE>,
-	T: LinearIsoVec<SIZE, T, Value = <T as LinearVec<SIZE>>::Output>,
+	T: LinearIsoVec<SIZE, T, Output= <T as LinearVec<SIZE>>::Output>,
 {
 	type Value = <T as LinearVec<SIZE>>::Output;
 	fn index(&self, index: usize) -> Self::Value {
@@ -195,7 +195,7 @@ where
 	A: LinearVec<SIZE>,
 	B: LinearIsoVec<SIZE, A>,
 {
-	type Value = Iso<A::Output, B::Value>;
+	type Value = Iso<A::Output, B::Output>;
 	fn index(&self, index: usize) -> Self::Value {
 		let Iso(inner, outer) = self;
 		let inner = inner.clone()
@@ -255,16 +255,16 @@ impl LinearIso<f32> for f64 {
 
 /// Multidimensional linear map.
 pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
-	type Value: LinearIso<T::Output>;
-	fn index(&self, index: usize) -> Self::Value;
+	type Output: LinearIso<T::Output>;
+	fn index(&self, index: usize) -> Self::Output;
 }
 
 impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
 where
 	T: LinearVec<SIZE> + Linear,
 {
-	type Value = <T as LinearVec<SIZE>>::Output;
-	fn index(&self, index: usize) -> Self::Value {
+	type Output = <T as LinearVec<SIZE>>::Output;
+	fn index(&self, index: usize) -> Self::Output {
 		LinearVec::index(self, index)
 	}
 }
@@ -337,8 +337,8 @@ mod glam_stuff {
 				}
 			}
 			impl LinearIsoVec<$size, $b> for $a {
-				type Value = $a_value;
-				fn index(&self, index: usize) -> Self::Value {
+				type Output = $a_value;
+				fn index(&self, index: usize) -> Self::Output {
 					self[index]
 				}
 			}
