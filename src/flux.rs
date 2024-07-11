@@ -1046,7 +1046,7 @@ where
 	T: Vector<SIZE, Output: LinearPlus> + Clone,
 {
 	type Output = Constant<T::Output>;
-	fn index_kind(&self, index: usize) -> Self::Output {
+	fn index(&self, index: usize) -> Self::Output {
 		Constant(self.0.index(index))
 	}
 }

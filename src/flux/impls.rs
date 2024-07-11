@@ -56,7 +56,7 @@ where
 		T::base_time(self)
 	}
 	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> {
-		Poly::new(self.poly(time).into_inner().index_kind(index), time)
+		Poly::new(self.poly(time).into_inner().index(index), time)
 	}
 	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
 		PolyVec::new(self.poly(time).into_inner(), time)

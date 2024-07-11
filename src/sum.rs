@@ -199,7 +199,7 @@ where
 	T: Vector<SIZE, Output: LinearPlus> + Clone,
 {
 	type Output = Sum<T::Output, D>;
-	fn index_kind(&self, index: usize) -> Self::Output {
+	fn index(&self, index: usize) -> Self::Output {
 		Sum(
 			self.0.index(index),
 			std::array::from_fn(|i| self.1[i].index(index))
