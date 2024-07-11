@@ -46,6 +46,18 @@ impl<T: Linear> From<T> for Exp<T> {
 	}
 }
 
+impl<T> LinearIso<Exp<T>> for Exp<T>
+where
+	T: Linear,
+{
+	fn into_linear(value: Self) -> Exp<T> {
+		value
+	}
+	fn from_linear(value: Exp<T>) -> Self {
+		value
+	}
+}
+
 impl LinearIso<Exp<f64>> for f64 {
 	fn into_linear(value: f64) -> Exp<f64> {
 		Exp(value.ln())

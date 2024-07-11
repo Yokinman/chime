@@ -77,7 +77,7 @@ impl Mul<Scalar> for glam::DVec4 {
 }
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
-pub trait Linear: Copy + Clone + Debug + 'static {
+pub trait Linear: Copy + Clone + Debug + LinearIso<Self> + 'static {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
@@ -230,14 +230,20 @@ pub trait LinearIso<T: Linear>: Sized + Copy + Debug + 'static {
 mod _linear_iso_impls {
 	use super::{Linear, LinearIso};
 	
-	impl<T: Linear> LinearIso<T> for T {
-		fn into_linear(value: T) -> T {
+	impl LinearIso<f64> for f64 {
+		fn into_linear(value: Self) -> f64 {
 			value
 		}
-		fn from_linear(value: T) -> T {
+		fn from_linear(value: f64) -> Self {
 			value
 		}
-		fn linear_id(value: T) -> T {
+	}
+	
+	impl LinearIso<f32> for f32 {
+		fn into_linear(value: Self) -> f32 {
+			value
+		}
+		fn from_linear(value: f32) -> Self {
 			value
 		}
 	}
@@ -260,6 +266,19 @@ mod _linear_iso_impls {
 		}
 	}
 	
+	impl<A, B, const SIZE: usize> LinearIso<[A; SIZE]> for [B; SIZE]
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		fn into_linear(value: Self) -> [A; SIZE] {
+			value.map(B::into_linear)
+		}
+		fn from_linear(value: [A; SIZE]) -> Self {
+			value.map(B::from_linear)
+		}
+	}
+	
 	macro_rules! impl_iso_for_int {
 		($b:ty: $($a:ty),+) => {$(
 			impl LinearIso<$b> for $a {
@@ -274,6 +293,11 @@ mod _linear_iso_impls {
 	}
 	impl_iso_for_int!(f32: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 	impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+	
+	// !!! The integer isomorphisms should not round by default. Instead, they
+	// should do the default `as` cast behavior and then interface types like
+	// `Rounded<T>` can be used for specifying that behavior. However, before
+	// that can be done: I don't think flooring is handled by prediction yet.
 }
 
 /// ...
@@ -363,6 +387,14 @@ mod glam_stuff {
 				fn zero() -> Self {
 					Self::ZERO
 				}
+			}
+			impl LinearIso<$vec> for $vec {
+				fn into_linear(value: Self) -> $vec {
+			        value
+			    }
+				fn from_linear(value: $vec) -> Self {
+			        value
+			    }
 			}
 		};
 	}
