@@ -717,6 +717,7 @@ impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
 	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>> + SumShiftUp,
+	<B as SumShiftUp>::Up: Mul<Scalar, Output = <B as SumShiftUp>::Up>,
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
 	fn eval<V: InnerFlux<Kind=B>>(

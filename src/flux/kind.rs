@@ -8,10 +8,7 @@ use crate::linear::{LinearPlus, Scalar, Vector};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
-pub trait FluxKind:
-	'static + Copy + Clone + Debug
-	+ Mul<Scalar, Output=Self>
-{
+pub trait FluxKind: Copy + Clone + Debug + 'static {
 	type Value: LinearPlus;
 	
 	type Accum<'a>;
@@ -101,7 +98,8 @@ pub mod ops {
 	impl<A, B> Sub<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>
+			+ ops::Mul<Scalar, Output=B>,
 		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
