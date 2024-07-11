@@ -181,14 +181,7 @@ pub trait LinearPlusVec<const SIZE: usize>:
 
 impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
 where
-	T: LinearVec<SIZE>,
-	T: LinearIsoVec<SIZE, T>,
-{}
-
-impl<A, B, const SIZE: usize> LinearPlusVec<SIZE> for Iso<A, B>
-where
-	A: LinearVec<SIZE>,
-	B: LinearIsoVec<SIZE, A>,
+	T: Vector<SIZE, Output: LinearPlus> + Clone,
 {}
 
 /// A mapping of a vector space that preserves addition & multiplication.
@@ -258,17 +251,6 @@ mod _linear_iso_impls {
 	impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 }
 
-/// Multidimensional linear map.
-pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>:
-	Vector<SIZE, Output: LinearIso<T::Output>>
-	+ Clone
-{}
-
-impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
-where
-	T: LinearVec<SIZE> + Linear,
-{}
-
 /// ...
 pub trait Vector<const SIZE: usize> {
 	type Output;
@@ -278,7 +260,7 @@ pub trait Vector<const SIZE: usize> {
 impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
 where
 	A: LinearVec<SIZE>,
-	B: LinearIsoVec<SIZE, A>,
+	B: Vector<SIZE, Output: LinearIso<A::Output>> + Clone,
 {
 	type Output = Iso<A::Output, B::Output>;
 	fn index(&self, index: usize) -> Self::Output {
@@ -360,7 +342,6 @@ mod glam_stuff {
 					value.round().$b_as_a()
 				}
 			}
-			impl LinearIsoVec<$size, $b> for $a {}
 		};
 	}
 	impl_iso_for_vec!(Vec2, as_uvec2  : UVec2, as_vec2  : 2, u32);
