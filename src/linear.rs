@@ -200,7 +200,7 @@ where
 		let Iso(inner, outer) = self;
 		let inner = inner.clone()
 			.map(|x| x.index(index))
-			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(*outer.index(index)));
+			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(outer.index(index)));
 		Iso::from_inner(inner)
 	}
 }
@@ -256,7 +256,7 @@ impl LinearIso<f32> for f64 {
 /// Multidimensional linear map.
 pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
 	type Value: LinearIso<T::Value>;
-	fn index(&self, index: usize) -> &Self::Value;
+	fn index(&self, index: usize) -> Self::Value;
 }
 
 impl<const SIZE: usize, T, I> LinearIsoVec<SIZE, [T; SIZE]> for [I; SIZE]
@@ -265,8 +265,8 @@ where
 	I: LinearIso<T>,
 {
 	type Value = I;
-	fn index(&self, index: usize) -> &Self::Value {
-		&self[index]
+	fn index(&self, index: usize) -> Self::Value {
+		self[index]
 	}
 }
 
@@ -339,8 +339,8 @@ mod glam_stuff {
 			}
 			impl LinearIsoVec<$size, $b> for $a {
 				type Value = $a_value;
-				fn index(&self, index: usize) -> &Self::Value {
-					&self[index]
+				fn index(&self, index: usize) -> Self::Value {
+					self[index]
 				}
 			}
 		}
