@@ -82,9 +82,9 @@ where
 impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner() * rhs);
+		self.0 = T::from_inner(self.0.into_inner().mul(rhs));
 		for i in 0..D {
-			self.1[i] = T::from_inner(self.1[i].into_inner() * rhs);
+			self.1[i] = T::from_inner(self.1[i].into_inner().mul(rhs));
 		}
 		self
 	}
@@ -119,16 +119,16 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
-			value = value*time + self.1[D - degree].into_inner();
+			value = value.mul(time) + self.1[D - degree].into_inner();
 		}
-		T::from_inner(value*time + self.0.into_inner())
+		T::from_inner(value.mul(time) + self.0.into_inner())
 	}
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value {
 		let mut poly = *self;
 		poly.0 = poly.1[0];
 		for d in 1..D {
-			poly.1[d-1] = T::from_inner(poly.1[d].into_inner() * Scalar((d+1) as f64));
+			poly.1[d-1] = T::from_inner(poly.1[d].into_inner().mul(Scalar((d+1) as f64)));
 		}
 		poly.1[D-1] = T::zero();
 		poly.at(time)
@@ -141,9 +141,9 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		self.0 = self.at(time);
 		let mut deriv = self;
 		for degree in 1..=D {
-			deriv.0 = T::from_inner(deriv.1[0].into_inner() * Scalar(1. / (degree as f64)));
+			deriv.0 = T::from_inner(deriv.1[0].into_inner().mul(Scalar(1. / (degree as f64))));
 			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner() * Scalar(((d+1) as f64) / (degree as f64)));
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner().mul(Scalar(((d+1) as f64) / (degree as f64))));
 			}
 			deriv.1[D-1] = T::zero();
 			self.1[degree-1] = deriv.at(time);
@@ -171,7 +171,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		for degree in 1..=D {
 			deriv.0 = deriv.1[0];
 			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner() * Scalar((d+1) as f64));
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner().mul(Scalar((d+1) as f64)));
 			}
 			deriv.1[D-1] = T::zero();
 			

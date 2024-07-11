@@ -81,8 +81,9 @@ pub trait Linear:
 	'static + Copy + Clone + Debug
 	+ Add<Output=Self>
 	+ Sub<Output=Self>
-	+ Mul<Scalar, Output=Self>
 {
+	fn mul(self, scalar: Scalar) -> Self;
+	
 	fn sqrt(self) -> Self;
 	
 	fn sign(self) -> Self;
@@ -98,29 +99,31 @@ pub trait Linear:
 }
 
 impl Linear for f64 {
+	fn mul(self, scalar: Scalar) -> Self {
+		self * scalar
+	}
 	fn sqrt(self) -> Self {
 		self.sqrt()
 	}
-	
 	fn sign(self) -> Self {
 		// What if sign is 0
 		self.signum()
 	}
-	
 	fn zero() -> Self {
 		0.
 	}
 }
 
 impl Linear for f32 {
+	fn mul(self, scalar: Scalar) -> Self {
+		self * scalar
+	}
 	fn sqrt(self) -> Self {
 		self.sqrt()
 	}
-	
 	fn sign(self) -> Self {
 		self.signum()
 	}
-	
 	fn zero() -> Self {
 		0.
 	}
@@ -303,6 +306,9 @@ mod glam_stuff {
 		};
 		(($vec:ty, $size:literal, $value:ty)) => {
 			impl Linear for $vec {
+				fn mul(self, scalar: Scalar) -> Self {
+					self * scalar
+				}
 				fn sqrt(self) -> Self {
 					self.powf(0.5)
 				}

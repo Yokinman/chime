@@ -180,7 +180,7 @@ where
 					}
 					a_dis = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
 					b_dis = <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
-					real_diff = Mul::<Scalar>::mul(real_diff.sqrt() - dis, round_factor);
+					real_diff = Linear::mul(real_diff.sqrt() - dis, round_factor);
 					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis);
 					
 					 // Undershoot Actual Distances:
@@ -190,7 +190,7 @@ where
 						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + real_diff)
 					{
 						 // Undershoot Predicted Distances:
-						let pred_diff = Mul::<Scalar>::mul(
+						let pred_diff = Linear::mul(
 							pos_poly.at(next_time).into_inner().sqrt() - dis,
 							round_factor
 						);

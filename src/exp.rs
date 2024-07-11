@@ -13,6 +13,9 @@ use crate::linear::*;
 pub struct Exp<T: Linear>(pub T);
 
 impl<T: Linear> Linear for Exp<T> {
+	fn mul(self, scalar: Scalar) -> Self {
+		self * scalar
+	}
 	fn sqrt(mut self) -> Self {
 		self.0 = self.0.sqrt();
 		self
@@ -43,7 +46,7 @@ impl<T: Linear> Sub for Exp<T> {
 impl<T: Linear> Mul<Scalar> for Exp<T> {
 	type Output = Self;
 	fn mul(self, rhs: Scalar) -> Self {
-		Self(self.0 * rhs)
+		Self(self.0.mul(rhs))
 	}
 }
 
