@@ -209,34 +209,53 @@ pub trait LinearIso<T: Linear>: Sized + Copy + Debug + 'static {
 	}
 }
 
-impl<T: Linear> LinearIso<T> for T {
-	fn into_linear(value: T) -> T {
-		value
+mod _linear_iso_impls {
+	use super::{Linear, LinearIso};
+	
+	impl<T: Linear> LinearIso<T> for T {
+		fn into_linear(value: T) -> T {
+			value
+		}
+		fn from_linear(value: T) -> T {
+			value
+		}
+		fn linear_id(value: T) -> T {
+			value
+		}
 	}
-	fn from_linear(value: T) -> T {
-		value
+	
+	impl LinearIso<f64> for f32 {
+		fn into_linear(value: f32) -> f64 {
+			value as f64
+		}
+		fn from_linear(value: f64) -> f32 {
+			value as f32
+		}
 	}
-	fn linear_id(value: T) -> T {
-		value
+	
+	impl LinearIso<f32> for f64 {
+		fn into_linear(value: f64) -> f32 {
+			value as f32
+		}
+		fn from_linear(value: f32) -> f64 {
+			value as f64
+		}
 	}
-}
-
-impl LinearIso<f64> for f32 {
-	fn into_linear(value: f32) -> f64 {
-		value as f64
+	
+	macro_rules! impl_iso_for_int {
+		($b:ty: $($a:ty),+) => {$(
+			impl LinearIso<$b> for $a {
+				fn into_linear(value: $a) -> $b {
+					value as $b
+				}
+				fn from_linear(value: $b) -> $a {
+					value.round() as $a
+				}
+			}
+		)+}
 	}
-	fn from_linear(value: f64) -> f32 {
-		value as f32
-	}
-}
-
-impl LinearIso<f32> for f64 {
-	fn into_linear(value: f64) -> f32 {
-		value as f32
-	}
-	fn from_linear(value: f32) -> f64 {
-		value as f64
-	}
+	impl_iso_for_int!(f32: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+	impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 }
 
 /// Multidimensional linear map.
@@ -249,21 +268,6 @@ impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
 where
 	T: LinearVec<SIZE> + Linear,
 {}
-
-macro_rules! impl_iso_for_int {
-	($b:ty: $($a:ty),+) => {$(
-		impl LinearIso<$b> for $a {
-			fn into_linear(value: $a) -> $b {
-				value as $b
-			}
-			fn from_linear(value: $b) -> $a {
-				value.round() as $a
-			}
-		}
-	)+}
-}
-impl_iso_for_int!(f32: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
-impl_iso_for_int!(f64: u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 /// ...
 pub trait Vector<const SIZE: usize> {
