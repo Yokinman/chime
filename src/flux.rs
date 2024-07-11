@@ -500,7 +500,7 @@ pub trait MomentVec<const SIZE: usize> {
 /// Multidimensional change over time.
 pub trait FluxVec<const SIZE: usize> {
 	type Moment: MomentVec<SIZE, Flux=Self>;
-	type Kind: FluxKindVec<SIZE>;
+	type Kind: FluxKindVector<SIZE>;
 	
 	fn index_base_time(&self, index: usize) -> Time;
 	fn max_base_time(&self) -> Time {
@@ -1050,11 +1050,6 @@ where
 		Constant(self.0.index(index))
 	}
 }
-
-impl<const SIZE: usize, T> FluxKindVec<SIZE> for Constant<T>
-where
-	T: Vector<SIZE, Output: LinearPlus> + Clone,
-{}
 
 impl<T: LinearPlus> Mul<Scalar> for Constant<T> {
 	type Output = Self;

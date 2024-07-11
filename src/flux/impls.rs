@@ -6,7 +6,7 @@ use std::vec::Vec;
 use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
-use crate::kind::{FluxKind, FluxKindVec, Poly, PolyVec};
+use crate::kind::{FluxKind, Poly, PolyVec};
 use crate::linear::{Linear, LinearPlus, Vector};
 
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
@@ -36,7 +36,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
 where
 	<<T::Flux as Flux>::Kind as FluxKind>::Value: Vector<SIZE, Output: LinearPlus>,
-	<T::Flux as Flux>::Kind: FluxKindVec<SIZE>,
+	<T::Flux as Flux>::Kind: Vector<SIZE, Output: FluxKind>,
 {
 	type Flux = T::Flux;
 	fn to_flux_vec(self, time: Time) -> Self::Flux {
@@ -47,7 +47,7 @@ where
 impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for T
 where
 	<T::Kind as FluxKind>::Value: Vector<SIZE, Output: LinearPlus>,
-	T::Kind: FluxKindVec<SIZE>,
+	T::Kind: Vector<SIZE, Output: FluxKind>,
 	T::Moment: MomentVec<SIZE, Flux=Self>,
 {
 	type Moment = T::Moment;

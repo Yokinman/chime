@@ -53,10 +53,17 @@ pub trait FluxKind:
 /// Shortcut for the inner [`crate::linear::Linear`] type of a [`FluxKind`].
 pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 
-/// Multidimensional kind of change.
-pub trait FluxKindVec<const SIZE: usize>: Vector<SIZE, Output: FluxKind> + Clone {}
+/// Multidimensional kind of change. This only exists to be a bound of `FluxVec`
+/// so that the bounds on `Output` are understood by the compiler (v1.79.0).
+pub trait FluxKindVector<const SIZE: usize>:
+	Vector<SIZE, Output: FluxKind>
+	+ Clone
+{}
 
-impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {}
+impl<const SIZE: usize, T> FluxKindVector<SIZE> for T
+where
+	T: Vector<SIZE, Output: FluxKind> + Clone
+{}
 
 /// Combining [`FluxKind`] types.
 /// 
@@ -352,7 +359,10 @@ impl<const SIZE: usize, K> PolyVec<SIZE, K> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE, K> {
+impl<const SIZE: usize, K> PolyVec<SIZE, K>
+where
+	K: FluxKind,
+{
 	pub fn at(&self, time: Time) -> K::Value {
 		self.inner.at(Scalar(if time > self.time {
 			(time - self.time).as_secs_f64()
@@ -362,7 +372,10 @@ impl<const SIZE: usize, K: FluxKind> PolyVec<SIZE, K> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
+impl<const SIZE: usize, K> PolyVec<SIZE, K>
+where
+	K: Vector<SIZE, Output: FluxKind>,
+{
 	pub fn new(inner: K, time: Time) -> Self {
 		Self {
 			inner,
@@ -371,7 +384,10 @@ impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
+impl<const SIZE: usize, K> PolyVec<SIZE, K>
+where
+	K: Vector<SIZE, Output: FluxKind>,
+{
 	pub fn with_iso(self) -> PolyVec<SIZE, K> {
 		PolyVec {
 			inner: self.inner,
@@ -380,7 +396,10 @@ impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
 	}
 }
 
-impl<const SIZE: usize, K: FluxKindVec<SIZE>> PolyVec<SIZE, K> {
+impl<const SIZE: usize, K> PolyVec<SIZE, K>
+where
+	K: Vector<SIZE, Output: FluxKind>,
+{
 	pub fn index_poly(&self, index: usize) -> Poly<K::Output> {
 		Poly::new(self.inner.index(index), self.time)
 	}

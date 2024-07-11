@@ -207,11 +207,6 @@ where
 	}
 }
 
-impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
-where
-	T: Vector<SIZE, Output: LinearPlus> + Clone,
-{}
-
 #[allow(clippy::from_over_into)]
 impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {

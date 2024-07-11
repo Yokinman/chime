@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Mul};
 
-use crate::linear::{Linear, LinearIso, LinearPlus, Scalar};
+use crate::linear::{Linear, LinearIso, LinearPlus, Scalar, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::kind::*;
@@ -132,8 +132,8 @@ where
 impl<const SIZE: usize, A, B, D, E, F> TimeFilterMap
 	for DisTimeFilterMap<SIZE, A, B, D, E, F>
 where
-	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE>,
+	A: Vector<SIZE, Output: FluxKind> + Clone,
+	B: Vector<SIZE, Output: FluxKind> + Clone,
 	D: FluxKind,
 	KindLinear<D>: PartialEq + Mul<Output = KindLinear<D>>,
 	A::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
@@ -663,8 +663,8 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for PolyVec<SIZE, A>
 where
-	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>>,
+	A: Vector<SIZE, Output: FluxKind> + Clone,
+	B: Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
@@ -730,8 +730,8 @@ pub trait WhenDisEq<const SIZE: usize, B, D> {
 impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D>
 	for PolyVec<SIZE, A>
 where
-	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>>,
+	A: Vector<SIZE, Output: FluxKind> + Clone,
+	B: Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
