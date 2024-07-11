@@ -1043,7 +1043,6 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 
 impl<const SIZE: usize, T: LinearPlusVec<SIZE>> FluxKindVec<SIZE> for Constant<T> {
 	type Kind = Constant<T::Value>;
-	type Value = T;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		Constant(self.0.index(index))
 	}

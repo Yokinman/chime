@@ -199,7 +199,6 @@ where
 	T: LinearPlusVec<SIZE>
 {
 	type Kind = Sum<T::Value, D>;
-	type Value = T;
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		Sum(
 			self.0.index(index),

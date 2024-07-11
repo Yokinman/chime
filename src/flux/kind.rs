@@ -56,13 +56,11 @@ pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 /// Multidimensional kind of change.
 pub trait FluxKindVec<const SIZE: usize>: Clone {
 	type Kind: FluxKind;
-	type Value: LinearPlusVec<SIZE, Value = <Self::Kind as FluxKind>::Value>;
 	fn index_kind(&self, index: usize) -> Self::Kind;
 }
 
 impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
 	type Kind = T;
-	type Value = [T::Value; SIZE];
 	fn index_kind(&self, index: usize) -> Self::Kind {
 		self[index]
 	}
