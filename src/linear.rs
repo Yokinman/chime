@@ -188,15 +188,6 @@ pub trait LinearPlusVec<const SIZE: usize>: Clone {
 	fn index(&self, index: usize) -> Self::Value;
 }
 
-impl<T: LinearPlus, const SIZE: usize> LinearPlusVec<SIZE> for [T; SIZE] {
-	type Inner = [T::Inner; SIZE];
-	type Outer = [T::Outer; SIZE];
-	type Value = T;
-	fn index(&self, index: usize) -> Self::Value {
-		self[index]
-	}
-}
-
 impl<A, B, const SIZE: usize> LinearPlusVec<SIZE> for Iso<A, B>
 where
 	A: LinearVec<SIZE>,
