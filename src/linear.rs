@@ -141,6 +141,33 @@ impl Linear for f32 {
 	}
 }
 
+impl<T: Linear, const SIZE: usize> Linear for [T; SIZE] {
+	fn add(mut self, other: Self) -> Self {
+		for i in 0..SIZE {
+			self[i] = self[i].add(other[i]);
+		}
+		self
+	}
+	fn sub(mut self, other: Self) -> Self {
+		for i in 0..SIZE {
+			self[i] = self[i].sub(other[i]);
+		}
+		self
+	}
+	fn mul(self, scalar: Scalar) -> Self {
+		self.map(|x| x.mul(scalar))
+	}
+	fn sqrt(self) -> Self {
+		self.map(T::sqrt)
+	}
+	fn sign(self) -> Self {
+		self.map(T::sign)
+	}
+	fn zero() -> Self {
+		[T::zero(); SIZE]
+	}
+}
+
 /// Underlying [`Linear`] type paired with an interfacing [`LinearIso`] type.
 pub trait LinearPlus: Copy + Debug + 'static {
 	type Inner: Linear;
