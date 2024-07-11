@@ -47,6 +47,48 @@ pub trait FluxKind: Copy + Clone + Debug + 'static {
 	}
 }
 
+impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
+	type Value = ArrayFluxKindValue<T::Value, SIZE>;
+	type Accum<'a> = [T::Accum<'a>; SIZE];
+	type OutAccum<'a> = [T::OutAccum<'a>; SIZE];
+	fn from_value(value: Self::Value) -> Self {
+		value.0.map(T::from_value)
+	}
+	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_> {
+		self.each_mut().map(|x| T::as_accum(x, depth, base_time, time))
+	}
+	fn at(&self, time: Scalar) -> Self::Value {
+		ArrayFluxKindValue(self.each_ref().map(|x| x.at(time)))
+	}
+	fn rate_at(&self, time: Scalar) -> Self::Value {
+		ArrayFluxKindValue(self.each_ref().map(|x| x.rate_at(time)))
+	}
+	fn to_time(self, time: Scalar) -> Self {
+		self.map(|x| x.to_time(time))
+	}
+	fn initial_order(&self, time: Scalar) -> Option<Ordering> where <Self::Value as LinearPlus>::Inner: PartialOrd {
+		unimplemented!()
+	}
+	fn zero() -> Self {
+		[T::zero(); SIZE]
+	}
+}
+
+/// ...
+#[derive(Copy, Clone, Debug)]
+pub struct ArrayFluxKindValue<T, const SIZE: usize>(pub(crate) [T; SIZE]);
+
+impl<T: LinearPlus, const SIZE: usize> LinearPlus for ArrayFluxKindValue<T, SIZE> {
+	type Inner = [T::Inner; SIZE];
+	type Outer = [T::Outer; SIZE];
+	fn from_inner(inner: Self::Inner) -> Self {
+		todo!()
+	}
+	fn into_inner(self) -> Self::Inner {
+		todo!()
+	}
+}
+
 /// Shortcut for the inner [`crate::linear::Linear`] type of a [`FluxKind`].
 pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 
