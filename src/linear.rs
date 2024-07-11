@@ -175,8 +175,8 @@ pub trait LinearVec<const SIZE: usize>: Clone {
 
 /// Multidimensional [`LinearPlus`].
 pub trait LinearPlusVec<const SIZE: usize>: Clone {
-	type Value: LinearPlus;
-	fn index(&self, index: usize) -> Self::Value;
+	type Output: LinearPlus;
+	fn index(&self, index: usize) -> Self::Output;
 }
 
 impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
@@ -184,8 +184,8 @@ where
 	T: LinearVec<SIZE>,
 	T: LinearIsoVec<SIZE, T, Output= <T as LinearVec<SIZE>>::Output>,
 {
-	type Value = <T as LinearVec<SIZE>>::Output;
-	fn index(&self, index: usize) -> Self::Value {
+	type Output = <T as LinearVec<SIZE>>::Output;
+	fn index(&self, index: usize) -> Self::Output {
 		LinearVec::<SIZE>::index(self, index)
 	}
 }
@@ -195,8 +195,8 @@ where
 	A: LinearVec<SIZE>,
 	B: LinearIsoVec<SIZE, A>,
 {
-	type Value = Iso<A::Output, B::Output>;
-	fn index(&self, index: usize) -> Self::Value {
+	type Output = Iso<A::Output, B::Output>;
+	fn index(&self, index: usize) -> Self::Output {
 		let Iso(inner, outer) = self;
 		let inner = inner.clone()
 			.map(|x| x.index(index))
