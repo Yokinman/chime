@@ -173,31 +173,31 @@ where
 					for i in 0..SIZE {
 						let a = a_pos.index_poly(i).at(next_time).into_inner();
 						let b = b_pos.index_poly(i).at(next_time).into_inner();
-						a_dis = a_dis + a*a;
-						b_dis = b_dis + b*b;
-						let x = a - b;
-						real_diff = real_diff + x*x;
+						a_dis = a_dis.add(a*a);
+						b_dis = b_dis.add(b*b);
+						let x = a.sub(b);
+						real_diff = real_diff.add(x*x);
 					}
 					a_dis = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
 					b_dis = <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
-					real_diff = Linear::mul(real_diff.sqrt() - dis, round_factor);
+					real_diff = Linear::mul(real_diff.sqrt().sub(dis), round_factor);
 					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis);
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + real_diff) &&
-						b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + real_diff) &&
-						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + real_diff)
+						a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.add(real_diff)) &&
+						b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.add(real_diff)) &&
+						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.add(real_diff))
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Linear::mul(
-							pos_poly.at(next_time).into_inner().sqrt() - dis,
+							pos_poly.at(next_time).into_inner().sqrt().sub(dis),
 							round_factor
 						);
 						if
-							a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + pred_diff) &&
-							b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + pred_diff) &&
-							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + pred_diff)
+							a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.add(pred_diff)) &&
+							b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.add(pred_diff)) &&
+							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.add(pred_diff))
 						{
 							break
 						}
@@ -228,8 +228,8 @@ where
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
 					let x = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
-						- <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
-					pos = pos + x*x;
+						.sub(<<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner()));
+					pos = pos.add(x*x);
 				}
 				let dis = <D::Value as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
 				if pos != dis*dis {

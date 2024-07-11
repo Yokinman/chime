@@ -1,7 +1,7 @@
 //! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Sub};
+use std::ops::Mul;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -77,11 +77,11 @@ impl Mul<Scalar> for glam::DVec4 {
 }
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
-pub trait Linear:
-	'static + Copy + Clone + Debug
-	+ Add<Output=Self>
-	+ Sub<Output=Self>
-{
+pub trait Linear: Copy + Clone + Debug + 'static {
+	fn add(self, other: Self) -> Self;
+	
+	fn sub(self, other: Self) -> Self;
+	
 	fn mul(self, scalar: Scalar) -> Self;
 	
 	fn sqrt(self) -> Self;
@@ -99,6 +99,12 @@ pub trait Linear:
 }
 
 impl Linear for f64 {
+	fn add(self, other: Self) -> Self {
+		self + other
+	}
+	fn sub(self, other: Self) -> Self {
+		self - other
+	}
 	fn mul(self, scalar: Scalar) -> Self {
 		self * scalar
 	}
@@ -115,6 +121,12 @@ impl Linear for f64 {
 }
 
 impl Linear for f32 {
+	fn add(self, other: Self) -> Self {
+		self + other
+	}
+	fn sub(self, other: Self) -> Self {
+		self - other
+	}
 	fn mul(self, scalar: Scalar) -> Self {
 		self * scalar
 	}
@@ -306,6 +318,12 @@ mod glam_stuff {
 		};
 		(($vec:ty, $size:literal, $value:ty)) => {
 			impl Linear for $vec {
+				fn add(self, other: Self) -> Self {
+					self + other
+				}
+				fn sub(self, other: Self) -> Self {
+					self - other
+				}
 				fn mul(self, scalar: Scalar) -> Self {
 					self * scalar
 				}

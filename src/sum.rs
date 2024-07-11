@@ -119,9 +119,9 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
-			value = value.mul(time) + self.1[D - degree].into_inner();
+			value = value.mul(time).add(self.1[D - degree].into_inner());
 		}
-		T::from_inner(value.mul(time) + self.0.into_inner())
+		T::from_inner(value.mul(time).add(self.0.into_inner()))
 	}
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value {
@@ -228,7 +228,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = A::from_inner(self.0.into_inner() + rhs.value().into_inner());
+		self.0 = A::from_inner(self.0.into_inner().add(rhs.value().into_inner()));
 		self
 	}
 }
@@ -288,9 +288,9 @@ macro_rules! impl_deg_order {
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(mut self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
-				self.0 = A::from_inner(self.0.into_inner() + rhs.0.into_inner());
+				self.0 = A::from_inner(self.0.into_inner().add(rhs.0.into_inner()));
 				for i in 0..($($num +)+ 0) {
-					self.1[i] = A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner());
+					self.1[i] = A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()));
 				}
 				self
 			}
@@ -307,16 +307,12 @@ macro_rules! impl_deg_order {
 				let Sum(b_value, b_terms) = rhs;
 				let mut terms = [T::zero(); { 2 * SIZE }];
 				for i in 0..SIZE {
-					terms[i] = T::from_inner(
-						terms[i].into_inner()
-						+ a_terms[i].into_inner()*b_value.into_inner()
-						+ a_value.into_inner()*b_terms[i].into_inner()
-					);
+					terms[i] = T::from_inner(terms[i].into_inner()
+						.add(a_terms[i].into_inner()*b_value.into_inner())
+						.add(a_value.into_inner()*b_terms[i].into_inner()));
 					for j in 0..SIZE {
-						terms[i+j+1] = T::from_inner(
-							terms[i+j+1].into_inner()
-							+ a_terms[i].into_inner()*b_terms[j].into_inner()
-						);
+						terms[i+j+1] = T::from_inner(terms[i+j+1].into_inner()
+							.add(a_terms[i].into_inner()*b_terms[j].into_inner()));
 					}
 				}
 				Sum(T::from_inner(a_value.into_inner()*b_value.into_inner()), terms)
@@ -342,9 +338,9 @@ macro_rules! impl_deg_add {
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(mut self, rhs: Sum<B, $a>) -> Self::Output {
-				self.0 = A::from_inner(self.0.into_inner() + rhs.0.into_inner());
+				self.0 = A::from_inner(self.0.into_inner().add(rhs.0.into_inner()));
 				for i in 0..($a) {
-					self.1[i] = A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner());
+					self.1[i] = A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()));
 				}
 				self
 			}
@@ -357,9 +353,9 @@ macro_rules! impl_deg_add {
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
 				Sum::new(
-					A::from_inner(self.0.into_inner() + rhs.0.into_inner()),
+					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
 					std::array::from_fn(|i| if i < $a {
-						A::from_inner(self.1[i].into_inner() + rhs.1[i].into_inner())
+						A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()))
 					} else {
 						A::from_inner(rhs.1[i].into_inner())
 					}),

@@ -77,9 +77,9 @@ where
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
 	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		let mut value = Linear::zero();
+		let mut value: <<T::Kind as FluxKind>::Value as LinearPlus>::Inner = Linear::zero();
 		for item in self {
-			value = value + item.base_value(base_time).into_inner();
+			value = value.add(item.base_value(base_time).into_inner());
 		}
 		LinearPlus::from_inner(value)
 	}
