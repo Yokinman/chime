@@ -136,8 +136,8 @@ where
 	B: FluxKindVec<SIZE>,
 	D: FluxKind,
 	KindLinear<D>: PartialEq + Mul<Output = KindLinear<D>>,
-	A::Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
-	B::Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
+	A::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
+	B::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 	E: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 	F: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 {
@@ -178,15 +178,15 @@ where
 						let x = a - b;
 						real_diff = real_diff + x*x;
 					}
-					a_dis = <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
-					b_dis = <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
+					a_dis = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
+					b_dis = <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
 					real_diff = Mul::<Scalar>::mul(real_diff.sqrt() - dis, round_factor);
 					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis);
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + real_diff) &&
-						b_dis != <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + real_diff) &&
+						a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + real_diff) &&
+						b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + real_diff) &&
 						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + real_diff)
 					{
 						 // Undershoot Predicted Distances:
@@ -195,8 +195,8 @@ where
 							round_factor
 						);
 						if
-							a_dis != <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + pred_diff) &&
-							b_dis != <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + pred_diff) &&
+							a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis + pred_diff) &&
+							b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis + pred_diff) &&
 							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis + pred_diff)
 						{
 							break
@@ -227,8 +227,8 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <<A::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
-						- <<B::Kind as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
+					let x = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
+						- <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner());
 					pos = pos + x*x;
 				}
 				let dis = <D::Value as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
@@ -664,26 +664,26 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>>>,
-	A::Kind: ops::Sub<B::Kind>,
-	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
-	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
-		Add<Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
+	B: FluxKindVec<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>>,
+	A::Output: ops::Sub<B::Output>,
+	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
+	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
+		Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ ops::Sub<<D as ops::Sqr>::Output,
-			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
+			Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	KindLinear<A::Kind>:
-		Mul<Output = KindLinear<A::Kind>> + PartialOrd,
-	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>> + ops::Sqr,
+	KindLinear<A::Output>:
+		Mul<Output = KindLinear<A::Output>> + PartialOrd,
+	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
-		Pred<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,
+		Pred<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis(
@@ -696,7 +696,7 @@ where
 		
 		let basis = self.time();
 		
-		let mut sum = <<A::Kind as Sub<B::Kind>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + self.index_poly(i).into_inner()
 				.sub(poly.index_poly(i).to_time(basis).into_inner())
@@ -731,26 +731,26 @@ impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D>
 	for PolyVec<SIZE, A>
 where
 	A: FluxKindVec<SIZE>,
-	B: FluxKindVec<SIZE, Kind: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>>>,
-	A::Kind: ops::Sub<B::Kind>,
-	<A::Kind as ops::Sub<B::Kind>>::Output: ops::Sqr,
-	<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output:
-		Add<Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
+	B: FluxKindVec<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>>,
+	A::Output: ops::Sub<B::Output>,
+	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
+	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
+		Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ ops::Sub<<D as ops::Sqr>::Output,
-			Output = <<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>
+			Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	KindLinear<A::Kind>:
-		Mul<Output = KindLinear<A::Kind>> + PartialEq,
-	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Kind>>> + ops::Sqr,
+	KindLinear<A::Output>:
+		Mul<Output = KindLinear<A::Output>> + PartialEq,
+	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
-		PredEq<<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output>,
+		PredEq<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
-			<<A::Kind as ops::Sub<B::Kind>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis_eq(
@@ -762,7 +762,7 @@ where
 		
 		let basis = self.time();
 		
-		let mut sum = <<A::Kind as Sub<B::Kind>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + self.index_poly(i).into_inner()
 				.sub(poly.index_poly(i).to_time(basis).into_inner())

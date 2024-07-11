@@ -198,8 +198,8 @@ impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
 where
 	T: Vector<SIZE, Output: LinearPlus> + Clone,
 {
-	type Kind = Sum<T::Output, D>;
-	fn index_kind(&self, index: usize) -> Self::Kind {
+	type Output = Sum<T::Output, D>;
+	fn index_kind(&self, index: usize) -> Self::Output {
 		Sum(
 			self.0.index(index),
 			std::array::from_fn(|i| self.1[i].index(index))
