@@ -167,12 +167,6 @@ where
 	}
 }
 
-/// Multidimensional vector type.
-pub trait LinearVec<const SIZE: usize>:
-	Vector<SIZE, Output: Linear>
-	+ Clone
-{}
-
 /// Multidimensional [`LinearPlus`].
 pub trait LinearPlusVec<const SIZE: usize>:
 	Vector<SIZE, Output: LinearPlus>
@@ -259,7 +253,7 @@ pub trait Vector<const SIZE: usize> {
 
 impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
 where
-	A: LinearVec<SIZE>,
+	A: Vector<SIZE, Output: Linear> + Clone,
 	B: Vector<SIZE, Output: LinearIso<A::Output>> + Clone,
 {
 	type Output = Iso<A::Output, B::Output>;
@@ -320,7 +314,6 @@ mod glam_stuff {
 					Self::ZERO
 				}
 			}
-			impl LinearVec<$size> for $vec {}
 		};
 	}
 	impl_linear_for_vec!(
