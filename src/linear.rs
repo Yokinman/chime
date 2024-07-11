@@ -167,17 +167,6 @@ where
 	}
 }
 
-/// Multidimensional [`LinearPlus`].
-pub trait LinearPlusVec<const SIZE: usize>:
-	Vector<SIZE, Output: LinearPlus>
-	+ Clone
-{}
-
-impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
-where
-	T: Vector<SIZE, Output: LinearPlus> + Clone,
-{}
-
 /// A mapping of a vector space that preserves addition & multiplication.
 /// 
 /// # Properties
@@ -253,8 +242,8 @@ pub trait Vector<const SIZE: usize> {
 
 impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
 where
-	A: Vector<SIZE, Output: Linear> + Clone,
-	B: Vector<SIZE, Output: LinearIso<A::Output>> + Clone,
+	A: Vector<SIZE, Output: Linear>,
+	B: Vector<SIZE, Output: LinearIso<A::Output>>,
 {
 	type Output = Iso<A::Output, B::Output>;
 	fn index(&self, index: usize) -> Self::Output {

@@ -196,7 +196,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 
 impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
 where
-	T: LinearPlusVec<SIZE>
+	T: Vector<SIZE, Output: LinearPlus> + Clone,
 {
 	type Kind = Sum<T::Output, D>;
 	fn index_kind(&self, index: usize) -> Self::Kind {

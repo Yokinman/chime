@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{LinearPlus, LinearPlusVec, Scalar};
+use crate::linear::{LinearPlus, Scalar};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
