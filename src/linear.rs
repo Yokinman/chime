@@ -173,19 +173,21 @@ pub trait LinearVec<const SIZE: usize>: Clone {
 	fn index(&self, index: usize) -> Self::Value;
 }
 
-impl<const SIZE: usize, T: Linear> LinearVec<SIZE> for [T; SIZE] {
-	type Value = T;
-	fn index(&self, index: usize) -> Self::Value {
-		self[index]
-	}
-}
-
 /// Multidimensional [`LinearPlus`].
 pub trait LinearPlusVec<const SIZE: usize>: Clone {
-	type Inner: LinearVec<SIZE, Value = <Self::Value as LinearPlus>::Inner>;
-	type Outer: LinearIsoVec<SIZE, Self::Inner, Value = <Self::Value as LinearPlus>::Outer>;
 	type Value: LinearPlus;
 	fn index(&self, index: usize) -> Self::Value;
+}
+
+impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
+where
+	T: LinearVec<SIZE>,
+	T: LinearIsoVec<SIZE, T, Value = <T as LinearVec<SIZE>>::Value>,
+{
+	type Value = <T as LinearVec<SIZE>>::Value;
+	fn index(&self, index: usize) -> Self::Value {
+		LinearVec::<SIZE>::index(self, index)
+	}
 }
 
 impl<A, B, const SIZE: usize> LinearPlusVec<SIZE> for Iso<A, B>
@@ -193,8 +195,6 @@ where
 	A: LinearVec<SIZE>,
 	B: LinearIsoVec<SIZE, A>,
 {
-	type Inner = A;
-	type Outer = B;
 	type Value = Iso<A::Value, B::Value>;
 	fn index(&self, index: usize) -> Self::Value {
 		let Iso(inner, outer) = self;
@@ -259,14 +259,13 @@ pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
 	fn index(&self, index: usize) -> Self::Value;
 }
 
-impl<const SIZE: usize, T, I> LinearIsoVec<SIZE, [T; SIZE]> for [I; SIZE]
+impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
 where
-	T: Linear,
-	I: LinearIso<T>,
+	T: LinearVec<SIZE> + Linear,
 {
-	type Value = I;
+	type Value = T::Value;
 	fn index(&self, index: usize) -> Self::Value {
-		self[index]
+		LinearVec::index(self, index)
 	}
 }
 
