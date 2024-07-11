@@ -22,7 +22,7 @@ impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
 	fn index_base_time(&self, index: usize) -> Time {
 		self[index].base_time()
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
 		self[index].poly(time)
 	}
 	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
@@ -55,7 +55,7 @@ where
 	fn index_base_time(&self, _index: usize) -> Time {
 		T::base_time(self)
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> {
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
 		Poly::new(self.poly(time).into_inner().index(index), time)
 	}
 	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {

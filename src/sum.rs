@@ -194,11 +194,11 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	}
 }
 
-impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
+impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for Sum<T, DEGREE>
 where
-	T: Vector<SIZE, Output: LinearPlus> + Clone,
+	T: Vector<SIZE>
 {
-	type Output = Sum<T::Output, D>;
+	type Output = Sum<T::Output, DEGREE>;
 	fn index(&self, index: usize) -> Self::Output {
 		Sum(
 			self.0.index(index),
@@ -206,6 +206,11 @@ where
 		)
 	}
 }
+
+impl<const SIZE: usize, T, const D: usize> FluxKindVec<SIZE> for Sum<T, D>
+where
+	T: Vector<SIZE, Output: LinearPlus> + Clone,
+{}
 
 #[allow(clippy::from_over_into)]
 impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {

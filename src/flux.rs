@@ -511,7 +511,7 @@ pub trait FluxVec<const SIZE: usize> {
 		time
 	}
 	
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as FluxKindVec<SIZE>>::Output>;
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output>;
 	
 	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind>;
 	
@@ -575,32 +575,32 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
 	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>>::Pred
+		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
-		D: LinearIso<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>,
-		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>,
+		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
 		self.when_dis(other, order, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
 	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>>::Pred
+		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
-		D: LinearIso<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>,
-		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>,
+		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
 		self.when_dis_eq(other, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> as When<T::Kind>>::Pred
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Output>: When<T::Kind>
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -609,10 +609,10 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Times when a component is equal to another flux.
 	fn when_index_eq<T>(&self, index: usize, other: &T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
 		T: Flux,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Output>: WhenEq<T::Kind>
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
 		let time = self.index_base_time(index);
 		self.index_poly(index, time)
@@ -621,20 +621,20 @@ pub trait FluxVec<const SIZE: usize> {
 	
 	/// Ranges when a component is above/below/equal to a constant.
 	fn when_index_constant<T>(&self, index: usize, order: Ordering, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>>::Pred
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: LinearIso<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>
+		T: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
 	{
 		self.when_index(index, order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when a component is equal to a constant.
 	fn when_index_eq_constant<T>(&self, index: usize, other: T)
-		-> <Poly<<Self::Kind as FluxKindVec<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>>::Pred
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: LinearIso<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>,
-		Poly<<Self::Kind as FluxKindVec<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as FluxKindVec<SIZE>>::Output>>>
+		T: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
 	{
 		self.when_index_eq(index, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
@@ -1041,15 +1041,20 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	}
 }
 
-impl<const SIZE: usize, T> FluxKindVec<SIZE> for Constant<T>
+impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>
 where
-	T: Vector<SIZE, Output: LinearPlus> + Clone,
+	T: Vector<SIZE>
 {
 	type Output = Constant<T::Output>;
 	fn index(&self, index: usize) -> Self::Output {
 		Constant(self.0.index(index))
 	}
 }
+
+impl<const SIZE: usize, T> FluxKindVec<SIZE> for Constant<T>
+where
+	T: Vector<SIZE, Output: LinearPlus> + Clone,
+{}
 
 impl<T: LinearPlus> Mul<Scalar> for Constant<T> {
 	type Output = Self;

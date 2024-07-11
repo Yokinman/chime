@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{LinearPlus, Scalar};
+use crate::linear::{LinearPlus, Scalar, Vector};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
@@ -54,17 +54,9 @@ pub trait FluxKind:
 pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 
 /// Multidimensional kind of change.
-pub trait FluxKindVec<const SIZE: usize>: Clone {
-	type Output: FluxKind;
-	fn index(&self, index: usize) -> Self::Output;
-}
+pub trait FluxKindVec<const SIZE: usize>: Vector<SIZE, Output: FluxKind> + Clone {}
 
-impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {
-	type Output = T;
-	fn index(&self, index: usize) -> Self::Output {
-		self[index]
-	}
-}
+impl<const SIZE: usize, T: FluxKind> FluxKindVec<SIZE> for [T; SIZE] {}
 
 /// Combining [`FluxKind`] types.
 /// 
