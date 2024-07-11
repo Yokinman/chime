@@ -240,6 +240,16 @@ pub trait Vector<const SIZE: usize> {
 	fn index(&self, index: usize) -> Self::Output;
 }
 
+impl<T, const SIZE: usize> Vector<SIZE> for [T; SIZE]
+where
+	T: Copy,
+{
+	type Output = T;
+	fn index(&self, index: usize) -> Self::Output {
+		self[index]
+	}
+}
+
 impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
 where
 	A: Vector<SIZE, Output: Linear>,
