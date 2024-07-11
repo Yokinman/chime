@@ -169,8 +169,8 @@ where
 
 /// Multidimensional vector type.
 pub trait LinearVec<const SIZE: usize>: Clone {
-	type Value: Linear;
-	fn index(&self, index: usize) -> Self::Value;
+	type Output: Linear;
+	fn index(&self, index: usize) -> Self::Output;
 }
 
 /// Multidimensional [`LinearPlus`].
@@ -182,9 +182,9 @@ pub trait LinearPlusVec<const SIZE: usize>: Clone {
 impl<T, const SIZE: usize> LinearPlusVec<SIZE> for T
 where
 	T: LinearVec<SIZE>,
-	T: LinearIsoVec<SIZE, T, Value = <T as LinearVec<SIZE>>::Value>,
+	T: LinearIsoVec<SIZE, T, Value = <T as LinearVec<SIZE>>::Output>,
 {
-	type Value = <T as LinearVec<SIZE>>::Value;
+	type Value = <T as LinearVec<SIZE>>::Output;
 	fn index(&self, index: usize) -> Self::Value {
 		LinearVec::<SIZE>::index(self, index)
 	}
@@ -195,12 +195,12 @@ where
 	A: LinearVec<SIZE>,
 	B: LinearIsoVec<SIZE, A>,
 {
-	type Value = Iso<A::Value, B::Value>;
+	type Value = Iso<A::Output, B::Value>;
 	fn index(&self, index: usize) -> Self::Value {
 		let Iso(inner, outer) = self;
 		let inner = inner.clone()
 			.map(|x| x.index(index))
-			.unwrap_or_else(|| LinearIso::<A::Value>::into_linear(outer.index(index)));
+			.unwrap_or_else(|| LinearIso::<A::Output>::into_linear(outer.index(index)));
 		Iso::from_inner(inner)
 	}
 }
@@ -255,7 +255,7 @@ impl LinearIso<f32> for f64 {
 
 /// Multidimensional linear map.
 pub trait LinearIsoVec<const SIZE: usize, T: LinearVec<SIZE>>: Clone {
-	type Value: LinearIso<T::Value>;
+	type Value: LinearIso<T::Output>;
 	fn index(&self, index: usize) -> Self::Value;
 }
 
@@ -263,7 +263,7 @@ impl<T, const SIZE: usize> LinearIsoVec<SIZE, T> for T
 where
 	T: LinearVec<SIZE> + Linear,
 {
-	type Value = T::Value;
+	type Value = <T as LinearVec<SIZE>>::Output;
 	fn index(&self, index: usize) -> Self::Value {
 		LinearVec::index(self, index)
 	}
@@ -307,8 +307,8 @@ mod glam_stuff {
 				}
 			}
 			impl LinearVec<$size> for $vec {
-				type Value = $value;
-				fn index(&self, index: usize) -> Self::Value {
+				type Output = $value;
+				fn index(&self, index: usize) -> Self::Output {
 					if index >= $size {
 						panic!("index out of bounds")
 					}
