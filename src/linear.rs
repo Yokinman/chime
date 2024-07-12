@@ -323,6 +323,10 @@ mod _linear_iso_impls {
 pub trait Vector<const SIZE: usize> {
 	type Output;
 	fn index(&self, index: usize) -> Self::Output;
+	// !!! I want to add a lifetime parameter to `Self::Output` so that I can
+	// return values by reference when desired. However, this will also require
+	// refactoring systems to account for bounds like: `FluxValue<&T>: Flux`,
+	// `Sum<&T, D>: FluxKind`, etc.
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for [T; SIZE]
