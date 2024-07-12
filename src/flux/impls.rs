@@ -6,63 +6,31 @@ use std::vec::Vec;
 use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
-use crate::kind::{FluxKind, Poly, PolyVec};
+use crate::kind::{ArrayFluxKindValue, FluxKind, Poly, PolyVec};
 use crate::linear::{Linear, LinearPlus, Vector};
 
-impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for [T; SIZE] {
-	type Flux = [T::Flux; SIZE];
-	fn to_flux_vec(self, time: Time) -> Self::Flux {
-		self.map(|x| x.to_flux(time))
+impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
+	type Flux = FluxValue<[<T::Flux as Flux>::Inner; SIZE]>;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		FluxValue::new(self.map(|x| x.to_flux(time).into_inner_flux()), time)
 	}
 }
 
-impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for [T; SIZE] {
+impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
 	type Kind = [T::Kind; SIZE];
-	fn index_base_time(&self, index: usize) -> Time {
-		self[index].base_time()
+	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+		ArrayFluxKindValue(self.each_ref().map(|x| x.base_value(base_time)))
 	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
-		self[index].poly(time)
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+		let mut i = 0;
+		accum.map(|a| {
+			i += 1;
+			self[i - 1].change(a)
+		})
 	}
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
-		PolyVec::new(array::from_fn(|i| self.index_poly(i, time).into_inner()), time)
-	}
-	fn to_moment_vec(self, time: Time) -> Self::Moment {
-		self.map(|x| x.to_moment(time))
-	}
-}
-
-impl<T: Moment, const SIZE: usize> MomentVec<SIZE> for T
-where
-	<<T::Flux as Flux>::Kind as FluxKind>::Value: Vector<SIZE, Output: LinearPlus>,
-	<T::Flux as Flux>::Kind: Vector<SIZE, Output: FluxKind>,
-{
-	type Flux = T::Flux;
-	fn to_flux_vec(self, time: Time) -> Self::Flux {
-		self.to_flux(time)
-	}
-}
-
-impl<T: Flux, const SIZE: usize> FluxVec<SIZE> for T
-where
-	<T::Kind as FluxKind>::Value: Vector<SIZE, Output: LinearPlus>,
-	T::Kind: Vector<SIZE, Output: FluxKind>,
-	T::Moment: MomentVec<SIZE, Flux=Self>,
-{
-	type Moment = T::Moment;
-	type Kind = T::Kind;
-	fn index_base_time(&self, _index: usize) -> Time {
-		T::base_time(self)
-	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
-		Poly::new(self.poly(time).into_inner().index(index), time)
-	}
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
-		PolyVec::new(self.poly(time).into_inner(), time)
-	}
-	fn to_moment_vec(self, time: Time) -> Self::Moment {
-		self.to_moment(time)
+	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+		self.map(|x| x.to_moment(base_time, time))
 	}
 }
 

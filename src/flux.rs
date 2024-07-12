@@ -497,6 +497,18 @@ pub trait MomentVec<const SIZE: usize> {
 	fn to_flux_vec(self, time: Time) -> Self::Flux;
 }
 
+impl<T, const SIZE: usize> MomentVec<SIZE> for T
+where
+	T: Moment + Vector<SIZE, Output: Moment>,
+	T::Flux: Vector<SIZE, Output: Flux>,
+	<T::Flux as Flux>::Kind: Vector<SIZE, Output: FluxKind>,
+{
+	type Flux = T::Flux;
+	fn to_flux_vec(self, time: Time) -> Self::Flux {
+		self.to_flux(time)
+	}
+}
+
 /// Multidimensional change over time.
 pub trait FluxVec<const SIZE: usize> {
 	type Moment: MomentVec<SIZE, Flux=Self>;
@@ -645,6 +657,28 @@ pub trait FluxVec<const SIZE: usize> {
 	// - for non-fixed angle line segments, use a double distance check?
 	// - rotating point-line may be handleable iteratively, find the bounds in
 	//   which the roots may be and iterate through it.
+}
+
+impl<T, const SIZE: usize> FluxVec<SIZE> for T
+where
+	T: Flux + Vector<SIZE, Output: Flux>,
+	T::Moment: Vector<SIZE, Output: Moment>,
+	T::Kind: Vector<SIZE, Output: FluxKind>,
+{
+	type Moment = T::Moment;
+	type Kind = T::Kind;
+	fn index_base_time(&self, _index: usize) -> Time {
+		T::base_time(self)
+	}
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
+		Poly::new(self.poly(time).into_inner().index(index), time)
+	}
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
+		PolyVec::new(self.poly(time).into_inner(), time)
+	}
+	fn to_moment_vec(self, time: Time) -> Self::Moment {
+		self.to_moment(time)
+	}
 }
 
 /// Immutable moment-in-time interface for [`FluxVec::at_vec`].
@@ -861,6 +895,16 @@ where
 	}
 	fn to_moment(self, time: Time) -> Self::Moment {
 		self.inner.to_moment(self.time, time)
+	}
+}
+
+impl<T, const SIZE: usize> Vector<SIZE> for FluxValue<T>
+where
+	T: Vector<SIZE>,
+{
+	type Output = FluxValue<T::Output>;
+	fn index(&self, index: usize) -> Self::Output {
+		FluxValue::new(self.inner.index(index), self.time)
 	}
 }
 
