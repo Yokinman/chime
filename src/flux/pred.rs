@@ -653,12 +653,7 @@ where
 /// [`crate::FluxVec::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D> {
 	type Pred: Prediction;
-	fn when_dis(
-		self,
-		poly: Poly<B>,
-		order: Ordering,
-		dis: Poly<D>,
-	) -> Self::Pred;
+	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred;
 }
 
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Poly<A>
@@ -686,12 +681,7 @@ where
 			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis(
-		self,
-		poly: Poly<B>,
-		order: Ordering,
-		dis: Poly<D>,
-	) -> Self::Pred {
+	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
 		let basis = self.time();
@@ -720,11 +710,7 @@ where
 /// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D> {
 	type Pred: Prediction;
-	fn when_dis_eq(
-		self,
-		poly: Poly<B>,
-		dis: Poly<D>,
-	) -> Self::Pred;
+	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred;
 }
 
 impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Poly<A>
@@ -752,11 +738,7 @@ where
 			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis_eq(
-		self,
-		poly: Poly<B>,
-		dis: Poly<D>,
-	) -> Self::Pred {
+	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
 		let basis = self.time();
