@@ -366,6 +366,19 @@ where
 	}
 }
 
+impl<K, const SIZE: usize> Vector<SIZE> for Poly<K>
+where
+	K: Vector<SIZE>,
+{
+	type Output = Poly<K::Output>;
+	fn index(&self, index: usize) -> Self::Output {
+		Poly {
+			inner: self.inner.index(index),
+			time: self.time,
+		}
+	}
+}
+
 /// Multidimensional polynomial.
 pub struct PolyVec<const SIZE: usize, K> {
 	inner: K,
