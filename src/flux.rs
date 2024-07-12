@@ -492,10 +492,9 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 /// Multidimensional change over time.
 pub trait FluxVector<const SIZE: usize>:
 	Flux<Kind: Vector<SIZE, Output: FluxKind>>
-	+ Vector<SIZE, Output: Flux<Kind = <Self::Kind as Vector<SIZE>>::Output>>
 {
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Output as Flux>::Kind> {
-		self.index(index).poly(time)
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
+		self.poly(time).index(index)
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -600,9 +599,7 @@ pub trait FluxVector<const SIZE: usize>:
 
 impl<T, const SIZE: usize> FluxVector<SIZE> for T
 where
-	T: Flux + Vector<SIZE, Output: Flux<Kind = <Self::Kind as Vector<SIZE>>::Output>>,
-	T::Moment: Vector<SIZE, Output: Moment>,
-	T::Kind: Vector<SIZE, Output: FluxKind>,
+	T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 {}
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
