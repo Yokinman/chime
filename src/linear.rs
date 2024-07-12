@@ -109,73 +109,77 @@ pub trait Linear: Copy + Clone + Debug + LinearIso<Self> + 'static {
 	}
 }
 
-impl Linear for f64 {
-	fn add(self, other: Self) -> Self {
-		self + other
-	}
-	fn sub(self, other: Self) -> Self {
-		self - other
-	}
-	fn mul(self, scalar: Scalar) -> Self {
-		self * scalar
-	}
-	fn sqrt(self) -> Self {
-		self.sqrt()
-	}
-	fn sign(self) -> Self {
-		// What if sign is 0
-		self.signum()
-	}
-	fn zero() -> Self {
-		0.
-	}
-}
-
-impl Linear for f32 {
-	fn add(self, other: Self) -> Self {
-		self + other
-	}
-	fn sub(self, other: Self) -> Self {
-		self - other
-	}
-	fn mul(self, scalar: Scalar) -> Self {
-		self * scalar
-	}
-	fn sqrt(self) -> Self {
-		self.sqrt()
-	}
-	fn sign(self) -> Self {
-		self.signum()
-	}
-	fn zero() -> Self {
-		0.
-	}
-}
-
-impl<T: Linear, const SIZE: usize> Linear for [T; SIZE] {
-	fn add(mut self, other: Self) -> Self {
-		for i in 0..SIZE {
-			self[i] = self[i].add(other[i]);
+mod _linear_impls {
+	use super::{Linear, Scalar};
+	
+	impl Linear for f64 {
+		fn add(self, other: Self) -> Self {
+			self + other
 		}
-		self
-	}
-	fn sub(mut self, other: Self) -> Self {
-		for i in 0..SIZE {
-			self[i] = self[i].sub(other[i]);
+		fn sub(self, other: Self) -> Self {
+			self - other
 		}
-		self
+		fn mul(self, scalar: Scalar) -> Self {
+			self * scalar
+		}
+		fn sqrt(self) -> Self {
+			self.sqrt()
+		}
+		fn sign(self) -> Self {
+			// What if sign is 0
+			self.signum()
+		}
+		fn zero() -> Self {
+			0.
+		}
 	}
-	fn mul(self, scalar: Scalar) -> Self {
-		self.map(|x| x.mul(scalar))
+	
+	impl Linear for f32 {
+		fn add(self, other: Self) -> Self {
+			self + other
+		}
+		fn sub(self, other: Self) -> Self {
+			self - other
+		}
+		fn mul(self, scalar: Scalar) -> Self {
+			self * scalar
+		}
+		fn sqrt(self) -> Self {
+			self.sqrt()
+		}
+		fn sign(self) -> Self {
+			self.signum()
+		}
+		fn zero() -> Self {
+			0.
+		}
 	}
-	fn sqrt(self) -> Self {
-		self.map(T::sqrt)
-	}
-	fn sign(self) -> Self {
-		self.map(T::sign)
-	}
-	fn zero() -> Self {
-		[T::zero(); SIZE]
+	
+	impl<T: Linear, const SIZE: usize> Linear for [T; SIZE] {
+		fn add(mut self, other: Self) -> Self {
+			for i in 0..SIZE {
+				self[i] = self[i].add(other[i]);
+			}
+			self
+		}
+		fn sub(mut self, other: Self) -> Self {
+			for i in 0..SIZE {
+				self[i] = self[i].sub(other[i]);
+			}
+			self
+		}
+		fn mul(self, scalar: Scalar) -> Self {
+			self.map(|x| x.mul(scalar))
+		}
+		fn sqrt(self) -> Self {
+			self.map(T::sqrt)
+		}
+		fn sign(self) -> Self {
+			self.map(T::sign)
+		}
+		fn zero() -> Self {
+			[T::zero(); SIZE]
+		}
 	}
 }
 
