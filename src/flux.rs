@@ -734,16 +734,6 @@ where
 	}
 }
 
-impl<T, const SIZE: usize> Vector<SIZE> for FluxValue<T>
-where
-	T: Vector<SIZE>,
-{
-	type Output = FluxValue<T::Output>;
-	fn index(&self, index: usize) -> Self::Output {
-		FluxValue::new(self.inner.index(index), self.time)
-	}
-}
-
 /// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
 /// Implemented automatically by the [`flux`] macro, not manually (currently).
 pub trait InnerFlux {
