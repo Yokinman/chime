@@ -114,7 +114,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	}
 	
 	fn at(&self, time: Scalar) -> Self::Value {
-		if time == Scalar(0.) {
+		if time == Scalar::from(0.) {
 			return self.0
 		}
 		let mut value = <T::Inner as Linear>::zero();
@@ -128,22 +128,25 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		let mut poly = *self;
 		poly.0 = poly.1[0];
 		for d in 1..D {
-			poly.1[d-1] = T::from_inner(poly.1[d].into_inner().mul(Scalar((d+1) as f64)));
+			poly.1[d-1] = T::from_inner(poly.1[d].into_inner()
+				.mul(Scalar::from((d+1) as f64)));
 		}
 		poly.1[D-1] = T::zero();
 		poly.at(time)
 	}
 	
 	fn to_time(mut self, time: Scalar) -> Self {
-		if time == Scalar(0.) {
+		if time == Scalar::from(0.) {
 			return self
 		}
 		self.0 = self.at(time);
 		let mut deriv = self;
 		for degree in 1..=D {
-			deriv.0 = T::from_inner(deriv.1[0].into_inner().mul(Scalar(1. / (degree as f64))));
+			deriv.0 = T::from_inner(deriv.1[0].into_inner()
+				.mul(Scalar::from(1. / (degree as f64))));
 			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner().mul(Scalar(((d+1) as f64) / (degree as f64))));
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner()
+					.mul(Scalar::from(((d+1) as f64) / (degree as f64))));
 			}
 			deriv.1[D-1] = T::zero();
 			self.1[degree-1] = deriv.at(time);
@@ -171,7 +174,8 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		for degree in 1..=D {
 			deriv.0 = deriv.1[0];
 			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner().mul(Scalar((d+1) as f64)));
+				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner()
+					.mul(Scalar::from((d+1) as f64)));
 			}
 			deriv.1[D-1] = T::zero();
 			
@@ -560,7 +564,7 @@ impl Roots for Sum<f64, 4> {
 					"expected a positive root from: {:?}",
 					resolvent_cubic
 				));
-			let y = resolvent_cubic.at(Scalar(m))
+			let y = resolvent_cubic.at(Scalar::from(m))
 				/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.1[0]);
 			if m > y && y.is_finite() {
 				m -= y; // Newton-Raphson step
@@ -730,7 +734,7 @@ where
 		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
 		*kind.poly = *kind.poly + (sub_poly.shift_up()
-			* Scalar((time_scale / ((kind.depth + 1) as f64)) * scalar));
+			* Scalar::from((time_scale / ((kind.depth + 1) as f64)) * scalar));
 		// https://www.desmos.com/calculator/mhlpjakz32
 	}
 }
@@ -776,8 +780,8 @@ mod tests {
 	fn scalar_mul() {
 		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
 		let b = Sum(7.1, [5.9, 3.1]);
-		assert_eq!(a * Scalar(1.5), Sum(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
-		assert_eq!(b * Scalar(1.5), Sum(10.649999999999999, [8.850000000000001, 4.65]));
+		assert_eq!(a * Scalar::from(1.5), Sum(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
+		assert_eq!(b * Scalar::from(1.5), Sum(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
 	fn assert_roots<K: FluxKind>(p: K, expected_roots: &[f64])

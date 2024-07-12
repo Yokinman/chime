@@ -152,7 +152,7 @@ where
 		
 		 // Rounding Buffer:
 		if !is_end {
-			let round_factor = Scalar(0.5 / (SIZE as f64).sqrt());
+			let round_factor = Scalar::from(0.5 / (SIZE as f64).sqrt());
 			loop {
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {

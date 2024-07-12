@@ -43,7 +43,7 @@ pub trait FluxKind: Copy + Clone + Debug + 'static {
 	}
 	
 	fn value(&self) -> Self::Value {
-		self.at(Scalar(0.))
+		self.at(Scalar::from(0.))
 	}
 }
 
@@ -149,7 +149,7 @@ pub mod ops {
 			// ??? This could pass through to `ops::Sub` directly, but then
 			// stuff like [`sum::Sum`] would need a whole extra set of macro
 			// implementations. For now, this will just reuse `ops::Add`.
-			self + (kind * Scalar(-1.))
+			self + (kind * Scalar::from(-1.))
 		}
 	}
 	
@@ -242,7 +242,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn at(&self, time: Time) -> K::Value {
-		self.inner.at(Scalar(if time > self.time {
+		self.inner.at(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
@@ -250,7 +250,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Value {
-		self.inner.rate_at(Scalar(if time > self.time {
+		self.inner.rate_at(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
@@ -259,7 +259,7 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			self.inner = self.inner.to_time(Scalar(if time > self.time {
+			self.inner = self.inner.to_time(Scalar::from(if time > self.time {
 				(time - self.time).as_secs_f64()
 			} else {
 				-(self.time - time).as_secs_f64()
@@ -273,7 +273,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		KindLinear<K>: PartialOrd
 	{
-		self.inner.initial_order(Scalar(if time > self.time {
+		self.inner.initial_order(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()

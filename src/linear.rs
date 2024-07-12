@@ -5,7 +5,13 @@ use std::ops::Mul;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Scalar(pub f64);
+pub struct Scalar(f64);
+
+impl From<f64> for Scalar {
+	fn from(value: f64) -> Self {
+		Scalar(value)
+	}
+}
 
 impl Mul<Scalar> for Scalar {
 	type Output = Scalar;
