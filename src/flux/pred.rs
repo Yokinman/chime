@@ -650,7 +650,7 @@ where
 	}
 }
 
-/// [`crate::FluxVec::when_dis`] predictive distance comparison.
+/// [`crate::FluxVector::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred;
@@ -707,7 +707,7 @@ where
 	}
 }
 
-/// [`crate::FluxVec::when_dis_eq`] predictive distance comparison.
+/// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred;

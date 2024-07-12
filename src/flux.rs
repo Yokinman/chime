@@ -490,7 +490,7 @@ mod bevy_moment {
 pub use bevy_moment::{ResMoment, ResMomentMut};
 
 /// Multidimensional change over time.
-pub trait FluxVec<const SIZE: usize>:
+pub trait FluxVector<const SIZE: usize>:
 	Flux<Kind: FluxKindVector<SIZE>>
 	+ Vector<SIZE, Output: Flux>
 {
@@ -502,7 +502,7 @@ pub trait FluxVec<const SIZE: usize>:
 	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxVec<SIZE> + ?Sized,
+		T: FluxVector<SIZE> + ?Sized,
 		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
@@ -515,7 +515,7 @@ pub trait FluxVec<const SIZE: usize>:
 	fn when_dis_eq<T, D>(&self, other: &T, dis: &D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxVec<SIZE> + ?Sized,
+		T: FluxVector<SIZE> + ?Sized,
 		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
@@ -528,7 +528,7 @@ pub trait FluxVec<const SIZE: usize>:
 	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxVec<SIZE> + ?Sized,
+		T: FluxVector<SIZE> + ?Sized,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -539,7 +539,7 @@ pub trait FluxVec<const SIZE: usize>:
 	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxVec<SIZE> + ?Sized,
+		T: FluxVector<SIZE> + ?Sized,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -598,7 +598,7 @@ pub trait FluxVec<const SIZE: usize>:
 	//   which the roots may be and iterate through it.
 }
 
-impl<T, const SIZE: usize> FluxVec<SIZE> for T
+impl<T, const SIZE: usize> FluxVector<SIZE> for T
 where
 	T: Flux + Vector<SIZE, Output: Flux>,
 	T::Moment: Vector<SIZE, Output: Moment>,
