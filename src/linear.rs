@@ -327,11 +327,11 @@ pub trait Vector<const SIZE: usize> {
 
 impl<T, const SIZE: usize> Vector<SIZE> for [T; SIZE]
 where
-	T: Copy,
+	T: Clone,
 {
 	type Output = T;
 	fn index(&self, index: usize) -> Self::Output {
-		self[index]
+		self[index].clone()
 	}
 }
 
