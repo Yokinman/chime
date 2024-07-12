@@ -66,7 +66,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn to_time(self, time: Scalar) -> Self {
 		self.map(|x| x.to_time(time))
 	}
-	fn initial_order(&self, time: Scalar) -> Option<Ordering> where <Self::Value as LinearPlus>::Inner: PartialOrd {
+	fn initial_order(&self, _time: Scalar) -> Option<Ordering> where <Self::Value as LinearPlus>::Inner: PartialOrd {
 		unimplemented!()
 	}
 	fn zero() -> Self {
@@ -74,7 +74,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 }
 
-/// ...
+/// [`FluxKind::Value`] for arrays, as `[T; SIZE]` can't impl [`LinearPlus`].
 #[derive(Copy, Clone, Debug)]
 pub struct ArrayFluxKindValue<T, const SIZE: usize>(pub(crate) [T; SIZE]);
 
@@ -82,10 +82,10 @@ impl<T: LinearPlus, const SIZE: usize> LinearPlus for ArrayFluxKindValue<T, SIZE
 	type Inner = [T::Inner; SIZE];
 	type Outer = [T::Outer; SIZE];
 	fn from_inner(inner: Self::Inner) -> Self {
-		todo!()
+		ArrayFluxKindValue(inner.map(T::from_inner))
 	}
 	fn into_inner(self) -> Self::Inner {
-		todo!()
+		self.0.map(T::into_inner)
 	}
 }
 
