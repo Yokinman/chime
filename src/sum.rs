@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
-use crate::_hidden::InnerFlux;
+use crate::InnerFlux;
 
 /// Summation over time.
 /// 

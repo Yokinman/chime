@@ -689,7 +689,7 @@ impl<T> FluxValue<T> {
 	
 	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> FluxRef<'_, U>
 	where
-		U: _hidden::InnerFlux,
+		U: InnerFlux,
 	{
 		FluxRef {
 			inner: f(&self.inner),
@@ -711,7 +711,7 @@ impl<T> DerefMut for FluxValue<T> {
 	}
 }
 
-impl<T: _hidden::InnerFlux> Flux for FluxValue<T>
+impl<T: InnerFlux> Flux for FluxValue<T>
 where
 	T::Moment: Moment<Flux=Self>
 {
@@ -747,23 +747,17 @@ where
 	}
 }
 
-#[doc(hidden)]
-pub mod _hidden {
-	use super::*;
-	
-	/// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
-	/// Implemented automatically by the [`flux`] macro, not manually.
-	pub trait InnerFlux {
-		type Moment: Moment;
-		type Kind: FluxKind;
-		fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value;
-		fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-			-> <Self::Kind as FluxKind>::OutAccum<'a>;
-		fn to_moment(self, base_time: Time, time: Time)
-			-> Self::Moment;
-	}
+/// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
+/// Implemented automatically by the [`flux`] macro, not manually (currently).
+pub trait InnerFlux {
+	type Moment: Moment;
+	type Kind: FluxKind;
+	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value;
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>;
+	fn to_moment(self, base_time: Time, time: Time)
+		-> Self::Moment;
 }
-use crate::_hidden::InnerFlux;
 
 // ??? impl InnerFlux for T where T: FluxKind
 
@@ -795,7 +789,7 @@ pub struct FluxRefMoment<'a, T> {
 
 impl<'a, T> Moment for FluxRefMoment<'a, T>
 where
-	T: _hidden::InnerFlux,
+	T: InnerFlux,
 	T::Moment: Moment<Flux=FluxValue<T>>,
 {
 	type Flux = FluxRef<'a, T>;
@@ -823,7 +817,7 @@ impl<T> Deref for FluxRef<'_, T> {
 	}
 }
 
-impl<'b, T: _hidden::InnerFlux> Flux for FluxRef<'b, T>
+impl<'b, T: InnerFlux> Flux for FluxRef<'b, T>
 where
 	T::Moment: Moment<Flux=FluxValue<T>>
 {
