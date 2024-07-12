@@ -7,78 +7,83 @@ use std::ops::Mul;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scalar(f64);
 
-impl From<f64> for Scalar {
-	fn from(value: f64) -> Self {
-		Scalar(value)
+mod _scalar_impls {
+	use std::ops::Mul;
+	use super::Scalar;
+	
+	impl From<f64> for Scalar {
+		fn from(value: f64) -> Self {
+			Scalar(value)
+		}
 	}
-}
-
-impl Mul<Scalar> for Scalar {
-	type Output = Scalar;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		Scalar(self.0 * rhs.0)
+	
+	impl Mul<Scalar> for Scalar {
+		type Output = Scalar;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			Scalar(self.0 * rhs.0)
+		}
 	}
-}
-
-impl Mul<Scalar> for f64 {
-	type Output = f64;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		self * rhs.0
+	
+	impl Mul<Scalar> for f64 {
+		type Output = f64;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			self * rhs.0
+		}
 	}
-}
-
-impl Mul<Scalar> for f32 {
-	type Output = f32;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		((self as f64) * rhs.0) as f32
+	
+	impl Mul<Scalar> for f32 {
+		type Output = f32;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			((self as f64) * rhs.0) as f32
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::Vec2 {
-	type Output = glam::Vec2;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		(self.as_dvec2() * rhs).as_vec2()
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::Vec2 {
+		type Output = glam::Vec2;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			(self.as_dvec2() * rhs).as_vec2()
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::Vec3 {
-	type Output = glam::Vec3;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		(self.as_dvec3() * rhs).as_vec3()
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::Vec3 {
+		type Output = glam::Vec3;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			(self.as_dvec3() * rhs).as_vec3()
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::Vec4 {
-	type Output = glam::Vec4;
-	fn mul(self, rhs: Scalar) -> Self::Output {
-		(self.as_dvec4() * rhs).as_vec4()
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::Vec4 {
+		type Output = glam::Vec4;
+		fn mul(self, rhs: Scalar) -> Self::Output {
+			(self.as_dvec4() * rhs).as_vec4()
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::DVec2 {
-	type Output = glam::DVec2;
-	fn mul(self, rhs: Scalar) -> glam::DVec2 {
-		self * rhs.0
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::DVec2 {
+		type Output = glam::DVec2;
+		fn mul(self, rhs: Scalar) -> glam::DVec2 {
+			self * rhs.0
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::DVec3 {
-	type Output = glam::DVec3;
-	fn mul(self, rhs: Scalar) -> glam::DVec3 {
-		self * rhs.0
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::DVec3 {
+		type Output = glam::DVec3;
+		fn mul(self, rhs: Scalar) -> glam::DVec3 {
+			self * rhs.0
+		}
 	}
-}
-
-#[cfg(feature = "glam")]
-impl Mul<Scalar> for glam::DVec4 {
-	type Output = glam::DVec4;
-	fn mul(self, rhs: Scalar) -> glam::DVec4 {
-		self * rhs.0
+	
+	#[cfg(feature = "glam")]
+	impl Mul<Scalar> for glam::DVec4 {
+		type Output = glam::DVec4;
+		fn mul(self, rhs: Scalar) -> glam::DVec4 {
+			self * rhs.0
+		}
 	}
 }
 
