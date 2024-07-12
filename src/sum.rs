@@ -1016,11 +1016,11 @@ mod tests {
 		);
 		
 		 // Distance Check:
-		let a = PolyVec::new([
+		let a = Poly::new([
 			Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]),
 			Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.])
 		], SEC);
-		let b = PolyVec::new([
+		let b = Poly::new([
 			Constant::from(-3.8808053943969956e-5),
 			Constant::from(-193.99999999999997)
 		], SEC);

@@ -102,8 +102,8 @@ where
 
 /// ...
 pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F> {
-	a_pos: PolyVec<SIZE, A>,
-	b_pos: PolyVec<SIZE, B>,
+	a_pos: Poly<A>,
+	b_pos: Poly<B>,
 	dis_poly: Poly<D>,
 	pos_poly: Poly<E>,
 	diff_poly: Poly<F>,
@@ -171,8 +171,8 @@ where
 					let mut b_dis = <KindLinear<D> as Linear>::zero();
 					let mut real_diff = <KindLinear<D> as Linear>::zero();
 					for i in 0..SIZE {
-						let a = a_pos.index_poly(i).at(next_time).into_inner();
-						let b = b_pos.index_poly(i).at(next_time).into_inner();
+						let a = a_pos.index(i).at(next_time).into_inner();
+						let b = b_pos.index(i).at(next_time).into_inner();
 						a_dis = a_dis.add(a*a);
 						b_dis = b_dis.add(b*b);
 						let x = a.sub(b);
@@ -227,8 +227,8 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index_poly(i).at(next_time).into_inner())
-						.sub(<<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index_poly(i).at(next_time).into_inner()));
+					let x = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index(i).at(next_time).into_inner())
+						.sub(<<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index(i).at(next_time).into_inner()));
 					pos = pos.add(x*x);
 				}
 				let dis = <D::Value as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
@@ -655,16 +655,16 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B>,
+		poly: Poly<B>,
 		order: Ordering,
 		dis: Poly<D>,
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for PolyVec<SIZE, A>
+impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Poly<A>
 where
-	A: Vector<SIZE, Output: FluxKind> + Clone,
-	B: Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
+	A: FluxKind + Vector<SIZE, Output: FluxKind> + Clone,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
@@ -688,7 +688,7 @@ where
 	>;
 	fn when_dis(
 		self,
-		poly: PolyVec<SIZE, B>,
+		poly: Poly<B>,
 		order: Ordering,
 		dis: Poly<D>,
 	) -> Self::Pred {
@@ -698,8 +698,8 @@ where
 		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index_poly(i).into_inner()
-				.sub(poly.index_poly(i).to_time(basis).into_inner())
+			sum = sum + self.index(i).into_inner()
+				.sub(poly.index(i).to_time(basis).into_inner())
 				.sqr();
 		}
 		
@@ -722,16 +722,15 @@ pub trait WhenDisEq<const SIZE: usize, B, D> {
 	type Pred: Prediction;
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<SIZE, B>,
+		poly: Poly<B>,
 		dis: Poly<D>,
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D>
-	for PolyVec<SIZE, A>
+impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Poly<A>
 where
-	A: Vector<SIZE, Output: FluxKind> + Clone,
-	B: Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
+	A: FluxKind + Vector<SIZE, Output: FluxKind> + Clone,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
@@ -755,7 +754,7 @@ where
 	>;
 	fn when_dis_eq(
 		self,
-		poly: PolyVec<SIZE, B>,
+		poly: Poly<B>,
 		dis: Poly<D>,
 	) -> Self::Pred {
 		use ops::*;
@@ -764,8 +763,8 @@ where
 		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index_poly(i).into_inner()
-				.sub(poly.index_poly(i).to_time(basis).into_inner())
+			sum = sum + self.index(i).into_inner()
+				.sub(poly.index(i).to_time(basis).into_inner())
 				.sqr();
 		}
 		
@@ -788,12 +787,12 @@ fn consistent_sign_pred() {
 	use crate::sum::Sum;
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
-		let poly = PolyVec::new([
+		let poly = Poly::new([
 			Sum::new(-2., [5., -2.]),
 			Sum::zero()
 		], time);
 		poly.when_dis(
-			PolyVec::new([Sum::<f64, 2>::zero(); 2], time),
+			Poly::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
 			Poly::new(crate::Constant::from(1.), time),
 		).into_ranges()

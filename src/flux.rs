@@ -498,54 +498,50 @@ pub trait FluxVec<const SIZE: usize>:
 		Poly::new(self.poly(time).into_inner().index(index), time)
 	}
 	
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
-		PolyVec::new(self.poly(time).into_inner(), time)
-	}
-	
 	/// Ranges when the distance to another vector is above/below/equal to X.
 	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
+		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
+		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
-		self.poly_vec(time)
-			.when_dis(other.poly_vec(time), order, dis.poly(time))
+		self.poly(time)
+			.when_dis(other.poly(time), order, dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
 	fn when_dis_eq<T, D>(&self, other: &T, dis: &D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: Flux,
-		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
+		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
-		self.poly_vec(time)
-			.when_dis_eq(other.poly_vec(time), dis.poly(time))
+		self.poly(time)
+			.when_dis_eq(other.poly(time), dis.poly(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
 	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
 		self.when_dis(other, order, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
 	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
-		-> <PolyVec<SIZE, Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		T: FluxVec<SIZE> + ?Sized,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
 		self.when_dis_eq(other, &FluxValue::new(Constant::from(D::into_linear(dis)), Time::ZERO))
 	}
