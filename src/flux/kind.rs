@@ -92,18 +92,6 @@ impl<T: LinearPlus, const SIZE: usize> LinearPlus for ArrayFluxKindValue<T, SIZE
 /// Shortcut for the inner [`crate::linear::Linear`] type of a [`FluxKind`].
 pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 
-/// Multidimensional kind of change. This only exists to be a bound of `FluxVec`
-/// so that the bounds on `Output` are understood by the compiler (v1.79.0).
-pub trait FluxKindVector<const SIZE: usize>:
-	Vector<SIZE, Output: FluxKind>
-	+ Clone
-{}
-
-impl<const SIZE: usize, T> FluxKindVector<SIZE> for T
-where
-	T: Vector<SIZE, Output: FluxKind> + Clone
-{}
-
 /// Combining [`FluxKind`] types.
 /// 
 /// Primarily this serves as a way to put two kinds of change-over-time into
