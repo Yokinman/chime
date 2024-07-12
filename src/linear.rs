@@ -318,7 +318,8 @@ mod _linear_iso_impls {
 	// that can be done: I don't think flooring is handled by prediction yet.
 }
 
-/// ...
+/// Multidimensional values. Essentially [`std::ops::Index<usize>`] but with a
+/// definable size and a by-value output.
 pub trait Vector<const SIZE: usize> {
 	type Output;
 	fn index(&self, index: usize) -> Self::Output;
