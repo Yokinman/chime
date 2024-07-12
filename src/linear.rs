@@ -1,7 +1,6 @@
 //! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
-use std::ops::Mul;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -194,33 +193,37 @@ pub trait LinearPlus: Copy + Debug + 'static {
 	}
 }
 
-impl<T> LinearPlus for T
-where
-	T: Linear,
-{
-	type Inner = T;
-	type Outer = T;
-	fn from_inner(inner: Self::Inner) -> Self {
-		inner
+mod _linear_plus_impls {
+	use super::{Iso, Linear, LinearIso, LinearPlus};
+	
+	impl<T> LinearPlus for T
+	where
+		T: Linear,
+	{
+		type Inner = T;
+		type Outer = T;
+		fn from_inner(inner: Self::Inner) -> Self {
+			inner
+		}
+		fn into_inner(self) -> Self::Inner {
+			self
+		}
 	}
-	fn into_inner(self) -> Self::Inner {
-		self
-	}
-}
-
-impl<A, B> LinearPlus for Iso<A, B>
-where
-	A: Linear,
-	B: LinearIso<A>,
-{
-	type Inner = A;
-	type Outer = B;
-	fn from_inner(inner: Self::Inner) -> Self {
-		Iso(Some(inner), LinearIso::<A>::from_linear(inner))
-	}
-	fn into_inner(self) -> Self::Inner {
-		let Iso(inner, outer) = self;
-		inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+	
+	impl<A, B> LinearPlus for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Inner = A;
+		type Outer = B;
+		fn from_inner(inner: Self::Inner) -> Self {
+			Iso(Some(inner), LinearIso::<A>::from_linear(inner))
+		}
+		fn into_inner(self) -> Self::Inner {
+			let Iso(inner, outer) = self;
+			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
 	}
 }
 
