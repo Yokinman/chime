@@ -1,13 +1,12 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
-use std::array;
 use std::vec::Vec;
 
-use crate::{Flux, FluxValue, FluxVec, Moment, MomentVec};
+use crate::{Flux, FluxValue, Moment};
 use crate::_hidden::InnerFlux;
 use crate::time::Time;
-use crate::kind::{ArrayFluxKindValue, FluxKind, Poly, PolyVec};
-use crate::linear::{Linear, LinearPlus, Vector};
+use crate::kind::{ArrayFluxKindValue, FluxKind};
+use crate::linear::{Linear, LinearPlus};
 
 impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 	type Flux = FluxValue<[<T::Flux as Flux>::Inner; SIZE]>;

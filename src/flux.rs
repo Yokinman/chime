@@ -489,74 +489,17 @@ mod bevy_moment {
 #[cfg(feature = "bevy")]
 pub use bevy_moment::{ResMoment, ResMomentMut};
 
-/// Multidimensional interface for a vector that changes over time.
-pub trait MomentVec<const SIZE: usize> {
-	type Flux: FluxVec<SIZE, Moment=Self>;
-	
-	/// Constructs the entirety of a [`FluxVec`] from a single moment.
-	fn to_flux_vec(self, time: Time) -> Self::Flux;
-}
-
-impl<T, const SIZE: usize> MomentVec<SIZE> for T
-where
-	T: Moment + Vector<SIZE, Output: Moment>,
-	T::Flux: Vector<SIZE, Output: Flux>,
-	<T::Flux as Flux>::Kind: Vector<SIZE, Output: FluxKind>,
-{
-	type Flux = T::Flux;
-	fn to_flux_vec(self, time: Time) -> Self::Flux {
-		self.to_flux(time)
-	}
-}
-
 /// Multidimensional change over time.
-pub trait FluxVec<const SIZE: usize> {
-	type Moment: MomentVec<SIZE, Flux=Self>;
-	type Kind: FluxKindVector<SIZE>;
-	
-	fn index_base_time(&self, index: usize) -> Time;
-	fn max_base_time(&self) -> Time {
-		let mut time = Time::ZERO;
-		for i in 0..SIZE {
-			time = time.max(self.index_base_time(i));
-		}
-		time
+pub trait FluxVec<const SIZE: usize>:
+	Flux<Kind: FluxKindVector<SIZE>>
+	+ Vector<SIZE, Output: Flux>
+{
+	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
+		Poly::new(self.poly(time).into_inner().index(index), time)
 	}
 	
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output>;
-	
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind>;
-	
-	fn to_moment_vec(self, time: Time) -> Self::Moment;
-	
-	fn set_moment_vec(&mut self, time: Time, moment: Self::Moment)
-	where
-		Self: Sized
-	{
-		*self = moment.to_flux_vec(time);
-	}
-	
-	fn at_vec(&self, time: Time) -> MomentVecRef<SIZE, Self::Moment>
-	where
-		Self: Clone
-	{
-		let moment = self.clone().to_moment_vec(time);
-		MomentVecRef {
-			moment,
-			borrow: PhantomData,
-		}
-	}
-	
-	fn at_vec_mut(&mut self, time: Time) -> MomentVecRefMut<SIZE, Self::Moment>
-	where
-		Self: Clone
-	{
-		let moment = Some(self.clone().to_moment_vec(time));
-		MomentVecRefMut {
-			moment,
-			time,
-			borrow: self,
-		}
+	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
+		PolyVec::new(self.poly(time).into_inner(), time)
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -567,7 +510,7 @@ pub trait FluxVec<const SIZE: usize> {
 		D: Flux,
 		PolyVec<SIZE, Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
-		let time = self.max_base_time();
+		let time = self.base_time();
 		self.poly_vec(time)
 			.when_dis(other.poly_vec(time), order, dis.poly(time))
 	}
@@ -580,7 +523,7 @@ pub trait FluxVec<const SIZE: usize> {
 		D: Flux,
 		PolyVec<SIZE, Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
-		let time = self.max_base_time();
+		let time = self.base_time();
 		self.poly_vec(time)
 			.when_dis_eq(other.poly_vec(time), dis.poly(time))
 	}
@@ -614,7 +557,7 @@ pub trait FluxVec<const SIZE: usize> {
 		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
-		let time = self.index_base_time(index);
+		let time = self.base_time();
 		self.index_poly(index, time)
 			.when(order, other.poly(time))
 	}
@@ -626,7 +569,7 @@ pub trait FluxVec<const SIZE: usize> {
 		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
-		let time = self.index_base_time(index);
+		let time = self.base_time();
 		self.index_poly(index, time)
 			.when_eq(other.poly(time))
 	}
@@ -664,107 +607,7 @@ where
 	T: Flux + Vector<SIZE, Output: Flux>,
 	T::Moment: Vector<SIZE, Output: Moment>,
 	T::Kind: Vector<SIZE, Output: FluxKind>,
-{
-	type Moment = T::Moment;
-	type Kind = T::Kind;
-	fn index_base_time(&self, _index: usize) -> Time {
-		T::base_time(self)
-	}
-	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
-		Poly::new(self.poly(time).into_inner().index(index), time)
-	}
-	fn poly_vec(&self, time: Time) -> PolyVec<SIZE, Self::Kind> {
-		PolyVec::new(self.poly(time).into_inner(), time)
-	}
-	fn to_moment_vec(self, time: Time) -> Self::Moment {
-		self.to_moment(time)
-	}
-}
-
-/// Immutable moment-in-time interface for [`FluxVec::at_vec`].
-pub struct MomentVecRef<'b, const SIZE: usize, M: MomentVec<SIZE>> {
-	moment: M,
-	borrow: PhantomData<&'b M::Flux>,
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Deref for MomentVecRef<'_, SIZE, M> {
-	type Target = M;
-	fn deref(&self) -> &Self::Target {
-		&self.moment
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Debug for MomentVecRef<'_, SIZE, M>
-where
-	M: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Debug>::fmt(self, f)
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Display for MomentVecRef<'_, SIZE, M>
-where
-	M: Display
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Display>::fmt(self, f)
-	}
-}
-
-/// Mutable moment-in-time interface for [`FluxVec::at_vec_mut`].
-pub struct MomentVecRefMut<'b, const SIZE: usize, M: MomentVec<SIZE>> {
-	moment: Option<M>,
-	time: Time,
-	borrow: &'b mut M::Flux,
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Drop for MomentVecRefMut<'_, SIZE, M> {
-	fn drop(&mut self) {
-		if let Some(moment) = std::mem::take(&mut self.moment) {
-			self.borrow.set_moment_vec(self.time, moment);
-		}
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Deref for MomentVecRefMut<'_, SIZE, M> {
-	type Target = M;
-	fn deref(&self) -> &Self::Target {
-		if let Some(moment) = self.moment.as_ref() {
-			moment
-		} else {
-			unreachable!()
-		}
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> DerefMut for MomentVecRefMut<'_, SIZE, M> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		if let Some(moment) = self.moment.as_mut() {
-			moment
-		} else {
-			unreachable!()
-		}
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Debug for MomentVecRefMut<'_, SIZE, M>
-where
-	M: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Debug>::fmt(self, f)
-	}
-}
-
-impl<const SIZE: usize, M: MomentVec<SIZE>> Display for MomentVecRefMut<'_, SIZE, M>
-where
-	M: Display
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Display>::fmt(self, f)
-	}
-}
+{}
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
@@ -1440,11 +1283,11 @@ mod tests {
 		let a_pos = [
 			Pos { value: Iso::new(3), spd: Spd { value: Iso::new(300), acc: Acc { value: Iso::new(-240) } } },
 			Pos { value: Iso::new(-4), spd: Spd { value: Iso::new(120), acc: Acc { value: Iso::new(1080) } } }
-		].to_flux_vec(Time::ZERO);
+		].to_flux(Time::ZERO);
 		let b_pos = [
 			Pos { value: Iso::new(8), spd: Spd { value: Iso::new(330), acc: Acc { value: Iso::new(-300) } } },
 			Pos { value: Iso::new(4), spd: Spd { value: Iso::new(600), acc: Acc { value: Iso::new(720) } } }
-		].to_flux_vec(Time::ZERO);
+		].to_flux(Time::ZERO);
 		
 		let dis = Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } }
 			.to_flux(Time::ZERO);
@@ -1458,7 +1301,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment_vec(Time::ZERO).to_flux_vec(SEC);
+		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(SEC);
 		assert_time_ranges!(
 			a_pos.when_dis_eq_constant(&b_pos, 2),
 			[
