@@ -845,7 +845,7 @@ where
 		self.inner.change(accum)
 	}
 	fn to_moment(self, _time: Time) -> Self::Moment {
-		unimplemented!()
+		unimplemented!("FluxRef doesn't support `at` or `at_mut`")
 	}
 }
 
