@@ -787,16 +787,12 @@ where
 
 /// ...
 pub struct DynTimeRanges {
-	inner: Box<dyn TimeRanges + Send + Sync>,
+	inner: Box<dyn TimeRanges>,
 }
 
 impl DynTimeRanges {
-	pub(crate) fn new(
-		inner: impl TimeRanges + Send + Sync + 'static
-	) -> Self {
-		Self {
-			inner: Box::new(inner)
-		}
+	pub(crate) fn new(inner: impl TimeRanges + 'static) -> Self {
+		Self { inner: Box::new(inner) }
 	}
 }
 
