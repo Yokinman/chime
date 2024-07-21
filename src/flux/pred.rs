@@ -267,17 +267,6 @@ pub trait Prediction {
 
 macro_rules! impl_prediction {
 	(for<$($param:ident),*> $pred:ty) => {
-		impl<$($param),*> Prediction for $pred
-		where
-			Self: IntoIterator,
-			<Self as IntoIterator>::IntoIter: time::TimeRanges,
-		{
-			type TimeRanges = <Self as IntoIterator>::IntoIter;
-			fn into_ranges(self) -> Self::TimeRanges {
-				self.into_iter()
-			}
-		}
-		
 		impl<$($param,)* T> std::ops::BitAnd<T> for $pred {
 			type Output = PredInter<Self, T>;
 			fn bitand(self, b_pred: T) -> Self::Output {
@@ -408,14 +397,13 @@ where
 	}
 }
 
-impl<K> IntoIterator for Pred<K>
+impl<K> Prediction for Pred<K>
 where
 	K: Roots + PartialEq,
 	KindLinear<K>: PartialOrd,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		let basis = self.poly.time();
 		let basis_order = self.poly
 			.initial_order(Time::ZERO)
@@ -445,14 +433,13 @@ where
 	}
 }
 
-impl<K> IntoIterator for PredEq<K>
+impl<K> Prediction for PredEq<K>
 where
 	K: Roots + PartialEq,
 	KindLinear<K>: PartialEq,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		let basis = self.poly.time();
 		let basis_order = if self.poly.into_inner().is_zero() {
 			Ordering::Equal
@@ -485,10 +472,9 @@ impl DynPred {
 	}
 }
 
-impl IntoIterator for DynPred {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::DynTimeRanges;
-	fn into_iter(self) -> Self::IntoIter {
+impl Prediction for DynPred {
+	type TimeRanges = time::DynTimeRanges;
+	fn into_ranges(self) -> Self::TimeRanges {
 		self.inner
 	}
 }
@@ -500,14 +486,13 @@ pub struct PredFilter<P, F> {
 	pub(crate) filter: F,
 }
 
-impl<P, F> IntoIterator for PredFilter<P, F>
+impl<P, F> Prediction for PredFilter<P, F>
 where
 	P: Prediction,
 	F: TimeFilterMap,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeFilter<P::TimeRanges, F>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeFilter<P::TimeRanges, F>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		time::TimeFilter::new(self.pred.into_ranges(), self.filter)
 	}
 }
@@ -519,14 +504,13 @@ pub struct PredInter<A, B> {
 	b_pred: B,
 }
 
-impl<A, B> IntoIterator for PredInter<A, B>
+impl<A, B> Prediction for PredInter<A, B>
 where
 	A: Prediction,
 	B: Prediction,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangesInter<A::TimeRanges, B::TimeRanges>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeRangesInter<A::TimeRanges, B::TimeRanges>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		time::TimeRangesInter::new(
 			self.a_pred.into_ranges(),
 			self.b_pred.into_ranges(),
@@ -541,14 +525,13 @@ pub struct PredUnion<A, B> {
 	b_pred: B,
 }
 
-impl<A, B> IntoIterator for PredUnion<A, B>
+impl<A, B> Prediction for PredUnion<A, B>
 where
 	A: Prediction,
 	B: Prediction,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangesUnion<A::TimeRanges, B::TimeRanges>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeRangesUnion<A::TimeRanges, B::TimeRanges>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		time::TimeRangesUnion::new(
 			self.a_pred.into_ranges(),
 			self.b_pred.into_ranges(),
@@ -563,14 +546,13 @@ pub struct PredSymDiff<A, B> {
 	b_pred: B,
 }
 
-impl<A, B> IntoIterator for PredSymDiff<A, B>
+impl<A, B> Prediction for PredSymDiff<A, B>
 where
 	A: Prediction,
 	B: Prediction,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::TimeRangesSymDiff<A::TimeRanges, B::TimeRanges>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::TimeRangesSymDiff<A::TimeRanges, B::TimeRanges>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		time::TimeRangesSymDiff::new(
 			self.a_pred.into_ranges(),
 			self.b_pred.into_ranges(),
@@ -584,13 +566,12 @@ pub struct PredInv<P> {
 	pred: P,
 }
 
-impl<P> IntoIterator for PredInv<P>
+impl<P> Prediction for PredInv<P>
 where
 	P: Prediction,
 {
-	type Item = <Self::IntoIter as Iterator>::Item;
-	type IntoIter = time::InvTimeRanges<P::TimeRanges>;
-	fn into_iter(self) -> Self::IntoIter {
+	type TimeRanges = time::InvTimeRanges<P::TimeRanges>;
+	fn into_ranges(self) -> Self::TimeRanges {
 		time::InvTimeRanges::new(self.pred.into_ranges())
 	}
 }
