@@ -455,27 +455,40 @@ where
 	}
 }
 
+/// For defining `dyn Prediction` types with an unspecified `TimeRanges` type.
+pub trait DynPrediction {
+	fn into_ranges(&mut self) -> time::DynTimeRanges;
+}
+
+impl<T> DynPrediction for Option<T>
+where
+	T: Prediction,
+	T::TimeRanges: 'static,
+{
+	fn into_ranges(&mut self) -> time::DynTimeRanges {
+		time::DynTimeRanges::new(self.take()
+			.expect("should exist")
+			.into_ranges())
+	}
+}
+
 /// ...
 pub struct DynPred {
-	inner: time::DynTimeRanges,
+	inner: Box<dyn DynPrediction>,
 }
 
 impl DynPred {
-	pub fn new<T>(pred: T) -> Self
-	where
-		T: Prediction,
-		T::TimeRanges: 'static,
-	{
+	pub fn new(pred: impl Prediction + 'static) -> Self {
 		Self {
-			inner: time::DynTimeRanges::new(pred.into_ranges())
+			inner: Box::new(Some(pred))
 		}
 	}
 }
 
 impl Prediction for DynPred {
 	type TimeRanges = time::DynTimeRanges;
-	fn into_ranges(self) -> Self::TimeRanges {
-		self.inner
+	fn into_ranges(mut self) -> Self::TimeRanges {
+		self.inner.into_ranges()
 	}
 }
 
