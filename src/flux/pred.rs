@@ -464,7 +464,7 @@ impl DynPred {
 	pub fn new<T>(pred: T) -> Self
 	where
 		T: Prediction,
-		T::TimeRanges: Send + Sync + 'static,
+		T::TimeRanges: 'static,
 	{
 		Self {
 			inner: time::DynTimeRanges::new(pred.into_ranges())
