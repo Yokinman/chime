@@ -251,7 +251,7 @@ where
 /// ...
 pub trait Prediction {
 	type TimeRanges: time::TimeRanges;
-	fn into_ranges(self) -> Self::TimeRanges;
+	fn into_ranges(self, time: Time) -> Self::TimeRanges;
 	
 	/// Decrements the lower bound of each range by 1 nanosecond.  
 	fn pre(self) -> PredFilter<Self, PreTimeFilterMap>
@@ -325,57 +325,57 @@ impl_prediction!{
 
 impl Prediction for Time {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self..=self))
 	}
 }
 
 impl Prediction for std::ops::Range<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeInclusive<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeTo<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeToInclusive<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFrom<Time> {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl Prediction for std::ops::RangeFull {
 	type TimeRanges = std::iter::Once<time::TimeRange>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		std::iter::once(time::TimeRange::from_range(self))
 	}
 }
 
 impl<P: Prediction> Prediction for Option<P> {
 	type TimeRanges = time::OptionTimeRanges<P::TimeRanges>;
-	fn into_ranges(self) -> Self::TimeRanges {
-		time::OptionTimeRanges::new(self.map(|x| x.into_ranges()))
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
+		time::OptionTimeRanges::new(self.map(|x| x.into_ranges(time)))
 	}
 }
 
@@ -403,7 +403,7 @@ where
 	KindLinear<K>: PartialOrd,
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		let basis = self.poly.time();
 		let basis_order = self.poly
 			.initial_order(Time::ZERO)
@@ -439,7 +439,7 @@ where
 	KindLinear<K>: PartialEq,
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		let basis = self.poly.time();
 		let basis_order = if self.poly.into_inner().is_zero() {
 			Ordering::Equal
@@ -457,7 +457,7 @@ where
 
 /// For defining `dyn Prediction` types with an unspecified `TimeRanges` type.
 pub trait DynPrediction {
-	fn into_ranges(&mut self) -> time::DynTimeRanges;
+	fn into_ranges(&mut self, time: Time) -> time::DynTimeRanges;
 }
 
 impl<T> DynPrediction for Option<T>
@@ -465,10 +465,10 @@ where
 	T: Prediction,
 	T::TimeRanges: 'static,
 {
-	fn into_ranges(&mut self) -> time::DynTimeRanges {
+	fn into_ranges(&mut self, time: Time) -> time::DynTimeRanges {
 		time::DynTimeRanges::new(self.take()
 			.expect("should exist")
-			.into_ranges())
+			.into_ranges(time))
 	}
 }
 
@@ -487,8 +487,8 @@ impl DynPred {
 
 impl Prediction for DynPred {
 	type TimeRanges = time::DynTimeRanges;
-	fn into_ranges(mut self) -> Self::TimeRanges {
-		self.inner.into_ranges()
+	fn into_ranges(mut self, time: Time) -> Self::TimeRanges {
+		self.inner.into_ranges(time)
 	}
 }
 
@@ -505,8 +505,8 @@ where
 	F: TimeFilterMap,
 {
 	type TimeRanges = time::TimeFilter<P::TimeRanges, F>;
-	fn into_ranges(self) -> Self::TimeRanges {
-		time::TimeFilter::new(self.pred.into_ranges(), self.filter)
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
+		time::TimeFilter::new(self.pred.into_ranges(time), self.filter)
 	}
 }
 
@@ -523,10 +523,10 @@ where
 	B: Prediction,
 {
 	type TimeRanges = time::TimeRangesInter<A::TimeRanges, B::TimeRanges>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
 		time::TimeRangesInter::new(
-			self.a_pred.into_ranges(),
-			self.b_pred.into_ranges(),
+			self.a_pred.into_ranges(time),
+			self.b_pred.into_ranges(time),
 		)
 	}
 }
@@ -544,10 +544,10 @@ where
 	B: Prediction,
 {
 	type TimeRanges = time::TimeRangesUnion<A::TimeRanges, B::TimeRanges>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
 		time::TimeRangesUnion::new(
-			self.a_pred.into_ranges(),
-			self.b_pred.into_ranges(),
+			self.a_pred.into_ranges(time),
+			self.b_pred.into_ranges(time),
 		)
 	}
 }
@@ -565,10 +565,10 @@ where
 	B: Prediction,
 {
 	type TimeRanges = time::TimeRangesSymDiff<A::TimeRanges, B::TimeRanges>;
-	fn into_ranges(self) -> Self::TimeRanges {
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
 		time::TimeRangesSymDiff::new(
-			self.a_pred.into_ranges(),
-			self.b_pred.into_ranges(),
+			self.a_pred.into_ranges(time),
+			self.b_pred.into_ranges(time),
 		)
 	}
 }
@@ -584,8 +584,8 @@ where
 	P: Prediction,
 {
 	type TimeRanges = time::InvTimeRanges<P::TimeRanges>;
-	fn into_ranges(self) -> Self::TimeRanges {
-		time::InvTimeRanges::new(self.pred.into_ranges())
+	fn into_ranges(self, time: Time) -> Self::TimeRanges {
+		time::InvTimeRanges::new(self.pred.into_ranges(time))
 	}
 }
 
@@ -771,7 +771,7 @@ fn consistent_sign_pred() {
 			Poly::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
 			Poly::new(crate::Constant::from(1.), time),
-		).into_ranges()
+		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (
 				a.saturating_sub(time),

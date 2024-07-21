@@ -996,7 +996,7 @@ mod tests {
 		
 		assert_eq!(
 			Vec::from_iter(a_pos.when_eq(&b_pos)
-				.into_ranges()
+				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[(2*SEC - 83333333*NANOSEC, 2*SEC + 83333333*NANOSEC)]
 		);
@@ -1011,7 +1011,7 @@ mod tests {
 		let b = Poly::new(Constant::from(-194.), SEC);
 		assert_eq!(
 			Vec::from_iter(crate::pred::WhenEq::when_eq(a, b)
-				.into_ranges()
+				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
 				(SEC-5*NANOSEC, SEC-3*NANOSEC),
@@ -1031,7 +1031,7 @@ mod tests {
 		let dis = Poly::new(Constant::from(12.), SEC);
 		assert_eq!(
 			Vec::from_iter(crate::pred::WhenDisEq::when_dis_eq(a, b, dis)
-				.into_ranges()
+				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
 				(780910981*NANOSEC, 780910981*NANOSEC),

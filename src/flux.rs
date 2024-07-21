@@ -1069,7 +1069,7 @@ mod tests {
 	macro_rules! assert_time_ranges {
 		($ranges:expr, $cmp_ranges:expr) => {{
 			let ranges = Vec::<(Time, Time)>::from_iter($ranges
-				.into_ranges()
+				.into_ranges(Time::ZERO)
 				.inclusive());
 			let cmp_ranges = Vec::<(Time, Time)>::from_iter($cmp_ranges);
 			assert_eq!(
@@ -1208,7 +1208,7 @@ mod tests {
 		 // Check After:
 		assert_eq!(
 			Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)
-				.into_ranges()
+				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
 				(0*SEC, 8*SEC - time::NANOSEC),
