@@ -303,19 +303,11 @@ where
 				let t = TimeBound::Included(time);
 				
 				 // Increase Time by Next Duration:
-				if let Some(mut add_time) = iter.next() {
-					while add_time == Time::ZERO {
-						 // Ignore Repeated Times:
-						for next_time in iter.by_ref() {
-							if next_time != Time::ZERO {
-								add_time = next_time;
-								break
-							}
-						}
+				while let Some(mut add_time) = iter.next() {
+					if add_time != Time::ZERO {
+						*self = TimeRangeBuilder::Points(time + add_time, iter);
+						break
 					}
-					*self = TimeRangeBuilder::Points(time + add_time, iter);
-				} else {
-					*self = TimeRangeBuilder::Empty;
 				}
 				
 				Some(TimeRange(t, t))
@@ -327,10 +319,7 @@ where
 						time += add_time;
 						let b = TimeBound::Excluded(time);
 						if let Some(add_time) = iter.next() {
-							time += add_time;
-							*self = TimeRangeBuilder::Exclusive(time, iter);
-						} else {
-							*self = TimeRangeBuilder::Empty;
+							*self = TimeRangeBuilder::Exclusive(time + add_time, iter);
 						}
 						return Some(TimeRange(a, b))
 					}
@@ -338,23 +327,18 @@ where
 						time += add_time;
 					}
 				}
-				
-				*self = TimeRangeBuilder::Empty;
-				
 				Some(TimeRange(TimeBound::Excluded(time), TimeBound::Unbounded))
 			},
 			TimeRangeBuilder::Unbounded(mut iter) => {
-				if let Some(time) = iter.next() {
+				let first = if let Some(time) = iter.next() {
 					if let Some(add_time) = iter.next() {
 						*self = TimeRangeBuilder::Exclusive(time + add_time, iter);
-					} else {
-						*self = TimeRangeBuilder::Empty;
 					}
-					Some(TimeRange(TimeBound::Unbounded, TimeBound::Excluded(time)))
+					TimeBound::Excluded(time)
 				} else {
-					*self = TimeRangeBuilder::Empty;
-					Some(TimeRange(TimeBound::Unbounded, TimeBound::Unbounded))
-				}
+					TimeBound::Unbounded
+				};
+				Some(TimeRange(TimeBound::Unbounded, first))
 			},
 		}
 	}
