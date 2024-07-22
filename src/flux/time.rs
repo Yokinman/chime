@@ -416,7 +416,7 @@ where
 	}
 }
 
-/// Iterator of [`TimeRange`]s.
+/// Converts an iterator of [`TimeRange`]s into 2-tuples of inclusive time.
 pub struct InclusiveTimeRanges<I> {
 	times: I
 }
