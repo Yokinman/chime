@@ -91,12 +91,12 @@ fn reverse_bound(bound: TimeBound, is_end: bool) -> TimeBound {
 pub struct TimeRange(TimeBound, TimeBound);
 
 impl TimeRange {
-	pub(crate) fn from_range(range: impl RangeBounds<Time>) -> Self {
+	pub fn from_range(range: impl RangeBounds<Time>) -> Self {
 		Self::try_from_range(range)
 			.expect("must be true: lower bound <= upper bound")
 	}
 	
-	pub(crate) fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
+	pub fn try_from_range(range: impl RangeBounds<Time>) -> Option<Self> {
 		let range = TimeRange(
 			range.start_bound().map(|x| *x),
 			range.end_bound().map(|x| *x),
