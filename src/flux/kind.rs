@@ -401,6 +401,10 @@ impl LinearTime {
 	}
 	
 	/// Conversion into [`Time`], but always rounds down.
+	/// 
+	/// Consistently rounding down is important so that tiny ranges of time
+	/// aren't ignored due to rounding. It's also better if predictions catch
+	/// events before they happen rather than after.
 	pub(crate) fn try_into_time(self, basis: Time) -> Result<Time, Time> {
 		let LinearTime(mut t) = self;
 		let sign = t.signum();
