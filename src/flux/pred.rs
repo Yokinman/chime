@@ -323,6 +323,13 @@ impl_prediction!{
 	for<> DynPred;
 }
 
+impl Prediction for () {
+	type TimeRanges = time::TimeRangeBuilder<std::iter::Empty<Time>>;
+	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
+		time::TimeRangeBuilder::Empty
+	}
+}
+
 impl<I> Prediction for time::TimeRangeBuilder<I>
 where
 	Self: IntoIterator<IntoIter: time::TimeRanges>,
