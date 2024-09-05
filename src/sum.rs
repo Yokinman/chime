@@ -733,7 +733,7 @@ where
 		let mut sub_poly = B::from_value(flux_ref.value(kind.time));
 		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
-		*kind.poly = *kind.poly + (sub_poly.shift_up()
+		*kind.poly = kind.poly.clone() + (sub_poly.shift_up()
 			* Scalar::from((time_scale / ((kind.depth + 1) as f64)) * scalar));
 		// https://www.desmos.com/calculator/mhlpjakz32
 	}

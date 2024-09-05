@@ -458,7 +458,7 @@ where
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		let basis = self.poly.time();
-		let basis_order = if self.poly.into_inner().is_zero() {
+		let basis_order = if self.poly.clone().into_inner().is_zero() {
 			Ordering::Equal
 		} else {
 			Ordering::Greater
@@ -624,8 +624,8 @@ where
 		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
 	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred {
-		let diff_poly = self - poly;
-		diff_poly
+		let diff_poly = self.clone() - poly.clone();
+		diff_poly.clone()
 			.when_sign(order, DiffTimeFilterMap {
 				a_poly: self,
 				b_poly: poly,
@@ -651,8 +651,8 @@ where
 {
 	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>>;
 	fn when_eq(self, poly: Poly<B>) -> Self::Pred {
-		let diff_poly = self - poly;
-		diff_poly
+		let diff_poly = self.clone() - poly.clone();
+		diff_poly.clone()
 			.when_zero(DiffTimeFilterMap {
 				a_poly: self,
 				b_poly: poly,
@@ -705,9 +705,9 @@ where
 		}
 		
 		let sum = Poly::new(sum, basis);
-		let diff_poly = sum - dis.sqr();
+		let diff_poly = sum.clone() - dis.clone().sqr();
 		
-		diff_poly
+		diff_poly.clone()
 			.when_sign(order, DisTimeFilterMap {
 				a_pos: self,
 				b_pos: poly,
@@ -762,9 +762,9 @@ where
 		}
 		
 		let sum = Poly::new(sum, basis);
-		let diff_poly = sum - dis.sqr();
+		let diff_poly = sum.clone() - dis.clone().sqr();
 		
-		diff_poly
+		diff_poly.clone()
 			.when_zero(DisTimeFilterMap {
 				a_pos: self,
 				b_pos: poly,
