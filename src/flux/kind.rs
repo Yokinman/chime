@@ -33,7 +33,9 @@ pub trait FluxKind: Clone + Debug + 'static {
 	where
 		<Self::Value as LinearPlus>::Inner: PartialOrd;
 	
-	fn zero() -> Self;
+	fn zero() -> Self {
+		Self::from_value(Self::Value::zero())
+	}
 	
 	fn is_zero(&self) -> bool
 	where
@@ -68,9 +70,6 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 	fn initial_order(&self, _time: Scalar) -> Option<Ordering> where <Self::Value as LinearPlus>::Inner: PartialOrd {
 		unimplemented!()
-	}
-	fn zero() -> Self {
-		std::array::from_fn(|_| T::zero())
 	}
 }
 

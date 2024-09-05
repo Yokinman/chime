@@ -900,9 +900,6 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 		self.0.into_inner()
 			.partial_cmp(&<T::Inner as Linear>::zero())
 	}
-	fn zero() -> Self {
-		Self::from(T::zero())
-	}
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>

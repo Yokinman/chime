@@ -98,10 +98,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	type OutAccum<'a> = SumAccum<'a, Self>;
 	
 	fn from_value(value: Self::Value) -> Self {
-		Self {
-			0: value,
-			..Sum::zero()
-		}
+		Self(value, [T::zero(); D])
 	}
 	
 	fn as_accum(&mut self, depth: usize, base_time: time::Time, time: time::Time) -> Self::Accum<'_> {
@@ -191,10 +188,6 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		}
 		
 		None
-	}
-	
-	fn zero() -> Self {
-		Self(T::zero(), [T::zero(); D])
 	}
 }
 
