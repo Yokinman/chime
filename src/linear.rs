@@ -16,6 +16,12 @@ mod _scalar_impls {
 		}
 	}
 	
+	impl From<Scalar> for f64 {
+		fn from(Scalar(value): Scalar) -> Self {
+			value
+		}
+	}
+	
 	impl Mul<Scalar> for Scalar {
 		type Output = Scalar;
 		fn mul(self, rhs: Scalar) -> Self::Output {
