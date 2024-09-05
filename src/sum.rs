@@ -135,16 +135,10 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		if time == Scalar::from(0.) {
 			return self
 		}
-		self.0 = self.at(time);
 		let mut deriv = self;
+		self.0 = deriv.at(time);
 		for degree in 1..=D {
-			deriv.0 = T::from_inner(deriv.1[0].into_inner()
-				.mul(Scalar::from(1. / (degree as f64))));
-			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner()
-					.mul(Scalar::from(((d+1) as f64) / (degree as f64))));
-			}
-			deriv.1[D-1] = T::zero();
+			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
 			self.1[degree-1] = deriv.at(time);
 		}
 		self
@@ -169,15 +163,11 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		
 		let mut deriv = *self;
 		for degree in 1..=D {
-			deriv.0 = deriv.1[0];
-			for d in 1..D {
-				deriv.1[d-1] = T::from_inner(deriv.1[d].into_inner()
-					.mul(Scalar::from((d+1) as f64)));
-			}
-			deriv.1[D-1] = T::zero();
+			deriv = deriv.deriv();
 			
 			let order = deriv.at(time).into_inner()
 				.partial_cmp(&<T::Inner as Linear>::zero());
+			
 			if order != Some(Ordering::Equal) {
 				return if degree % 2 == 0 {
 					order
