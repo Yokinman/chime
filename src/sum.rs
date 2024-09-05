@@ -97,6 +97,8 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	
 	type OutAccum<'a> = SumAccum<'a, Self>;
 	
+	const DEGREE: usize = D;
+	
 	fn from_value(value: Self::Value) -> Self {
 		Self(value, [T::zero(); D])
 	}
@@ -142,42 +144,6 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 			self.1[degree-1] = deriv.at(time);
 		}
 		self
-	}
-	
-	fn initial_order(&self, time: Scalar) -> Option<Ordering>
-	where
-		<Self::Value as LinearPlus>::Inner: PartialOrd
-	{
-		if self.is_zero() {
-			return Some(Ordering::Equal)
-		}
-		
-		let order = self.at(time).into_inner()
-			.partial_cmp(&<T::Inner as Linear>::zero());
-		if order != Some(Ordering::Equal) || D == 0 {
-			return order
-		}
-		
-		// !!! Alternative: Translate polynomial using `to_time` and then check
-		// leading terms in order. Unknown which is more precise/faster.
-		
-		let mut deriv = *self;
-		for degree in 1..=D {
-			deriv = deriv.deriv();
-			
-			let order = deriv.at(time).into_inner()
-				.partial_cmp(&<T::Inner as Linear>::zero());
-			
-			if order != Some(Ordering::Equal) {
-				return if degree % 2 == 0 {
-					order
-				} else {
-					order.map(Ordering::reverse)
-				}
-			}
-		}
-		
-		None
 	}
 }
 

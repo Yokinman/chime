@@ -880,6 +880,7 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	type Value = T;
 	type Accum<'a> = ();
 	type OutAccum<'a> = ();
+	const DEGREE: usize = 0;
 	fn from_value(value: Self::Value) -> Self {
 		Constant(value)
 	}
@@ -892,13 +893,6 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	}
 	fn to_time(self, _time: Scalar) -> Self {
 		self
-	}
-	fn initial_order(&self, _time: Scalar) -> Option<Ordering>
-	where
-		T::Inner: PartialOrd
-	{
-		self.0.into_inner()
-			.partial_cmp(&<T::Inner as Linear>::zero())
 	}
 }
 

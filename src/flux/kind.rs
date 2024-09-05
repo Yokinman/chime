@@ -15,6 +15,8 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	type OutAccum<'a>;
 	
+	const DEGREE: usize;
+	
 	fn from_value(value: Self::Value) -> Self;
 	
 	fn deriv(self) -> Self;
@@ -35,7 +37,35 @@ pub trait FluxKind: Clone + Debug + 'static {
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
-		<Self::Value as LinearPlus>::Inner: PartialOrd;
+		<Self::Value as LinearPlus>::Inner: PartialOrd
+	{
+		// !!! Alternative: Translate polynomial using `to_time` and then check
+		// leading terms in order. Unknown which is more precise/faster.
+		
+		use std::borrow::Cow;
+		
+		let mut deriv = Cow::Borrowed(self);
+		
+		for degree in 0..=Self::DEGREE {
+			let order = deriv.at(time).into_inner()
+				.partial_cmp(&crate::linear::Linear::zero());
+			
+			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
+				return if degree % 2 == 0 {
+					order
+				} else {
+					order.map(Ordering::reverse)
+				}
+			}
+			
+			deriv = match deriv {
+				Cow::Borrowed(x) => Cow::Owned(x.clone().deriv()),
+				Cow::Owned(x) => Cow::Owned(x.deriv()),
+			};
+		}
+		
+		None
+	}
 	
 	fn zero() -> Self {
 		Self::from_value(Self::Value::zero())
@@ -57,6 +87,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	type Value = ArrayFluxKindValue<T::Value, SIZE>;
 	type Accum<'a> = [T::Accum<'a>; SIZE];
 	type OutAccum<'a> = [T::OutAccum<'a>; SIZE];
+	const DEGREE: usize = T::DEGREE;
 	fn from_value(value: Self::Value) -> Self {
 		value.0.map(T::from_value)
 	}
@@ -71,9 +102,6 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 	fn to_time(self, time: Scalar) -> Self {
 		self.map(|x| x.to_time(time))
-	}
-	fn initial_order(&self, _time: Scalar) -> Option<Ordering> where <Self::Value as LinearPlus>::Inner: PartialOrd {
-		unimplemented!()
 	}
 }
 
