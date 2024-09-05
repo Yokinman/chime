@@ -883,12 +883,12 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	fn from_value(value: Self::Value) -> Self {
 		Constant(value)
 	}
+	fn deriv(self) -> Self {
+		Self::zero()
+	}
 	fn as_accum(&mut self, _depth: usize, _base_time: Time, _time: Time) -> Self::Accum<'_> {}
 	fn at(&self, _time: Scalar) -> Self::Value {
 		self.0
-	}
-	fn rate_at(&self, _time: Scalar) -> Self::Value {
-		T::zero()
 	}
 	fn to_time(self, _time: Scalar) -> Self {
 		self

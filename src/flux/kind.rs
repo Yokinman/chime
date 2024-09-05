@@ -17,11 +17,15 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	fn from_value(value: Self::Value) -> Self;
 	
+	fn deriv(self) -> Self;
+	
 	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_>;
 	
 	fn at(&self, time: Scalar) -> Self::Value;
 	
-	fn rate_at(&self, time: Scalar) -> Self::Value;
+	fn rate_at(&self, time: Scalar) -> Self::Value {
+		self.clone().deriv().at(time)
+	}
 	
 	fn to_time(self, time: Scalar) -> Self;
 	
@@ -56,14 +60,14 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn from_value(value: Self::Value) -> Self {
 		value.0.map(T::from_value)
 	}
+	fn deriv(self) -> Self {
+		self.map(T::deriv)
+	}
 	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_> {
 		self.each_mut().map(|x| T::as_accum(x, depth, base_time, time))
 	}
 	fn at(&self, time: Scalar) -> Self::Value {
 		ArrayFluxKindValue(self.each_ref().map(|x| x.at(time)))
-	}
-	fn rate_at(&self, time: Scalar) -> Self::Value {
-		ArrayFluxKindValue(self.each_ref().map(|x| x.rate_at(time)))
 	}
 	fn to_time(self, time: Scalar) -> Self {
 		self.map(|x| x.to_time(time))

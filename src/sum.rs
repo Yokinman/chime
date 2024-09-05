@@ -100,6 +100,16 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	fn from_value(value: Self::Value) -> Self {
 		Self(value, [T::zero(); D])
 	}
+
+	fn deriv(mut self) -> Self {
+		self.0 = self.1[0];
+		for d in 1..D {
+			self.1[d-1] = T::from_inner(self.1[d].into_inner()
+				.mul(Scalar::from((d+1) as f64)));
+		}
+		self.1[D-1] = T::zero();
+		self
+	}
 	
 	fn as_accum(&mut self, depth: usize, base_time: time::Time, time: time::Time) -> Self::Accum<'_> {
 		SumAccum {
@@ -119,17 +129,6 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 			value = value.mul(time).add(self.1[D - degree].into_inner());
 		}
 		T::from_inner(value.mul(time).add(self.0.into_inner()))
-	}
-	
-	fn rate_at(&self, time: Scalar) -> Self::Value {
-		let mut poly = *self;
-		poly.0 = poly.1[0];
-		for d in 1..D {
-			poly.1[d-1] = T::from_inner(poly.1[d].into_inner()
-				.mul(Scalar::from((d+1) as f64)));
-		}
-		poly.1[D-1] = T::zero();
-		poly.at(time)
 	}
 	
 	fn to_time(mut self, time: Scalar) -> Self {
@@ -167,6 +166,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		
 		// !!! Alternative: Translate polynomial using `to_time` and then check
 		// leading terms in order. Unknown which is more precise/faster.
+		
 		let mut deriv = *self;
 		for degree in 1..=D {
 			deriv.0 = deriv.1[0];
