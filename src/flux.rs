@@ -737,7 +737,7 @@ where
 /// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
 /// Implemented automatically by the [`flux`] macro, not manually (currently).
 pub trait InnerFlux {
-	type Moment: Moment;
+	type Moment: Moment<Flux: Flux<Inner = Self>>;
 	type Kind: FluxKind;
 	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value;
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
