@@ -1,5 +1,6 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
+use std::collections::HashMap;
 use std::vec::Vec;
 
 use crate::{Flux, FluxValue, Moment};
@@ -75,6 +76,43 @@ where
 		FluxValue::new(
 			self.into_iter()
 				.map(|x| x.to_flux(time).into_inner_flux())
+				.collect(),
+			time,
+		)
+	}
+}
+
+
+impl<K, V> InnerFlux for HashMap<K, V>
+where
+	K: std::hash::Hash + Eq,
+	V: InnerFlux,
+{
+	type Moment = HashMap<K, V::Moment>;
+	type Kind = V::Kind;
+	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
+		todo!()
+	}
+	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+		todo!()
+	}
+	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+		self.into_iter()
+			.map(|(k, v)| (k, v.to_moment(base_time, time)))
+			.collect()
+	}
+}
+
+impl<K, V> Moment for HashMap<K, V>
+where
+	K: std::hash::Hash + Eq,
+	V: Moment,
+{
+	type Flux = FluxValue<HashMap<K, <V::Flux as Flux>::Inner>>;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		FluxValue::new(
+			self.into_iter()
+				.map(|(k, v)| (k, v.to_flux(time).into_inner_flux()))
 				.collect(),
 			time,
 		)
