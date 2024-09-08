@@ -84,12 +84,16 @@ pub trait FluxKind: Clone + Debug + 'static {
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
-	type Value = ArrayFluxKindValue<T::Value, SIZE>;
+	type Value = <T::Value as LinearPlus>::New<
+		[<T::Value as LinearPlus>::Inner; SIZE],
+		[<T::Value as LinearPlus>::Outer; SIZE],
+	>;
 	type Accum<'a> = [T::Accum<'a>; SIZE];
 	type OutAccum<'a> = [T::OutAccum<'a>; SIZE];
 	const DEGREE: usize = T::DEGREE;
 	fn from_value(value: Self::Value) -> Self {
-		value.0.map(T::from_value)
+		value.into_inner()
+			.map(|x| T::from_value(T::Value::from_inner(x)))
 	}
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
@@ -98,25 +102,11 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 		self.each_mut().map(|x| T::as_accum(x, depth, base_time, time))
 	}
 	fn at(&self, time: Scalar) -> Self::Value {
-		ArrayFluxKindValue(self.each_ref().map(|x| x.at(time)))
+		Self::Value::from_inner(self.each_ref()
+			.map(|x| x.at(time).into_inner()))
 	}
 	fn to_time(self, time: Scalar) -> Self {
 		self.map(|x| x.to_time(time))
-	}
-}
-
-/// [`FluxKind::Value`] for arrays, as `[T; SIZE]` can't impl [`LinearPlus`].
-#[derive(Copy, Clone, Debug)]
-pub struct ArrayFluxKindValue<T, const SIZE: usize>(pub(crate) [T; SIZE]);
-
-impl<T: LinearPlus, const SIZE: usize> LinearPlus for ArrayFluxKindValue<T, SIZE> {
-	type Inner = [T::Inner; SIZE];
-	type Outer = [T::Outer; SIZE];
-	fn from_inner(inner: Self::Inner) -> Self {
-		ArrayFluxKindValue(inner.map(T::from_inner))
-	}
-	fn into_inner(self) -> Self::Inner {
-		self.0.map(T::into_inner)
 	}
 }
 

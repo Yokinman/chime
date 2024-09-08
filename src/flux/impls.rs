@@ -6,7 +6,7 @@ use std::vec::Vec;
 use crate::{Flux, FluxValue, Moment};
 use crate::InnerFlux;
 use crate::time::Time;
-use crate::kind::{ArrayFluxKindValue, FluxKind};
+use crate::kind::FluxKind;
 use crate::linear::{Linear, LinearPlus};
 
 impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
@@ -20,7 +20,8 @@ impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
 	type Kind = [T::Kind; SIZE];
 	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		ArrayFluxKindValue(self.each_ref().map(|x| x.base_value(base_time)))
+		<[T::Kind; SIZE] as FluxKind>::Value::from_inner(self.each_ref()
+			.map(|x| x.base_value(base_time).into_inner()))
 	}
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
 		let mut i = 0;

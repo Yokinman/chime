@@ -208,6 +208,7 @@ mod _linear_impls {
 pub trait LinearPlus: Clone + Debug + 'static {
 	type Inner: Linear;
 	type Outer: LinearIso<Self::Inner>;
+	type New<I: Linear, O: LinearIso<I>>: LinearPlus<Inner=I>;
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
@@ -232,6 +233,7 @@ mod _linear_plus_impls {
 	{
 		type Inner = T;
 		type Outer = T;
+		type New<I: Linear, O: LinearIso<I>> = I;
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
 		}
@@ -246,6 +248,7 @@ mod _linear_plus_impls {
 	{
 		type Inner = T;
 		type Outer = T;
+		type New<I: Linear, O: LinearIso<I>> = I;
 		fn from_inner(inner: Self::Inner) -> Self {
 			Lin(inner)
 		}
@@ -262,6 +265,7 @@ mod _linear_plus_impls {
 	{
 		type Inner = A;
 		type Outer = B;
+		type New<I: Linear, O: LinearIso<I>> = Iso<I, O>;
 		fn from_inner(inner: Self::Inner) -> Self {
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
