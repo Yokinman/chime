@@ -21,6 +21,10 @@ impl<T: Linear> Linear for Exp<T> {
 	fn mul(self, scalar: Scalar) -> Self {
 		Self(self.0.mul(scalar))
 	}
+	fn sqr(mut self) -> Self {
+		self.0 = self.0.sqr();
+		self
+	}
 	fn sqrt(mut self) -> Self {
 		self.0 = self.0.sqrt();
 		self

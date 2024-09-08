@@ -1,7 +1,7 @@
 //! ...
 
 use std::cmp::Ordering;
-use std::ops::{Add, Mul};
+use std::ops::Add;
 
 use crate::linear::{Linear, LinearIso, LinearPlus, Scalar, Vector};
 use crate::time;
@@ -135,7 +135,7 @@ where
 	A: Vector<SIZE, Output: FluxKind> + Clone,
 	B: Vector<SIZE, Output: FluxKind> + Clone,
 	D: FluxKind,
-	KindLinear<D>: PartialEq + Mul<Output = KindLinear<D>>,
+	KindLinear<D>: PartialEq,
 	A::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 	B::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
 	E: FluxKind<Value: LinearPlus<Inner = KindLinear<D>>>,
@@ -173,21 +173,20 @@ where
 					for i in 0..SIZE {
 						let a = a_pos.index(i).at(next_time).into_inner();
 						let b = b_pos.index(i).at(next_time).into_inner();
-						a_dis = a_dis.add(a*a);
-						b_dis = b_dis.add(b*b);
-						let x = a.sub(b);
-						real_diff = real_diff.add(x*x);
+						a_dis = a_dis.add(a.clone().sqr());
+						b_dis = b_dis.add(b.clone().sqr());
+						real_diff = real_diff.add(a.sub(b).sqr());
 					}
 					a_dis = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.sqrt());
 					b_dis = <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.sqrt());
-					real_diff = Linear::mul(real_diff.sqrt().sub(dis), round_factor);
-					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis);
+					real_diff = Linear::mul(real_diff.sqrt().sub(dis.clone()), round_factor);
+					let c_dis = <D::Value as LinearPlus>::Outer::linear_id(dis.clone());
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.add(real_diff)) &&
-						b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.add(real_diff)) &&
-						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.add(real_diff))
+						a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.clone().add(real_diff.clone())) &&
+						b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.clone().add(real_diff.clone())) &&
+						c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.clone().add(real_diff))
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Linear::mul(
@@ -195,9 +194,9 @@ where
 							round_factor
 						);
 						if
-							a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.add(pred_diff)) &&
-							b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.add(pred_diff)) &&
-							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.add(pred_diff))
+							a_dis != <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_dis.clone().add(pred_diff.clone())) &&
+							b_dis != <<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_dis.clone().add(pred_diff.clone())) &&
+							c_dis != <D::Value as LinearPlus>::Outer::linear_id(c_dis.clone().add(pred_diff))
 						{
 							break
 						}
@@ -229,10 +228,10 @@ where
 				for i in 0..SIZE {
 					let x = <<A::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(a_pos.index(i).at(next_time).into_inner())
 						.sub(<<B::Output as FluxKind>::Value as LinearPlus>::Outer::linear_id(b_pos.index(i).at(next_time).into_inner()));
-					pos = pos.add(x*x);
+					pos = pos.add(x.sqr());
 				}
 				let dis = <D::Value as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
-				if pos != dis*dis {
+				if pos != dis.sqr() {
 					break
 				}
 				
@@ -679,8 +678,7 @@ where
 			Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	KindLinear<A::Output>:
-		Mul<Output = KindLinear<A::Output>> + PartialOrd,
+	KindLinear<A::Output>: PartialOrd,
 	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
@@ -736,8 +734,7 @@ where
 			Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 		+ Roots
 		+ PartialEq,
-	KindLinear<A::Output>:
-		Mul<Output = KindLinear<A::Output>> + PartialEq,
+	KindLinear<A::Output>: PartialEq,
 	D: FluxKind<Value: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<

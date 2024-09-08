@@ -93,12 +93,17 @@ mod _scalar_impls {
 }
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
+/// 
+/// This basically just represents floating-point numbers and vector types.
+/// For vectors, operations are applied per component in parallel.
 pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
 	
 	fn mul(self, scalar: Scalar) -> Self;
+	
+	fn sqr(self) -> Self;
 	
 	fn sqrt(self) -> Self;
 	
@@ -127,6 +132,9 @@ mod _linear_impls {
 		fn mul(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
+		fn sqr(self) -> Self {
+			self * self
+		}
 		fn sqrt(self) -> Self {
 			self.sqrt()
 		}
@@ -149,6 +157,9 @@ mod _linear_impls {
 		fn mul(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
+		fn sqr(self) -> Self {
+			self * self
+		}
 		fn sqrt(self) -> Self {
 			self.sqrt()
 		}
@@ -161,20 +172,25 @@ mod _linear_impls {
 	}
 	
 	impl<T: Linear, const SIZE: usize> Linear for [T; SIZE] {
-		fn add(mut self, other: Self) -> Self {
-			for i in 0..SIZE {
-				self[i] = self[i].add(other[i]);
-			}
-			self
+		fn add(self, other: Self) -> Self {
+			let mut iter = other.into_iter();
+			self.map(|x| unsafe {
+				// SAFETY: `self` is the same length as `other`.
+				x.add(iter.next().unwrap_unchecked())
+			})
 		}
-		fn sub(mut self, other: Self) -> Self {
-			for i in 0..SIZE {
-				self[i] = self[i].sub(other[i]);
-			}
-			self
+		fn sub(self, other: Self) -> Self {
+			let mut iter = other.into_iter();
+			self.map(|x| unsafe {
+				// SAFETY: `self` is the same length as `other`.
+				x.sub(iter.next().unwrap_unchecked())
+			})
 		}
 		fn mul(self, scalar: Scalar) -> Self {
 			self.map(|x| x.mul(scalar))
+		}
+		fn sqr(self) -> Self {
+			self.map(T::sqr)
 		}
 		fn sqrt(self) -> Self {
 			self.map(T::sqrt)
@@ -183,7 +199,7 @@ mod _linear_impls {
 			self.each_ref().map(T::sign)
 		}
 		fn zero() -> Self {
-			[T::zero(); SIZE]
+			std::array::from_fn(|_| T::zero())
 		}
 	}
 }
@@ -232,7 +248,7 @@ mod _linear_plus_impls {
 		type Inner = A;
 		type Outer = B;
 		fn from_inner(inner: Self::Inner) -> Self {
-			Iso(Some(inner), LinearIso::<A>::from_linear(inner))
+			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
 		fn into_inner(self) -> Self::Inner {
 			let Iso(inner, outer) = self;
@@ -248,7 +264,7 @@ mod _linear_plus_impls {
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T: Linear>: Sized + Copy + Debug + 'static {
+pub trait LinearIso<T: Linear>: Sized + Clone + Debug + 'static {
 	fn into_linear(value: Self) -> T;
 	fn from_linear(value: T) -> Self;
 	// fn identity(value: Self) -> Self {
@@ -414,6 +430,9 @@ mod glam_stuff {
 				}
 				fn mul(self, scalar: Scalar) -> Self {
 					self * scalar
+				}
+				fn sqr(self) -> Self {
+					self.powf(2.)
 				}
 				fn sqrt(self) -> Self {
 					self.powf(0.5)
