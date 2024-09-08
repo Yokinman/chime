@@ -224,7 +224,7 @@ pub trait LinearPlus: Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, LinearPlus};
+	use super::{Iso, Lin, Linear, LinearIso, LinearPlus};
 	
 	impl<T> LinearPlus for T
 	where
@@ -237,6 +237,21 @@ mod _linear_plus_impls {
 		}
 		fn into_inner(self) -> Self::Inner {
 			self
+		}
+	}
+	
+	impl<T> LinearPlus for Lin<T>
+	where
+		T: Linear,
+	{
+		type Inner = T;
+		type Outer = T;
+		fn from_inner(inner: Self::Inner) -> Self {
+			Lin(inner)
+		}
+		fn into_inner(self) -> Self::Inner {
+			let Lin(inner) = self;
+			inner
 		}
 	}
 	
@@ -494,6 +509,10 @@ mod glam_stuff {
 	impl_iso_for_vec!(DVec3, as_vec3  : Vec3, as_dvec3  : 3, f32);
 	impl_iso_for_vec!(DVec4, as_vec4  : Vec4, as_dvec4  : 4, f32);
 }
+
+/// ...
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
+pub struct Lin<T>(T);
 
 /// ...
 #[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
