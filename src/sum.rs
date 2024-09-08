@@ -123,15 +123,15 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		}
 	}
 	
-	fn at(&self, time: Scalar) -> Self::Value {
+	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
 		if time == Scalar::from(0.) {
-			return self.0.clone()
+			return self.0.clone().into_inner()
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
 			value = value.mul(time).add(self.1[D - degree].clone().into_inner());
 		}
-		T::from_inner(value.mul(time).add(self.0.clone().into_inner()))
+		value.mul(time).add(self.0.clone().into_inner())
 	}
 	
 	fn to_time(mut self, time: Scalar) -> Self {

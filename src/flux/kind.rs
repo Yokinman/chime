@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{LinearPlus, Scalar, Vector};
+use crate::linear::{Linear, LinearPlus, Scalar, Vector};
 use crate::time::Time;
 
 /// Defines a kind of change as the structure of a polynomial.
@@ -23,11 +23,15 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_>;
 	
-	fn at(&self, time: Scalar) -> Self::Value;
+	fn at(&self, time: Scalar) -> Self::Value {
+		Self::Value::from_inner(self.eval(time))
+	}
 	
 	fn rate_at(&self, time: Scalar) -> Self::Value {
 		self.clone().deriv().at(time)
 	}
+	
+	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
 	
 	fn to_time(self, time: Scalar) -> Self;
 	
@@ -100,9 +104,8 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_> {
 		self.each_mut().map(|x| T::as_accum(x, depth, base_time, time))
 	}
-	fn at(&self, time: Scalar) -> Self::Value {
-		Self::Value::from_inner(self.each_ref()
-			.map(|x| x.at(time).into_inner()))
+	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
+		self.each_ref().map(|x| T::eval(x, time))
 	}
 	fn to_time(self, time: Scalar) -> Self {
 		self.map(|x| x.to_time(time))

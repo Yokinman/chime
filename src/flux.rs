@@ -888,8 +888,8 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 		Self::zero()
 	}
 	fn as_accum(&mut self, _depth: usize, _base_time: Time, _time: Time) -> Self::Accum<'_> {}
-	fn at(&self, _time: Scalar) -> Self::Value {
-		self.0.clone()
+	fn eval(&self, _time: Scalar) -> <Self::Value as LinearPlus>::Inner {
+		self.0.clone().into_inner()
 	}
 	fn to_time(self, _time: Scalar) -> Self {
 		self
