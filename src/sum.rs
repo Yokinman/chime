@@ -139,10 +139,10 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 			return self
 		}
 		let mut deriv = self.clone();
-		self.0 = deriv.at(time);
+		self.0 = T::from_inner(deriv.eval(time));
 		for degree in 1..=D {
 			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
-			self.1[degree-1] = deriv.at(time);
+			self.1[degree-1] = T::from_inner(deriv.eval(time));
 		}
 		self
 	}
@@ -554,7 +554,7 @@ impl Roots for Sum<f64, 4> {
 					"expected a positive root from: {:?}",
 					resolvent_cubic
 				));
-			let y = resolvent_cubic.at(Scalar::from(m))
+			let y = resolvent_cubic.eval(Scalar::from(m))
 				/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.1[0]);
 			if m > y && y.is_finite() {
 				m -= y; // Newton-Raphson step

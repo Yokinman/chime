@@ -23,21 +23,13 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_>;
 	
-	fn at(&self, time: Scalar) -> Self::Value {
-		Self::Value::from_inner(self.eval(time))
-	}
-	
-	fn rate_at(&self, time: Scalar) -> Self::Value {
-		self.clone().deriv().at(time)
-	}
-	
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
 	
 	fn to_time(self, time: Scalar) -> Self;
 	
 	/// The order at or immediately preceding the value at a time.
 	/// 
-	/// This should be the first non-zero [`FluxKind::at`] value of this kind
+	/// This should be the first non-zero [`FluxKind::eval`] value of this kind
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
@@ -51,8 +43,8 @@ pub trait FluxKind: Clone + Debug + 'static {
 		let mut deriv = Cow::Borrowed(self);
 		
 		for degree in 0..=Self::DEGREE {
-			let order = deriv.at(time).into_inner()
-				.partial_cmp(&crate::linear::Linear::zero());
+			let order = deriv.eval(time)
+				.partial_cmp(&Linear::zero());
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
 				return if degree % 2 == 0 {
@@ -83,7 +75,7 @@ pub trait FluxKind: Clone + Debug + 'static {
 	}
 	
 	fn value(&self) -> Self::Value {
-		self.at(Scalar::from(0.))
+		Self::Value::from_inner(self.eval(Scalar::from(0.)))
 	}
 }
 
@@ -112,7 +104,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 }
 
-/// Shortcut for the inner [`crate::linear::Linear`] type of a [`FluxKind`].
+/// Shortcut for the inner [`Linear`] type of a [`FluxKind`].
 pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
 
 /// Combining [`FluxKind`] types.
@@ -253,19 +245,19 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn at(&self, time: Time) -> K::Value {
-		self.inner.at(Scalar::from(if time > self.time {
+		K::Value::from_inner(self.inner.eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		}))
+		})))
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Value {
-		self.inner.rate_at(Scalar::from(if time > self.time {
+		K::Value::from_inner(self.inner.clone().deriv().eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		}))
+		})))
 	}
 	
 	pub fn to_time(mut self, time: Time) -> Self {
