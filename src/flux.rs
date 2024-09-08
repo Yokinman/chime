@@ -121,7 +121,7 @@ pub trait Flux {
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Self::Kind::from_value(self.value(time));
+		let mut poly = Self::Kind::from_value(self.value(time).into_inner());
 		self.change(poly.as_accum(0, self.base_time(), time));
 		Poly::new(poly, time)
 	}
@@ -881,8 +881,8 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	type Accum<'a> = ();
 	type OutAccum<'a> = ();
 	const DEGREE: usize = 0;
-	fn from_value(value: Self::Value) -> Self {
-		Constant(value)
+	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
+		Constant(T::from_inner(value))
 	}
 	fn deriv(self) -> Self {
 		Self::zero()

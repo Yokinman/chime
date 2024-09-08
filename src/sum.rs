@@ -37,7 +37,7 @@ impl<T: LinearPlus, const D: usize> Sum<T, D> {
 
 impl<T: LinearPlus, const D: usize> From<T> for Sum<T, D> {
 	fn from(value: T) -> Self {
-		Self::from_value(value)
+		Self::from_value(value.into_inner())
 	}
 }
 
@@ -98,8 +98,8 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	
 	const DEGREE: usize = D;
 	
-	fn from_value(value: Self::Value) -> Self {
-		Self(value, std::array::from_fn(|_| T::zero()))
+	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
+		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
 	}
 
 	fn deriv(mut self) -> Self {
@@ -720,7 +720,7 @@ where
 		V::Moment: Moment<Flux=FluxValue<V>>
 	{
 		let flux_ref = FluxRef::new(flux, kind.base_time);
-		let mut sub_poly = B::from_value(flux_ref.value(kind.time));
+		let mut sub_poly = B::from_value(flux_ref.value(kind.time).into_inner());
 		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
 		*kind.poly = kind.poly.clone() + (sub_poly.shift_up()

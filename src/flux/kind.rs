@@ -17,7 +17,7 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	const DEGREE: usize;
 	
-	fn from_value(value: Self::Value) -> Self;
+	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self;
 	
 	fn deriv(self) -> Self;
 	
@@ -68,7 +68,7 @@ pub trait FluxKind: Clone + Debug + 'static {
 	}
 	
 	fn zero() -> Self {
-		Self::from_value(Self::Value::zero())
+		Self::from_value(Self::Value::zero().into_inner())
 	}
 	
 	fn is_zero(&self) -> bool
@@ -91,9 +91,8 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	type Accum<'a> = [T::Accum<'a>; SIZE];
 	type OutAccum<'a> = [T::OutAccum<'a>; SIZE];
 	const DEGREE: usize = T::DEGREE;
-	fn from_value(value: Self::Value) -> Self {
-		value.into_inner()
-			.map(|x| T::from_value(T::Value::from_inner(x)))
+	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
+		value.map(|x| T::from_value(x))
 	}
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
@@ -233,7 +232,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn with_value(value: K::Value) -> Self {
-		Self::new(K::from_value(value), Time::ZERO)
+		Self::new(K::from_value(value.into_inner()), Time::ZERO)
 	}
 	
 	pub fn with_time(time: Time) -> Self {
