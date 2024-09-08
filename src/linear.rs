@@ -93,7 +93,7 @@ mod _scalar_impls {
 }
 
 /// Any vector type that has addition and [`Scalar`] multiplication.
-pub trait Linear: Copy + Clone + Debug + LinearIso<Self> + 'static {
+pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
