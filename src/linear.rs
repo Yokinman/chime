@@ -189,11 +189,19 @@ mod _linear_impls {
 }
 
 /// Underlying [`Linear`] type paired with an interfacing [`LinearIso`] type.
-pub trait LinearPlus: Copy + Debug + 'static {
+pub trait LinearPlus: Clone + Debug + 'static {
 	type Inner: Linear;
 	type Outer: LinearIso<Self::Inner>;
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
+	
+	fn inner_eq(&self, other: &Self) -> bool
+	where
+		Self::Inner: PartialEq	
+	{
+		self.clone().into_inner() == other.clone().into_inner()
+	}
+	
 	fn zero() -> Self {
 		Self::from_inner(Linear::zero())
 	}

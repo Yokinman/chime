@@ -752,7 +752,7 @@ impl<T: LinearPlus> InnerFlux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
 	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		self.0
+		self.0.clone()
 	}
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
 		accum
@@ -889,7 +889,7 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	}
 	fn as_accum(&mut self, _depth: usize, _base_time: Time, _time: Time) -> Self::Accum<'_> {}
 	fn at(&self, _time: Scalar) -> Self::Value {
-		self.0
+		self.0.clone()
 	}
 	fn to_time(self, _time: Scalar) -> Self {
 		self

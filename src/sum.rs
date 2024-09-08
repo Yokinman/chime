@@ -12,6 +12,7 @@ use crate::InnerFlux;
 /// - `Sum<2>`: `a + bx + cx^2`
 /// - etc.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct Sum<T, const DEGREE: usize>(T, [T; DEGREE]);
 
 impl<T: LinearPlus, const D: usize> Sum<T, D> {
@@ -67,11 +68,11 @@ where
 	T::Inner: PartialEq,
 {
 	fn eq(&self, other: &Self) -> bool {
-		if self.0.into_inner() != other.0.into_inner() {
+		if !self.0.inner_eq(&other.0) {
 			return false
 		}
 		for i in 0..D {
-			if self.1[i].into_inner() != other.1[i].into_inner() {
+			if !self.1[i].inner_eq(&other.1[i]) {
 				return false
 			}
 		}
@@ -83,9 +84,7 @@ impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		self.0 = T::from_inner(self.0.into_inner().mul(rhs));
-		for i in 0..D {
-			self.1[i] = T::from_inner(self.1[i].into_inner().mul(rhs));
-		}
+		self.1 = self.1.map(|x| T::from_inner(x.into_inner().mul(rhs)));
 		self
 	}
 }
@@ -100,16 +99,18 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	const DEGREE: usize = D;
 	
 	fn from_value(value: Self::Value) -> Self {
-		Self(value, [T::zero(); D])
+		Self(value, std::array::from_fn(|_| T::zero()))
 	}
 
 	fn deriv(mut self) -> Self {
-		self.0 = self.1[0];
-		for d in 1..D {
-			self.1[d-1] = T::from_inner(self.1[d].into_inner()
-				.mul(Scalar::from((d+1) as f64)));
-		}
+		std::mem::swap(&mut self.0, &mut self.1[0]);
+		self.1.rotate_left(1);
 		self.1[D-1] = T::zero();
+		let mut d = 1.;
+		self.1 = self.1.map(|x| {
+			d += 1.;
+			T::from_inner(x.into_inner().mul(Scalar::from(d)))
+		});
 		self
 	}
 	
@@ -124,20 +125,20 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	
 	fn at(&self, time: Scalar) -> Self::Value {
 		if time == Scalar::from(0.) {
-			return self.0
+			return self.0.clone()
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
-			value = value.mul(time).add(self.1[D - degree].into_inner());
+			value = value.mul(time).add(self.1[D - degree].clone().into_inner());
 		}
-		T::from_inner(value.mul(time).add(self.0.into_inner()))
+		T::from_inner(value.mul(time).add(self.0.clone().into_inner()))
 	}
 	
 	fn to_time(mut self, time: Scalar) -> Self {
 		if time == Scalar::from(0.) {
 			return self
 		}
-		let mut deriv = self;
+		let mut deriv = self.clone();
 		self.0 = deriv.at(time);
 		for degree in 1..=D {
 			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
@@ -163,13 +164,13 @@ where
 #[allow(clippy::from_over_into)]
 impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {
-		Constant::from(self[0])
+		Constant::from(self.0)
 	}
 }
 
 impl<T: LinearPlus> From<Constant<T>> for Sum<T, 0> {
-	fn from(value: Constant<T>) -> Self {
-		Self::from(*value)
+	fn from(Constant(value): Constant<T>) -> Self {
+		Self::from(value)
 	}
 }
 
@@ -215,10 +216,18 @@ macro_rules! impl_deg_order {
 		impl<T: LinearPlus> SumShiftUp for Sum<T, { $($num +)+ 0 }> {
 			type Up = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn shift_up(self) -> <Self as SumShiftUp>::Up {
-				let mut sum = Sum::zero();
-				sum.1[0] = self.0;
-				sum.1[1..].copy_from_slice(self.1.as_slice());
-				sum
+				debug_assert_eq!(
+					std::mem::size_of::<Self>(),
+					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),
+				);
+				Sum(
+					T::zero(),
+					unsafe {
+						// SAFETY: I don't know if the memory layout of arrays
+						// is guaranteed, but it's simple & fast. Sorry boss.
+						std::mem::transmute_copy(&self)
+					}
+				)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
@@ -240,12 +249,17 @@ macro_rules! impl_deg_order {
 			B: LinearPlus<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(mut self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
-				self.0 = A::from_inner(self.0.into_inner().add(rhs.0.into_inner()));
-				for i in 0..($($num +)+ 0) {
-					self.1[i] = A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()));
-				}
-				self
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				let mut a = self.1.into_iter();
+				let mut b = rhs.1.into_iter();
+				Sum(
+					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
+					std::array::from_fn(|_| unsafe {
+						// SAFETY: Sizes of all input & output arrays are equal.
+						A::from_inner(a.next().unwrap_unchecked().into_inner()
+							.add(b.next().unwrap_unchecked().into_inner()))
+					}),
+				)
 			}
 		}
 		impl<T> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
@@ -258,16 +272,26 @@ macro_rules! impl_deg_order {
 				const SIZE: usize = $($num +)+ 0;
 				let Sum(a_value, a_terms) = self;
 				let Sum(b_value, b_terms) = rhs;
-				let mut terms = [T::zero(); { 2 * SIZE }];
-				for i in 0..SIZE {
-					terms[i] = T::from_inner(terms[i].into_inner()
-						.add(a_terms[i].into_inner()*b_value.into_inner())
-						.add(a_value.into_inner()*b_terms[i].into_inner()));
-					for j in 0..SIZE {
-						terms[i+j+1] = T::from_inner(terms[i+j+1].into_inner()
-							.add(a_terms[i].into_inner()*b_terms[j].into_inner()));
+				let a_value = a_value.into_inner();
+				let b_value = b_value.into_inner();
+				let a_terms = a_terms.map(T::into_inner);
+				let b_terms = b_terms.map(T::into_inner);
+				let terms = std::array::from_fn(|i| T::from_inner(
+					if i < SIZE {
+						let mut x = (a_terms[i].clone() * b_value.clone())
+							.add(a_value.clone() * b_terms[i].clone());
+						for j in 0..i {
+							x = x.add(a_terms[j].clone() * b_terms[i-j-1].clone());
+						}
+						x
+					} else {
+						let mut x = T::zero().into_inner();
+						for j in (i - SIZE)..SIZE {
+							x = x.add(a_terms[j].clone() * b_terms[i-j-1].clone());
+						}
+						x
 					}
-				}
+				));
 				Sum(T::from_inner(a_value.into_inner()*b_value.into_inner()), terms)
 			}
 		}
@@ -290,12 +314,22 @@ macro_rules! impl_deg_add {
 			B: LinearPlus<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(mut self, rhs: Sum<B, $a>) -> Self::Output {
-				self.0 = A::from_inner(self.0.into_inner().add(rhs.0.into_inner()));
-				for i in 0..($a) {
-					self.1[i] = A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()));
-				}
-				self
+			fn add(self, rhs: Sum<B, $a>) -> Self::Output {
+				let mut a = self.1.into_iter();
+				let mut b = rhs.1.into_iter();
+				Sum(
+					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
+					std::array::from_fn(|i| unsafe {
+						// SAFETY: `a` is the same size as the output array, and
+						// `b` is the size of `$a` (bad naming).
+						if i < $a {
+							A::from_inner(a.next().unwrap_unchecked().into_inner()
+								.add(b.next().unwrap_unchecked().into_inner()))
+						} else {
+							a.next().unwrap_unchecked()
+						}
+					}),
+				)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
@@ -305,12 +339,19 @@ macro_rules! impl_deg_add {
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				let mut a = self.1.into_iter();
+				let mut b = rhs.1.into_iter();
 				Sum::new(
 					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
-					std::array::from_fn(|i| if i < $a {
-						A::from_inner(self.1[i].into_inner().add(rhs.1[i].into_inner()))
-					} else {
-						A::from_inner(rhs.1[i].into_inner())
+					std::array::from_fn(|i| unsafe {
+						// SAFETY: `b` is the same size as the output array, and
+						// `a` is the size of `$a`.
+						if i < $a {
+							A::from_inner(a.next().unwrap_unchecked().into_inner()
+								.add(b.next().unwrap_unchecked().into_inner()))
+						} else {
+							A::from_inner(b.next().unwrap_unchecked().into_inner())
+						}
 					}),
 				)
 			}
