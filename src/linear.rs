@@ -102,7 +102,7 @@ pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
 	
 	fn sqrt(self) -> Self;
 	
-	fn sign(self) -> Self;
+	fn sign(&self) -> Self;
 	
 	fn zero() -> Self;
 	
@@ -130,7 +130,7 @@ mod _linear_impls {
 		fn sqrt(self) -> Self {
 			self.sqrt()
 		}
-		fn sign(self) -> Self {
+		fn sign(&self) -> Self {
 			// What if sign is 0
 			self.signum()
 		}
@@ -152,7 +152,7 @@ mod _linear_impls {
 		fn sqrt(self) -> Self {
 			self.sqrt()
 		}
-		fn sign(self) -> Self {
+		fn sign(&self) -> Self {
 			self.signum()
 		}
 		fn zero() -> Self {
@@ -179,8 +179,8 @@ mod _linear_impls {
 		fn sqrt(self) -> Self {
 			self.map(T::sqrt)
 		}
-		fn sign(self) -> Self {
-			self.map(T::sign)
+		fn sign(&self) -> Self {
+			self.each_ref().map(T::sign)
 		}
 		fn zero() -> Self {
 			[T::zero(); SIZE]
@@ -418,7 +418,7 @@ mod glam_stuff {
 				fn sqrt(self) -> Self {
 					self.powf(0.5)
 				}
-				fn sign(self) -> Self {
+				fn sign(&self) -> Self {
 					self.signum()
 				}
 				fn zero() -> Self {

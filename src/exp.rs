@@ -25,9 +25,8 @@ impl<T: Linear> Linear for Exp<T> {
 		self.0 = self.0.sqrt();
 		self
 	}
-	fn sign(mut self) -> Self {
-		self.0 = self.0.sign();
-		self
+	fn sign(&self) -> Self {
+		Exp(self.0.sign())
 	}
 	fn zero() -> Self {
 		Self(T::zero())
