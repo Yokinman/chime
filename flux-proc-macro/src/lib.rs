@@ -251,8 +251,12 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			assert_eq!(value_idents.len(), 1, "must specify a single value identifier without `self.`");
 			fetch_idents(&change_expr, &mut change_idents, &mut change_cond_idents);
 			
-			let mut value_block: syn::Block = syn::parse_quote!{{ #value_expr.into_inner() }};
-			let mut change_block: syn::Block = syn::parse_quote!{{ (#change_expr)(accum) }};
+			let mut value_block: syn::Block = syn::parse_quote!{{
+				#crate_path::linear::LinearPlus::into_inner(#value_expr)
+			}};
+			let mut change_block: syn::Block = syn::parse_quote!{{
+				(#change_expr)(accum)
+			}};
 			
 			 // Convenient Identifiers:
 			let has_ident = |ident: &&syn::Ident| {
