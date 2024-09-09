@@ -50,7 +50,7 @@ pub trait Flux {
 	type Kind: FluxKind;
 	
 	/// An evaluation of this flux at some point in time.
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value;
+	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
 	
 	/// The time of [`Flux::base_value`].
 	fn base_time(&self) -> Time;
@@ -114,7 +114,7 @@ pub trait Flux {
 	fn value(&self, time: Time) -> <Self::Kind as FluxKind>::Value {
 		let base_time = self.base_time();
 		if time == base_time {
-			return self.base_value()
+			return <Self::Kind as FluxKind>::Value::from_inner(self.base_value())
 		}
 		self.poly(base_time).at(time)
 	}
@@ -648,7 +648,9 @@ impl<T: Moment> Moment for Change<T> {
 impl<T: InnerFlux> InnerFlux for Change<T> {
 	type Moment = Change<T::Moment>;
 	type Kind = T::Kind;
-	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self, base_time: Time)
+		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner
+	{
 		self.rate.base_value(base_time)
 	}
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
@@ -718,7 +720,7 @@ where
 	}
 	type Moment = T::Moment;
 	type Kind = T::Kind;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		self.inner.base_value(self.time)
 	}
 	fn base_time(&self) -> Time {
@@ -739,7 +741,8 @@ where
 pub trait InnerFlux {
 	type Moment: Moment<Flux: Flux<Inner = Self>>;
 	type Kind: FluxKind;
-	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value;
+	fn base_value(&self, base_time: Time)
+		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
 	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
 		-> <Self::Kind as FluxKind>::OutAccum<'a>;
 	fn to_moment(self, base_time: Time, time: Time)
@@ -751,10 +754,14 @@ pub trait InnerFlux {
 impl<T: LinearPlus> InnerFlux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
-	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		self.0.clone()
+	fn base_value(&self, _base_time: Time)
+		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner
+	{
+		self.0.clone().into_inner()
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{
 		accum
 	}
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
@@ -814,7 +821,7 @@ where
 	}
 	type Moment = FluxRefMoment<'b, T>;
 	type Kind = T::Kind;
-	fn base_value(&self) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		self.inner.base_value(self.time)
 	}
 	fn base_time(&self) -> Time {
@@ -839,7 +846,7 @@ where
 {
 	type Moment = FluxRefMoment<'b, T>;
 	type Kind = T::Kind;
-	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		unimplemented!()
 	}
 	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {

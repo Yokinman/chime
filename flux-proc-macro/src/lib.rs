@@ -251,7 +251,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			assert_eq!(value_idents.len(), 1, "must specify a single value identifier without `self.`");
 			fetch_idents(&change_expr, &mut change_idents, &mut change_cond_idents);
 			
-			let mut value_block: syn::Block = syn::parse_quote!{{ #value_expr }};
+			let mut value_block: syn::Block = syn::parse_quote!{{ #value_expr.into_inner() }};
 			let mut change_block: syn::Block = syn::parse_quote!{{ (#change_expr)(accum) }};
 			
 			 // Convenient Identifiers:
@@ -359,7 +359,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
-			fn base_value(&self, base_time: #flux::time::Time) -> <Self::Kind as #flux::kind::FluxKind>::Value
+			fn base_value(&self, base_time: #flux::time::Time)
+				-> <<Self::Kind as #flux::kind::FluxKind>::Value as #flux::linear::LinearPlus>::Inner
 			#value_block
 			
 			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)

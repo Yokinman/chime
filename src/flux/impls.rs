@@ -19,11 +19,14 @@ impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
 	type Kind = [T::Kind; SIZE];
-	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
-		<[T::Kind; SIZE] as FluxKind>::Value::from_inner(self.each_ref()
-			.map(|x| x.base_value(base_time).into_inner()))
+	fn base_value(&self, base_time: Time)
+		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner
+	{
+		self.each_ref().map(|x| x.base_value(base_time))
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
+		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	{
 		let mut i = 0;
 		accum.map(|a| {
 			i += 1;
@@ -45,12 +48,14 @@ where
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
-	fn base_value(&self, base_time: Time) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self, base_time: Time)
+		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner
+	{
 		let mut value: <<T::Kind as FluxKind>::Value as LinearPlus>::Inner = Linear::zero();
 		for item in self {
-			value = value.add(item.base_value(base_time).into_inner());
+			value = value.add(item.base_value(base_time));
 		}
-		LinearPlus::from_inner(value)
+		value
 	}
 	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
 		-> <Self::Kind as FluxKind>::OutAccum<'a>
@@ -91,7 +96,7 @@ where
 {
 	type Moment = HashMap<K, V::Moment>;
 	type Kind = V::Kind;
-	fn base_value(&self, _base_time: Time) -> <Self::Kind as FluxKind>::Value {
+	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		todo!()
 	}
 	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
