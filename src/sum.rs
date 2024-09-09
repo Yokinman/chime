@@ -268,6 +268,7 @@ macro_rules! impl_deg_order {
 			T::Inner: Mul<Output = T::Inner>,
 		{
 			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
+			#[allow(clippy::suspicious_arithmetic_impl)]
 			fn mul(self, rhs: Self) -> Self::Output {
 				const SIZE: usize = $($num +)+ 0;
 				let Sum(a_value, a_terms) = self;
