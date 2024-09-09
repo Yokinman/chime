@@ -303,7 +303,7 @@ where
 				let t = TimeBound::Included(time);
 				
 				 // Increase Time by Next Duration:
-				while let Some(mut add_time) = iter.next() {
+				while let Some(add_time) = iter.next() {
 					if add_time != Time::ZERO {
 						*self = TimeRangeBuilder::Points(time + add_time, iter);
 						break
