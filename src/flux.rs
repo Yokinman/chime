@@ -110,8 +110,8 @@ pub trait Flux {
 	
 	/// A point in the timeline.
 	/// 
-	/// `self.value(self.base_time()) == self.base_value()`
-	fn value(&self, time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+	/// `self.eval(self.base_time()) == self.base_value()`
+	fn eval(&self, time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		let base_time = self.base_time();
 		if time == base_time {
 			return self.base_value()
@@ -121,7 +121,7 @@ pub trait Flux {
 	
 	/// A polynomial description of this flux at the given time.
 	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Self::Kind::from_value(self.value(time));
+		let mut poly = Self::Kind::from_value(self.eval(time));
 		self.change(poly.as_accum(0, self.base_time(), time));
 		Poly::new(poly, time)
 	}
