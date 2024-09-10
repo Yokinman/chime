@@ -916,7 +916,7 @@ where
 impl<T: LinearPlus> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner().mul(rhs));
+		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
 		self
 	}
 }

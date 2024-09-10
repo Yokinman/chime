@@ -18,8 +18,8 @@ impl<T: Linear> Linear for Exp<T> {
 	fn sub(self, other: Self) -> Self {
 		Self(self.0.sub(other.0))
 	}
-	fn mul(self, scalar: Scalar) -> Self {
-		Self(self.0.mul(scalar))
+	fn mul_scalar(self, scalar: Scalar) -> Self {
+		Self(self.0.mul_scalar(scalar))
 	}
 	fn sqr(mut self) -> Self {
 		self.0 = self.0.sqr();

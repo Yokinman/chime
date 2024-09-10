@@ -101,7 +101,7 @@ pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
 	
 	fn sub(self, other: Self) -> Self;
 	
-	fn mul(self, scalar: Scalar) -> Self;
+	fn mul_scalar(self, scalar: Scalar) -> Self;
 	
 	fn sqr(self) -> Self;
 	
@@ -129,7 +129,7 @@ mod _linear_impls {
 		fn sub(self, other: Self) -> Self {
 			self - other
 		}
-		fn mul(self, scalar: Scalar) -> Self {
+		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
 		fn sqr(self) -> Self {
@@ -154,7 +154,7 @@ mod _linear_impls {
 		fn sub(self, other: Self) -> Self {
 			self - other
 		}
-		fn mul(self, scalar: Scalar) -> Self {
+		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
 		fn sqr(self) -> Self {
@@ -186,8 +186,8 @@ mod _linear_impls {
 				x.sub(iter.next().unwrap_unchecked())
 			})
 		}
-		fn mul(self, scalar: Scalar) -> Self {
-			self.map(|x| x.mul(scalar))
+		fn mul_scalar(self, scalar: Scalar) -> Self {
+			self.map(|x| x.mul_scalar(scalar))
 		}
 		fn sqr(self) -> Self {
 			self.map(T::sqr)
@@ -431,7 +431,7 @@ mod glam_stuff {
 				fn sub(self, other: Self) -> Self {
 					self - other
 				}
-				fn mul(self, scalar: Scalar) -> Self {
+				fn mul_scalar(self, scalar: Scalar) -> Self {
 					self * scalar
 				}
 				fn sqr(self) -> Self {

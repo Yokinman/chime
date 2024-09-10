@@ -83,8 +83,8 @@ where
 impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner().mul(rhs));
-		self.1 = self.1.map(|x| T::from_inner(x.into_inner().mul(rhs)));
+		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
+		self.1 = self.1.map(|x| T::from_inner(x.into_inner().mul_scalar(rhs)));
 		self
 	}
 }
@@ -109,7 +109,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		let mut d = 1.;
 		self.1 = self.1.map(|x| {
 			d += 1.;
-			T::from_inner(x.into_inner().mul(Scalar::from(d)))
+			T::from_inner(x.into_inner().mul_scalar(Scalar::from(d)))
 		});
 		self
 	}
@@ -129,9 +129,9 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
-			value = value.mul(time).add(self.1[D - degree].clone().into_inner());
+			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
 		}
-		value.mul(time).add(self.0.clone().into_inner())
+		value.mul_scalar(time).add(self.0.clone().into_inner())
 	}
 	
 	fn to_time(mut self, time: Scalar) -> Self {
