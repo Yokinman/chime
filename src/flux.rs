@@ -29,7 +29,14 @@ pub trait Moment {
 	type Flux: Flux<Moment = Self>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux>;
+	fn to_flux(self, time: Time) -> Self::Flux;
+	
+	fn to_flux_value(self, time: Time) -> FluxValue<Self::Flux>
+	where
+		Self: Sized
+	{
+		FluxValue::new(self.to_flux(time), time)
+	}
 }
 
 #[allow(type_alias_bounds)]
@@ -70,7 +77,7 @@ impl<A: Flux> FluxValue<A> {
 	where
 		Self: Sized
 	{
-		*self = moment.to_flux(time);
+		*self = moment.to_flux_value(time);
 	}
 	
 	/// A reference to a moment in the timeline.
@@ -710,14 +717,11 @@ impl<T> Change<T> {
 
 impl<T: Moment> Moment for Change<T> {
 	type Flux = Change<T::Flux>;
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
-		FluxValue::new(
-			Change {
-				rate: self.rate.to_flux(time).into_inner_flux(),
-				unit: self.unit,
-			},
-			time,
-		)
+	fn to_flux(self, time: Time) -> Self::Flux {
+		Change {
+			rate: self.rate.to_flux(time),
+			unit: self.unit,
+		}
 	}
 }
 
@@ -820,8 +824,8 @@ impl<T: LinearPlus> Flux for Constant<T> {
 
 impl<T: LinearPlus> Moment for Constant<T> {
 	type Flux = Self;
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
-		FluxValue::new(self, time)
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		self
 	}
 }
 
@@ -999,7 +1003,7 @@ mod tests {
 			},
 			misc: Vec::new(),
 		};
-		let mut pos = pos.to_flux(Time::ZERO);
+		let mut pos = pos.to_flux_value(Time::ZERO);
 		*pos = pos.clone().to_moment(10*SEC);
 		pos.time = 10*SEC;
 		pos
@@ -1135,7 +1139,7 @@ mod tests {
 				value: 0.4,
 				snap: Snap { value: -0.01 },
 			},
-		}.to_flux(Time::ZERO);
+		}.to_flux_value(Time::ZERO);
 		
 		assert_time_ranges!(pos.when(Ordering::Greater, &acc), [
 			(Time::ZERO, Time::from_secs_f64(4.56)),
@@ -1226,14 +1230,14 @@ mod tests {
 		let a_pos = [
 			Pos { value: Iso::new(3), spd: Spd { value: Iso::new(300), acc: Acc { value: Iso::new(-240) } } },
 			Pos { value: Iso::new(-4), spd: Spd { value: Iso::new(120), acc: Acc { value: Iso::new(1080) } } }
-		].to_flux(Time::ZERO);
+		].to_flux_value(Time::ZERO);
 		let b_pos = [
 			Pos { value: Iso::new(8), spd: Spd { value: Iso::new(330), acc: Acc { value: Iso::new(-300) } } },
 			Pos { value: Iso::new(4), spd: Spd { value: Iso::new(600), acc: Acc { value: Iso::new(720) } } }
-		].to_flux(Time::ZERO);
+		].to_flux_value(Time::ZERO);
 		
 		let dis = Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } }
-			.to_flux(Time::ZERO);
+			.to_flux_value(Time::ZERO);
 		
 		assert_time_ranges!(
 			a_pos.when_dis(&b_pos, Ordering::Less, &dis),
@@ -1244,7 +1248,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment(Time::ZERO).to_flux(SEC);
+		let b_pos = b_pos.to_moment(Time::ZERO).to_flux_value(SEC);
 		assert_time_ranges!(
 			a_pos.when_dis_eq_constant(&b_pos, 2),
 			[

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::{FluxValue, Moment};
+use crate::Moment;
 use crate::Flux;
 use crate::time::Time;
 use crate::kind::FluxKind;
@@ -14,7 +14,7 @@ where
 	T: Flux,
 {
 	type Flux = &'t T;
-	fn to_flux(self, _time: Time) -> FluxValue<Self::Flux> {
+	fn to_flux(self, _time: Time) -> Self::Flux {
 		unimplemented!()
 	}
 }
@@ -39,8 +39,8 @@ where
 
 impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 	type Flux = [T::Flux; SIZE];
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
-		FluxValue::new(self.map(|x| x.to_flux(time).into_inner_flux()), time)
+	fn to_flux(self, time: Time) -> Self::Flux {
+		self.map(|x| x.to_flux(time))
 	}
 }
 
@@ -106,13 +106,10 @@ where
 		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = Vec<T::Flux>;
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
-		FluxValue::new(
-			self.into_iter()
-				.map(|x| x.to_flux(time).into_inner_flux())
-				.collect(),
-			time,
-		)
+	fn to_flux(self, time: Time) -> Self::Flux {
+		self.into_iter()
+			.map(|x| x.to_flux(time))
+			.collect()
 	}
 }
 
@@ -143,12 +140,9 @@ where
 	V: Moment,
 {
 	type Flux = HashMap<K, V::Flux>;
-	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
-		FluxValue::new(
-			self.into_iter()
-				.map(|(k, v)| (k, v.to_flux(time).into_inner_flux()))
-				.collect(),
-			time,
-		)
+	fn to_flux(self, time: Time) -> Self::Flux {
+		self.into_iter()
+			.map(|(k, v)| (k, v.to_flux(time)))
+			.collect()
 	}
 }

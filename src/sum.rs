@@ -974,14 +974,14 @@ mod tests {
 			spd: Spd {
 				value: glam::IVec2::new(6, 4).into()
 			}
-		}.to_flux(Time::default());
+		}.to_flux_value(Time::default());
 		
 		let b_pos = Pos {
 			value: glam::IVec2::new(14, 18).into(),
 			spd: Spd {
 				value: glam::IVec2::new(4, 0).into()
 			}
-		}.to_flux(Time::default());
+		}.to_flux_value(Time::default());
 		
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
