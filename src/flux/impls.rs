@@ -13,8 +13,8 @@ impl<'t, T> Moment for &'t T
 where
 	T: InnerFlux,
 {
-	type Flux = FluxValue<&'t T>;
-	fn to_flux(self, _time: Time) -> Self::Flux {
+	type Flux = &'t T;
+	fn to_flux(self, _time: Time) -> FluxValue<Self::Flux> {
 		unimplemented!()
 	}
 }
@@ -38,8 +38,8 @@ where
 
 
 impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
-	type Flux = FluxValue<[<T::Flux as Flux>::Inner; SIZE]>;
-	fn to_flux(self, time: Time) -> Self::Flux {
+	type Flux = [T::Flux; SIZE];
+	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
 		FluxValue::new(self.map(|x| x.to_flux(time).into_inner_flux()), time)
 	}
 }
@@ -72,7 +72,7 @@ impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
 impl<T: InnerFlux> InnerFlux for Vec<T>
 where
 	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
-	Vec<T::Moment>: Moment<Flux = FluxValue<Vec<T>>>,
+	Vec<T::Moment>: Moment<Flux = Self>,
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
@@ -102,11 +102,11 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	<T::Flux as Flux>::Kind:
-		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
+	<T::Flux as InnerFlux>::Kind:
+		for<'a> FluxKind<Accum<'a> = <<T::Flux as InnerFlux>::Kind as FluxKind>::OutAccum<'a>>,
 {
-	type Flux = FluxValue<Vec<<T::Flux as Flux>::Inner>>;
-	fn to_flux(self, time: Time) -> Self::Flux {
+	type Flux = Vec<T::Flux>;
+	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
 		FluxValue::new(
 			self.into_iter()
 				.map(|x| x.to_flux(time).into_inner_flux())
@@ -142,8 +142,8 @@ where
 	K: std::hash::Hash + Eq,
 	V: Moment,
 {
-	type Flux = FluxValue<HashMap<K, <V::Flux as Flux>::Inner>>;
-	fn to_flux(self, time: Time) -> Self::Flux {
+	type Flux = HashMap<K, V::Flux>;
+	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
 		FluxValue::new(
 			self.into_iter()
 				.map(|(k, v)| (k, v.to_flux(time).into_inner_flux()))

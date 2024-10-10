@@ -670,7 +670,7 @@ pub struct SumAccum<'a, K: FluxKind> {
 impl<K: FluxKind, V: InnerFlux> Add<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	V::Moment: Moment<Flux=FluxValue<V>>,
+	V::Moment: Moment<Flux=V>,
 {
 	type Output = Self;
 	fn add(mut self, rhs: Change<&V>) -> Self {
@@ -682,7 +682,7 @@ where
 impl<K: FluxKind, V: InnerFlux> Sub<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	V::Moment: Moment<Flux=FluxValue<V>>,
+	V::Moment: Moment<Flux=V>,
 {
 	type Output = Self;
 	fn sub(mut self, rhs: Change<&V>) -> Self {
@@ -701,7 +701,7 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 		unit: time::Time,
 	)
 	where
-		V::Moment: Moment<Flux=FluxValue<V>>;
+		V::Moment: Moment<Flux=V>;
 }
 
 impl<A, B> SumAccumHelper<A, B> for (A, B)
@@ -718,7 +718,7 @@ where
 		unit: time::Time,
 	)
 	where
-		V::Moment: Moment<Flux=FluxValue<V>>
+		V::Moment: Moment<Flux=V>
 	{
 		let flux_ref = FluxValue::new(flux, kind.base_time);
 		let mut sub_poly = B::from_value(flux_ref.eval(kind.time));

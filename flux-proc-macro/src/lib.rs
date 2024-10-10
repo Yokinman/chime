@@ -353,8 +353,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		#item
 		
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
-			type Flux = #flux::FluxValue<#flux_type>;
-			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
+			type Flux = #flux_type;
+			fn to_flux(self, time: #flux::time::Time) -> #flux::FluxValue<Self::Flux> {
 				#flux::FluxValue::new(#flux_type { #flux_fields }, time)
 			}
 		}
