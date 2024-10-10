@@ -359,7 +359,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			}
 		}
 		
-		impl #impl_generics #flux::InnerFlux for #flux_type #where_clause {
+		impl #impl_generics #flux::Flux for #flux_type #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			

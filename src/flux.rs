@@ -26,7 +26,7 @@ pub struct Chime;
 
 /// A discrete interface for a value that changes over time.
 pub trait Moment {
-	type Flux: InnerFlux<Moment = Self>;
+	type Flux: Flux<Moment = Self>;
 	
 	/// Constructs the entirety of a [`Flux`] from a single moment.
 	fn to_flux(self, time: Time) -> FluxValue<Self::Flux>;
@@ -35,7 +35,7 @@ pub trait Moment {
 #[allow(type_alias_bounds)]
 pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 
-impl<A: InnerFlux> FluxValue<A> {
+impl<A: Flux> FluxValue<A> {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
 	
@@ -133,7 +133,7 @@ impl<A: InnerFlux> FluxValue<A> {
 	pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<A::Kind> as When<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<A::Kind>: When<T::Kind>
 	{
 		let time = self.base_time();
@@ -144,7 +144,7 @@ impl<A: InnerFlux> FluxValue<A> {
 	pub fn when_eq<T>(&self, other: &FluxValue<T>)
 		-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<A::Kind>: WhenEq<T::Kind>
 	{
 		let time = self.base_time();
@@ -503,8 +503,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: InnerFlux,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -512,8 +512,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: InnerFlux,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -521,7 +521,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -530,7 +530,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -539,7 +539,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	;
 	
@@ -547,7 +547,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	;
 	
@@ -570,7 +570,7 @@ pub trait FluxVector<const SIZE: usize> {
 
 impl<A, const SIZE: usize> FluxVector<SIZE> for FluxValue<A>
 where
-	A: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+	A: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 {
 	type Kind = A::Kind;
 	
@@ -582,8 +582,8 @@ where
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: InnerFlux,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
@@ -595,8 +595,8 @@ where
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: InnerFlux,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
@@ -608,7 +608,7 @@ where
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -619,7 +619,7 @@ where
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -630,7 +630,7 @@ where
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
 		let time = self.base_time();
@@ -642,7 +642,7 @@ where
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: InnerFlux,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
 		let time = self.base_time();
@@ -721,7 +721,7 @@ impl<T: Moment> Moment for Change<T> {
 	}
 }
 
-impl<T: InnerFlux> InnerFlux for Change<T> {
+impl<T: Flux> Flux for Change<T> {
 	type Moment = Change<T::Moment>;
 	type Kind = T::Kind;
 	fn base_value(&self, base_time: Time)
@@ -764,7 +764,7 @@ impl<T> FluxValue<T> {
 	
 	pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
 	where
-		U: InnerFlux,
+		U: Flux,
 	{
 		FluxValue {
 			inner: f(&self.inner),
@@ -787,7 +787,7 @@ impl<T> DerefMut for FluxValue<T> {
 }
 
 /// The continuous interface for a value that changes over time.
-pub trait InnerFlux {
+pub trait Flux {
 	type Moment: Moment<Flux = Self>;
 	type Kind: FluxKind;
 	fn base_value(&self, base_time: Time)
@@ -800,7 +800,7 @@ pub trait InnerFlux {
 
 // ??? impl InnerFlux for T where T: FluxKind
 
-impl<T: LinearPlus> InnerFlux for Constant<T> {
+impl<T: LinearPlus> Flux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
 	fn base_value(&self, _base_time: Time)

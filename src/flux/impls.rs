@@ -4,14 +4,14 @@ use std::collections::HashMap;
 use std::vec::Vec;
 
 use crate::{FluxValue, Moment};
-use crate::InnerFlux;
+use crate::Flux;
 use crate::time::Time;
 use crate::kind::FluxKind;
 use crate::linear::{Linear, LinearPlus};
 
 impl<'t, T> Moment for &'t T
 where
-	T: InnerFlux,
+	T: Flux,
 {
 	type Flux = &'t T;
 	fn to_flux(self, _time: Time) -> FluxValue<Self::Flux> {
@@ -19,9 +19,9 @@ where
 	}
 }
 
-impl<'t, T> InnerFlux for &'t T
+impl<'t, T> Flux for &'t T
 where
-	T: InnerFlux,
+	T: Flux,
 {
 	type Moment = &'t T;
 	type Kind = T::Kind;
@@ -44,7 +44,7 @@ impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 	}
 }
 
-impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
+impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
 	type Kind = [T::Kind; SIZE];
 	fn base_value(&self, base_time: Time)
@@ -69,7 +69,7 @@ impl<T: InnerFlux, const SIZE: usize> InnerFlux for [T; SIZE] {
 // !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
 
 // !!! Remove this impl, replace with a FluxVec impl:
-impl<T: InnerFlux> InnerFlux for Vec<T>
+impl<T: Flux> Flux for Vec<T>
 where
 	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
 	Vec<T::Moment>: Moment<Flux = Self>,
@@ -102,8 +102,8 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	<T::Flux as InnerFlux>::Kind:
-		for<'a> FluxKind<Accum<'a> = <<T::Flux as InnerFlux>::Kind as FluxKind>::OutAccum<'a>>,
+	<T::Flux as Flux>::Kind:
+		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = Vec<T::Flux>;
 	fn to_flux(self, time: Time) -> FluxValue<Self::Flux> {
@@ -117,10 +117,10 @@ where
 }
 
 
-impl<K, V> InnerFlux for HashMap<K, V>
+impl<K, V> Flux for HashMap<K, V>
 where
 	K: std::hash::Hash + Eq,
-	V: InnerFlux,
+	V: Flux,
 {
 	type Moment = HashMap<K, V::Moment>;
 	type Kind = V::Kind;

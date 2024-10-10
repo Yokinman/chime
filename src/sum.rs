@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
-use crate::InnerFlux;
+use crate::Flux;
 
 /// Summation over time.
 /// 
@@ -667,7 +667,7 @@ pub struct SumAccum<'a, K: FluxKind> {
 	time: time::Time,
 }
 
-impl<K: FluxKind, V: InnerFlux> Add<Change<&V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Add<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	V::Moment: Moment<Flux=V>,
@@ -679,7 +679,7 @@ where
 	}
 }
 
-impl<K: FluxKind, V: InnerFlux> Sub<Change<&V>> for SumAccum<'_, K>
+impl<K: FluxKind, V: Flux> Sub<Change<&V>> for SumAccum<'_, K>
 where
 	(K, V::Kind): SumAccumHelper<K, V::Kind>,
 	V::Moment: Moment<Flux=V>,
@@ -694,7 +694,7 @@ where
 /// Used to remove redundant trait bounds.
 #[doc(hidden)]
 pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
-	fn eval<V: InnerFlux<Kind=B>>(
+	fn eval<V: Flux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		flux: &V,
@@ -711,7 +711,7 @@ where
 	<B as SumShiftUp>::Up: Mul<Scalar, Output = <B as SumShiftUp>::Up>,
 	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
 {
-	fn eval<V: InnerFlux<Kind=B>>(
+	fn eval<V: Flux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
 		scalar: f64,
 		flux: &V,
