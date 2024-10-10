@@ -686,11 +686,11 @@ impl<T> FluxValue<T> {
 		self.time
 	}
 	
-	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> FluxRef<'_, U>
+	pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
 	where
 		U: InnerFlux,
 	{
-		FluxRef {
+		FluxValue {
 			inner: f(&self.inner),
 			time: self.time,
 		}
@@ -773,87 +773,6 @@ impl<T: LinearPlus> Moment for Constant<T> {
 	type Flux = FluxValue<Self>;
 	fn to_flux(self, time: Time) -> Self::Flux {
 		FluxValue::new(self, time)
-	}
-}
-
-/// ...
-pub struct FluxRefMoment<'a, T> {
-	_inner: &'a T,
-}
-
-impl<'a, T> Moment for FluxRefMoment<'a, T>
-where
-	T: InnerFlux,
-	T::Moment: Moment<Flux=FluxValue<T>>,
-{
-	type Flux = FluxRef<'a, T>;
-	fn to_flux(self, _time: Time) -> Self::Flux {
-		unimplemented!()
-	}
-}
-
-/// ...
-pub struct FluxRef<'a, T> {
-	inner: &'a T,
-	time: Time,
-}
-
-impl<'a, T> FluxRef<'a, T> {
-	pub fn new(inner: &'a T, time: Time) -> Self {
-		Self { inner, time }
-	}
-}
-
-impl<T> Deref for FluxRef<'_, T> {
-	type Target = T;
-	fn deref(&self) -> &Self::Target {
-		self.inner
-	}
-}
-
-impl<'b, T: InnerFlux> Flux for FluxRef<'b, T>
-where
-	T::Moment: Moment<Flux=FluxValue<T>>
-{
-	type Inner = FluxRefImpl<'b, T>;
-	fn into_inner_flux(self) -> Self::Inner {
-		unimplemented!()
-	}
-	type Moment = FluxRefMoment<'b, T>;
-	type Kind = T::Kind;
-	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
-		self.inner.base_value(self.time)
-	}
-	fn base_time(&self) -> Time {
-		self.time
-	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
-	{
-		self.inner.change(accum)
-	}
-	fn to_moment(self, _time: Time) -> Self::Moment {
-		unimplemented!("FluxRef doesn't support `at` or `at_mut`")
-	}
-}
-
-/// !!! Temporary?
-pub struct FluxRefImpl<'a, T>(PhantomData<&'a T>);
-
-impl<'b, T: InnerFlux> InnerFlux for FluxRefImpl<'b, T>
-where
-	T::Moment: Moment<Flux=FluxValue<T>>,
-{
-	type Moment = FluxRefMoment<'b, T>;
-	type Kind = T::Kind;
-	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
-		unimplemented!()
-	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
-		unimplemented!()
-	}
-	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
-		unimplemented!()
 	}
 }
 

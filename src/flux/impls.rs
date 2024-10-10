@@ -9,6 +9,34 @@ use crate::time::Time;
 use crate::kind::FluxKind;
 use crate::linear::{Linear, LinearPlus};
 
+impl<'t, T> Moment for &'t T
+where
+	T: InnerFlux,
+{
+	type Flux = FluxValue<&'t T>;
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		unimplemented!()
+	}
+}
+
+impl<'t, T> InnerFlux for &'t T
+where
+	T: InnerFlux,
+{
+	type Moment = &'t T;
+	type Kind = T::Kind;
+	fn base_value(&self, base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+		T::base_value(self, base_time)
+	}
+	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+		T::change(self, accum)
+	}
+	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
+		unimplemented!("References to Flux types don't support `at` or `at_mut`")
+	}
+}
+
+
 impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 	type Flux = FluxValue<[<T::Flux as Flux>::Inner; SIZE]>;
 	fn to_flux(self, time: Time) -> Self::Flux {

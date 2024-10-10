@@ -309,7 +309,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		if value_idents.contains(&ident.unraw()) {
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::LinearPlus::from_inner(#flux::Flux::eval(&#flux::FluxRef::new(&self, base_time), time)),
+				#ident: #flux::linear::LinearPlus::from_inner(#flux::Flux::eval(&#flux::FluxValue::new(&self, base_time), time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields

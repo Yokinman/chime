@@ -720,7 +720,7 @@ where
 	where
 		V::Moment: Moment<Flux=FluxValue<V>>
 	{
-		let flux_ref = FluxRef::new(flux, kind.base_time);
+		let flux_ref = FluxValue::new(flux, kind.base_time);
 		let mut sub_poly = B::from_value(flux_ref.eval(kind.time));
 		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
