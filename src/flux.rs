@@ -35,45 +35,46 @@ pub trait Moment {
 #[allow(type_alias_bounds)]
 pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 
-/// The continuous interface for a value that changes over time.
-pub trait Flux {
+impl<A: InnerFlux> FluxValue<A> {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
 	
-	type Inner: InnerFlux<Moment=Self::Moment, Kind=Self::Kind>;
-	
-	fn into_inner_flux(self) -> Self::Inner;
-	
-	fn temp_conversion(&mut self) -> &mut FluxValue<Self::Inner>;
-	
-	type Moment: Moment<Flux = Self::Inner>;
-	
-	/// The kind of change over time.
-	type Kind: FluxKind;
+	pub fn into_inner_flux(self) -> A {
+		self.inner
+	}
 	
 	/// An evaluation of this flux at some point in time.
-	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
+	pub fn base_value(&self) -> <<A::Kind as FluxKind>::Value as LinearPlus>::Inner {
+		self.inner.base_value(self.time)
+	}
 	
 	/// The time of [`Flux::base_value`].
-	fn base_time(&self) -> Time;
+	pub fn base_time(&self) -> Time {
+		self.time
+	}
 	
 	/// Accumulates change over time.
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>;
+	pub fn change<'a>(&self, accum: <A::Kind as FluxKind>::Accum<'a>)
+		-> <A::Kind as FluxKind>::OutAccum<'a>
+	{
+		self.inner.change(accum)
+	}
 	
 	/// A moment in the timeline.
-	fn to_moment(self, time: Time) -> Self::Moment;
+	pub fn to_moment(self, time: Time) -> A::Moment {
+		self.inner.to_moment(self.time, time)
+	}
 	
 	/// Sets a moment in the timeline (affects all moments).
-	fn set_moment(&mut self, time: Time, moment: Self::Moment)
+	pub fn set_moment(&mut self, time: Time, moment: A::Moment)
 	where
 		Self: Sized
 	{
-		*self.temp_conversion() = moment.to_flux(time);
+		*self = moment.to_flux(time);
 	}
 	
 	/// A reference to a moment in the timeline.
-	fn at(&self, time: Time) -> MomentRef<Self::Moment>
+	pub fn at(&self, time: Time) -> MomentRef<A::Moment>
 	where
 		Self: Clone
 	{
@@ -98,7 +99,7 @@ pub trait Flux {
 	/// // modifications
 	/// self.set_moment(time, moment);
 	/// ```
-	fn at_mut(&mut self, time: Time) -> MomentMut<Self::Moment>
+	pub fn at_mut(&mut self, time: Time) -> MomentMut<A::Moment>
 	where
 		Self: Clone
 	{
@@ -106,14 +107,14 @@ pub trait Flux {
 		MomentMut {
 			moment,
 			time,
-			borrow: self.temp_conversion(),
+			borrow: self,
 		}
 	}
 	
 	/// A point in the timeline.
 	/// 
 	/// `self.eval(self.base_time()) == self.base_value()`
-	fn eval(&self, time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+	pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		let base_time = self.base_time();
 		if time == base_time {
 			return self.base_value()
@@ -122,50 +123,50 @@ pub trait Flux {
 	}
 	
 	/// A polynomial description of this flux at the given time.
-	fn poly(&self, time: Time) -> Poly<Self::Kind> {
-		let mut poly = Self::Kind::from_value(self.eval(time));
+	pub fn poly(&self, time: Time) -> Poly<A::Kind> {
+		let mut poly = A::Kind::from_value(self.eval(time));
 		self.change(poly.as_accum(0, self.base_time(), time));
 		Poly::new(poly, time)
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
-		-> <Poly<Self::Kind> as When<T::Kind>>::Pred
+	pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
+		-> <Poly<A::Kind> as When<T::Kind>>::Pred
 	where
 		T: InnerFlux,
-		Poly<Self::Kind>: When<T::Kind>
+		Poly<A::Kind>: When<T::Kind>
 	{
 		let time = self.base_time();
 		self.poly(time).when(order, other.poly(time))
 	}
 	
 	/// Times when this is equal to another flux.
-	fn when_eq<T>(&self, other: &FluxValue<T>)
-		-> <Poly<Self::Kind> as WhenEq<T::Kind>>::Pred
+	pub fn when_eq<T>(&self, other: &FluxValue<T>)
+		-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
 	where
 		T: InnerFlux,
-		Poly<Self::Kind>: WhenEq<T::Kind>
+		Poly<A::Kind>: WhenEq<T::Kind>
 	{
 		let time = self.base_time();
 		self.poly(time).when_eq(other.poly(time))
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
-	fn when_constant<T>(&self, order: Ordering, other: T)
-		-> <Poly<Self::Kind> as When<Constant<KindLinear<Self::Kind>>>>::Pred
+	pub fn when_constant<T>(&self, order: Ordering, other: T)
+		-> <Poly<A::Kind> as When<Constant<KindLinear<A::Kind>>>>::Pred
 	where
-		T: LinearIso<KindLinear<Self::Kind>>,
-		Poly<Self::Kind>: When<Constant<KindLinear<Self::Kind>>>
+		T: LinearIso<KindLinear<A::Kind>>,
+		Poly<A::Kind>: When<Constant<KindLinear<A::Kind>>>
 	{
 		self.when(order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when this is equal to a constant.
-	fn when_eq_constant<T>(&self, other: T)
-		-> <Poly<Self::Kind> as WhenEq<Constant<KindLinear<Self::Kind>>>>::Pred
+	pub fn when_eq_constant<T>(&self, other: T)
+		-> <Poly<A::Kind> as WhenEq<Constant<KindLinear<A::Kind>>>>::Pred
 	where
-		T: LinearIso<KindLinear<Self::Kind>>,
-		Poly<Self::Kind>: WhenEq<Constant<KindLinear<Self::Kind>>>
+		T: LinearIso<KindLinear<A::Kind>>,
+		Poly<A::Kind>: WhenEq<Constant<KindLinear<A::Kind>>>
 	{
 		self.when_eq(&FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
 	}
@@ -492,18 +493,96 @@ mod bevy_moment {
 pub use bevy_moment::{ResMoment, ResMomentMut};
 
 /// Multidimensional change over time.
-pub trait FluxVector<const SIZE: usize>:
-	Flux<Kind: Vector<SIZE, Output: FluxKind>>
+pub trait FluxVector<const SIZE: usize> {
+	type Kind: Vector<SIZE, Output: FluxKind> + 'static;
+	
+	fn index_poly(&self, index: usize, time: Time)
+		-> Poly<<Self::Kind as Vector<SIZE>>::Output>;
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
+		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
+	where
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: InnerFlux,
+		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
+	;
+	
+	/// Ranges when the distance to another vector is equal to X.
+	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
+	where
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: InnerFlux,
+		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
+	;
+	
+	/// Ranges when the distance to another vector is above/below/equal to a constant.
+	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
+		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+	;
+	
+	/// Ranges when the distance to another vector is equal to a constant.
+	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+	;
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
+	where
+		T: InnerFlux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
+	;
+	
+	/// Times when a component is equal to another flux.
+	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
+	where
+		T: InnerFlux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
+	;
+	
+	/// Ranges when a component is above/below/equal to a constant.
+	fn when_index_constant<T>(&self, index: usize, order: Ordering, other: T)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+	;
+	
+	/// Times when a component is equal to a constant.
+	fn when_index_eq_constant<T>(&self, index: usize, other: T)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+	;
+}
+
+impl<A, const SIZE: usize> FluxVector<SIZE> for FluxValue<A>
+where
+	A: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 {
+	type Kind = A::Kind;
+	
 	fn index_poly(&self, index: usize, time: Time) -> Poly<<Self::Kind as Vector<SIZE>>::Output> {
 		self.poly(time).index(index)
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &FluxValue<D>)
+	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxVector<SIZE> + ?Sized,
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: InnerFlux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
@@ -513,10 +592,10 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
-	fn when_dis_eq<T, D>(&self, other: &T, dis: &FluxValue<D>)
+	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxVector<SIZE> + ?Sized,
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: InnerFlux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
@@ -526,10 +605,10 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
-	fn when_dis_constant<T, D>(&self, other: &T, order: Ordering, dis: D)
+	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxVector<SIZE> + ?Sized,
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -537,10 +616,10 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
-	fn when_dis_eq_constant<T, D>(&self, other: &T, dis: D)
+	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxVector<SIZE> + ?Sized,
+		T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -598,11 +677,6 @@ pub trait FluxVector<const SIZE: usize>:
 	// - rotating point-line may be handleable iteratively, find the bounds in
 	//   which the roots may be and iterate through it.
 }
-
-impl<T, const SIZE: usize> FluxVector<SIZE> for FluxValue<T>
-where
-	T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
-{}
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
 /// 
@@ -712,37 +786,7 @@ impl<T> DerefMut for FluxValue<T> {
 	}
 }
 
-impl<T: InnerFlux> Flux for FluxValue<T>
-where
-	T::Moment: Moment<Flux = T>
-{
-	type Inner = T;
-	fn into_inner_flux(self) -> Self::Inner {
-		self.inner
-	}
-	fn temp_conversion(&mut self) -> &mut FluxValue<Self::Inner> {
-		self
-	}
-	type Moment = T::Moment;
-	type Kind = T::Kind;
-	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
-		self.inner.base_value(self.time)
-	}
-	fn base_time(&self) -> Time {
-		self.time
-	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
-	{
-		self.inner.change(accum)
-	}
-	fn to_moment(self, time: Time) -> Self::Moment {
-		self.inner.to_moment(self.time, time)
-	}
-}
-
-/// Intermediary for the [`FluxValue`] generic [`Flux`] implementation.
-/// Implemented automatically by the [`flux`] macro, not manually (currently).
+/// The continuous interface for a value that changes over time.
 pub trait InnerFlux {
 	type Moment: Moment<Flux = Self>;
 	type Kind: FluxKind;
