@@ -129,10 +129,10 @@ pub trait Flux {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	fn when<T>(&self, order: Ordering, other: &T)
+	fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<Self::Kind> as When<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: InnerFlux,
 		Poly<Self::Kind>: When<T::Kind>
 	{
 		let time = self.base_time();
@@ -140,10 +140,10 @@ pub trait Flux {
 	}
 	
 	/// Times when this is equal to another flux.
-	fn when_eq<T>(&self, other: &T)
+	fn when_eq<T>(&self, other: &FluxValue<T>)
 		-> <Poly<Self::Kind> as WhenEq<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: InnerFlux,
 		Poly<Self::Kind>: WhenEq<T::Kind>
 	{
 		let time = self.base_time();
@@ -500,11 +500,11 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &D)
+	fn when_dis<T, D>(&self, other: &T, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
 		T: FluxVector<SIZE> + ?Sized,
-		D: Flux,
+		D: InnerFlux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
@@ -513,11 +513,11 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
-	fn when_dis_eq<T, D>(&self, other: &T, dis: &D)
+	fn when_dis_eq<T, D>(&self, other: &T, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
 		T: FluxVector<SIZE> + ?Sized,
-		D: Flux,
+		D: InnerFlux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.base_time();
@@ -548,10 +548,10 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<T>(&self, index: usize, order: Ordering, other: &T)
+	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: InnerFlux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
 		let time = self.base_time();
@@ -560,10 +560,10 @@ pub trait FluxVector<const SIZE: usize>:
 	}
 	
 	/// Times when a component is equal to another flux.
-	fn when_index_eq<T>(&self, index: usize, other: &T)
+	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: InnerFlux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
 		let time = self.base_time();
@@ -599,9 +599,9 @@ pub trait FluxVector<const SIZE: usize>:
 	//   which the roots may be and iterate through it.
 }
 
-impl<T, const SIZE: usize> FluxVector<SIZE> for T
+impl<T, const SIZE: usize> FluxVector<SIZE> for FluxValue<T>
 where
-	T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+	T: InnerFlux<Kind: Vector<SIZE, Output: FluxKind>>,
 {}
 
 /// Used to construct a [`Change`] for convenient change-over-time operations.
