@@ -61,7 +61,7 @@ pub trait FluxKind: Clone + Debug + 'static {
 	}
 	
 	fn zero() -> Self {
-		Self::from_value(Self::Value::zero().into_inner())
+		Self::from_value(Linear::zero())
 	}
 	
 	fn is_zero(&self) -> bool
