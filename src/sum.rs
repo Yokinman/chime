@@ -203,22 +203,6 @@ impl<T: LinearPlus> FluxIntegral for Sum<T, 0> {
 	}
 }
 
-/// Used for upgrading the degree of a [`Sum`].
-trait SumShiftUp: FluxKind {
-	type Up: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
-	fn shift_up(self) -> <Self as SumShiftUp>::Up;
-}
-
-impl<K: FluxKind> SumShiftUp for K
-where
-	K: Into<Constant<K::Value>>
-{
-	type Up = Sum<Self::Value, 1>;
-	fn shift_up(self) -> <Self as SumShiftUp>::Up {
-		Sum(Self::Value::zero(), [self.value()])
-	}
-}
-
 /// Degree sequential ordering.
 macro_rules! impl_deg_order {
 	(1  1  $($num:tt)*) => { impl_deg_order!(2  $($num)*); };
@@ -229,23 +213,6 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: LinearPlus> SumShiftUp for Sum<T, { $($num +)+ 0 }> {
-			type Up = Sum<T, { $($num +)+ 0 + 1 }>;
-			fn shift_up(self) -> <Self as SumShiftUp>::Up {
-				debug_assert_eq!(
-					std::mem::size_of::<Self>(),
-					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),
-				);
-				Sum(
-					T::zero(),
-					unsafe {
-						// SAFETY: I don't know if the memory layout of arrays
-						// is guaranteed, but it's simple & fast. Sorry boss.
-						std::mem::transmute_copy(&self)
-					}
-				)
-			}
-		}
 		impl<T: LinearPlus> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self) -> Self::Integ {
@@ -743,9 +710,9 @@ pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
 impl<A, B> SumAccumHelper<A, B> for (A, B)
 where
 	A: FluxKind,
-	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>> + SumShiftUp,
-	<B as SumShiftUp>::Up: Mul<Scalar, Output = <B as SumShiftUp>::Up>,
-	A: Add<B, Output=A> + Add<<B as SumShiftUp>::Up, Output=A>,
+	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>> + FluxIntegral,
+	B::Integ: Mul<Scalar, Output = B::Integ>,
+	A: Add<B, Output=A> + Add<B::Integ, Output=A>,
 {
 	fn eval<V: Flux<Kind=B>>(
 		kind: &mut SumAccum<'_, A>,
@@ -760,8 +727,8 @@ where
 		let mut sub_poly = B::from_value(flux_ref.eval(kind.time));
 		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
 		let time_scale = unit.as_secs_f64().recip();
-		*kind.poly = kind.poly.clone() + (sub_poly.shift_up()
-			* Scalar::from((time_scale / ((kind.depth + 1) as f64)) * scalar));
+		*kind.poly = kind.poly.clone() + (sub_poly.integ()
+			* Scalar::from(time_scale * scalar));
 		// https://www.desmos.com/calculator/mhlpjakz32
 	}
 }
