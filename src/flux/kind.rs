@@ -71,8 +71,8 @@ pub trait FluxKind: Clone + Debug + 'static {
 		self.eq(&Self::zero())
 	}
 	
-	fn value(&self) -> Self::Value {
-		Self::Value::from_inner(self.eval(Scalar::from(0.)))
+	fn value(&self) -> <Self::Value as LinearPlus>::Inner {
+		self.eval(Scalar::from(0.))
 	}
 }
 

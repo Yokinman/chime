@@ -173,7 +173,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = A::from_inner(self.0.into_inner().add(rhs.value().into_inner()));
+		self.0 = A::from_inner(self.0.into_inner().add(rhs.value()));
 		self
 	}
 }
