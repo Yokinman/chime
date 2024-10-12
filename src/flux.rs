@@ -61,9 +61,10 @@ impl<A: Flux> FluxValue<A> {
 	}
 	
 	/// Accumulates change over time.
-	pub fn change<'a>(&self, accum: <A::Kind as FluxKind>::Accum<'a>)
-		-> <A::Kind as FluxKind>::OutAccum<'a>
-	{
+	pub fn change(
+		&self,
+		accum: FluxAccum<Constant<<A::Kind as FluxKind>::Value>>
+	) -> FluxAccum<A::Kind> {
 		self.inner.change(accum)
 	}
 	
@@ -131,8 +132,11 @@ impl<A: Flux> FluxValue<A> {
 	
 	/// A polynomial description of this flux at the given time.
 	pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-		let mut poly = A::Kind::from_value(self.eval(time));
-		self.change(poly.as_accum(0, self.base_time(), time));
+		let poly = self.change(FluxAccum::new(
+			Constant::from_value(self.eval(time)),
+			self.time,
+			time,
+		)).poly;
 		Poly::new(poly, time)
 	}
 	
@@ -733,8 +737,8 @@ impl<T: Flux> Flux for Change<T> {
 	{
 		self.rate.base_value(base_time)
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
+		-> FluxAccum<Self::Kind>
 	{
 		self.rate.change(accum)
 	}
@@ -796,8 +800,8 @@ pub trait Flux {
 	type Kind: FluxKind;
 	fn base_value(&self, base_time: Time)
 		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>;
+	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
+		-> FluxAccum<Self::Kind>;
 	fn to_moment(self, base_time: Time, time: Time)
 		-> Self::Moment;
 }
@@ -812,8 +816,8 @@ impl<T: LinearPlus> Flux for Constant<T> {
 	{
 		self.0.clone().into_inner()
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
+		-> FluxAccum<Self::Kind>
 	{
 		accum
 	}
@@ -857,16 +861,17 @@ impl<T: LinearPlus> From<T> for Constant<T> {
 
 impl<T: LinearPlus> FluxKind for Constant<T> {
 	type Value = T;
-	type Accum<'a> = ();
-	type OutAccum<'a> = ();
 	const DEGREE: usize = 0;
 	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
 		Constant(T::from_inner(value))
 	}
+	fn add_value(mut self, value: <Self::Value as LinearPlus>::Inner) -> Self {
+		self.0 = T::from_inner(self.0.into_inner().add(value));
+		self
+	}
 	fn deriv(self) -> Self {
 		Self::zero()
 	}
-	fn as_accum(&mut self, _depth: usize, _base_time: Time, _time: Time) -> Self::Accum<'_> {}
 	fn eval(&self, _time: Scalar) -> <Self::Value as LinearPlus>::Inner {
 		self.0.clone().into_inner()
 	}
@@ -904,23 +909,63 @@ where
 	}
 }
 
+impl<A, B> std::ops::Add<B> for Constant<A>
+where
+	A: LinearPlus,
+	B: FluxKind<Value = A>,
+{
+	type Output = B;
+	fn add(self, rhs: B) -> Self::Output {
+		rhs.add_value(self.0.into_inner())
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use super::time::{SEC, TimeRanges};
 	use crate::sum::Sum;
 	
-	#[flux(
-		kind = Sum<f64, 4>,
-		value = value,
-		change = |c| c + spd.per(SEC) + misc.per(SEC),
-		crate = crate,
-	)]
+	// #[flux(
+	// 	kind = Sum<f64, 4>,
+	// 	value = value,
+	// 	change = |c| c + spd.per(SEC) + misc.per(SEC),
+	// 	crate = crate,
+	// )]
 	#[derive(Clone, Debug, Default)]
 	struct Pos {
 		value: f64,
 		spd: Spd,
 		misc: Vec<Spd>,
+	}
+	
+	impl Moment for Pos {
+		type Flux = Self;
+		fn to_flux(self, _time: Time) -> Self::Flux {
+			self
+		}
+	}
+	
+	impl Flux for Pos {
+		type Moment = Self;
+		type Kind = Sum<f64, 4>;
+		fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+			self.value
+		}
+		fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
+			let mut accum = accum + (&self.spd).per(SEC);
+			for spd in &self.misc {
+				accum = accum + spd.per(SEC);
+			}
+			accum
+		}
+		fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+			Self {
+				value: FluxValue::new(&self, base_time).eval(time),
+				spd: self.spd.to_moment(base_time, time),
+				misc: self.misc.to_moment(base_time, time),
+			}
+		}
 	}
 	
 	#[flux(
@@ -937,7 +982,7 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = Sum<f64, 0>,
+		kind = Constant<f64>,
 		value = value,
 		crate = crate,
 	)]

@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::Moment;
+use crate::{Constant, Moment};
 use crate::Flux;
 use crate::time::Time;
-use crate::kind::FluxKind;
+use crate::kind::{FluxAccum, FluxKind};
 use crate::linear::{Linear, LinearPlus};
 
 impl<'t, T> Moment for &'t T
@@ -28,7 +28,7 @@ where
 	fn base_value(&self, base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		T::base_value(self, base_time)
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
@@ -52,14 +52,22 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	{
 		self.each_ref().map(|x| x.base_value(base_time))
 	}
-	fn change<'a>(&self, accum: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
+		-> FluxAccum<Self::Kind>
 	{
-		let mut i = 0;
-		accum.map(|a| {
-			i += 1;
-			self[i - 1].change(a)
-		})
+		let mut constants = accum.poly.0.into_inner().into_iter();
+		let poly = self.each_ref().map(|kind| {
+			T::change(kind, FluxAccum {
+				poly: Constant::from_value(constants.next().unwrap()),
+				base_time: accum.base_time,
+				time: accum.time,
+			}).poly
+		});
+		FluxAccum {
+			poly,
+			base_time: accum.base_time,
+			time: accum.time,
+		}
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
 		self.map(|x| x.to_moment(base_time, time))
@@ -68,10 +76,10 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 
 // !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
 
-// !!! Remove this impl, replace with a FluxVec impl:
+// !!! Make underlying linear type a Vec, instead of this just being a convenience.
 impl<T: Flux> Flux for Vec<T>
 where
-	T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
+	// T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
 	Vec<T::Moment>: Moment<Flux = Self>,
 {
 	type Moment = Vec<T::Moment>;
@@ -85,13 +93,15 @@ where
 		}
 		value
 	}
-	fn change<'a>(&self, mut changes: <Self::Kind as FluxKind>::Accum<'a>)
-		-> <Self::Kind as FluxKind>::OutAccum<'a>
+	fn change(&self, _accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
+		-> FluxAccum<Self::Kind>
 	{
-		for item in self {
-			changes = item.change(changes);
-		}
-		changes
+		// let mut accum = accum.into();
+		// for item in self {
+		// 	changes = item.change(changes);
+		// }
+		// changes
+		todo!()
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
 		self.into_iter()
@@ -102,8 +112,8 @@ where
 
 impl<T: Moment> Moment for Vec<T>
 where
-	<T::Flux as Flux>::Kind:
-		for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
+	// <T::Flux as Flux>::Kind:
+	// 	for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
 {
 	type Flux = Vec<T::Flux>;
 	fn to_flux(self, time: Time) -> Self::Flux {
@@ -124,7 +134,7 @@ where
 	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		todo!()
 	}
-	fn change<'a>(&self, _accum: <Self::Kind as FluxKind>::Accum<'a>) -> <Self::Kind as FluxKind>::OutAccum<'a> {
+	fn change(&self, _accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {

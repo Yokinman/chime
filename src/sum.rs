@@ -1,9 +1,8 @@
 //! Summation over time.
 
 use std::cmp::Ordering;
-use std::ops::{Add, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, Index, IndexMut, Mul};
 use crate::{*, kind::*, linear::*, exp::*};
-use crate::Flux;
 
 /// Summation over time.
 /// 
@@ -92,16 +91,17 @@ impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 	type Value = T;
 	
-	type Accum<'a> = SumAccum<'a, Self>;
-	
-	type OutAccum<'a> = SumAccum<'a, Self>;
-	
 	const DEGREE: usize = D;
 	
 	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
 		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
 	}
-
+	
+	fn add_value(mut self, value: <Self::Value as LinearPlus>::Inner) -> Self {
+		self.0 = T::from_inner(self.0.into_inner().add(value));
+		self
+	}
+	
 	fn deriv(mut self) -> Self {
 		std::mem::swap(&mut self.0, &mut self.1[0]);
 		self.1.rotate_left(1);
@@ -112,15 +112,6 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 			T::from_inner(x.into_inner().mul_scalar(Scalar::from(d)))
 		});
 		self
-	}
-	
-	fn as_accum(&mut self, depth: usize, base_time: time::Time, time: time::Time) -> Self::Accum<'_> {
-		SumAccum {
-			poly: self,
-			depth,
-			base_time,
-			time,
-		}
 	}
 	
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
@@ -662,77 +653,6 @@ where
 	}
 }
 
-/// Nested summation change accumulator.
-pub struct SumAccum<'a, K: FluxKind> {
-	poly: &'a mut K,
-	depth: usize,
-	base_time: time::Time,
-	time: time::Time,
-}
-
-impl<K: FluxKind, V: Flux> Add<Change<&V>> for SumAccum<'_, K>
-where
-	(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	V::Moment: Moment<Flux=V>,
-{
-	type Output = Self;
-	fn add(mut self, rhs: Change<&V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self, 1., rhs.rate, rhs.unit);
-		self
-	}
-}
-
-impl<K: FluxKind, V: Flux> Sub<Change<&V>> for SumAccum<'_, K>
-where
-	(K, V::Kind): SumAccumHelper<K, V::Kind>,
-	V::Moment: Moment<Flux=V>,
-{
-	type Output = Self;
-	fn sub(mut self, rhs: Change<&V>) -> Self {
-		<(K, V::Kind)>::eval(&mut self, -1., rhs.rate, rhs.unit);
-		self
-	}
-}
-
-/// Used to remove redundant trait bounds.
-#[doc(hidden)]
-pub trait SumAccumHelper<A: FluxKind, B: FluxKind> {
-	fn eval<V: Flux<Kind=B>>(
-		kind: &mut SumAccum<'_, A>,
-		scalar: f64,
-		flux: &V,
-		unit: time::Time,
-	)
-	where
-		V::Moment: Moment<Flux=V>;
-}
-
-impl<A, B> SumAccumHelper<A, B> for (A, B)
-where
-	A: FluxKind,
-	B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>> + FluxIntegral,
-	B::Integ: Mul<Scalar, Output = B::Integ>,
-	A: Add<B, Output=A> + Add<B::Integ, Output=A>,
-{
-	fn eval<V: Flux<Kind=B>>(
-		kind: &mut SumAccum<'_, A>,
-		scalar: f64,
-		flux: &V,
-		unit: time::Time,
-	)
-	where
-		V::Moment: Moment<Flux=V>
-	{
-		let flux_ref = FluxValue::new(flux, kind.base_time);
-		let mut sub_poly = B::from_value(flux_ref.eval(kind.time));
-		flux_ref.change(sub_poly.as_accum(kind.depth + 1, kind.base_time, kind.time));
-		let time_scale = unit.as_secs_f64().recip();
-		*kind.poly = kind.poly.clone() + (sub_poly.integ()
-			* Scalar::from(time_scale * scalar));
-		// https://www.desmos.com/calculator/mhlpjakz32
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use crate::time::*;
@@ -963,7 +883,7 @@ mod tests {
 		}
 		
 		#[flux(
-			kind = Sum<Iso<glam::DVec2, glam::IVec2>, 0>,
+			kind = Constant<Iso<glam::DVec2, glam::IVec2>>,
 			value = value,
 			crate = crate,
 		)]

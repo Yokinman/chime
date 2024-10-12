@@ -12,17 +12,13 @@ use crate::{Change, Flux, FluxValue};
 pub trait FluxKind: Clone + Debug + 'static {
 	type Value: LinearPlus;
 	
-	type Accum<'a>;
-	
-	type OutAccum<'a>;
-	
 	const DEGREE: usize;
 	
 	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self;
 	
-	fn deriv(self) -> Self;
+	fn add_value(self, value: <Self::Value as LinearPlus>::Inner) -> Self;
 	
-	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_>;
+	fn deriv(self) -> Self;
 	
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
 	
@@ -88,9 +84,15 @@ pub trait FluxIntegral: FluxKind {
 
 /// ... [`FluxKind::Accum`]
 pub struct FluxAccum<K> {
-	poly: K,
-	base_time: Time,
-	time: Time,
+	pub(crate) poly: K,
+	pub(crate) base_time: Time,
+	pub(crate) time: Time,
+}
+
+impl<K: FluxKind> FluxAccum<K> {
+	pub fn new(poly: K, base_time: Time, time: Time) -> Self {
+		Self { poly, base_time, time }
+	}
 }
 
 impl<A, B> Add<Change<B>> for FluxAccum<A>
@@ -103,15 +105,15 @@ where
 {
 	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
-		let Change { rate: flux, unit } = rhs;
-		let flux_ref = FluxValue::new(flux, self.base_time);
-		let mut sub_poly = B::Kind::from_value(flux_ref.eval(self.time));
-		flux_ref.change(sub_poly.as_accum(0, self.base_time, self.time));
+		let FluxAccum { poly, base_time, time } = self;
+		let Change { rate, unit } = rhs;
+		let rate_flux = FluxValue::new(rate, base_time);
+		let sub_poly = rate_flux.poly(time).inner;
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
-			poly: self.poly + (sub_poly.integ() * Scalar::from(time_scale)),
-			base_time: self.base_time,
-			time: self.time,
+			poly: poly + (sub_poly.integ() * Scalar::from(time_scale)),
+			base_time,
+			time,
 		}
 	}
 }
@@ -126,15 +128,15 @@ where
 {
 	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
-		let Change { rate: flux, unit } = rhs;
-		let flux_ref = FluxValue::new(flux, self.base_time);
-		let mut sub_poly = B::Kind::from_value(flux_ref.eval(self.time));
-		flux_ref.change(sub_poly.as_accum(0, self.base_time, self.time));
+		let FluxAccum { poly, base_time, time } = self;
+		let Change { rate, unit } = rhs;
+		let rate_flux = FluxValue::new(rate, base_time);
+		let sub_poly = rate_flux.poly(time).inner;
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
-			poly: self.poly + (sub_poly.integ() * Scalar::from(time_scale * -1.)),
-			base_time: self.base_time,
-			time: self.time,
+			poly: poly + (sub_poly.integ() * Scalar::from(time_scale * -1.)),
+			base_time,
+			time,
 		}
 	}
 }
@@ -144,17 +146,16 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 		[<T::Value as LinearPlus>::Inner; SIZE],
 		[<T::Value as LinearPlus>::Outer; SIZE],
 	>;
-	type Accum<'a> = [T::Accum<'a>; SIZE];
-	type OutAccum<'a> = [T::OutAccum<'a>; SIZE];
 	const DEGREE: usize = T::DEGREE;
 	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
 		value.map(|x| T::from_value(x))
 	}
+	fn add_value(self, value: <Self::Value as LinearPlus>::Inner) -> Self {
+		let mut values = value.into_iter();
+		self.map(|x| x.add_value(values.next().unwrap()))
+	}
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
-	}
-	fn as_accum(&mut self, depth: usize, base_time: Time, time: Time) -> Self::Accum<'_> {
-		self.each_mut().map(|x| T::as_accum(x, depth, base_time, time))
 	}
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
 		self.each_ref().map(|x| T::eval(x, time))

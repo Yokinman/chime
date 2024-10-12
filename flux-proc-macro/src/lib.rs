@@ -367,8 +367,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> <<Self::Kind as #flux::kind::FluxKind>::Value as #flux::linear::LinearPlus>::Inner
 			#value_block
 			
-			fn change<'a>(&self, accum: <Self::Kind as #flux::kind::FluxKind>::Accum<'a>)
-				-> <Self::Kind as #flux::kind::FluxKind>::OutAccum<'a>
+			fn change(&self, accum: #flux::kind::FluxAccum<#flux::Constant<<Self::Kind as #flux::kind::FluxKind>::Value>>)
+				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			
 			fn to_moment(self, base_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
