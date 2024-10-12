@@ -6,6 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearPlus, Scalar, Vector};
 use crate::time::Time;
+use crate::{Change, Flux, FluxValue};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind: Clone + Debug + 'static {
@@ -83,6 +84,59 @@ pub trait FluxKind: Clone + Debug + 'static {
 pub trait FluxIntegral: FluxKind {
 	type Integ: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
 	fn integ(self) -> Self::Integ;
+}
+
+/// ... [`FluxKind::Accum`]
+pub struct FluxAccum<K> {
+	poly: K,
+	base_time: Time,
+	time: Time,
+}
+
+impl<A, B> Add<Change<B>> for FluxAccum<A>
+where
+	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
+	B: Flux<Kind: FluxIntegral>,
+	<B::Kind as FluxIntegral>::Integ:
+		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
+	// ??? ^ Maybe I should I apply the Scalar some other way.
+{
+	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	fn add(self, rhs: Change<B>) -> Self::Output {
+		let Change { rate: flux, unit } = rhs;
+		let flux_ref = FluxValue::new(flux, self.base_time);
+		let mut sub_poly = B::Kind::from_value(flux_ref.eval(self.time));
+		flux_ref.change(sub_poly.as_accum(0, self.base_time, self.time));
+		let time_scale = unit.as_secs_f64().recip();
+		FluxAccum {
+			poly: self.poly + (sub_poly.integ() * Scalar::from(time_scale)),
+			base_time: self.base_time,
+			time: self.time,
+		}
+	}
+}
+
+impl<A, B> Sub<Change<B>> for FluxAccum<A>
+where
+	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
+	B: Flux<Kind: FluxIntegral>,
+	<B::Kind as FluxIntegral>::Integ:
+		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
+	// ??? ^ Maybe I should I apply the Scalar some other way.
+{
+	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	fn sub(self, rhs: Change<B>) -> Self::Output {
+		let Change { rate: flux, unit } = rhs;
+		let flux_ref = FluxValue::new(flux, self.base_time);
+		let mut sub_poly = B::Kind::from_value(flux_ref.eval(self.time));
+		flux_ref.change(sub_poly.as_accum(0, self.base_time, self.time));
+		let time_scale = unit.as_secs_f64().recip();
+		FluxAccum {
+			poly: self.poly + (sub_poly.integ() * Scalar::from(time_scale * -1.)),
+			base_time: self.base_time,
+			time: self.time,
+		}
+	}
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
