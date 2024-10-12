@@ -79,6 +79,12 @@ pub trait FluxKind: Clone + Debug + 'static {
 	}
 }
 
+/// ...
+pub trait FluxIntegral: FluxKind {
+	type Integ: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
+	fn integ(self) -> Self::Integ;
+}
+
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	type Value = <T::Value as LinearPlus>::New<
 		[<T::Value as LinearPlus>::Inner; SIZE],

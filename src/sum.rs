@@ -187,6 +187,22 @@ where
 	}
 }
 
+impl<T: LinearPlus> FluxIntegral for Constant<T> {
+	type Integ = Sum<T, 1>;
+	fn integ(self) -> Self::Integ {
+		let Constant(value) = self;
+		Sum::new(T::zero(), [value])
+	}
+}
+
+impl<T: LinearPlus> FluxIntegral for Sum<T, 0> {
+	type Integ = Sum<T, 1>;
+	fn integ(self) -> Self::Integ {
+		let Sum(value, _) = self;
+		Sum(T::zero(), [value])
+	}
+}
+
 /// Used for upgrading the degree of a [`Sum`].
 trait SumShiftUp: FluxKind {
 	type Up: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
@@ -228,6 +244,26 @@ macro_rules! impl_deg_order {
 						std::mem::transmute_copy(&self)
 					}
 				)
+			}
+		}
+		impl<T: LinearPlus> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
+			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
+			fn integ(self) -> Self::Integ {
+				debug_assert_eq!(
+					std::mem::size_of::<Self>(),
+					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),
+				);
+				let mut terms = unsafe {
+					// SAFETY: I don't know if the memory layout of arrays
+					// is guaranteed, but it's simple & fast. Sorry boss.
+					std::mem::transmute_copy::<Self, [T; { $($num +)+ 0 + 1 }]>(&self)
+				};
+				let mut i = 0.;
+				terms = terms.map(|term| {
+					i += 1.;
+					T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / i)))
+				});
+				Sum(T::zero(), terms)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
