@@ -208,7 +208,6 @@ mod _linear_impls {
 pub trait LinearPlus: Clone + Debug + 'static {
 	type Inner: Linear;
 	type Outer: LinearIso<Self::Inner>;
-	type New<I: Linear, O: LinearIso<I>>: LinearPlus<Inner=I>;
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
@@ -225,7 +224,7 @@ pub trait LinearPlus: Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, LinearPlus};
+	use super::{Iso, Linear, LinearIso, LinearPlus, LinearPlusArray};
 	
 	impl<T> LinearPlus for T
 	where
@@ -233,7 +232,6 @@ mod _linear_plus_impls {
 	{
 		type Inner = T;
 		type Outer = T;
-		type New<I: Linear, O: LinearIso<I>> = I;
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
 		}
@@ -249,13 +247,26 @@ mod _linear_plus_impls {
 	{
 		type Inner = A;
 		type Outer = B;
-		type New<I: Linear, O: LinearIso<I>> = Iso<I, O>;
 		fn from_inner(inner: Self::Inner) -> Self {
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
 		fn into_inner(self) -> Self::Inner {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
+	}
+	
+	impl<T, const SIZE: usize> LinearPlus for LinearPlusArray<T, SIZE>
+	where
+		T: LinearPlus,
+	{
+		type Inner = [T::Inner; SIZE];
+		type Outer = [T::Outer; SIZE];
+		fn from_inner(inner: Self::Inner) -> Self {
+			Self(inner.map(T::from_inner))
+		}
+		fn into_inner(self) -> Self::Inner {
+			self.0.map(T::into_inner)
 		}
 	}
 }
@@ -534,3 +545,7 @@ mod _iso_impls {
 		}
 	}
 }
+
+/// ...
+#[derive(Clone, Debug)]
+pub struct LinearPlusArray<T, const SIZE: usize>([T; SIZE]);

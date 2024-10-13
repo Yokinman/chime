@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{Linear, LinearPlus, Scalar, Vector};
+use crate::linear::{Linear, LinearPlus, LinearPlusArray, Scalar, Vector};
 use crate::time::Time;
 use crate::{Change, Constant, Flux, FluxValue};
 
@@ -145,10 +145,7 @@ where
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
-	type Value = <T::Value as LinearPlus>::New<
-		[<T::Value as LinearPlus>::Inner; SIZE],
-		[<T::Value as LinearPlus>::Outer; SIZE],
-	>;
+	type Value = LinearPlusArray<T::Value, SIZE>;
 	const DEGREE: usize = T::DEGREE;
 	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
 		value.map(|x| T::from_value(x))
