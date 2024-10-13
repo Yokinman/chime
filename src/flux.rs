@@ -60,14 +60,6 @@ impl<A: Flux> FluxValue<A> {
 		self.time
 	}
 	
-	/// Accumulates change over time.
-	pub fn change(
-		&self,
-		accum: FluxAccum<Constant<<A::Kind as FluxKind>::Value>>
-	) -> FluxAccum<A::Kind> {
-		self.inner.change(accum)
-	}
-	
 	/// A moment in the timeline.
 	pub fn to_moment(self, time: Time) -> A::Moment {
 		self.inner.to_moment(self.time, time)
