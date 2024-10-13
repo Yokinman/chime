@@ -548,4 +548,29 @@ mod _iso_impls {
 
 /// ...
 #[derive(Clone, Debug)]
-pub struct LinearPlusArray<T, const SIZE: usize>([T; SIZE]);
+pub struct LinearPlusArray<T, const N: usize>([T; N]);
+
+/// ... [`<LinearPlusArray as IntoIterator>::IntoIter`]
+pub struct LinearPlusArrayIter<T, const N: usize>(std::array::IntoIter<T, N>);
+
+mod _linear_plus_array_impls {
+	use super::{LinearPlusArray, LinearPlusArrayIter};
+	
+	impl<T, const N: usize> IntoIterator for LinearPlusArray<T, N> {
+		type Item = T;
+		type IntoIter = LinearPlusArrayIter<T, N>;
+		fn into_iter(self) -> Self::IntoIter {
+			LinearPlusArrayIter(self.0.into_iter())
+		}
+	}
+	
+	impl<T, const N: usize> Iterator for LinearPlusArrayIter<T, N> {
+		type Item = T;
+		fn next(&mut self) -> Option<Self::Item> {
+			self.0.next()
+		}
+		fn size_hint(&self) -> (usize, Option<usize>) {
+			self.0.size_hint()
+		}
+	}
+}
