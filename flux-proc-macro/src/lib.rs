@@ -367,7 +367,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> <<Self::Kind as #flux::kind::FluxKind>::Value as #flux::linear::LinearPlus>::Inner
 			#value_block
 			
-			fn change(&self, accum: #flux::kind::FluxAccum<#flux::Constant<<Self::Kind as #flux::kind::FluxKind>::Value>>)
+			fn change(&self, accum: #flux::kind::EmptyFluxAccum<Self::Kind>)
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			

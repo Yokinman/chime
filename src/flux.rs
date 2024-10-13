@@ -729,9 +729,7 @@ impl<T: Flux> Flux for Change<T> {
 	{
 		self.rate.base_value(base_time)
 	}
-	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
-		-> FluxAccum<Self::Kind>
-	{
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		self.rate.change(accum)
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
@@ -792,8 +790,7 @@ pub trait Flux {
 	type Kind: FluxKind;
 	fn base_value(&self, base_time: Time)
 		-> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
-	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
-		-> FluxAccum<Self::Kind>;
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	fn to_moment(self, base_time: Time, time: Time)
 		-> Self::Moment;
 }
@@ -808,9 +805,7 @@ impl<T: LinearPlus> Flux for Constant<T> {
 	{
 		self.0.clone().into_inner()
 	}
-	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
-		-> FluxAccum<Self::Kind>
-	{
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		accum
 	}
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
@@ -944,7 +939,7 @@ mod tests {
 		fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 			self.value
 		}
-		fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
+		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			let mut accum = accum + (&self.spd).per(SEC);
 			for spd in &self.misc {
 				accum = accum + spd.per(SEC);

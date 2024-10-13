@@ -6,7 +6,7 @@ use std::vec::Vec;
 use crate::{Constant, Moment};
 use crate::Flux;
 use crate::time::Time;
-use crate::kind::{FluxAccum, FluxKind, Poly};
+use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
 use crate::linear::{Linear, LinearPlus};
 
 impl<'t, T> Moment for &'t T
@@ -28,7 +28,7 @@ where
 	fn base_value(&self, base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		T::base_value(self, base_time)
 	}
-	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
@@ -52,9 +52,7 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	{
 		self.each_ref().map(|x| x.base_value(base_time))
 	}
-	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
-		-> FluxAccum<Self::Kind>
-	{
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		let time = accum.time;
 		let base_time = accum.poly.time();
 		let mut constants = accum.poly.into_inner().0.into_inner().into_iter();
@@ -91,9 +89,7 @@ where
 		}
 		value
 	}
-	fn change(&self, _accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
-		-> FluxAccum<Self::Kind>
-	{
+	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		// let mut accum = accum.into();
 		// for item in self {
 		// 	changes = item.change(changes);
@@ -132,7 +128,7 @@ where
 	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		todo!()
 	}
-	fn change(&self, _accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>) -> FluxAccum<Self::Kind> {
+	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {

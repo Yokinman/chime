@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearPlus, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Flux, FluxValue};
+use crate::{Change, Constant, Flux, FluxValue};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind: Clone + Debug + 'static {
@@ -81,6 +81,9 @@ pub trait FluxIntegral: FluxKind {
 	type Integ: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
 	fn integ(self) -> Self::Integ;
 }
+
+/// Shortcut for [`Flux::change`] parameter.
+pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Value>>;
 
 /// ... [`FluxKind::Accum`]
 pub struct FluxAccum<K> {
