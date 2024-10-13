@@ -241,6 +241,12 @@ pub struct Poly<K> {
 	time: Time,
 }
 
+/// ... [`<Poly as IntoIterator>::IntoIter`]
+pub struct PolyIter<T> {
+	iter: T,
+	time: Time,
+}
+
 impl<K> Clone for Poly<K>
 where
 	K: Clone
@@ -451,6 +457,34 @@ where
 			inner: self.inner.index(index),
 			time: self.time,
 		}
+	}
+}
+
+impl<K> IntoIterator for Poly<K>
+where
+	K: IntoIterator<Item: FluxKind>,
+{
+	type Item = Poly<K::Item>;
+	type IntoIter = PolyIter<K::IntoIter>;
+	fn into_iter(self) -> Self::IntoIter {
+		PolyIter {
+			iter: self.inner.into_iter(),
+			time: self.time,
+		}
+	}
+}
+
+impl<T> Iterator for PolyIter<T>
+where
+	T: Iterator<Item: FluxKind>,
+{
+	type Item = Poly<T::Item>;
+	fn next(&mut self) -> Option<Self::Item> {
+		self.iter.next()
+			.map(|x| Poly::new(x, self.time))
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.iter.size_hint()
 	}
 }
 
