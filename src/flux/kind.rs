@@ -88,10 +88,10 @@ pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Value>>;
 /// ... [`FluxKind::Accum`]
 pub struct FluxAccum<K> {
 	/// Accumulated polynomial.
-	pub(crate) poly: Poly<K>,
+	pub poly: Poly<K>,
 	
 	/// The basis time of the changes being accumulated.
-	pub(crate) time: Time,
+	pub time: Time,
 }
 
 impl<K: FluxKind> FluxAccum<K> {
