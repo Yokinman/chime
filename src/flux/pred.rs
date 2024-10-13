@@ -420,13 +420,12 @@ where
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
-		let basis = self.poly.time();
 		let basis_order = self.poly
 			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
 		let times = RootFilterMap {
-			times: self.poly.into_inner().roots().into_times(),
-			basis,
+			times: self.poly.kind.roots().into_times(),
+			basis: self.poly.time,
 			prev_time: Time::ZERO,
 		};
 		time::TimeRangeBuilder::new(times, basis_order, self.order)
@@ -456,15 +455,14 @@ where
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
-		let basis = self.poly.time();
-		let basis_order = if self.poly.clone().into_inner().is_zero() {
+		let basis_order = if self.poly.kind.is_zero() {
 			Ordering::Equal
 		} else {
 			Ordering::Greater
 		};
 		let times = RootFilterMap {
-			times: self.poly.into_inner().roots().into_times(),
-			basis,
+			times: self.poly.kind.roots().into_times(),
+			basis: self.poly.time,
 			prev_time: Time::ZERO,
 		};
 		time::TimeRangeBuilder::new(times, basis_order, Ordering::Equal)
@@ -693,16 +691,14 @@ where
 	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
-		let basis = self.time();
-		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index(i).into_inner()
-				.sub(poly.index(i).to_time(basis).into_inner())
+			sum = sum + self.index(i).kind
+				.sub(poly.index(i).to_time(self.time).kind)
 				.sqr();
 		}
 		
-		let sum = Poly::new(sum, basis);
+		let sum = Poly::new(sum, self.time);
 		let diff_poly = sum.clone() - dis.clone().sqr();
 		
 		diff_poly.clone()
@@ -749,16 +745,14 @@ where
 	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
-		let basis = self.time();
-		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + self.index(i).into_inner()
-				.sub(poly.index(i).to_time(basis).into_inner())
+			sum = sum + self.index(i).kind
+				.sub(poly.index(i).to_time(self.time).kind)
 				.sqr();
 		}
 		
-		let sum = Poly::new(sum, basis);
+		let sum = Poly::new(sum, self.time);
 		let diff_poly = sum.clone() - dis.clone().sqr();
 		
 		diff_poly.clone()

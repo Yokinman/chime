@@ -664,7 +664,7 @@ mod tests {
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,
 	{
-		poly.into_inner().roots().into_iter()
+		poly.kind.roots().into_iter()
 			.filter(|r| r.is_finite())
 	}
 	

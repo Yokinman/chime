@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::{Constant, Moment};
+use crate::Moment;
 use crate::Flux;
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
@@ -53,15 +53,14 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 		self.each_ref().map(|x| x.base_value(base_time))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		let time = accum.time;
-		let base_time = accum.poly.time();
-		let mut constants = accum.poly.into_inner().0.into_inner().into_iter();
-		let poly = self.each_ref().map(|kind| T::change(kind, FluxAccum {
-			poly: Poly::new(Constant::from_value(constants.next().unwrap()), base_time),
-			time,
-		}).poly.into_inner());
+		let FluxAccum { poly, time } = accum;
+		let poly_time = poly.time;
+		let mut accums = poly.into_iter()
+			.map(|poly| FluxAccum { poly, time });
+		let poly = self.each_ref()
+			.map(|x| x.change(accums.next().unwrap()).poly.kind);
 		FluxAccum {
-			poly: Poly::new(poly, base_time),
+			poly: Poly::new(poly, poly_time),
 			time,
 		}
 	}

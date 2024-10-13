@@ -106,13 +106,13 @@ where
 	B: Flux<Kind: FluxIntegral>,
 	<B::Kind as FluxIntegral>::Integ:
 		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
-	// ??? ^ Maybe I should I apply the Scalar some other way.
+	// ??? ^ Maybe I should apply the Scalar some other way.
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
 		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let poly_time = poly.time();
+		let poly_time = poly.time;
 		let sub_poly = FluxValue::new(rate, time).poly(poly_time);
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
@@ -128,14 +128,13 @@ where
 	B: Flux<Kind: FluxIntegral>,
 	<B::Kind as FluxIntegral>::Integ:
 		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
-	// ??? ^ Maybe I should I apply the Scalar some other way.
+	// ??? ^ Maybe I should apply the Scalar some other way.
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
 		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let base_time = poly.time();
-		let sub_poly = FluxValue::new(rate, time).poly(base_time);
+		let sub_poly = FluxValue::new(rate, time).poly(poly.time);
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
 			poly: poly + (sub_poly.integ() * Scalar::from(time_scale * -1.)),
@@ -301,14 +300,6 @@ impl<K: FluxKind> Poly<K> {
 }
 
 impl<K: FluxKind> Poly<K> {
-	pub fn into_inner(self) -> K {
-		self.kind
-	}
-	
-	pub fn time(&self) -> Time {
-		self.time
-	}
-	
 	pub fn eval(&self, time: Time) -> <K::Value as LinearPlus>::Inner {
 		self.kind.eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
