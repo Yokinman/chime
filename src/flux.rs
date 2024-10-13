@@ -907,6 +907,33 @@ where
 	}
 }
 
+impl<T> IntoIterator for Constant<T>
+where
+	T: IntoIterator,
+{
+	type Item = Constant<T::Item>;
+	type IntoIter = ConstantIter<T::IntoIter>;
+	fn into_iter(self) -> Self::IntoIter {
+		ConstantIter(self.0.into_iter())
+	}
+}
+
+/// ... [`<Constant as IntoIterator>::IntoIter`]
+pub struct ConstantIter<T>(T);
+
+impl<T> Iterator for ConstantIter<T>
+where
+	T: Iterator,
+{
+	type Item = Constant<T::Item>;
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next().map(Constant)
+	}
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.0.size_hint()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
