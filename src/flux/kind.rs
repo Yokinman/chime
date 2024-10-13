@@ -238,8 +238,8 @@ pub mod ops {
 /// A [`FluxKind`] paired with a basis time.
 /// e.g. `Poly<1 + 2x>` => `1 + 2(x-time)`.
 pub struct Poly<K> {
-	kind: K,
-	time: Time,
+	pub kind: K,
+	pub time: Time,
 }
 
 /// ... [`<Poly as IntoIterator>::IntoIter`]
