@@ -84,35 +84,36 @@ pub trait FluxIntegral: FluxKind {
 
 /// ... [`FluxKind::Accum`]
 pub struct FluxAccum<K> {
-	pub(crate) poly: K,
-	pub(crate) base_time: Time,
+	/// Accumulated polynomial.
+	pub(crate) poly: Poly<K>,
+	
+	/// The basis time of the changes being accumulated.
 	pub(crate) time: Time,
 }
 
 impl<K: FluxKind> FluxAccum<K> {
-	pub fn new(poly: K, base_time: Time, time: Time) -> Self {
-		Self { poly, base_time, time }
+	pub fn new(poly: Poly<K>, time: Time) -> Self {
+		Self { poly, time }
 	}
 }
 
 impl<A, B> Add<Change<B>> for FluxAccum<A>
 where
-	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
+	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 	<B::Kind as FluxIntegral>::Integ:
 		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
 	// ??? ^ Maybe I should I apply the Scalar some other way.
 {
-	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
-		let FluxAccum { poly, base_time, time } = self;
+		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let rate_flux = FluxValue::new(rate, base_time);
-		let sub_poly = rate_flux.poly(time).inner;
+		let poly_time = poly.time();
+		let sub_poly = FluxValue::new(rate, time).poly(poly_time);
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
 			poly: poly + (sub_poly.integ() * Scalar::from(time_scale)),
-			base_time,
 			time,
 		}
 	}
@@ -120,22 +121,21 @@ where
 
 impl<A, B> Sub<Change<B>> for FluxAccum<A>
 where
-	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
+	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 	<B::Kind as FluxIntegral>::Integ:
 		Mul<Scalar, Output = <B::Kind as FluxIntegral>::Integ>,
 	// ??? ^ Maybe I should I apply the Scalar some other way.
 {
-	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
-		let FluxAccum { poly, base_time, time } = self;
+		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let rate_flux = FluxValue::new(rate, base_time);
-		let sub_poly = rate_flux.poly(time).inner;
+		let base_time = poly.time();
+		let sub_poly = FluxValue::new(rate, time).poly(base_time);
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum {
 			poly: poly + (sub_poly.integ() * Scalar::from(time_scale * -1.)),
-			base_time,
 			time,
 		}
 	}
@@ -346,6 +346,13 @@ impl<K: FluxKind> Poly<K> {
 		} else {
 			-(self.time - time).as_secs_f64()
 		}))
+	}
+	
+	pub fn integ(self) -> Poly<K::Integ>
+	where
+		K: FluxIntegral,
+	{
+		Poly::new(self.inner.integ(), self.time)
 	}
 }
 

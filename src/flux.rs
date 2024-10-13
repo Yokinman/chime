@@ -132,12 +132,12 @@ impl<A: Flux> FluxValue<A> {
 	
 	/// A polynomial description of this flux at the given time.
 	pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-		let poly = self.change(FluxAccum::new(
-			Constant::from_value(self.eval(time)),
-			self.time,
-			time,
-		)).poly;
-		Poly::new(poly, time)
+		self.inner
+			.change(FluxAccum {
+				poly: Poly::new(Constant::from_value(self.eval(time)), time),
+				time: self.time,
+			})
+			.poly
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.

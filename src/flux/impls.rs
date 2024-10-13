@@ -6,7 +6,7 @@ use std::vec::Vec;
 use crate::{Constant, Moment};
 use crate::Flux;
 use crate::time::Time;
-use crate::kind::{FluxAccum, FluxKind};
+use crate::kind::{FluxAccum, FluxKind, Poly};
 use crate::linear::{Linear, LinearPlus};
 
 impl<'t, T> Moment for &'t T
@@ -55,18 +55,16 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	fn change(&self, accum: FluxAccum<Constant<<Self::Kind as FluxKind>::Value>>)
 		-> FluxAccum<Self::Kind>
 	{
-		let mut constants = accum.poly.0.into_inner().into_iter();
-		let poly = self.each_ref().map(|kind| {
-			T::change(kind, FluxAccum {
-				poly: Constant::from_value(constants.next().unwrap()),
-				base_time: accum.base_time,
-				time: accum.time,
-			}).poly
-		});
+		let time = accum.time;
+		let base_time = accum.poly.time();
+		let mut constants = accum.poly.into_inner().0.into_inner().into_iter();
+		let poly = self.each_ref().map(|kind| T::change(kind, FluxAccum {
+			poly: Poly::new(Constant::from_value(constants.next().unwrap()), base_time),
+			time,
+		}).poly.into_inner());
 		FluxAccum {
-			poly,
-			base_time: accum.base_time,
-			time: accum.time,
+			poly: Poly::new(poly, base_time),
+			time,
 		}
 	}
 	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
