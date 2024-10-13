@@ -235,9 +235,10 @@ pub mod ops {
 	}
 }
 
-/// A polynomial wrapper for [`FluxKind`].
+/// A [`FluxKind`] paired with a basis time.
+/// e.g. `Poly<1 + 2x>` => `1 + 2(x-time)`.
 pub struct Poly<K> {
-	inner: K,
+	kind: K,
 	time: Time,
 }
 
@@ -253,7 +254,7 @@ where
 {
 	fn clone(&self) -> Self {
 		Self {
-			inner: self.inner.clone(),
+			kind: self.kind.clone(),
 			time: self.time,
 		}
 	}
@@ -270,7 +271,7 @@ where
 {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		f.debug_tuple("Poly")
-			.field(&self.inner)
+			.field(&self.kind)
 			.field(&self.time)
 			.finish()
 	}
@@ -281,16 +282,13 @@ where
 	K: PartialEq
 {
 	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner && self.time == other.time
+		self.kind == other.kind && self.time == other.time
 	}
 }
 
 impl<K: FluxKind> Poly<K> {
-	pub fn new(inner: K, time: Time) -> Self {
-		Self {
-			inner,
-			time,
-		}
+	pub fn new(kind: K, time: Time) -> Self {
+		Self { kind, time }
 	}
 	
 	pub fn with_value(value: K::Value) -> Self {
@@ -304,7 +302,7 @@ impl<K: FluxKind> Poly<K> {
 
 impl<K: FluxKind> Poly<K> {
 	pub fn into_inner(self) -> K {
-		self.inner
+		self.kind
 	}
 	
 	pub fn time(&self) -> Time {
@@ -312,7 +310,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn eval(&self, time: Time) -> <K::Value as LinearPlus>::Inner {
-		self.inner.eval(Scalar::from(if time > self.time {
+		self.kind.eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
@@ -324,7 +322,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Value {
-		K::Value::from_inner(self.inner.clone().deriv().eval(Scalar::from(if time > self.time {
+		K::Value::from_inner(self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
@@ -333,7 +331,7 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			self.inner = self.inner.to_time(Scalar::from(if time > self.time {
+			self.kind = self.kind.to_time(Scalar::from(if time > self.time {
 				(time - self.time).as_secs_f64()
 			} else {
 				-(self.time - time).as_secs_f64()
@@ -347,7 +345,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		KindLinear<K>: PartialOrd
 	{
-		self.inner.initial_order(Scalar::from(if time > self.time {
+		self.kind.initial_order(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
@@ -358,7 +356,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K: FluxIntegral,
 	{
-		Poly::new(self.inner.integ(), self.time)
+		Poly::new(self.kind.integ(), self.time)
 	}
 }
 
@@ -367,7 +365,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		K: ops::Sqr
 	{
-		Poly::new(self.inner.sqr(), self.time)
+		Poly::new(self.kind.sqr(), self.time)
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -417,7 +415,7 @@ where
 	type Output = Poly<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
-			inner: self.inner.add(rhs.to_time(self.time).inner),
+			kind: self.kind.add(rhs.to_time(self.time).kind),
 			time: self.time,
 		}
 	}
@@ -430,7 +428,7 @@ where
 	type Output = Poly<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Poly<B>) -> Self::Output {
 		Poly {
-			inner: self.inner.sub(rhs.to_time(self.time).inner),
+			kind: self.kind.sub(rhs.to_time(self.time).kind),
 			time: self.time,
 		}
 	}
@@ -442,7 +440,7 @@ where
 {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.inner = self.inner * rhs;
+		self.kind = self.kind * rhs;
 		self
 	}
 }
@@ -454,7 +452,7 @@ where
 	type Output = Poly<K::Output>;
 	fn index(&self, index: usize) -> Self::Output {
 		Poly {
-			inner: self.inner.index(index),
+			kind: self.kind.index(index),
 			time: self.time,
 		}
 	}
@@ -468,7 +466,7 @@ where
 	type IntoIter = PolyIter<K::IntoIter>;
 	fn into_iter(self) -> Self::IntoIter {
 		PolyIter {
-			iter: self.inner.into_iter(),
+			iter: self.kind.into_iter(),
 			time: self.time,
 		}
 	}
