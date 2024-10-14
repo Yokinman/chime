@@ -860,9 +860,6 @@ impl<T: LinearPlus> FluxKind for Constant<T> {
 	fn eval(&self, _time: Scalar) -> <Self::Value as LinearPlus>::Inner {
 		self.0.clone().into_inner()
 	}
-	fn to_time(self, _time: Scalar) -> Self {
-		self
-	}
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>

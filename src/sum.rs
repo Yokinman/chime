@@ -91,8 +91,8 @@ impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 
 impl<T: LinearPlus, const D: usize> Moment for Sum<T, D> {
 	type Flux = Self;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		self.to_time(Scalar::from(time.as_secs_f64()))
+	fn to_flux(self, _time: Time) -> Self::Flux {
+		self
 	}
 }
 
@@ -100,7 +100,7 @@ impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 	type Moment = Self;
 	type Kind = Self;
 	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
-		self.value()
+		self.eval(Scalar::from(0.))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		FluxAccum {
@@ -108,7 +108,21 @@ impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
+	fn to_moment(mut self, base_time: Time, time: Time) -> Self::Moment {
+		let secs = if time > base_time {
+			(time - base_time).as_secs_f64()
+		} else {
+			-(base_time - time).as_secs_f64()
+		};
+		if secs == 0. {
+			return self
+		}
+		let mut deriv = self.clone();
+		self.0 = T::from_inner(deriv.eval(Scalar::from(secs)));
+		for degree in 1..=D {
+			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
+			self.1[degree-1] = T::from_inner(deriv.eval(Scalar::from(secs)));
+		}
 		self
 	}
 }
@@ -148,19 +162,6 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
 		}
 		value.mul_scalar(time).add(self.0.clone().into_inner())
-	}
-	
-	fn to_time(mut self, time: Scalar) -> Self {
-		if time == Scalar::from(0.) {
-			return self
-		}
-		let mut deriv = self.clone();
-		self.0 = T::from_inner(deriv.eval(time));
-		for degree in 1..=D {
-			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
-			self.1[degree-1] = T::from_inner(deriv.eval(time));
-		}
-		self
 	}
 }
 

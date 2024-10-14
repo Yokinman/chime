@@ -6,10 +6,13 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, LinearPlus, LinearPlusArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, FluxValue};
+use crate::{Change, Constant, Flux, FluxValue, Moment};
 
 /// Defines a kind of change as the structure of a polynomial.
-pub trait FluxKind: Clone + Debug + 'static {
+pub trait FluxKind: Clone + Debug + 'static
+	+ Flux<Moment=Self, Kind=Self>
+	+ Moment<Flux=Self>
+{
 	type Value: LinearPlus;
 	
 	const DEGREE: usize;
@@ -22,7 +25,9 @@ pub trait FluxKind: Clone + Debug + 'static {
 	
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
 	
-	fn to_time(self, time: Scalar) -> Self;
+	fn to_time(self, base_time: Time, time: Time) -> Self {
+		self.to_moment(base_time, time).to_flux(time)
+	}
 	
 	/// The order at or immediately preceding the value at a time.
 	/// 
@@ -175,9 +180,6 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
 		self.each_ref().map(|x| T::eval(x, time))
-	}
-	fn to_time(self, time: Scalar) -> Self {
-		self.map(|x| x.to_time(time))
 	}
 }
 
@@ -339,11 +341,7 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			self.kind = self.kind.to_time(Scalar::from(if time > self.time {
-				(time - self.time).as_secs_f64()
-			} else {
-				-(self.time - time).as_secs_f64()
-			}));
+			self.kind = self.kind.to_time(self.time, time);
 			self.time = time;
 		}
 		self
