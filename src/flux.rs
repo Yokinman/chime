@@ -44,7 +44,7 @@ pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 
 impl<A: Flux> FluxValue<A> {
 	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
-	// `g(t) = 3 + 2(t-base_time)` as the same Flux if `base_time = 1`.
+	// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
 	
 	pub fn into_inner_flux(self) -> A {
 		self.inner
@@ -56,7 +56,7 @@ impl<A: Flux> FluxValue<A> {
 	}
 	
 	/// The time of [`Flux::basis`].
-	pub fn base_time(&self) -> Time {
+	pub fn basis_time(&self) -> Time {
 		self.time
 	}
 	
@@ -113,13 +113,13 @@ impl<A: Flux> FluxValue<A> {
 	
 	/// A point in the timeline.
 	/// 
-	/// `self.eval(self.base_time()) == self.basis()`
+	/// `self.eval(self.basis_time()) == self.basis()`
 	pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Value as LinearPlus>::Inner {
-		let base_time = self.base_time();
-		if time == base_time {
+		let basis_time = self.basis_time();
+		if time == basis_time {
 			return self.basis()
 		}
-		self.poly(base_time).eval(time)
+		self.poly(basis_time).eval(time)
 	}
 	
 	/// A polynomial description of this flux at the given time.
@@ -139,7 +139,7 @@ impl<A: Flux> FluxValue<A> {
 		T: Flux,
 		Poly<A::Kind>: When<T::Kind>
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.poly(time).when(order, other.poly(time))
 	}
 	
@@ -150,7 +150,7 @@ impl<A: Flux> FluxValue<A> {
 		T: Flux,
 		Poly<A::Kind>: WhenEq<T::Kind>
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.poly(time).when_eq(other.poly(time))
 	}
 	
@@ -589,7 +589,7 @@ where
 		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.poly(time)
 			.when_dis(other.poly(time), order, dis.poly(time))
 	}
@@ -602,7 +602,7 @@ where
 		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.poly(time)
 			.when_dis_eq(other.poly(time), dis.poly(time))
 	}
@@ -636,7 +636,7 @@ where
 		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.index_poly(index, time)
 			.when(order, other.poly(time))
 	}
@@ -648,7 +648,7 @@ where
 		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
-		let time = self.base_time();
+		let time = self.basis_time();
 		self.index_poly(index, time)
 			.when_eq(other.poly(time))
 	}
@@ -730,9 +730,9 @@ impl<T: Flux> Flux for Change<T> {
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		self.rate.change(accum)
 	}
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		Change {
-			rate: self.rate.to_moment(base_time, time),
+			rate: self.rate.to_moment(basis_time, time),
 			unit: self.unit,
 		}
 	}
@@ -788,7 +788,7 @@ pub trait Flux {
 	type Kind: FluxKind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner;
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment;
+	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment;
 }
 
 impl<T: LinearPlus> Flux for Constant<T> {
@@ -962,11 +962,11 @@ mod tests {
 			}
 			accum
 		}
-		fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+		fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 			Self {
-				value: FluxValue::new(&self, base_time).eval(time),
-				spd: self.spd.to_moment(base_time, time),
-				misc: self.misc.to_moment(base_time, time),
+				value: FluxValue::new(&self, basis_time).eval(time),
+				spd: self.spd.to_moment(basis_time, time),
+				misc: self.misc.to_moment(basis_time, time),
 			}
 		}
 	}
@@ -1120,7 +1120,7 @@ mod tests {
 	#[test]
 	fn value() {
 		let mut pos = position();
-		assert_eq!(pos.base_time(), 10*SEC);
+		assert_eq!(pos.basis_time(), 10*SEC);
 		
 		 // Values:
 		assert_eq!(pos.at(0*SEC).round(), 32.);
@@ -1152,7 +1152,7 @@ mod tests {
 		for _ in 0..2 {
 			pos.at_mut(20*SEC);
 			assert_poly!(
-				pos.poly(pos.base_time()),
+				pos.poly(pos.basis_time()),
 				Poly::new(Sum::new(-112.55, [
 					 6.0141666666666666666,
 					 1.4454166666666666666,
@@ -1163,7 +1163,7 @@ mod tests {
 		}
 		pos.at_mut(0*SEC);
 		assert_poly!(
-			pos.poly(pos.base_time()),
+			pos.poly(pos.basis_time()),
 			Poly::new(Sum::new(32., [
 				-1.4691666666666666666,
 				-1.4045833333333333333,

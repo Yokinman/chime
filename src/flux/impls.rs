@@ -62,8 +62,8 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 			time,
 		}
 	}
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
-		self.map(|x| x.to_moment(base_time, time))
+	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
+		self.map(|x| x.to_moment(basis_time, time))
 	}
 }
 
@@ -92,9 +92,9 @@ where
 		// changes
 		todo!()
 	}
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.into_iter()
-			.map(|x| x.to_moment(base_time, time))
+			.map(|x| x.to_moment(basis_time, time))
 			.collect()
 	}
 }
@@ -126,9 +126,9 @@ where
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
-	fn to_moment(self, base_time: Time, time: Time) -> Self::Moment {
+	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.into_iter()
-			.map(|(k, v)| (k, v.to_moment(base_time, time)))
+			.map(|(k, v)| (k, v.to_moment(basis_time, time)))
 			.collect()
 	}
 }

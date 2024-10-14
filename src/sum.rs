@@ -108,11 +108,11 @@ impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn to_moment(mut self, base_time: Time, time: Time) -> Self::Moment {
-		let secs = if time > base_time {
-			(time - base_time).as_secs_f64()
+	fn to_moment(mut self, basis_time: Time, time: Time) -> Self::Moment {
+		let secs = if time > basis_time {
+			(time - basis_time).as_secs_f64()
 		} else {
-			-(base_time - time).as_secs_f64()
+			-(basis_time - time).as_secs_f64()
 		};
 		if secs == 0. {
 			return self

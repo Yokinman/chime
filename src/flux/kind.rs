@@ -25,8 +25,8 @@ pub trait FluxKind: Clone + Debug + 'static
 	
 	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
 	
-	fn to_time(self, base_time: Time, time: Time) -> Self {
-		self.to_moment(base_time, time).to_flux(time)
+	fn to_time(self, basis_time: Time, time: Time) -> Self {
+		self.to_moment(basis_time, time).to_flux(time)
 	}
 	
 	/// The order at or immediately preceding the value at a time.
