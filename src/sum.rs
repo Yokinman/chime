@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul};
 use crate::{*, kind::*, linear::*, exp::*};
+use crate::time::Time;
 
 /// Summation over time.
 /// 
@@ -84,6 +85,30 @@ impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
 		self.1 = self.1.map(|x| T::from_inner(x.into_inner().mul_scalar(rhs)));
+		self
+	}
+}
+
+impl<T: LinearPlus, const D: usize> Moment for Sum<T, D> {
+	type Flux = Self;
+	fn to_flux(self, time: Time) -> Self::Flux {
+		self.to_time(Scalar::from(time.as_secs_f64()))
+	}
+}
+
+impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
+	type Moment = Self;
+	type Kind = Self;
+	fn base_value(&self, _base_time: Time) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+		self.value()
+	}
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
+		FluxAccum {
+			poly: Poly::new(self.clone(), accum.poly.time),
+			time: accum.time,
+		}
+	}
+	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
 		self
 	}
 }

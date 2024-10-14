@@ -795,8 +795,6 @@ pub trait Flux {
 		-> Self::Moment;
 }
 
-// ??? impl InnerFlux for T where T: FluxKind
-
 impl<T: LinearPlus> Flux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
