@@ -75,10 +75,6 @@ pub trait FluxKind: Clone + Debug + 'static
 	{
 		self.eq(&Self::zero())
 	}
-	
-	fn value(&self) -> <Self::Value as LinearPlus>::Inner {
-		self.eval(Scalar::from(0.))
-	}
 }
 
 /// A [`FluxKind`] that can be integrated into a higher degree of change.
