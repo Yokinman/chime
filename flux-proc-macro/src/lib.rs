@@ -363,7 +363,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
 			
-			fn base_value(&self)
+			fn basis(&self)
 				-> <<Self::Kind as #flux::kind::FluxKind>::Value as #flux::linear::LinearPlus>::Inner
 			#value_block
 			

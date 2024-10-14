@@ -99,7 +99,7 @@ impl<T: LinearPlus, const D: usize> Moment for Sum<T, D> {
 impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 	type Moment = Self;
 	type Kind = Self;
-	fn base_value(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
 		self.eval(Scalar::from(0.))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -199,7 +199,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = A::from_inner(self.0.into_inner().add(rhs.base_value()));
+		self.0 = A::from_inner(self.0.into_inner().add(rhs.basis()));
 		self
 	}
 }
