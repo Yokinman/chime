@@ -255,7 +255,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#crate_path::linear::LinearPlus::into_inner(#value_expr)
 			}};
 			let mut change_block: syn::Block = syn::parse_quote!{{
-				(#change_expr)(accum)
+				#crate_path::kind::FluxAccum::into((#change_expr)(accum))
 			}};
 			
 			 // Convenient Identifiers:

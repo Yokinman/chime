@@ -996,7 +996,7 @@ mod tests {
 	}
 	
 	#[flux(
-		kind = Constant<f64>,
+		kind = Sum<f64, 0>,
 		value = value,
 		crate = crate,
 	)]

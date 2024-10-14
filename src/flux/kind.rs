@@ -108,6 +108,19 @@ impl<K: FluxKind> FluxAccum<K> {
 	pub fn new(poly: Poly<K>, time: Time) -> Self {
 		Self { poly, time }
 	}
+	
+	/// Workaround for the overlapping impl `From<T> for U`.
+	pub fn into<T>(self) -> FluxAccum<T>
+	where
+		T: FluxKind,
+		K: Into<T>,
+	{
+		let FluxAccum { poly, time } = self;
+		FluxAccum {
+			poly: Poly { kind: poly.kind.into(), time: poly.time },
+			time,
+		}
+	}
 }
 
 impl<A, B> Add<Change<B>> for FluxAccum<A>
