@@ -6,9 +6,6 @@ pub mod pred;
 mod impls;
 
 use std::cmp::Ordering;
-use std::fmt::{Debug, Display, Formatter};
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
 
 use crate::{
 	linear::*,
@@ -45,31 +42,37 @@ pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 /// Immutable moment-in-time interface for [`Flux::at`].
 pub struct MomentRef<'b, M: Moment> {
 	moment: M,
-	borrow: PhantomData<&'b M::Flux>,
+	borrow: std::marker::PhantomData<&'b M::Flux>,
 }
 
-impl<M: Moment> Deref for MomentRef<'_, M> {
-	type Target = M;
-	fn deref(&self) -> &Self::Target {
-		&self.moment
+mod _moment_ref_impls {
+	use std::fmt::{Debug, Display, Formatter};
+	use std::ops::Deref;
+	use super::{Moment, MomentRef};
+	
+	impl<M: Moment> Deref for MomentRef<'_, M> {
+		type Target = M;
+		fn deref(&self) -> &Self::Target {
+			&self.moment
+		}
 	}
-}
-
-impl<M: Moment> Debug for MomentRef<'_, M>
-where
-	M: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Debug>::fmt(self, f)
+	
+	impl<M: Moment> Debug for MomentRef<'_, M>
+	where
+		M: Debug
+	{
+		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+			<M as Debug>::fmt(self, f)
+		}
 	}
-}
-
-impl<M: Moment> Display for MomentRef<'_, M>
-where
-	M: Display
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Display>::fmt(self, f)
+	
+	impl<M: Moment> Display for MomentRef<'_, M>
+	where
+		M: Display
+	{
+		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+			<M as Display>::fmt(self, f)
+		}
 	}
 }
 
@@ -135,6 +138,7 @@ mod _moment_mut_impls {
 
 #[cfg(feature = "bevy")]
 mod bevy_moment {
+	use std::ops::{Deref, DerefMut};
 	use bevy_ecs::archetype::Archetype;
 	use bevy_ecs::component::{Component, ComponentId, Components, Tick};
 	use bevy_ecs::entity::Entity;
@@ -958,6 +962,7 @@ mod _constant_impls {
 
 #[cfg(test)]
 mod tests {
+	use std::ops::Deref;
 	use super::*;
 	use super::time::{SEC, TimeRanges};
 	use crate::sum::Sum;
