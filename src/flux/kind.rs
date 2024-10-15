@@ -9,10 +9,7 @@ use crate::time::Time;
 use crate::{Change, Constant, Flux, FluxValue, Moment};
 
 /// Defines a kind of change as the structure of a polynomial.
-pub trait FluxKind: Clone + Debug + 'static
-	+ Flux<Moment=Self, Kind=Self>
-	+ Moment<Flux=Self>
-{
+pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	type Basis: Basis;
 	
 	const DEGREE: usize;
