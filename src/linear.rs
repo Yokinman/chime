@@ -211,15 +211,15 @@ pub trait Basis: Clone + Debug + 'static {
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
-	fn inner_id(inner: Self::Inner) -> Self::Inner {
-		Self::from_inner(inner).into_inner()
-	}
+	fn with<U>(&self, f: impl FnOnce(&Self::Inner) -> U) -> U;
+	
+	fn inner_id(inner: Self::Inner) -> Self::Inner;
 	
 	fn inner_eq(&self, other: &Self) -> bool
 	where
 		Self::Inner: PartialEq	
 	{
-		self.clone().into_inner() == other.clone().into_inner()
+		self.with(|x| other.with(|y| x == y))
 	}
 	
 	fn zero() -> Self {
@@ -242,6 +242,9 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			self
 		}
+		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+			f(&self)
+		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner
 		}
@@ -261,6 +264,14 @@ mod _linear_plus_impls {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
 		}
+		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+			let Iso(inner, outer) = self;
+			if let Some(inner) = inner.as_ref() {
+				f(inner)
+			} else {
+				f(&LinearIso::<A>::into_linear(outer.clone()))
+			}
+		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			B::linear_id(inner)
 		}
@@ -277,6 +288,12 @@ mod _linear_plus_impls {
 		}
 		fn into_inner(self) -> Self::Inner {
 			self.0.map(T::into_inner)
+		}
+		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+			f(&self.clone().into_inner())
+		}
+		fn inner_id(inner: Self::Inner) -> Self::Inner {
+			inner.map(T::inner_id)
 		}
 	}
 }
