@@ -211,7 +211,7 @@ pub trait Basis: Clone + Debug + 'static {
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
-	fn with<U>(&self, f: impl FnOnce(&Self::Inner) -> U) -> U;
+	fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R;
 	
 	fn inner_id(inner: Self::Inner) -> Self::Inner;
 	
