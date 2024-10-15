@@ -534,10 +534,11 @@ mod glam_stuff {
 }
 
 /// ...
-#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Iso<A, B>(Option<A>, B);
 
 mod _iso_impls {
+	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
 	use super::Iso;
 	
@@ -568,10 +569,28 @@ mod _iso_impls {
 			outer
 		}
 	}
+	
+	impl<A, B, X, Y> PartialEq<Iso<X, Y>> for Iso<A, B>
+	where
+		B: PartialEq<Y>,
+	{
+		fn eq(&self, other: &Iso<X, Y>) -> bool {
+			self.1 == other.1
+		}
+	}
+	
+	impl<A, B, X, Y> PartialOrd<Iso<X, Y>> for Iso<A, B>
+	where
+		B: PartialOrd<Y>,
+	{
+		fn partial_cmp(&self, other: &Iso<X, Y>) -> Option<Ordering> {
+			self.1.partial_cmp(&other.1)
+		}
+	}
 }
 
 /// ...
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialOrd, PartialEq)]
 pub struct LinearPlusArray<T, const N: usize>([T; N]);
 
 /// ... [`<LinearPlusArray as IntoIterator>::IntoIter`]
