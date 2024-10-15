@@ -622,14 +622,15 @@ mod _change_impls {
 	}
 }
 
-/// Wrapper for partial [`Flux`] types created by the [`flux`] macro.
+/// A [`Flux`] type packaged with a basis time.
+/// e.g. `FluxValue<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(
 	bevy_ecs::component::Component,
 	bevy_ecs::system::Resource,
 ))]
 pub struct FluxValue<T> {
-	inner: T,
+	flux: T,
 	time: Time,
 }
 
@@ -644,8 +645,8 @@ mod _flux_value_impls {
 	use super::FluxValue;
 	
 	impl<T> FluxValue<T> {
-		pub fn new(inner: T, time: Time) -> Self {
-			Self { inner, time }
+		pub fn new(flux: T, time: Time) -> Self {
+			Self { flux, time }
 		}
 		
 		pub fn time(&self) -> Time {
@@ -657,7 +658,7 @@ mod _flux_value_impls {
 			U: Flux,
 		{
 			FluxValue {
-				inner: f(&self.inner),
+				flux: f(&self.flux),
 				time: self.time,
 			}
 		}
@@ -668,12 +669,12 @@ mod _flux_value_impls {
 		// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
 		
 		pub fn into_inner_flux(self) -> A {
-			self.inner
+			self.flux
 		}
 		
 		/// An evaluation of this flux at some point in time.
 		pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
-			self.inner.basis()
+			self.flux.basis()
 		}
 		
 		/// The time of [`Flux::basis`].
@@ -683,7 +684,7 @@ mod _flux_value_impls {
 		
 		/// A moment in the timeline.
 		pub fn to_moment(self, time: Time) -> A::Moment {
-			self.inner.to_moment(self.time, time)
+			self.flux.to_moment(self.time, time)
 		}
 		
 		/// Sets a moment in the timeline (affects all moments).
@@ -745,7 +746,7 @@ mod _flux_value_impls {
 		
 		/// A polynomial description of this flux at the given time.
 		pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-			self.inner
+			self.flux
 				.change(FluxAccum {
 					poly: Poly::new(Constant::from_value(self.eval(time)), time),
 					time: self.time,
@@ -799,13 +800,13 @@ mod _flux_value_impls {
 	impl<T> Deref for FluxValue<T> {
 		type Target = T;
 		fn deref(&self) -> &Self::Target {
-			&self.inner
+			&self.flux
 		}
 	}
 	
 	impl<T> DerefMut for FluxValue<T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
-			&mut self.inner
+			&mut self.flux
 		}
 	}
 }
