@@ -13,17 +13,17 @@ pub trait FluxKind: Clone + Debug + 'static
 	+ Flux<Moment=Self, Kind=Self>
 	+ Moment<Flux=Self>
 {
-	type Value: LinearPlus;
+	type Basis: LinearPlus;
 	
 	const DEGREE: usize;
 	
-	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self;
+	fn from_value(value: <Self::Basis as LinearPlus>::Inner) -> Self;
 	
-	fn add_value(self, value: <Self::Value as LinearPlus>::Inner) -> Self;
+	fn add_value(self, value: <Self::Basis as LinearPlus>::Inner) -> Self;
 	
 	fn deriv(self) -> Self;
 	
-	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner;
+	fn eval(&self, time: Scalar) -> <Self::Basis as LinearPlus>::Inner;
 	
 	fn to_time(self, basis_time: Time, time: Time) -> Self {
 		self.to_moment(basis_time, time).to_flux(time)
@@ -35,7 +35,7 @@ pub trait FluxKind: Clone + Debug + 'static
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
-		<Self::Value as LinearPlus>::Inner: PartialOrd
+		<Self::Basis as LinearPlus>::Inner: PartialOrd
 	{
 		// !!! Alternative: Translate polynomial using `to_time` and then check
 		// leading terms in order. Unknown which is more precise/faster.
@@ -83,12 +83,12 @@ pub trait FluxKind: Clone + Debug + 'static
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
-	type Integ: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
+	type Integ: FluxKind<Basis: LinearPlus<Inner = KindLinear<Self>>>;
 	fn integ(self) -> Self::Integ;
 }
 
 /// Shortcut for [`Flux::change`] parameter.
-pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Value>>;
+pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Basis>>;
 
 /// Constructs a [`Poly`]nomial by accumulating [`Change`]s.
 /// 
@@ -162,25 +162,25 @@ where
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
-	type Value = LinearPlusArray<T::Value, SIZE>;
+	type Basis = LinearPlusArray<T::Basis, SIZE>;
 	const DEGREE: usize = T::DEGREE;
-	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
+	fn from_value(value: <Self::Basis as LinearPlus>::Inner) -> Self {
 		value.map(|x| T::from_value(x))
 	}
-	fn add_value(self, value: <Self::Value as LinearPlus>::Inner) -> Self {
+	fn add_value(self, value: <Self::Basis as LinearPlus>::Inner) -> Self {
 		let mut values = value.into_iter();
 		self.map(|x| x.add_value(values.next().unwrap()))
 	}
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
 	}
-	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
+	fn eval(&self, time: Scalar) -> <Self::Basis as LinearPlus>::Inner {
 		self.each_ref().map(|x| T::eval(x, time))
 	}
 }
 
 /// Shortcut for the inner [`Linear`] type of a [`FluxKind`].
-pub(crate) type KindLinear<T> = <<T as FluxKind>::Value as LinearPlus>::Inner;
+pub(crate) type KindLinear<T> = <<T as FluxKind>::Basis as LinearPlus>::Inner;
 
 /// Combining [`FluxKind`] types.
 /// 
@@ -193,15 +193,15 @@ pub mod ops {
 	
 	/// Adding two kinds of change.
 	pub trait Add<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>;
+		type Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<K>>>;
 		fn add(self, kind: K) -> <Self as Add<K>>::Output;
 	}
 	
 	impl<A, B> Add<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
-		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+		B: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
+		<A as ops::Add<B>>::Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn add(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -211,16 +211,16 @@ pub mod ops {
 	
 	/// Differentiating two kinds of change.
 	pub trait Sub<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>;
+		type Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<K>>>;
 		fn sub(self, kind: K) -> <Self as Sub<K>>::Output;
 	}
 	
 	impl<A, B> Sub<B> for A
 	where
 		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>
+		B: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>
 			+ ops::Mul<Scalar, Output=B>,
-		<A as ops::Add<B>>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<A>>>,
+		<A as ops::Add<B>>::Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
 	{
 		type Output = <A as ops::Add<B>>::Output;
 		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
@@ -233,14 +233,14 @@ pub mod ops {
 	
 	/// Squaring a kind of change.
 	pub trait Sqr: FluxKind {
-		type Output: FluxKind<Value: LinearPlus<Inner = KindLinear<Self>>>;
+		type Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<Self>>>;
 		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
 	impl<K: FluxKind> Sqr for K
 	where
 		K: ops::Mul,
-		<K as ops::Mul>::Output: FluxKind<Value: LinearPlus<Inner = KindLinear<K>>>,
+		<K as ops::Mul>::Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<K>>>,
 	{
 		type Output = <K as ops::Mul>::Output;
 		fn sqr(self) -> <Self as Sqr>::Output {
@@ -305,7 +305,7 @@ impl<K: FluxKind> Poly<K> {
 		Self { kind, time }
 	}
 	
-	pub fn with_value(value: K::Value) -> Self {
+	pub fn with_value(value: K::Basis) -> Self {
 		Self::new(K::from_value(value.into_inner()), Time::ZERO)
 	}
 	
@@ -315,7 +315,7 @@ impl<K: FluxKind> Poly<K> {
 }
 
 impl<K: FluxKind> Poly<K> {
-	pub fn eval(&self, time: Time) -> <K::Value as LinearPlus>::Inner {
+	pub fn eval(&self, time: Time) -> <K::Basis as LinearPlus>::Inner {
 		self.kind.eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
@@ -323,12 +323,12 @@ impl<K: FluxKind> Poly<K> {
 		}))
 	}
 	
-	pub fn at(&self, time: Time) -> K::Value {
-		K::Value::from_inner(self.eval(time))
+	pub fn at(&self, time: Time) -> K::Basis {
+		K::Basis::from_inner(self.eval(time))
 	}
 	
-	pub fn rate_at(&self, time: Time) -> K::Value {
-		K::Value::from_inner(self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
+	pub fn rate_at(&self, time: Time) -> K::Basis {
+		K::Basis::from_inner(self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()

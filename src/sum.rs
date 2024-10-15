@@ -99,7 +99,7 @@ impl<T: LinearPlus, const D: usize> Moment for Sum<T, D> {
 impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 	type Moment = Self;
 	type Kind = Self;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Value as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
 		self.eval(Scalar::from(0.))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -128,15 +128,15 @@ impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 }
 
 impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
-	type Value = T;
+	type Basis = T;
 	
 	const DEGREE: usize = D;
 	
-	fn from_value(value: <Self::Value as LinearPlus>::Inner) -> Self {
+	fn from_value(value: <Self::Basis as LinearPlus>::Inner) -> Self {
 		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
 	}
 	
-	fn add_value(mut self, value: <Self::Value as LinearPlus>::Inner) -> Self {
+	fn add_value(mut self, value: <Self::Basis as LinearPlus>::Inner) -> Self {
 		self.0 = T::from_inner(self.0.into_inner().add(value));
 		self
 	}
@@ -153,7 +153,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		self
 	}
 	
-	fn eval(&self, time: Scalar) -> <Self::Value as LinearPlus>::Inner {
+	fn eval(&self, time: Scalar) -> <Self::Basis as LinearPlus>::Inner {
 		if time == Scalar::from(0.) {
 			return self.0.clone().into_inner()
 		}
@@ -194,8 +194,8 @@ impl<T: LinearPlus> From<Constant<T>> for Sum<T, 0> {
 impl<A, B, const D: usize> Add<B> for Sum<A, D>
 where
 	A: LinearPlus,
-	B: FluxKind + Into<Constant<B::Value>>,
-	B::Value: LinearPlus<Inner = A::Inner>,
+	B: FluxKind + Into<Constant<B::Basis>>,
+	B::Basis: LinearPlus<Inner = A::Inner>,
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
@@ -621,7 +621,7 @@ where
 #[cfg(feature = "glam")]
 impl<const D: usize> Roots for Sum<glam::DVec2, D>
 where
-	Sum<f64, D>: FluxKind<Value=f64> + Roots,
+	Sum<f64, D>: FluxKind<Basis=f64> + Roots,
 	<Sum<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
 {
 	type Output = [f64; D];
@@ -666,7 +666,7 @@ where
 
 impl<T: Linear, const D: usize> Roots for Sum<Exp<T>, D>
 where
-	Sum<T, D>: FluxKind<Value=T> + Roots
+	Sum<T, D>: FluxKind<Basis=T> + Roots
 {
 	type Output = <Sum<T, D> as Roots>::Output;
 	fn roots(self) -> <Self as Roots>::Output {
