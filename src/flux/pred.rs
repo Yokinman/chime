@@ -82,8 +82,8 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				if <A::Basis as Basis>::Outer::linear_id(a_poly.at(next_time).into_inner())
-					!= <B::Basis as Basis>::Outer::linear_id(b_poly.at(next_time).into_inner())
+				if A::Basis::inner_id(a_poly.at(next_time).into_inner())
+					!= B::Basis::inner_id(b_poly.at(next_time).into_inner())
 				{
 					break
 				}
@@ -177,16 +177,16 @@ where
 						b_dis = b_dis.add(b.clone().sqr());
 						real_diff = real_diff.add(a.sub(b).sqr());
 					}
-					a_dis = <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.sqrt());
-					b_dis = <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.sqrt());
+					a_dis = <A::Output as FluxKind>::Basis::inner_id(a_dis.sqrt());
+					b_dis = <B::Output as FluxKind>::Basis::inner_id(b_dis.sqrt());
 					real_diff = Linear::mul_scalar(real_diff.sqrt().sub(dis.clone()), round_factor);
-					let c_dis = <D::Basis as Basis>::Outer::linear_id(dis.clone());
+					let c_dis = D::Basis::inner_id(dis.clone());
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.clone().add(real_diff.clone())) &&
-						b_dis != <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.clone().add(real_diff.clone())) &&
-						c_dis != <D::Basis as Basis>::Outer::linear_id(c_dis.clone().add(real_diff))
+						a_dis != <A::Output as FluxKind>::Basis::inner_id(a_dis.clone().add(real_diff.clone())) &&
+						b_dis != <B::Output as FluxKind>::Basis::inner_id(b_dis.clone().add(real_diff.clone())) &&
+						c_dis != D::Basis::inner_id(c_dis.clone().add(real_diff))
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Linear::mul_scalar(
@@ -194,9 +194,9 @@ where
 							round_factor
 						);
 						if
-							a_dis != <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.clone().add(pred_diff.clone())) &&
-							b_dis != <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.clone().add(pred_diff.clone())) &&
-							c_dis != <D::Basis as Basis>::Outer::linear_id(c_dis.clone().add(pred_diff))
+							a_dis != <A::Output as FluxKind>::Basis::inner_id(a_dis.clone().add(pred_diff.clone())) &&
+							b_dis != <B::Output as FluxKind>::Basis::inner_id(b_dis.clone().add(pred_diff.clone())) &&
+							c_dis != D::Basis::inner_id(c_dis.clone().add(pred_diff))
 						{
 							break
 						}
@@ -226,11 +226,11 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_pos.index(i).at(next_time).into_inner())
-						.sub(<<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_pos.index(i).at(next_time).into_inner()));
+					let x = <A::Output as FluxKind>::Basis::inner_id(a_pos.index(i).at(next_time).into_inner())
+						.sub(<B::Output as FluxKind>::Basis::inner_id(b_pos.index(i).at(next_time).into_inner()));
 					pos = pos.add(x.sqr());
 				}
-				let dis = <D::Basis as Basis>::Outer::linear_id(dis_poly.at(next_time).into_inner());
+				let dis = D::Basis::inner_id(dis_poly.at(next_time).into_inner());
 				if pos != dis.sqr() {
 					break
 				}

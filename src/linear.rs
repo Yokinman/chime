@@ -211,6 +211,10 @@ pub trait Basis: Clone + Debug + 'static {
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
+	fn inner_id(inner: Self::Inner) -> Self::Inner {
+		Self::from_inner(inner).into_inner()
+	}
+	
 	fn inner_eq(&self, other: &Self) -> bool
 	where
 		Self::Inner: PartialEq	
@@ -238,6 +242,9 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			self
 		}
+		fn inner_id(inner: Self::Inner) -> Self::Inner {
+			inner
+		}
 	}
 	
 	impl<A, B> Basis for Iso<A, B>
@@ -253,6 +260,9 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
+		fn inner_id(inner: Self::Inner) -> Self::Inner {
+			B::linear_id(inner)
 		}
 	}
 	
