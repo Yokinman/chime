@@ -80,50 +80,56 @@ pub struct MomentMut<'b, M: Moment> {
 	borrow: &'b mut FluxValue<M::Flux>,
 }
 
-impl<M: Moment> Drop for MomentMut<'_, M> {
-	fn drop(&mut self) {
-		if let Some(moment) = std::mem::take(&mut self.moment) {
-			self.borrow.set_moment(self.time, moment);
+mod _moment_mut_impls {
+	use std::fmt::{Debug, Display, Formatter};
+	use std::ops::{Deref, DerefMut};
+	use super::{Moment, MomentMut};
+	
+	impl<M: Moment> Drop for MomentMut<'_, M> {
+		fn drop(&mut self) {
+			if let Some(moment) = std::mem::take(&mut self.moment) {
+				self.borrow.set_moment(self.time, moment);
+			}
 		}
 	}
-}
-
-impl<M: Moment> Deref for MomentMut<'_, M> {
-	type Target = M;
-	fn deref(&self) -> &Self::Target {
-		if let Some(moment) = self.moment.as_ref() {
-			moment
-		} else {
-			unreachable!()
+	
+	impl<M: Moment> Deref for MomentMut<'_, M> {
+		type Target = M;
+		fn deref(&self) -> &Self::Target {
+			if let Some(moment) = self.moment.as_ref() {
+				moment
+			} else {
+				unreachable!()
+			}
 		}
 	}
-}
-
-impl<M: Moment> DerefMut for MomentMut<'_, M> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		if let Some(moment) = self.moment.as_mut() {
-			moment
-		} else {
-			unreachable!()
+	
+	impl<M: Moment> DerefMut for MomentMut<'_, M> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			if let Some(moment) = self.moment.as_mut() {
+				moment
+			} else {
+				unreachable!()
+			}
 		}
 	}
-}
-
-impl<M: Moment> Debug for MomentMut<'_, M>
-where
-	M: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Debug>::fmt(self, f)
+	
+	impl<M: Moment> Debug for MomentMut<'_, M>
+	where
+		M: Debug
+	{
+		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+			<M as Debug>::fmt(self, f)
+		}
 	}
-}
-
-impl<M: Moment> Display for MomentMut<'_, M>
-where
-	M: Display
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		<M as Display>::fmt(self, f)
+	
+	impl<M: Moment> Display for MomentMut<'_, M>
+	where
+		M: Display
+	{
+		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+			<M as Display>::fmt(self, f)
+		}
 	}
 }
 
