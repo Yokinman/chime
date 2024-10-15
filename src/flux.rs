@@ -668,7 +668,7 @@ mod _flux_value_impls {
 		// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 		// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
 		
-		pub fn into_inner_flux(self) -> A {
+		pub fn into_flux(self) -> A {
 			self.flux
 		}
 		
