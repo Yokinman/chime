@@ -8,7 +8,7 @@ mod impls;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut, Mul};
+use std::ops::{Deref, DerefMut};
 
 use crate::{
 	linear::*,
@@ -791,27 +791,6 @@ pub trait Flux {
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment;
 }
 
-impl<T: Basis> Flux for Constant<T> {
-	type Moment = Self;
-	type Kind = Self;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
-		self.0.clone().into_inner()
-	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		accum
-	}
-	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
-		self
-	}
-}
-
-impl<T: Basis> Moment for Constant<T> {
-	type Flux = Self;
-	fn to_flux(self, _time: Time) -> Self::Flux {
-		self
-	}
-}
-
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
@@ -819,107 +798,137 @@ impl<T: Basis> Moment for Constant<T> {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Constant<T>(pub T);
 
-impl<T> Deref for Constant<T> {
-	type Target = T;
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl<T> DerefMut for Constant<T> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
-	}
-}
-
-impl<T: Basis> From<T> for Constant<T> {
-	fn from(value: T) -> Self {
-		Constant(value)
-	}
-}
-
-impl<T: Basis> FluxKind for Constant<T> {
-	type Basis = T;
-	const DEGREE: usize = 0;
-	fn from_value(value: <Self::Basis as Basis>::Inner) -> Self {
-		Constant(T::from_inner(value))
-	}
-	fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
-		self.0 = T::from_inner(self.0.into_inner().add(value));
-		self
-	}
-	fn deriv(self) -> Self {
-		Self::zero()
-	}
-	fn eval(&self, _time: Scalar) -> <Self::Basis as Basis>::Inner {
-		self.0.clone().into_inner()
-	}
-}
-
-impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>
-where
-	T: Vector<SIZE>
-{
-	type Output = Constant<T::Output>;
-	fn index(&self, index: usize) -> Self::Output {
-		Constant(self.0.index(index))
-	}
-}
-
-impl<T: Basis> Mul<Scalar> for Constant<T> {
-	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
-		self
-	}
-}
-
-impl<T> Mul<Constant<T>> for Constant<T>
-where
-	T: Mul<Output = T>
-{
-	type Output = Self;
-	fn mul(mut self, rhs: Self) -> Self {
-		self.0 = self.0 * rhs.0;
-		self
-	}
-}
-
-impl<A, B> std::ops::Add<B> for Constant<A>
-where
-	A: Basis,
-	B: FluxKind<Basis = A>,
-{
-	type Output = B;
-	fn add(self, rhs: B) -> Self::Output {
-		rhs.add_value(self.0.into_inner())
-	}
-}
-
-impl<T> IntoIterator for Constant<T>
-where
-	T: IntoIterator,
-{
-	type Item = Constant<T::Item>;
-	type IntoIter = ConstantIter<T::IntoIter>;
-	fn into_iter(self) -> Self::IntoIter {
-		ConstantIter(self.0.into_iter())
-	}
-}
-
 /// ... [`<Constant as IntoIterator>::IntoIter`]
 pub struct ConstantIter<T>(T);
 
-impl<T> Iterator for ConstantIter<T>
-where
-	T: Iterator,
-{
-	type Item = Constant<T::Item>;
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next().map(Constant)
+mod _constant_impls {
+	use std::ops::{Deref, DerefMut, Mul};
+	use crate::{Flux, Moment};
+	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
+	use crate::linear::{Basis, Linear, Scalar, Vector};
+	use crate::time::Time;
+	use super::{Constant, ConstantIter};
+	
+	impl<T> Deref for Constant<T> {
+		type Target = T;
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
 	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		self.0.size_hint()
+	
+	impl<T> DerefMut for Constant<T> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.0
+		}
+	}
+	
+	impl<T: Basis> From<T> for Constant<T> {
+		fn from(value: T) -> Self {
+			Constant(value)
+		}
+	}
+	
+	impl<T: Basis> Moment for Constant<T> {
+		type Flux = Self;
+		fn to_flux(self, _time: Time) -> Self::Flux {
+			self
+		}
+	}
+	
+	impl<T: Basis> Flux for Constant<T> {
+		type Moment = Self;
+		type Kind = Self;
+		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+			self.0.clone().into_inner()
+		}
+		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
+			accum
+		}
+		fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
+			self
+		}
+	}
+	
+	impl<T: Basis> FluxKind for Constant<T> {
+		type Basis = T;
+		const DEGREE: usize = 0;
+		fn from_value(value: <Self::Basis as Basis>::Inner) -> Self {
+			Constant(T::from_inner(value))
+		}
+		fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
+			self.0 = T::from_inner(self.0.into_inner().add(value));
+			self
+		}
+		fn deriv(self) -> Self {
+			Self::zero()
+		}
+		fn eval(&self, _time: Scalar) -> <Self::Basis as Basis>::Inner {
+			self.0.clone().into_inner()
+		}
+	}
+	
+	impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>
+	where
+		T: Vector<SIZE>
+	{
+		type Output = Constant<T::Output>;
+		fn index(&self, index: usize) -> Self::Output {
+			Constant(self.0.index(index))
+		}
+	}
+	
+	impl<T: Basis> Mul<Scalar> for Constant<T> {
+		type Output = Self;
+		fn mul(mut self, rhs: Scalar) -> Self::Output {
+			self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
+			self
+		}
+	}
+	
+	impl<T> Mul<Constant<T>> for Constant<T>
+	where
+		T: Mul<Output = T>
+	{
+		type Output = Self;
+		fn mul(mut self, rhs: Self) -> Self {
+			self.0 = self.0 * rhs.0;
+			self
+		}
+	}
+	
+	impl<A, B> std::ops::Add<B> for Constant<A>
+	where
+		A: Basis,
+		B: FluxKind<Basis = A>,
+	{
+		type Output = B;
+		fn add(self, rhs: B) -> Self::Output {
+			rhs.add_value(self.0.into_inner())
+		}
+	}
+	
+	impl<T> IntoIterator for Constant<T>
+	where
+		T: IntoIterator,
+	{
+		type Item = Constant<T::Item>;
+		type IntoIter = ConstantIter<T::IntoIter>;
+		fn into_iter(self) -> Self::IntoIter {
+			ConstantIter(self.0.into_iter())
+		}
+	}
+	
+	impl<T> Iterator for ConstantIter<T>
+	where
+		T: Iterator,
+	{
+		type Item = Constant<T::Item>;
+		fn next(&mut self) -> Option<Self::Item> {
+			self.0.next().map(Constant)
+		}
+		fn size_hint(&self) -> (usize, Option<usize>) {
+			self.0.size_hint()
+		}
 	}
 }
 
