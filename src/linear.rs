@@ -228,7 +228,7 @@ pub trait Basis: Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, Basis, LinearPlusArray};
+	use super::{Iso, Linear, LinearIso, Basis, BasisArray};
 	
 	impl<T> Basis for T
 	where
@@ -275,7 +275,7 @@ mod _linear_plus_impls {
 		}
 	}
 	
-	impl<T, const SIZE: usize> Basis for LinearPlusArray<T, SIZE>
+	impl<T, const SIZE: usize> Basis for BasisArray<T, SIZE>
 	where
 		T: Basis,
 	{
@@ -591,23 +591,23 @@ mod _iso_impls {
 
 /// ...
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
-pub struct LinearPlusArray<T, const N: usize>([T; N]);
+pub struct BasisArray<T, const N: usize>([T; N]);
 
-/// ... [`<LinearPlusArray as IntoIterator>::IntoIter`]
-pub struct LinearPlusArrayIter<T, const N: usize>(std::array::IntoIter<T, N>);
+/// ... [`<BasisArray as IntoIterator>::IntoIter`]
+pub struct BasisArrayIter<T, const N: usize>(std::array::IntoIter<T, N>);
 
 mod _linear_plus_array_impls {
-	use super::{LinearPlusArray, LinearPlusArrayIter};
+	use super::{BasisArray, BasisArrayIter};
 	
-	impl<T, const N: usize> IntoIterator for LinearPlusArray<T, N> {
+	impl<T, const N: usize> IntoIterator for BasisArray<T, N> {
 		type Item = T;
-		type IntoIter = LinearPlusArrayIter<T, N>;
+		type IntoIter = BasisArrayIter<T, N>;
 		fn into_iter(self) -> Self::IntoIter {
-			LinearPlusArrayIter(self.0.into_iter())
+			BasisArrayIter(self.0.into_iter())
 		}
 	}
 	
-	impl<T, const N: usize> Iterator for LinearPlusArrayIter<T, N> {
+	impl<T, const N: usize> Iterator for BasisArrayIter<T, N> {
 		type Item = T;
 		fn next(&mut self) -> Option<Self::Item> {
 			self.0.next()
