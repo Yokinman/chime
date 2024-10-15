@@ -702,38 +702,45 @@ pub struct Change<T> {
 	pub unit: Time,
 }
 
-impl<T> Change<T> {
-	pub fn as_ref(&self) -> Change<&T> {
-		Change {
-			rate: &self.rate,
-			unit: self.unit,
+mod _change_impls {
+	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
+	use crate::linear::Basis;
+	use crate::time::Time;
+	use super::{Change, Flux, Moment};
+
+	impl<T> Change<T> {
+		pub fn as_ref(&self) -> Change<&T> {
+			Change {
+				rate: &self.rate,
+				unit: self.unit,
+			}
 		}
 	}
-}
-
-impl<T: Moment> Moment for Change<T> {
-	type Flux = Change<T::Flux>;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		Change {
-			rate: self.rate.to_flux(time),
-			unit: self.unit,
+	
+	impl<T: Moment> Moment for Change<T> {
+		type Flux = Change<T::Flux>;
+		fn to_flux(self, time: Time) -> Self::Flux {
+			Change {
+				rate: self.rate.to_flux(time),
+				unit: self.unit,
+			}
 		}
 	}
-}
-
-impl<T: Flux> Flux for Change<T> {
-	type Moment = Change<T::Moment>;
-	type Kind = T::Kind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
-		self.rate.basis()
-	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		self.rate.change(accum)
-	}
-	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
-		Change {
-			rate: self.rate.to_moment(basis_time, time),
-			unit: self.unit,
+	
+	impl<T: Flux> Flux for Change<T> {
+		type Moment = Change<T::Moment>;
+		type Kind = T::Kind;
+		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+			self.rate.basis()
+		}
+		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
+			self.rate.change(accum)
+		}
+		fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
+			Change {
+				rate: self.rate.to_moment(basis_time, time),
+				unit: self.unit,
+			}
 		}
 	}
 }
