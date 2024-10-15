@@ -15,7 +15,7 @@ use crate::time::Time;
 #[repr(C)]
 pub struct Sum<T, const DEGREE: usize>(T, [T; DEGREE]);
 
-impl<T: LinearPlus, const D: usize> Sum<T, D> {
+impl<T: Basis, const D: usize> Sum<T, D> {
 	pub fn new(value: T, coeffs: [T; D]) -> Self {
 		Self(value, coeffs)
 	}
@@ -35,7 +35,7 @@ impl<T: LinearPlus, const D: usize> Sum<T, D> {
 	}
 }
 
-impl<T: LinearPlus, const D: usize> From<T> for Sum<T, D> {
+impl<T: Basis, const D: usize> From<T> for Sum<T, D> {
 	fn from(value: T) -> Self {
 		Self::from_value(value.into_inner())
 	}
@@ -64,7 +64,7 @@ impl<T, const D: usize> IndexMut<usize> for Sum<T, D> {
 
 impl<T, const D: usize> PartialEq for Sum<T, D>
 where
-	T: LinearPlus,
+	T: Basis,
 	T::Inner: PartialEq,
 {
 	fn eq(&self, other: &Self) -> bool {
@@ -80,7 +80,7 @@ where
 	}
 }
 
-impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
+impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
@@ -89,17 +89,17 @@ impl<T: LinearPlus, const D: usize> Mul<Scalar> for Sum<T, D> {
 	}
 }
 
-impl<T: LinearPlus, const D: usize> Moment for Sum<T, D> {
+impl<T: Basis, const D: usize> Moment for Sum<T, D> {
 	type Flux = Self;
 	fn to_flux(self, _time: Time) -> Self::Flux {
 		self
 	}
 }
 
-impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
+impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	type Moment = Self;
 	type Kind = Self;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.eval(Scalar::from(0.))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -127,16 +127,16 @@ impl<T: LinearPlus, const D: usize> Flux for Sum<T, D> {
 	}
 }
 
-impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
+impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
 	type Basis = T;
 	
 	const DEGREE: usize = D;
 	
-	fn from_value(value: <Self::Basis as LinearPlus>::Inner) -> Self {
+	fn from_value(value: <Self::Basis as Basis>::Inner) -> Self {
 		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
 	}
 	
-	fn add_value(mut self, value: <Self::Basis as LinearPlus>::Inner) -> Self {
+	fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
 		self.0 = T::from_inner(self.0.into_inner().add(value));
 		self
 	}
@@ -153,7 +153,7 @@ impl<T: LinearPlus, const D: usize> FluxKind for Sum<T, D> {
 		self
 	}
 	
-	fn eval(&self, time: Scalar) -> <Self::Basis as LinearPlus>::Inner {
+	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner {
 		if time == Scalar::from(0.) {
 			return self.0.clone().into_inner()
 		}
@@ -179,13 +179,13 @@ where
 }
 
 #[allow(clippy::from_over_into)]
-impl<T: LinearPlus> Into<Constant<T>> for Sum<T, 0> {
+impl<T: Basis> Into<Constant<T>> for Sum<T, 0> {
 	fn into(self) -> Constant<T> {
 		Constant::from(self.0)
 	}
 }
 
-impl<T: LinearPlus> From<Constant<T>> for Sum<T, 0> {
+impl<T: Basis> From<Constant<T>> for Sum<T, 0> {
 	fn from(Constant(value): Constant<T>) -> Self {
 		Self::from(value)
 	}
@@ -193,9 +193,9 @@ impl<T: LinearPlus> From<Constant<T>> for Sum<T, 0> {
 
 impl<A, B, const D: usize> Add<B> for Sum<A, D>
 where
-	A: LinearPlus,
+	A: Basis,
 	B: FluxKind + Into<Constant<B::Basis>>,
-	B::Basis: LinearPlus<Inner = A::Inner>,
+	B::Basis: Basis<Inner = A::Inner>,
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
@@ -204,7 +204,7 @@ where
 	}
 }
 
-impl<T: LinearPlus> FluxIntegral for Constant<T> {
+impl<T: Basis> FluxIntegral for Constant<T> {
 	type Integ = Sum<T, 1>;
 	fn integ(self) -> Self::Integ {
 		let Constant(value) = self;
@@ -212,7 +212,7 @@ impl<T: LinearPlus> FluxIntegral for Constant<T> {
 	}
 }
 
-impl<T: LinearPlus> FluxIntegral for Sum<T, 0> {
+impl<T: Basis> FluxIntegral for Sum<T, 0> {
 	type Integ = Sum<T, 1>;
 	fn integ(self) -> Self::Integ {
 		let Sum(value, _) = self;
@@ -230,7 +230,7 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: LinearPlus> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self) -> Self::Integ {
 				debug_assert_eq!(
@@ -252,21 +252,21 @@ macro_rules! impl_deg_order {
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
 		where
-			A: LinearPlus,
-			B: LinearPlus<Inner = A::Inner>,
+			A: Basis,
+			B: Basis<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
 				Sum::new(
 					A::from_inner(rhs.0.into_inner()),
-					rhs.1.map(|x| A::from_inner(LinearPlus::into_inner(x))),
+					rhs.1.map(|x| A::from_inner(Basis::into_inner(x))),
 				)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
 		where
-			A: LinearPlus,
-			B: LinearPlus<Inner = A::Inner>,
+			A: Basis,
+			B: Basis<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
@@ -284,7 +284,7 @@ macro_rules! impl_deg_order {
 		}
 		impl<T> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
 		where
-			T: LinearPlus,
+			T: Basis,
 			T::Inner: Mul<Output = T::Inner>,
 		{
 			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
@@ -331,8 +331,8 @@ macro_rules! impl_deg_add {
 	($a:tt, $($num:tt)+) => {
 		impl<A, B> Add<Sum<B, $a>> for Sum<A, { $($num +)+ 0 }>
 		where
-			A: LinearPlus,
-			B: LinearPlus<Inner = A::Inner>,
+			A: Basis,
+			B: Basis<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, $a>) -> Self::Output {
@@ -355,8 +355,8 @@ macro_rules! impl_deg_add {
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
 		where
-			A: LinearPlus,
-			B: LinearPlus<Inner = A::Inner>,
+			A: Basis,
+			B: Basis<Inner = A::Inner>,
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {

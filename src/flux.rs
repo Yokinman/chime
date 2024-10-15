@@ -51,7 +51,7 @@ impl<A: Flux> FluxValue<A> {
 	}
 	
 	/// An evaluation of this flux at some point in time.
-	pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.inner.basis()
 	}
 	
@@ -114,7 +114,7 @@ impl<A: Flux> FluxValue<A> {
 	/// A point in the timeline.
 	/// 
 	/// `self.eval(self.basis_time()) == self.basis()`
-	pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
 		let basis_time = self.basis_time();
 		if time == basis_time {
 			return self.basis()
@@ -724,7 +724,7 @@ impl<T: Moment> Moment for Change<T> {
 impl<T: Flux> Flux for Change<T> {
 	type Moment = Change<T::Moment>;
 	type Kind = T::Kind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.rate.basis()
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -786,15 +786,15 @@ impl<T> DerefMut for FluxValue<T> {
 pub trait Flux {
 	type Moment: Moment<Flux = Self>;
 	type Kind: FluxKind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner;
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment;
 }
 
-impl<T: LinearPlus> Flux for Constant<T> {
+impl<T: Basis> Flux for Constant<T> {
 	type Moment = Self;
 	type Kind = Self;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.0.clone().into_inner()
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -805,7 +805,7 @@ impl<T: LinearPlus> Flux for Constant<T> {
 	}
 }
 
-impl<T: LinearPlus> Moment for Constant<T> {
+impl<T: Basis> Moment for Constant<T> {
 	type Flux = Self;
 	fn to_flux(self, _time: Time) -> Self::Flux {
 		self
@@ -832,26 +832,26 @@ impl<T> DerefMut for Constant<T> {
 	}
 }
 
-impl<T: LinearPlus> From<T> for Constant<T> {
+impl<T: Basis> From<T> for Constant<T> {
 	fn from(value: T) -> Self {
 		Constant(value)
 	}
 }
 
-impl<T: LinearPlus> FluxKind for Constant<T> {
+impl<T: Basis> FluxKind for Constant<T> {
 	type Basis = T;
 	const DEGREE: usize = 0;
-	fn from_value(value: <Self::Basis as LinearPlus>::Inner) -> Self {
+	fn from_value(value: <Self::Basis as Basis>::Inner) -> Self {
 		Constant(T::from_inner(value))
 	}
-	fn add_value(mut self, value: <Self::Basis as LinearPlus>::Inner) -> Self {
+	fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
 		self.0 = T::from_inner(self.0.into_inner().add(value));
 		self
 	}
 	fn deriv(self) -> Self {
 		Self::zero()
 	}
-	fn eval(&self, _time: Scalar) -> <Self::Basis as LinearPlus>::Inner {
+	fn eval(&self, _time: Scalar) -> <Self::Basis as Basis>::Inner {
 		self.0.clone().into_inner()
 	}
 }
@@ -866,7 +866,7 @@ where
 	}
 }
 
-impl<T: LinearPlus> Mul<Scalar> for Constant<T> {
+impl<T: Basis> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
@@ -887,7 +887,7 @@ where
 
 impl<A, B> std::ops::Add<B> for Constant<A>
 where
-	A: LinearPlus,
+	A: Basis,
 	B: FluxKind<Basis = A>,
 {
 	type Output = B;
@@ -952,7 +952,7 @@ mod tests {
 	impl Flux for Pos {
 		type Moment = Self;
 		type Kind = Sum<f64, 4>;
-		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.value
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {

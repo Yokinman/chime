@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::Add;
 
-use crate::linear::{Linear, LinearIso, LinearPlus, Scalar, Vector};
+use crate::linear::{Linear, LinearIso, Basis, Scalar, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::kind::*;
@@ -58,8 +58,8 @@ where
 impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
 	A: FluxKind,
-	B: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
-	D: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
+	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	D: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
@@ -82,8 +82,8 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				if <A::Basis as LinearPlus>::Outer::linear_id(a_poly.at(next_time).into_inner())
-					!= <B::Basis as LinearPlus>::Outer::linear_id(b_poly.at(next_time).into_inner())
+				if <A::Basis as Basis>::Outer::linear_id(a_poly.at(next_time).into_inner())
+					!= <B::Basis as Basis>::Outer::linear_id(b_poly.at(next_time).into_inner())
 				{
 					break
 				}
@@ -136,10 +136,10 @@ where
 	B: Vector<SIZE, Output: FluxKind> + Clone,
 	D: FluxKind,
 	KindLinear<D>: PartialEq,
-	A::Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<D>>>,
-	B::Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<D>>>,
-	E: FluxKind<Basis: LinearPlus<Inner = KindLinear<D>>>,
-	F: FluxKind<Basis: LinearPlus<Inner = KindLinear<D>>>,
+	A::Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
+	B::Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
+	E: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
+	F: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -177,16 +177,16 @@ where
 						b_dis = b_dis.add(b.clone().sqr());
 						real_diff = real_diff.add(a.sub(b).sqr());
 					}
-					a_dis = <<A::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(a_dis.sqrt());
-					b_dis = <<B::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(b_dis.sqrt());
+					a_dis = <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.sqrt());
+					b_dis = <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.sqrt());
 					real_diff = Linear::mul_scalar(real_diff.sqrt().sub(dis.clone()), round_factor);
-					let c_dis = <D::Basis as LinearPlus>::Outer::linear_id(dis.clone());
+					let c_dis = <D::Basis as Basis>::Outer::linear_id(dis.clone());
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <<A::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(a_dis.clone().add(real_diff.clone())) &&
-						b_dis != <<B::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(b_dis.clone().add(real_diff.clone())) &&
-						c_dis != <D::Basis as LinearPlus>::Outer::linear_id(c_dis.clone().add(real_diff))
+						a_dis != <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.clone().add(real_diff.clone())) &&
+						b_dis != <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.clone().add(real_diff.clone())) &&
+						c_dis != <D::Basis as Basis>::Outer::linear_id(c_dis.clone().add(real_diff))
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Linear::mul_scalar(
@@ -194,9 +194,9 @@ where
 							round_factor
 						);
 						if
-							a_dis != <<A::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(a_dis.clone().add(pred_diff.clone())) &&
-							b_dis != <<B::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(b_dis.clone().add(pred_diff.clone())) &&
-							c_dis != <D::Basis as LinearPlus>::Outer::linear_id(c_dis.clone().add(pred_diff))
+							a_dis != <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_dis.clone().add(pred_diff.clone())) &&
+							b_dis != <<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_dis.clone().add(pred_diff.clone())) &&
+							c_dis != <D::Basis as Basis>::Outer::linear_id(c_dis.clone().add(pred_diff))
 						{
 							break
 						}
@@ -226,11 +226,11 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <<A::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(a_pos.index(i).at(next_time).into_inner())
-						.sub(<<B::Output as FluxKind>::Basis as LinearPlus>::Outer::linear_id(b_pos.index(i).at(next_time).into_inner()));
+					let x = <<A::Output as FluxKind>::Basis as Basis>::Outer::linear_id(a_pos.index(i).at(next_time).into_inner())
+						.sub(<<B::Output as FluxKind>::Basis as Basis>::Outer::linear_id(b_pos.index(i).at(next_time).into_inner()));
 					pos = pos.add(x.sqr());
 				}
-				let dis = <D::Basis as LinearPlus>::Outer::linear_id(dis_poly.at(next_time).into_inner());
+				let dis = <D::Basis as Basis>::Outer::linear_id(dis_poly.at(next_time).into_inner());
 				if pos != dis.sqr() {
 					break
 				}
@@ -612,7 +612,7 @@ pub trait When<B> {
 impl<A, B> When<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
+	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	KindLinear<A>: PartialOrd,
 {
@@ -642,7 +642,7 @@ pub trait WhenEq<B> {
 impl<A, B> WhenEq<B> for Poly<A>
 where
 	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Basis: LinearPlus<Inner = KindLinear<A>>>,
+	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
 	<A as ops::Sub<B>>::Output: Roots + PartialEq,
 	KindLinear<A>: PartialEq,
 {
@@ -667,7 +667,7 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Poly<A>
 where
 	A: FluxKind + Vector<SIZE, Output: FluxKind> + Clone,
-	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
@@ -677,7 +677,7 @@ where
 		+ Roots
 		+ PartialEq,
 	KindLinear<A::Output>: PartialOrd,
-	D: FluxKind<Basis: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
+	D: FluxKind<Basis: Basis<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
 		Pred<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
@@ -721,7 +721,7 @@ pub trait WhenDisEq<const SIZE: usize, B, D> {
 impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Poly<A>
 where
 	A: FluxKind + Vector<SIZE, Output: FluxKind> + Clone,
-	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: LinearPlus<Inner = KindLinear<A::Output>>>> + Clone,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<A::Output>>>> + Clone,
 	A::Output: ops::Sub<B::Output>,
 	<A::Output as ops::Sub<B::Output>>::Output: ops::Sqr,
 	<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output:
@@ -731,7 +731,7 @@ where
 		+ Roots
 		+ PartialEq,
 	KindLinear<A::Output>: PartialEq,
-	D: FluxKind<Basis: LinearPlus<Inner = KindLinear<A::Output>>> + ops::Sqr,
+	D: FluxKind<Basis: Basis<Inner = KindLinear<A::Output>>> + ops::Sqr,
 {
 	type Pred = PredFilter<
 		PredEq<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,

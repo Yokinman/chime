@@ -7,7 +7,7 @@ use crate::Moment;
 use crate::Flux;
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
-use crate::linear::{Linear, LinearPlus};
+use crate::linear::{Linear, Basis};
 
 impl<'t, T> Moment for &'t T
 where
@@ -25,7 +25,7 @@ where
 {
 	type Moment = &'t T;
 	type Kind = T::Kind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		T::basis(self)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -47,7 +47,7 @@ impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	type Moment = [T::Moment; SIZE];
 	type Kind = [T::Kind; SIZE];
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.each_ref().map(T::basis)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -77,8 +77,8 @@ where
 {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
-		let mut value: <<T::Kind as FluxKind>::Basis as LinearPlus>::Inner = Linear::zero();
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+		let mut value: <<T::Kind as FluxKind>::Basis as Basis>::Inner = Linear::zero();
 		for item in self {
 			value = value.add(item.basis());
 		}
@@ -120,7 +120,7 @@ where
 {
 	type Moment = HashMap<K, V::Moment>;
 	type Kind = V::Kind;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as LinearPlus>::Inner {
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		todo!()
 	}
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {

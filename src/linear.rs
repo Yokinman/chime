@@ -204,8 +204,8 @@ mod _linear_impls {
 	}
 }
 
-/// Underlying [`Linear`] type paired with an interfacing [`LinearIso`] type.
-pub trait LinearPlus: Clone + Debug + 'static {
+/// A [`Linear`] type packaged with extra information (e.g. [`Iso`]).
+pub trait Basis: Clone + Debug + 'static {
 	type Inner: Linear;
 	type Outer: LinearIso<Self::Inner>;
 	fn from_inner(inner: Self::Inner) -> Self;
@@ -224,9 +224,9 @@ pub trait LinearPlus: Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, LinearPlus, LinearPlusArray};
+	use super::{Iso, Linear, LinearIso, Basis, LinearPlusArray};
 	
-	impl<T> LinearPlus for T
+	impl<T> Basis for T
 	where
 		T: Linear,
 	{
@@ -240,7 +240,7 @@ mod _linear_plus_impls {
 		}
 	}
 	
-	impl<A, B> LinearPlus for Iso<A, B>
+	impl<A, B> Basis for Iso<A, B>
 	where
 		A: Linear,
 		B: LinearIso<A>,
@@ -256,9 +256,9 @@ mod _linear_plus_impls {
 		}
 	}
 	
-	impl<T, const SIZE: usize> LinearPlus for LinearPlusArray<T, SIZE>
+	impl<T, const SIZE: usize> Basis for LinearPlusArray<T, SIZE>
 	where
-		T: LinearPlus,
+		T: Basis,
 	{
 		type Inner = [T::Inner; SIZE];
 		type Outer = [T::Outer; SIZE];

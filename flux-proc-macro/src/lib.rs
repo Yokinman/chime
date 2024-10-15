@@ -252,7 +252,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fetch_idents(&change_expr, &mut change_idents, &mut change_cond_idents);
 			
 			let mut value_block: syn::Block = syn::parse_quote!{{
-				#crate_path::linear::LinearPlus::into_inner(#value_expr)
+				#crate_path::linear::Basis::into_inner(#value_expr)
 			}};
 			let mut change_block: syn::Block = syn::parse_quote!{{
 				#crate_path::kind::FluxAccum::into((#change_expr)(accum))
@@ -309,7 +309,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		if value_idents.contains(&ident.unraw()) {
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::LinearPlus::from_inner(#flux::FluxValue::eval(&#flux::FluxValue::new(&self, basis_time), time)),
+				#ident: #flux::linear::Basis::from_inner(#flux::FluxValue::eval(&#flux::FluxValue::new(&self, basis_time), time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -364,7 +364,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			type Kind = #kind_type;
 			
 			fn basis(&self)
-				-> <<Self::Kind as #flux::kind::FluxKind>::Basis as #flux::linear::LinearPlus>::Inner
+				-> <<Self::Kind as #flux::kind::FluxKind>::Basis as #flux::linear::Basis>::Inner
 			#value_block
 			
 			fn change(&self, accum: #flux::kind::EmptyFluxAccum<Self::Kind>)
