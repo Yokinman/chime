@@ -42,139 +42,6 @@ pub trait Moment {
 #[allow(type_alias_bounds)]
 pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 
-impl<A: Flux> FluxValue<A> {
-	// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
-	// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
-	
-	pub fn into_inner_flux(self) -> A {
-		self.inner
-	}
-	
-	/// An evaluation of this flux at some point in time.
-	pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
-		self.inner.basis()
-	}
-	
-	/// The time of [`Flux::basis`].
-	pub fn basis_time(&self) -> Time {
-		self.time
-	}
-	
-	/// A moment in the timeline.
-	pub fn to_moment(self, time: Time) -> A::Moment {
-		self.inner.to_moment(self.time, time)
-	}
-	
-	/// Sets a moment in the timeline (affects all moments).
-	pub fn set_moment(&mut self, time: Time, moment: A::Moment)
-	where
-		Self: Sized
-	{
-		*self = moment.to_flux_value(time);
-	}
-	
-	/// A reference to a moment in the timeline.
-	pub fn at(&self, time: Time) -> MomentRef<A::Moment>
-	where
-		Self: Clone
-	{
-		let moment = self.clone().to_moment(time);
-		MomentRef {
-			moment,
-			borrow: PhantomData,
-		}
-	}
-	
-	/// A unique, mutable reference to a moment in the timeline.
-	/// 
-	/// ```text
-	/// let mut moment = self.at_mut(time);
-	/// // modifications
-	/// ```
-	/// 
-	/// equivalent to:
-	/// 
-	/// ```text
-	/// let mut moment = self.at(time);
-	/// // modifications
-	/// self.set_moment(time, moment);
-	/// ```
-	pub fn at_mut(&mut self, time: Time) -> MomentMut<A::Moment>
-	where
-		Self: Clone
-	{
-		let moment = Some(self.clone().to_moment(time));
-		MomentMut {
-			moment,
-			time,
-			borrow: self,
-		}
-	}
-	
-	/// A point in the timeline.
-	/// 
-	/// `self.eval(self.basis_time()) == self.basis()`
-	pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
-		let basis_time = self.basis_time();
-		if time == basis_time {
-			return self.basis()
-		}
-		self.poly(basis_time).eval(time)
-	}
-	
-	/// A polynomial description of this flux at the given time.
-	pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-		self.inner
-			.change(FluxAccum {
-				poly: Poly::new(Constant::from_value(self.eval(time)), time),
-				time: self.time,
-			})
-			.poly
-	}
-	
-	/// Ranges when this is above/below/equal to another flux.
-	pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
-		-> <Poly<A::Kind> as When<T::Kind>>::Pred
-	where
-		T: Flux,
-		Poly<A::Kind>: When<T::Kind>
-	{
-		let time = self.basis_time();
-		self.poly(time).when(order, other.poly(time))
-	}
-	
-	/// Times when this is equal to another flux.
-	pub fn when_eq<T>(&self, other: &FluxValue<T>)
-		-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
-	where
-		T: Flux,
-		Poly<A::Kind>: WhenEq<T::Kind>
-	{
-		let time = self.basis_time();
-		self.poly(time).when_eq(other.poly(time))
-	}
-	
-	/// Ranges when this is above/below/equal to a constant.
-	pub fn when_constant<T>(&self, order: Ordering, other: T)
-		-> <Poly<A::Kind> as When<Constant<KindLinear<A::Kind>>>>::Pred
-	where
-		T: LinearIso<KindLinear<A::Kind>>,
-		Poly<A::Kind>: When<Constant<KindLinear<A::Kind>>>
-	{
-		self.when(order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
-	}
-	
-	/// Times when this is equal to a constant.
-	pub fn when_eq_constant<T>(&self, other: T)
-		-> <Poly<A::Kind> as WhenEq<Constant<KindLinear<A::Kind>>>>::Pred
-	where
-		T: LinearIso<KindLinear<A::Kind>>,
-		Poly<A::Kind>: WhenEq<Constant<KindLinear<A::Kind>>>
-	{
-		self.when_eq(&FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
-	}
-}
-
 /// Immutable moment-in-time interface for [`Flux::at`].
 pub struct MomentRef<'b, M: Moment> {
 	moment: M,
@@ -756,36 +623,180 @@ pub struct FluxValue<T> {
 	time: Time,
 }
 
-impl<T> FluxValue<T> {
-	pub fn new(inner: T, time: Time) -> Self {
-		Self { inner, time }
-	}
+mod _flux_value_impls {
+	use std::cmp::Ordering;
+	use std::ops::{Deref, DerefMut};
+	use crate::{Constant, Flux, Moment, MomentMut, MomentRef};
+	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
+	use crate::linear::{Basis, LinearIso};
+	use crate::pred::{When, WhenEq};
+	use crate::time::Time;
+	use super::FluxValue;
 	
-	pub fn time(&self) -> Time {
-		self.time
-	}
-	
-	pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
-	where
-		U: Flux,
-	{
-		FluxValue {
-			inner: f(&self.inner),
-			time: self.time,
+	impl<T> FluxValue<T> {
+		pub fn new(inner: T, time: Time) -> Self {
+			Self { inner, time }
+		}
+		
+		pub fn time(&self) -> Time {
+			self.time
+		}
+		
+		pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
+		where
+			U: Flux,
+		{
+			FluxValue {
+				inner: f(&self.inner),
+				time: self.time,
+			}
 		}
 	}
-}
-
-impl<T> Deref for FluxValue<T> {
-	type Target = T;
-	fn deref(&self) -> &Self::Target {
-		&self.inner
+	
+	impl<A: Flux> FluxValue<A> {
+		// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
+		// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
+		
+		pub fn into_inner_flux(self) -> A {
+			self.inner
+		}
+		
+		/// An evaluation of this flux at some point in time.
+		pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
+			self.inner.basis()
+		}
+		
+		/// The time of [`Flux::basis`].
+		pub fn basis_time(&self) -> Time {
+			self.time
+		}
+		
+		/// A moment in the timeline.
+		pub fn to_moment(self, time: Time) -> A::Moment {
+			self.inner.to_moment(self.time, time)
+		}
+		
+		/// Sets a moment in the timeline (affects all moments).
+		pub fn set_moment(&mut self, time: Time, moment: A::Moment)
+		where
+			Self: Sized
+		{
+			*self = moment.to_flux_value(time);
+		}
+		
+		/// A reference to a moment in the timeline.
+		pub fn at(&self, time: Time) -> MomentRef<A::Moment>
+		where
+			Self: Clone
+		{
+			let moment = self.clone().to_moment(time);
+			MomentRef {
+				moment,
+				borrow: std::marker::PhantomData,
+			}
+		}
+		
+		/// A unique, mutable reference to a moment in the timeline.
+		/// 
+		/// ```text
+		/// let mut moment = self.at_mut(time);
+		/// // modifications
+		/// ```
+		/// 
+		/// equivalent to:
+		/// 
+		/// ```text
+		/// let mut moment = self.at(time);
+		/// // modifications
+		/// self.set_moment(time, moment);
+		/// ```
+		pub fn at_mut(&mut self, time: Time) -> MomentMut<A::Moment>
+		where
+			Self: Clone
+		{
+			let moment = Some(self.clone().to_moment(time));
+			MomentMut {
+				moment,
+				time,
+				borrow: self,
+			}
+		}
+		
+		/// A point in the timeline.
+		/// 
+		/// `self.eval(self.basis_time()) == self.basis()`
+		pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
+			let basis_time = self.basis_time();
+			if time == basis_time {
+				return self.basis()
+			}
+			self.poly(basis_time).eval(time)
+		}
+		
+		/// A polynomial description of this flux at the given time.
+		pub fn poly(&self, time: Time) -> Poly<A::Kind> {
+			self.inner
+				.change(FluxAccum {
+					poly: Poly::new(Constant::from_value(self.eval(time)), time),
+					time: self.time,
+				})
+				.poly
+		}
+		
+		/// Ranges when this is above/below/equal to another flux.
+		pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
+			-> <Poly<A::Kind> as When<T::Kind>>::Pred
+		where
+			T: Flux,
+			Poly<A::Kind>: When<T::Kind>
+		{
+			let time = self.basis_time();
+			self.poly(time).when(order, other.poly(time))
+		}
+		
+		/// Times when this is equal to another flux.
+		pub fn when_eq<T>(&self, other: &FluxValue<T>)
+			-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
+		where
+			T: Flux,
+			Poly<A::Kind>: WhenEq<T::Kind>
+		{
+			let time = self.basis_time();
+			self.poly(time).when_eq(other.poly(time))
+		}
+		
+		/// Ranges when this is above/below/equal to a constant.
+		pub fn when_constant<T>(&self, order: Ordering, other: T)
+			-> <Poly<A::Kind> as When<Constant<KindLinear<A::Kind>>>>::Pred
+		where
+			T: LinearIso<KindLinear<A::Kind>>,
+			Poly<A::Kind>: When<Constant<KindLinear<A::Kind>>>
+		{
+			self.when(order, &FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
+		}
+		
+		/// Times when this is equal to a constant.
+		pub fn when_eq_constant<T>(&self, other: T)
+			-> <Poly<A::Kind> as WhenEq<Constant<KindLinear<A::Kind>>>>::Pred
+		where
+			T: LinearIso<KindLinear<A::Kind>>,
+			Poly<A::Kind>: WhenEq<Constant<KindLinear<A::Kind>>>
+		{
+			self.when_eq(&FluxValue::new(Constant::from(T::into_linear(other)), Time::ZERO))
+		}
 	}
-}
-
-impl<T> DerefMut for FluxValue<T> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.inner
+	
+	impl<T> Deref for FluxValue<T> {
+		type Target = T;
+		fn deref(&self) -> &Self::Target {
+			&self.inner
+		}
+	}
+	
+	impl<T> DerefMut for FluxValue<T> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.inner
+		}
 	}
 }
 
