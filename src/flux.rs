@@ -619,6 +619,10 @@ mod _change_impls {
 				unit: self.unit,
 			}
 		}
+		fn set_moment(&mut self, time: Time, moment: Self::Moment) {
+			self.rate.set_moment(time, moment.rate);
+			self.unit = moment.unit;
+		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			Change {
 				rate: T::from_moment(moment.rate),
@@ -824,6 +828,7 @@ pub trait Flux {
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment;
+	fn set_moment(&mut self, time: Time, moment: Self::Moment);
 	fn from_moment(moment: Self::Moment) -> Self;
 }
 
@@ -882,6 +887,9 @@ mod _constant_impls {
 		}
 		fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
 			self
+		}
+		fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
+			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment
@@ -1017,6 +1025,9 @@ mod tests {
 				spd: self.spd.to_moment(basis_time, time),
 				misc: self.misc.to_moment(basis_time, time),
 			}
+		}
+		fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
+			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment

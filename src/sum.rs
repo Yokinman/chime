@@ -125,6 +125,9 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 		}
 		self
 	}
+	fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
+		*self = moment;
+	}
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment
 	}

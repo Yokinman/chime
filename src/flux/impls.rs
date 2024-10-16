@@ -34,6 +34,9 @@ where
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
 		unimplemented!("References to Flux types don't support `at` or `at_mut`")
 	}
+	fn set_moment(&mut self, _time: Time, _moment: Self::Moment) {
+		unimplemented!()
+	}
 	fn from_moment(_moment: Self::Moment) -> Self {
 		unimplemented!()
 	}
@@ -67,6 +70,11 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	}
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.map(|x| x.to_moment(basis_time, time))
+	}
+	fn set_moment(&mut self, time: Time, moment: Self::Moment) {
+		for (x, moment) in self.iter_mut().zip(moment) {
+			x.set_moment(time, moment);
+		}
 	}
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.map(T::from_moment)
@@ -102,6 +110,12 @@ where
 		self.into_iter()
 			.map(|x| x.to_moment(basis_time, time))
 			.collect()
+	}
+	fn set_moment(&mut self, time: Time, moment: Self::Moment) {
+		debug_assert_eq!(self.len(), moment.len());
+		for (x, moment) in self.iter_mut().zip(moment) {
+			x.set_moment(time, moment);
+		}
 	}
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.into_iter()
@@ -141,6 +155,14 @@ where
 		self.into_iter()
 			.map(|(k, v)| (k, v.to_moment(basis_time, time)))
 			.collect()
+	}
+	fn set_moment(&mut self, time: Time, moment: Self::Moment) {
+		debug_assert_eq!(self.len(), moment.len());
+		for (k, v) in moment {
+			self.get_mut(&k)
+				.expect("key should exist")
+				.set_moment(time, v);
+		}
 	}
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.into_iter()
