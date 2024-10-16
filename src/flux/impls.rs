@@ -34,6 +34,9 @@ where
 	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
 		unimplemented!("References to Flux types don't support `at` or `at_mut`")
 	}
+	fn from_moment(_moment: Self::Moment) -> Self {
+		unimplemented!()
+	}
 }
 
 
@@ -65,6 +68,9 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.map(|x| x.to_moment(basis_time, time))
 	}
+	fn from_moment(moment: Self::Moment) -> Self {
+		moment.map(T::from_moment)
+	}
 }
 
 // !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
@@ -95,6 +101,11 @@ where
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.into_iter()
 			.map(|x| x.to_moment(basis_time, time))
+			.collect()
+	}
+	fn from_moment(moment: Self::Moment) -> Self {
+		moment.into_iter()
+			.map(T::from_moment)
 			.collect()
 	}
 }
@@ -129,6 +140,11 @@ where
 	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
 		self.into_iter()
 			.map(|(k, v)| (k, v.to_moment(basis_time, time)))
+			.collect()
+	}
+	fn from_moment(moment: Self::Moment) -> Self {
+		moment.into_iter()
+			.map(|(k, v)| (k, V::from_moment(v)))
 			.collect()
 	}
 }

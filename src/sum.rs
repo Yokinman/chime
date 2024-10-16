@@ -125,6 +125,9 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 		}
 		self
 	}
+	fn from_moment(moment: Self::Moment) -> Self {
+		moment
+	}
 }
 
 impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {

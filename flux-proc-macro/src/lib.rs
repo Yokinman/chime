@@ -374,6 +374,11 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fn to_moment(self, basis_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
+			
+			fn from_moment(moment: Self::Moment) -> Self {
+				// #ident { #flux_fields }
+				todo!()
+			}
 		}
 	};
 	
