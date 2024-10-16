@@ -31,7 +31,7 @@ where
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
-	fn to_moment(self, _base_time: Time, _time: Time) -> Self::Moment {
+	fn to_moment(&self, _base_time: Time, _time: Time) -> Self::Moment {
 		unimplemented!("References to Flux types don't support `at` or `at_mut`")
 	}
 	fn set_moment(&mut self, _time: Time, _moment: Self::Moment) {
@@ -68,8 +68,8 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 			time,
 		}
 	}
-	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
-		self.map(|x| x.to_moment(basis_time, time))
+	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
+		self.each_ref().map(|x| x.to_moment(basis_time, time))
 	}
 	fn set_moment(&mut self, time: Time, moment: Self::Moment) {
 		for (x, moment) in self.iter_mut().zip(moment) {
@@ -106,8 +106,8 @@ where
 		// changes
 		todo!()
 	}
-	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
-		self.into_iter()
+	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
+		self.iter()
 			.map(|x| x.to_moment(basis_time, time))
 			.collect()
 	}
@@ -140,7 +140,7 @@ where
 
 impl<K, V> Flux for HashMap<K, V>
 where
-	K: std::hash::Hash + Eq,
+	K: std::hash::Hash + Eq + Clone,
 	V: Flux,
 {
 	type Moment = HashMap<K, V::Moment>;
@@ -151,9 +151,9 @@ where
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
-	fn to_moment(self, basis_time: Time, time: Time) -> Self::Moment {
-		self.into_iter()
-			.map(|(k, v)| (k, v.to_moment(basis_time, time)))
+	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
+		self.iter()
+			.map(|(k, v)| (k.clone(), v.to_moment(basis_time, time)))
 			.collect()
 	}
 	fn set_moment(&mut self, time: Time, moment: Self::Moment) {
@@ -173,7 +173,7 @@ where
 
 impl<K, V> Moment for HashMap<K, V>
 where
-	K: std::hash::Hash + Eq,
+	K: std::hash::Hash + Eq + Clone,
 	V: Moment,
 {
 	type Flux = HashMap<K, V::Flux>;

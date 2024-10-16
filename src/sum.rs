@@ -108,22 +108,23 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn to_moment(mut self, basis_time: Time, time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
 		let secs = if time > basis_time {
 			(time - basis_time).as_secs_f64()
 		} else {
 			-(basis_time - time).as_secs_f64()
 		};
 		if secs == 0. {
-			return self
+			return self.clone()
 		}
 		let mut deriv = self.clone();
-		self.0 = T::from_inner(deriv.eval(Scalar::from(secs)));
+		let mut sum = Sum::zero();
+		sum.0 = T::from_inner(deriv.eval(Scalar::from(secs)));
 		for degree in 1..=D {
 			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
-			self.1[degree-1] = T::from_inner(deriv.eval(Scalar::from(secs)));
+			sum.1[degree-1] = T::from_inner(deriv.eval(Scalar::from(secs)));
 		}
-		self
+		sum
 	}
 	fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
 		*self = moment;
