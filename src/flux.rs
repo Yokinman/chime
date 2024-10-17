@@ -40,10 +40,6 @@ where
 	type Flux = T;
 }
 
-/// !!! Remove this later.
-#[allow(type_alias_bounds)]
-pub type FluxOf<T: Flux> = FluxValue<T>;
-
 /// Immutable moment-in-time interface for [`Flux::at`].
 pub struct Moment<'b, M: Flux> {
 	moment: M::Moment,
@@ -1069,7 +1065,7 @@ mod tests {
 		}
 	}
 	
-	fn position() -> FluxOf<Pos> {
+	fn position() -> FluxValue<Pos> {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
