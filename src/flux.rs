@@ -40,55 +40,55 @@ pub trait Moment {
 pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
 
 /// Immutable moment-in-time interface for [`Flux::at`].
-pub struct MomentRef<'b, M: Moment> {
-	moment: M,
-	borrow: std::marker::PhantomData<&'b M::Flux>,
+pub struct MomentRef<'b, M: Flux> {
+	moment: M::Moment,
+	borrow: std::marker::PhantomData<&'b M>,
 }
 
 mod _moment_ref_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::Deref;
-	use super::{Moment, MomentRef};
+	use super::{Flux, MomentRef};
 	
-	impl<M: Moment> Deref for MomentRef<'_, M> {
-		type Target = M;
+	impl<M: Flux> Deref for MomentRef<'_, M> {
+		type Target = M::Moment;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<M: Moment> Debug for MomentRef<'_, M>
+	impl<M: Flux> Debug for MomentRef<'_, M>
 	where
-		M: Debug
+		M::Moment: Debug
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M as Debug>::fmt(self, f)
+			<M::Moment as Debug>::fmt(self, f)
 		}
 	}
 	
-	impl<M: Moment> Display for MomentRef<'_, M>
+	impl<M: Flux> Display for MomentRef<'_, M>
 	where
-		M: Display
+		M::Moment: Display
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M as Display>::fmt(self, f)
+			<M::Moment as Display>::fmt(self, f)
 		}
 	}
 }
 
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct MomentMut<'b, M: Moment> {
-	moment: Option<M>,
+pub struct MomentMut<'b, M: Flux> {
+	moment: Option<M::Moment>,
 	time: Time,
-	borrow: &'b mut FluxValue<M::Flux>,
+	borrow: &'b mut FluxValue<M>,
 }
 
 mod _moment_mut_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::{Deref, DerefMut};
-	use super::{Moment, MomentMut};
+	use super::{Flux, MomentMut};
 	
-	impl<M: Moment> Drop for MomentMut<'_, M> {
+	impl<M: Flux> Drop for MomentMut<'_, M> {
 		fn drop(&mut self) {
 			if let Some(moment) = std::mem::take(&mut self.moment) {
 				self.borrow.set_moment(self.time, moment);
@@ -96,8 +96,8 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<M: Moment> Deref for MomentMut<'_, M> {
-		type Target = M;
+	impl<M: Flux> Deref for MomentMut<'_, M> {
+		type Target = M::Moment;
 		fn deref(&self) -> &Self::Target {
 			if let Some(moment) = self.moment.as_ref() {
 				moment
@@ -107,7 +107,7 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<M: Moment> DerefMut for MomentMut<'_, M> {
+	impl<M: Flux> DerefMut for MomentMut<'_, M> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			if let Some(moment) = self.moment.as_mut() {
 				moment
@@ -117,21 +117,21 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<M: Moment> Debug for MomentMut<'_, M>
+	impl<M: Flux> Debug for MomentMut<'_, M>
 	where
-		M: Debug
+		M::Moment: Debug
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M as Debug>::fmt(self, f)
+			<M::Moment as Debug>::fmt(self, f)
 		}
 	}
 	
-	impl<M: Moment> Display for MomentMut<'_, M>
+	impl<M: Flux> Display for MomentMut<'_, M>
 	where
-		M: Display
+		M::Moment: Display
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M as Display>::fmt(self, f)
+			<M::Moment as Display>::fmt(self, f)
 		}
 	}
 }
@@ -150,14 +150,14 @@ mod bevy_moment {
 	
 	type ChimeTime = bevy_time::Time<Chime>;
 	
-	type Ref<'b, M> = &'b FluxValue<<M as Moment>::Flux>;
-	type Mut<'b, M> = &'b mut FluxValue<<M as Moment>::Flux>;
+	type Ref<'b, M> = &'b FluxValue<M>;
+	type Mut<'b, M> = &'b mut FluxValue<M>;
 	
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
 	unsafe impl<'b, M> QueryData for MomentRef<'b, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Component + Clone,
+		M: Flux,
+		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = Self;
 	}
@@ -165,15 +165,15 @@ mod bevy_moment {
 	/// SAFETY: access is read only.
 	unsafe impl<'b, M> ReadOnlyQueryData for MomentRef<'b, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Component + Clone,
+		M: Flux,
+		FluxValue<M>: Component + Clone,
 	{}
 	
 	/// SAFETY: access of `MomentRef<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Component + Clone,
+		M: Flux,
+		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = MomentRef<'b, M>;
 	}
@@ -184,8 +184,8 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for MomentRef<'b, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Component + Clone,
+		M: Flux,
+		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = MomentRef<'a, M>;
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
@@ -240,8 +240,8 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Component + Clone,
+		M: Flux,
+		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = MomentMut<'a, M>;
 		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
@@ -290,11 +290,11 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a resource at the current `Time<Chime>`.
-	pub struct ResMoment<'w, M: Moment> {
+	pub struct ResMoment<'w, M: Flux> {
 		inner: MomentRef<'w, M>,
 	}
 	
-	impl<'w, M: Moment> Deref for ResMoment<'w, M> {
+	impl<'w, M: Flux> Deref for ResMoment<'w, M> {
 		type Target = MomentRef<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
@@ -302,18 +302,18 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a mutable resource at the current `Time<Chime>`.
-	pub struct ResMomentMut<'w, M: Moment> {
+	pub struct ResMomentMut<'w, M: Flux> {
 		inner: MomentMut<'w, M>,
 	}
 	
-	impl<'w, M: Moment> Deref for ResMomentMut<'w, M> {
+	impl<'w, M: Flux> Deref for ResMomentMut<'w, M> {
 		type Target = MomentMut<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
 		}
 	}
 	
-	impl<'w, M: Moment> DerefMut for ResMomentMut<'w, M> {
+	impl<'w, M: Flux> DerefMut for ResMomentMut<'w, M> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.inner
 		}
@@ -323,20 +323,20 @@ mod bevy_moment {
 	/// Safety guarantees are inherited from `impl SystemParam for Res<T>`.
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Resource + Clone,
+		M: Flux,
+		FluxValue<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, FluxValue<M::Flux>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, FluxValue<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMoment<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <Res<'w, FluxValue<M::Flux>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <Res<'w, FluxValue<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <Res<'w, FluxValue<M::Flux>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <Res<'w, FluxValue<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at(time);
 			ResMoment { inner }
@@ -348,20 +348,20 @@ mod bevy_moment {
 	/// `impl SystemParam for ResMut<T>`.
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
-		M: Moment,
-		FluxValue<M::Flux>: Resource + Clone,
+		M: Flux,
+		FluxValue<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, FluxValue<M::Flux>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, FluxValue<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMomentMut<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <ResMut<'w, FluxValue<M::Flux>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <ResMut<'w, FluxValue<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <ResMut<'w, FluxValue<M::Flux>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <ResMut<'w, FluxValue<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at_mut(time);
 			ResMomentMut { inner }
@@ -647,7 +647,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, Flux, Moment, MomentMut, MomentRef};
+	use crate::{Constant, Flux, MomentMut, MomentRef};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -702,11 +702,11 @@ mod _flux_value_impls {
 		where
 			Self: Sized
 		{
-			*self = moment.to_flux_value(time);
+			*self = FluxValue::new(A::from_moment(moment), time);
 		}
 		
 		/// A reference to a moment in the timeline.
-		pub fn at(&self, time: Time) -> MomentRef<A::Moment>
+		pub fn at(&self, time: Time) -> MomentRef<A>
 		where
 			Self: Clone
 		{
@@ -731,7 +731,7 @@ mod _flux_value_impls {
 		/// // modifications
 		/// self.set_moment(time, moment);
 		/// ```
-		pub fn at_mut(&mut self, time: Time) -> MomentMut<A::Moment>
+		pub fn at_mut(&mut self, time: Time) -> MomentMut<A>
 		where
 			Self: Clone
 		{
