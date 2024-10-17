@@ -823,7 +823,7 @@ mod _flux_value_impls {
 
 /// The continuous interface for a value that changes over time.
 pub trait Flux {
-	type Moment: Moment<Flux = Self>;
+	type Moment;
 	type Kind: FluxKind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
