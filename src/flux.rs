@@ -25,9 +25,6 @@ pub struct Chime;
 pub trait Moment {
 	type Flux: Flux<Moment = Self>;
 	
-	/// Constructs the entirety of a [`Flux`] from a single moment.
-	fn to_flux(self, time: Time) -> Self::Flux;
-	
 	fn to_flux_value(self, time: Time) -> FluxValue<Self::Flux>
 	where
 		Self: Sized
@@ -36,8 +33,16 @@ pub trait Moment {
 	}
 }
 
+impl<T> Moment for T
+where
+	T: Flux<Moment = T>
+{
+	type Flux = T;
+}
+
+/// !!! Remove this later.
 #[allow(type_alias_bounds)]
-pub type FluxOf<T: Moment> = FluxValue<<T as Moment>::Flux>;
+pub type FluxOf<T: Flux> = FluxValue<T>;
 
 /// Immutable moment-in-time interface for [`Flux::at`].
 pub struct MomentRef<'b, M: Flux> {
@@ -583,22 +588,12 @@ mod _change_impls {
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::Basis;
 	use crate::time::Time;
-	use super::{Change, Flux, Moment};
+	use super::{Change, Flux};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
 			Change {
 				rate: &self.rate,
-				unit: self.unit,
-			}
-		}
-	}
-	
-	impl<T: Moment> Moment for Change<T> {
-		type Flux = Change<T::Flux>;
-		fn to_flux(self, time: Time) -> Self::Flux {
-			Change {
-				rate: self.rate.to_flux(time),
 				unit: self.unit,
 			}
 		}
@@ -844,7 +839,7 @@ pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
 	use std::ops::{Deref, DerefMut, Mul};
-	use crate::{Flux, Moment};
+	use crate::Flux;
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use crate::time::Time;
@@ -866,13 +861,6 @@ mod _constant_impls {
 	impl<T: Basis> From<T> for Constant<T> {
 		fn from(value: T) -> Self {
 			Constant(value)
-		}
-	}
-	
-	impl<T: Basis> Moment for Constant<T> {
-		type Flux = Self;
-		fn to_flux(self, _time: Time) -> Self::Flux {
-			self
 		}
 	}
 	
@@ -999,13 +987,6 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	impl Moment for Pos {
-		type Flux = Self;
-		fn to_flux(self, _time: Time) -> Self::Flux {
-			self
-		}
-	}
-	
 	impl Flux for Pos {
 		type Moment = Self;
 		type Kind = Sum<f64, 4>;
@@ -1098,7 +1079,7 @@ mod tests {
 		}
 	}
 	
-	fn position() -> FluxOf<<Pos as Moment>::Flux> {
+	fn position() -> FluxOf<Pos> {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {

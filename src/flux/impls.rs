@@ -3,21 +3,10 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::Moment;
 use crate::Flux;
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
 use crate::linear::{Linear, Basis};
-
-impl<'t, T> Moment for &'t T
-where
-	T: Flux,
-{
-	type Flux = &'t T;
-	fn to_flux(self, _time: Time) -> Self::Flux {
-		unimplemented!()
-	}
-}
 
 impl<'t, T> Flux for &'t T
 where
@@ -39,14 +28,6 @@ where
 	}
 	fn from_moment(_moment: Self::Moment) -> Self {
 		unimplemented!()
-	}
-}
-
-
-impl<T: Moment, const SIZE: usize> Moment for [T; SIZE] {
-	type Flux = [T::Flux; SIZE];
-	fn to_flux(self, time: Time) -> Self::Flux {
-		self.map(|x| x.to_flux(time))
 	}
 }
 
@@ -84,11 +65,7 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 // !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
 
 // !!! Make underlying linear type a Vec, instead of this just being a convenience.
-impl<T: Flux> Flux for Vec<T>
-where
-	// T::Kind: for<'a> FluxKind<Accum<'a> = <T::Kind as FluxKind>::OutAccum<'a>>,
-	Vec<T::Moment>: Moment<Flux = Self>,
-{
+impl<T: Flux> Flux for Vec<T> {
 	type Moment = Vec<T::Moment>;
 	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -124,20 +101,6 @@ where
 	}
 }
 
-impl<T: Moment> Moment for Vec<T>
-where
-	// <T::Flux as Flux>::Kind:
-	// 	for<'a> FluxKind<Accum<'a> = <<T::Flux as Flux>::Kind as FluxKind>::OutAccum<'a>>,
-{
-	type Flux = Vec<T::Flux>;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		self.into_iter()
-			.map(|x| x.to_flux(time))
-			.collect()
-	}
-}
-
-
 impl<K, V> Flux for HashMap<K, V>
 where
 	K: std::hash::Hash + Eq + Clone,
@@ -167,19 +130,6 @@ where
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.into_iter()
 			.map(|(k, v)| (k, V::from_moment(v)))
-			.collect()
-	}
-}
-
-impl<K, V> Moment for HashMap<K, V>
-where
-	K: std::hash::Hash + Eq + Clone,
-	V: Moment,
-{
-	type Flux = HashMap<K, V::Flux>;
-	fn to_flux(self, time: Time) -> Self::Flux {
-		self.into_iter()
-			.map(|(k, v)| (k, v.to_flux(time)))
 			.collect()
 	}
 }

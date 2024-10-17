@@ -352,14 +352,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	let flux_value_impl = quote::quote!{
 		#item
 		
-		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
-			type Flux = #flux_type;
-			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
-				// #flux_type { #flux_fields }
-				unimplemented!()
-			}
-		}
-		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
 			type Moment = #ident #ty_generics;
 			type Kind = #kind_type;
