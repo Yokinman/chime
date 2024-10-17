@@ -654,10 +654,6 @@ mod _flux_value_impls {
 			Self { flux, time }
 		}
 		
-		pub fn time(&self) -> Time {
-			self.time
-		}
-		
 		pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
 		where
 			U: Flux,
