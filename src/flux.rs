@@ -32,7 +32,7 @@ pub trait Moment {
 	where
 		Self: Sized
 	{
-		FluxValue::new(self.to_flux(time), time)
+		FluxValue::new(Self::Flux::from_moment(self), time)
 	}
 }
 

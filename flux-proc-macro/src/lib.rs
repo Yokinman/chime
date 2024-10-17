@@ -313,23 +313,23 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: self.#ident,
+				#ident: moment.#ident,
 			};
 		}
 		
 		 // Flux/Moment Types:
 		else if change_idents.contains(&ident.unraw()) {
 			let field_ty = &field.ty;
-			field.ty = syn::parse_quote!{
-				<#field_ty as #flux::Moment>::Flux
-			};
 			moment_fields = quote::quote!{
 				#moment_fields
 				#ident: #flux::Flux::to_moment(&self.#ident, basis_time, time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: #flux::Moment::to_flux(self.#ident, time),
+				#ident: #flux::Flux::from_moment(moment.#ident),
+			};
+			field.ty = syn::parse_quote!{
+				<#field_ty as #flux::Moment>::Flux
 			};
 		}
 		
@@ -341,7 +341,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
-				#ident: self.#ident,
+				#ident: moment.#ident,
 			};
 		}
 	}
@@ -355,7 +355,8 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		impl #impl_generics #flux::Moment for #ident #ty_generics #where_clause {
 			type Flux = #flux_type;
 			fn to_flux(self, time: #flux::time::Time) -> Self::Flux {
-				#flux_type { #flux_fields }
+				// #flux_type { #flux_fields }
+				unimplemented!()
 			}
 		}
 		
@@ -380,8 +381,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			}
 			
 			fn from_moment(moment: Self::Moment) -> Self {
-				// #ident { #flux_fields }
-				todo!()
+				#ident { #flux_fields }
 			}
 		}
 	};

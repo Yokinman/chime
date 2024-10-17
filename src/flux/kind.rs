@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, FluxValue, Moment};
+use crate::{Change, Constant, Flux, FluxValue};
 
 /// Defines a kind of change as the structure of a polynomial.
 pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
@@ -23,7 +23,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner;
 	
 	fn to_time(self, basis_time: Time, time: Time) -> Self {
-		self.to_moment(basis_time, time).to_flux(time)
+		Self::from_moment(self.to_moment(basis_time, time))
 	}
 	
 	/// The order at or immediately preceding the value at a time.
