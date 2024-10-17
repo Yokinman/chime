@@ -688,7 +688,7 @@ mod _flux_value_impls {
 		}
 		
 		/// A moment in the timeline.
-		pub fn to_moment(self, time: Time) -> A::Moment {
+		pub fn to_moment(&self, time: Time) -> A::Moment {
 			self.flux.to_moment(self.time, time)
 		}
 		
@@ -701,11 +701,8 @@ mod _flux_value_impls {
 		}
 		
 		/// A reference to a moment in the timeline.
-		pub fn at(&self, time: Time) -> Moment<A>
-		where
-			Self: Clone
-		{
-			let moment = self.clone().to_moment(time);
+		pub fn at(&self, time: Time) -> Moment<A> {
+			let moment = self.to_moment(time);
 			Moment {
 				moment,
 				borrow: std::marker::PhantomData,
@@ -726,11 +723,8 @@ mod _flux_value_impls {
 		/// // modifications
 		/// self.set_moment(time, moment);
 		/// ```
-		pub fn at_mut(&mut self, time: Time) -> MomentMut<A>
-		where
-			Self: Clone
-		{
-			let moment = Some(self.clone().to_moment(time));
+		pub fn at_mut(&mut self, time: Time) -> MomentMut<A> {
+			let moment = Some(self.to_moment(time));
 			MomentMut {
 				moment,
 				time,
@@ -1096,7 +1090,7 @@ mod tests {
 			misc: Vec::new(),
 		};
 		let mut pos = pos.to_flux_value(Time::ZERO);
-		*pos = pos.clone().to_moment(10*SEC);
+		*pos = pos.to_moment(10*SEC);
 		pos.time = 10*SEC;
 		pos
 	}
