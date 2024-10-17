@@ -610,8 +610,8 @@ mod _change_impls {
 				unit: self.unit,
 			}
 		}
-		fn set_moment(&mut self, time: Time, moment: Self::Moment) {
-			self.rate.set_moment(time, moment.rate);
+		fn set_moment(&mut self, moment: Self::Moment) {
+			self.rate.set_moment(moment.rate);
 			self.unit = moment.unit;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
@@ -837,7 +837,7 @@ pub trait Flux {
 	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment;
 	
 	/// Assigns to this type from a single moment.
-	fn set_moment(&mut self, time: Time, moment: Self::Moment);
+	fn set_moment(&mut self, moment: Self::Moment);
 	
 	/// Produces this type from a single moment.
 	fn from_moment(moment: Self::Moment) -> Self;
@@ -892,7 +892,7 @@ mod _constant_impls {
 		fn to_moment(&self, _base_time: Time, _time: Time) -> Self::Moment {
 			self.clone()
 		}
-		fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
+		fn set_moment(&mut self, moment: Self::Moment) {
 			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
@@ -1023,7 +1023,7 @@ mod tests {
 				misc: self.misc.to_moment(basis_time, time),
 			}
 		}
-		fn set_moment(&mut self, _time: Time, moment: Self::Moment) {
+		fn set_moment(&mut self, moment: Self::Moment) {
 			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {

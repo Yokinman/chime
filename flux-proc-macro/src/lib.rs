@@ -368,7 +368,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				#ident { #moment_fields }
 			}
 			
-			fn set_moment(&mut self, _time: #flux::time::Time, moment: Self::Moment) {
+			fn set_moment(&mut self, moment: Self::Moment) {
 				*self = moment;
 			}
 			
