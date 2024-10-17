@@ -21,8 +21,8 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// A discrete interface for a value that changes over time.
-pub trait Moment {
+/// Temporary convenience for constructing a [`FluxValue<T>`] from `T::Moment`.
+pub trait FluxMoment {
 	type Flux: Flux<Moment = Self>;
 	
 	fn to_flux_value(self, time: Time) -> FluxValue<Self::Flux>
@@ -33,7 +33,7 @@ pub trait Moment {
 	}
 }
 
-impl<T> Moment for T
+impl<T> FluxMoment for T
 where
 	T: Flux<Moment = T>
 {
