@@ -802,14 +802,44 @@ mod _flux_value_impls {
 	}
 }
 
-/// The continuous interface for a value that changes over time.
+/// A type that can change over time.
 pub trait Flux {
+	/// An interface for a moment in the timeline of this type.
 	type Moment;
+	
+	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
+	
+	/// The starting point of this type's change over time.
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
+	
+	/// Applies the change of this type to an accumulator.
+	/// 
+	/// The accumulator contains a polynomial and the current time value. It
+	/// supports certain operations:
+	/// 
+	/// - `Add<Change<T>>` and `Sub<Change<T>>`, where `T: ...`.
+	///   
+	///   These describe integration over time, for example:
+	///   
+	///   ```text
+	///   accum + Constant(2.).per(time::SEC) -> FluxAccum<Sum<f64, 1>>
+	///   // equivalent to `b+2t` where `b` is [`Self::basis`] and `t` is time.
+	///   
+	///   accum + Sum(1., [2., 3.]).per(time::SEC) -> FluxAccum<Sum<f64, 3>>
+	///   // b + int_0^t (1 + 2x + 3x^2) dt -> b + t + t^2 + t^3
+	///   // https://www.desmos.com/calculator/gwvvkwuhy1
+	///   ```
+	///   
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
+	
+	/// Produces a moment in the timeline of this type.
 	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment;
+	
+	/// Assigns to this type from a single moment.
 	fn set_moment(&mut self, time: Time, moment: Self::Moment);
+	
+	/// Produces this type from a single moment.
 	fn from_moment(moment: Self::Moment) -> Self;
 }
 
