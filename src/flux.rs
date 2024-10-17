@@ -45,7 +45,7 @@ where
 pub type FluxOf<T: Flux> = FluxValue<T>;
 
 /// Immutable moment-in-time interface for [`Flux::at`].
-pub struct MomentRef<'b, M: Flux> {
+pub struct Moment<'b, M: Flux> {
 	moment: M::Moment,
 	borrow: std::marker::PhantomData<&'b M>,
 }
@@ -53,16 +53,16 @@ pub struct MomentRef<'b, M: Flux> {
 mod _moment_ref_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::Deref;
-	use super::{Flux, MomentRef};
+	use super::{Flux, Moment};
 	
-	impl<M: Flux> Deref for MomentRef<'_, M> {
+	impl<M: Flux> Deref for Moment<'_, M> {
 		type Target = M::Moment;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<M: Flux> Debug for MomentRef<'_, M>
+	impl<M: Flux> Debug for Moment<'_, M>
 	where
 		M::Moment: Debug
 	{
@@ -71,7 +71,7 @@ mod _moment_ref_impls {
 		}
 	}
 	
-	impl<M: Flux> Display for MomentRef<'_, M>
+	impl<M: Flux> Display for Moment<'_, M>
 	where
 		M::Moment: Display
 	{
@@ -159,7 +159,7 @@ mod bevy_moment {
 	type Mut<'b, M> = &'b mut FluxValue<M>;
 	
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
-	unsafe impl<'b, M> QueryData for MomentRef<'b, M>
+	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
 		M: Flux,
 		FluxValue<M>: Component + Clone,
@@ -168,31 +168,31 @@ mod bevy_moment {
 	}
 	
 	/// SAFETY: access is read only.
-	unsafe impl<'b, M> ReadOnlyQueryData for MomentRef<'b, M>
+	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
 		M: Flux,
 		FluxValue<M>: Component + Clone,
 	{}
 	
-	/// SAFETY: access of `MomentRef<T>` is a subset of `MomentMut<T>`.
+	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
 		M: Flux,
 		FluxValue<M>: Component + Clone,
 	{
-		type ReadOnly = MomentRef<'b, M>;
+		type ReadOnly = Moment<'b, M>;
 	}
 	
 	/// SAFETY:
 	/// Most safety guarantees are inherited from `impl QueryData for &T`.
 	/// This additionally requests a `Time` resource and takes care of adding
 	/// read access for that resource in `update_component_access`.
-	unsafe impl<'b, M> WorldQuery for MomentRef<'b, M>
+	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
 		M: Flux,
 		FluxValue<M>: Component + Clone,
 	{
-		type Item<'a> = MomentRef<'a, M>;
+		type Item<'a> = Moment<'a, M>;
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
 		type State = (ComponentId, <Ref<'b, M> as WorldQuery>::State);
 		fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -296,11 +296,11 @@ mod bevy_moment {
 	
 	/// `SystemParam` for fetching a resource at the current `Time<Chime>`.
 	pub struct ResMoment<'w, M: Flux> {
-		inner: MomentRef<'w, M>,
+		inner: Moment<'w, M>,
 	}
 	
 	impl<'w, M: Flux> Deref for ResMoment<'w, M> {
-		type Target = MomentRef<'w, M>;
+		type Target = Moment<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
 		}
@@ -642,7 +642,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, Flux, MomentMut, MomentRef};
+	use crate::{Constant, Flux, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -701,12 +701,12 @@ mod _flux_value_impls {
 		}
 		
 		/// A reference to a moment in the timeline.
-		pub fn at(&self, time: Time) -> MomentRef<A>
+		pub fn at(&self, time: Time) -> Moment<A>
 		where
 			Self: Clone
 		{
 			let moment = self.clone().to_moment(time);
-			MomentRef {
+			Moment {
 				moment,
 				borrow: std::marker::PhantomData,
 			}
