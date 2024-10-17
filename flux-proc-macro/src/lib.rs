@@ -333,11 +333,11 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			};
 		}
 		
-		 // Copy Types:
+		 // Clone Types:
 		else {
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: self.#ident,
+				#ident: self.#ident.clone(),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
