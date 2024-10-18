@@ -309,7 +309,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		if value_idents.contains(&ident.unraw()) {
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::Basis::from_inner(#flux::FluxValue::eval(&#flux::FluxValue::new(self, basis_time), time)),
+				#ident: #flux::linear::Basis::from_inner(#flux::FluxValue::eval(&#flux::FluxValue::new(self, basis_time), to_time)),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -322,7 +322,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let field_ty = &field.ty;
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::Flux::to_moment(&self.#ident, basis_time, time),
+				#ident: #flux::Flux::to_moment_test(&self.#ident, basis_time, to_time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -365,19 +365,11 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			
-			fn to_moment(&self, basis_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
-				#ident { #moment_fields }
-			}
-			
-			fn set_moment(&mut self, moment: Self::Moment) {
-				*self = moment;
-			}
-			
 			fn from_moment(moment: Self::Moment) -> Self {
 				#ident { #flux_fields }
 			}
 			
-			fn to_moment_test(&self, basis_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
+			fn to_moment_test(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 			

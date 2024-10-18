@@ -605,16 +605,6 @@ mod _change_impls {
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			self.rate.change(accum)
 		}
-		fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
-			Change {
-				rate: self.rate.to_moment(basis_time, time),
-				unit: self.unit,
-			}
-		}
-		fn set_moment(&mut self, moment: Self::Moment) {
-			self.rate.set_moment(moment.rate);
-			self.unit = moment.unit;
-		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			Change {
 				rate: T::from_moment(moment.rate),
@@ -847,12 +837,6 @@ pub trait Flux {
 	///   
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
-	/// Produces a moment in the timeline of this type.
-	fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment;
-	
-	/// Assigns to this type from a single moment.
-	fn set_moment(&mut self, moment: Self::Moment);
-	
 	/// Produces this type from a single moment.
 	fn from_moment(moment: Self::Moment) -> Self;
 	
@@ -921,12 +905,6 @@ mod _constant_impls {
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			accum
-		}
-		fn to_moment(&self, _base_time: Time, _time: Time) -> Self::Moment {
-			self.clone()
-		}
-		fn set_moment(&mut self, moment: Self::Moment) {
-			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment
@@ -1055,16 +1033,6 @@ mod tests {
 				accum = accum + spd.per(SEC);
 			}
 			accum
-		}
-		fn to_moment(&self, basis_time: Time, time: Time) -> Self::Moment {
-			Self {
-				value: FluxValue::new(self, basis_time).eval(time),
-				spd: self.spd.to_moment(basis_time, time),
-				misc: self.misc.to_moment(basis_time, time),
-			}
-		}
-		fn set_moment(&mut self, moment: Self::Moment) {
-			*self = moment;
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment
