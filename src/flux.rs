@@ -766,8 +766,10 @@ pub trait Flux {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
 	
-	/// An interface for a moment in the timeline of this type.
+	/// The immutable interface for a moment in the timeline of this flux.
 	type Moment<'a> where Self: 'a;
+	
+	/// The mutable interface for a moment in the timeline of this flux.
 	type MomentMut<'a> where Self: 'a;
 	
 	/// The starting point of this type's change over time.
@@ -793,10 +795,19 @@ pub trait Flux {
 	///   
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
-	/// ...
+	/// Produces an immutable moment in the timeline of this flux.
+	/// 
+	/// This generally produces an owned value. However, the value should be
+	/// treated as a reference since modifying it has no effect on the original
+	/// flux. This is enforced by [`Moment`] ([`FluxValue::at`]).
 	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_>;
+	// !!! Make this unit-agnostic by passing in an f64 or similar.
 	
-	/// ...
+	/// Produces a mutable moment in the timeline of this flux.
+	/// 
+	/// This should permanently shift the basis of the flux and generally return
+	/// the moment by reference, unlike [`Self::to_moment`]. If not, this is
+	/// enforced by [`MomentMut`] ([`FluxValue::at_mut`]).
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
 	
 	/// Temporary convenience for constructing a [`FluxValue<Self>`].
