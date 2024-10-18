@@ -621,6 +621,18 @@ mod _change_impls {
 				unit: moment.unit,
 			}
 		}
+		fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+			Change {
+				rate: self.rate.to_moment_test(basis_time, to_time),
+				unit: self.unit,
+			}
+		}
+		fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+			Change {
+				rate: self.rate.to_moment_mut_test(basis_time, to_time),
+				unit: self.unit,
+			}
+		}
 	}
 }
 
@@ -845,20 +857,10 @@ pub trait Flux {
 	fn from_moment(moment: Self::Moment) -> Self;
 	
 	/// ...
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment
-	where
-		Self: Sized,
-	{
-		todo!()
-	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment;
 	
 	/// ...
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>
-	where
-		Self: Sized,
-	{
-		todo!()
-	}
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
 }
 
 /// ...
@@ -928,6 +930,12 @@ mod _constant_impls {
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment
+		}
+		fn to_moment_test(&self, _basis_time: Time, _to_time: Time) -> Self::Moment {
+			self.clone()
+		}
+		fn to_moment_mut_test(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
+			self
 		}
 	}
 	
@@ -1060,6 +1068,17 @@ mod tests {
 		}
 		fn from_moment(moment: Self::Moment) -> Self {
 			moment
+		}
+		fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+			Self {
+				value: FluxValue::new(self, basis_time).eval(to_time),
+				spd: self.spd.to_moment_test(basis_time, to_time),
+				misc: self.misc.to_moment_test(basis_time, to_time),
+			}
+		}
+		fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+			*self = self.to_moment_test(basis_time, to_time);
+			self
 		}
 	}
 	

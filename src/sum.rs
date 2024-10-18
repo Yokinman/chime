@@ -126,6 +126,28 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment
 	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		let mut sum = self.clone();
+		sum.to_moment_mut_test(basis_time, to_time);
+		sum
+	}
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		let secs = if to_time > basis_time {
+			(to_time - basis_time).as_secs_f64()
+		} else {
+			-(basis_time - to_time).as_secs_f64()
+		};
+		if secs == 0. {
+			return self
+		}
+		let mut deriv = self.clone();
+		self.0 = T::from_inner(deriv.eval(Scalar::from(secs)));
+		for degree in 1..=D {
+			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
+			self.1[degree-1] = T::from_inner(deriv.eval(Scalar::from(secs)));
+		}
+		self
+	}
 }
 
 impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {

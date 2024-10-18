@@ -13,7 +13,7 @@ where
 	T: Flux,
 {
 	type Moment = T::Moment;
-	type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
+	type MomentMut<'a> = () where Self: 'a;
 	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		T::basis(self)
@@ -30,6 +30,10 @@ where
 	fn from_moment(_moment: Self::Moment) -> Self {
 		unimplemented!()
 	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		T::to_moment_test(self, basis_time, to_time)
+	}
+	fn to_moment_mut_test(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
 }
 
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
@@ -61,6 +65,12 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	}
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.map(T::from_moment)
+	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		self.each_ref().map(|x| x.to_moment_test(basis_time, to_time))
+	}
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		self.each_mut().map(|x| x.to_moment_mut_test(basis_time, to_time))
 	}
 }
 
@@ -102,6 +112,16 @@ impl<T: Flux> Flux for Vec<T> {
 			.map(T::from_moment)
 			.collect()
 	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		self.iter()
+			.map(|x| x.to_moment_test(basis_time, to_time))
+			.collect()
+	}
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		self.iter_mut()
+			.map(|x| x.to_moment_mut_test(basis_time, to_time))
+			.collect()
+	}
 }
 
 impl<K, V> Flux for HashMap<K, V>
@@ -134,6 +154,16 @@ where
 	fn from_moment(moment: Self::Moment) -> Self {
 		moment.into_iter()
 			.map(|(k, v)| (k, V::from_moment(v)))
+			.collect()
+	}
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		self.iter()
+			.map(|(k, v)| (k.clone(), v.to_moment_test(basis_time, to_time)))
+			.collect()
+	}
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		self.iter_mut()
+			.map(|(k, v)| (k, v.to_moment_mut_test(basis_time, to_time)))
 			.collect()
 	}
 }

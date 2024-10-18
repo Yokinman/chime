@@ -376,6 +376,15 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fn from_moment(moment: Self::Moment) -> Self {
 				#ident { #flux_fields }
 			}
+			
+			fn to_moment_test(&self, basis_time: #flux::time::Time, time: #flux::time::Time) -> Self::Moment {
+				#ident { #moment_fields }
+			}
+			
+			fn to_moment_mut_test(&mut self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::MomentMut<'_> {
+				*self = #flux::Flux::to_moment_test(self, basis_time, to_time);
+				self
+			}
 		}
 	};
 	
