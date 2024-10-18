@@ -694,7 +694,7 @@ mod _flux_value_impls {
 		
 		/// A moment in the timeline.
 		pub fn to_moment(&self, time: Time) -> A::Moment {
-			self.flux.to_moment(self.time, time)
+			self.flux.to_moment_test(self.time, time)
 		}
 		
 		/// Sets a moment in the timeline (affects all moments).

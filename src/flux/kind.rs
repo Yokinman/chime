@@ -22,8 +22,9 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	
 	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner;
 	
-	fn to_time(self, basis_time: Time, time: Time) -> Self {
-		Self::from_moment(self.to_moment(basis_time, time))
+	fn to_time(mut self, basis_time: Time, time: Time) -> Self {
+		let _ = self.to_moment_mut_test(basis_time, time);
+		self
 	}
 	
 	/// The order at or immediately preceding the value at a time.
