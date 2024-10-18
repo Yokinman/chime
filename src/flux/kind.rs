@@ -16,7 +16,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	
 	fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self;
 	
-	fn add_value(self, value: <Self::Basis as Basis>::Inner) -> Self;
+	fn add_basis(self, value: <Self::Basis as Basis>::Inner) -> Self;
 	
 	fn deriv(self) -> Self;
 	
@@ -165,9 +165,9 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self {
 		value.map(T::with_basis)
 	}
-	fn add_value(self, value: <Self::Basis as Basis>::Inner) -> Self {
+	fn add_basis(self, value: <Self::Basis as Basis>::Inner) -> Self {
 		let mut values = value.into_iter();
-		self.map(|x| x.add_value(values.next().unwrap()))
+		self.map(|x| x.add_basis(values.next().unwrap()))
 	}
 	fn deriv(self) -> Self {
 		self.map(T::deriv)

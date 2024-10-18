@@ -879,7 +879,7 @@ mod _constant_impls {
 		fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self {
 			Constant(T::from_inner(value))
 		}
-		fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
+		fn add_basis(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
 			self.0 = T::from_inner(self.0.into_inner().add(value));
 			self
 		}
@@ -927,7 +927,7 @@ mod _constant_impls {
 	{
 		type Output = B;
 		fn add(self, rhs: B) -> Self::Output {
-			rhs.add_value(self.0.into_inner())
+			rhs.add_basis(self.0.into_inner())
 		}
 	}
 	

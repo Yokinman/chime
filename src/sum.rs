@@ -135,7 +135,7 @@ impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
 		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
 	}
 	
-	fn add_value(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
+	fn add_basis(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
 		self.0 = T::from_inner(self.0.into_inner().add(value));
 		self
 	}
