@@ -365,10 +365,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			
-			fn from_moment(moment: Self::Moment) -> Self {
-				#ident { #flux_fields }
-			}
-			
 			fn to_moment_test(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}

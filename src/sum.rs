@@ -102,9 +102,6 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn from_moment(moment: Self::Moment) -> Self {
-		moment
-	}
 	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		let mut sum = self.clone();
 		sum.to_moment_mut_test(basis_time, to_time);

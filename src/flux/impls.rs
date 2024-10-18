@@ -21,9 +21,6 @@ where
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
-	fn from_moment(_moment: Self::Moment) -> Self {
-		unimplemented!()
-	}
 	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		T::to_moment_test(self, basis_time, to_time)
 	}
@@ -48,9 +45,6 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 			poly: Poly::new(poly, poly_time),
 			time,
 		}
-	}
-	fn from_moment(moment: Self::Moment) -> Self {
-		moment.map(T::from_moment)
 	}
 	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		self.each_ref().map(|x| x.to_moment_test(basis_time, to_time))
@@ -82,11 +76,6 @@ impl<T: Flux> Flux for Vec<T> {
 		// changes
 		todo!()
 	}
-	fn from_moment(moment: Self::Moment) -> Self {
-		moment.into_iter()
-			.map(T::from_moment)
-			.collect()
-	}
 	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		self.iter()
 			.map(|x| x.to_moment_test(basis_time, to_time))
@@ -112,11 +101,6 @@ where
 	}
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
-	}
-	fn from_moment(moment: Self::Moment) -> Self {
-		moment.into_iter()
-			.map(|(k, v)| (k, V::from_moment(v)))
-			.collect()
 	}
 	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		self.iter()
