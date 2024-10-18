@@ -354,6 +354,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
 			type Moment = #ident #ty_generics;
+			type MomentMut<'a> = &'a mut #ident #ty_generics where Self: 'a;
 			type Kind = #kind_type;
 			
 			fn basis(&self)

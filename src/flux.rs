@@ -597,6 +597,7 @@ mod _change_impls {
 	
 	impl<T: Flux> Flux for Change<T> {
 		type Moment = Change<T::Moment>;
+		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
 		type Kind = T::Kind;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.rate.basis()
@@ -806,6 +807,7 @@ mod _flux_value_impls {
 pub trait Flux {
 	/// An interface for a moment in the timeline of this type.
 	type Moment;
+	type MomentMut<'a> where Self: 'a;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
@@ -841,6 +843,34 @@ pub trait Flux {
 	
 	/// Produces this type from a single moment.
 	fn from_moment(moment: Self::Moment) -> Self;
+	
+	/// ...
+	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment
+	where
+		Self: Sized,
+	{
+		todo!()
+	}
+	
+	/// ...
+	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>
+	where
+		Self: Sized,
+	{
+		todo!()
+	}
+}
+
+/// ...
+pub struct TestMoment<'a, T: Flux> {
+	inner: T::Moment,
+	borrow: std::marker::PhantomData<&'a T>,
+}
+
+/// ...
+pub struct TestMomentMut<'a, T: Flux> {
+	inner: T::MomentMut<'a>,
+	borrow: std::marker::PhantomData<&'a mut T>,
 }
 
 /// No change over time.
@@ -882,6 +912,7 @@ mod _constant_impls {
 	
 	impl<T: Basis> Flux for Constant<T> {
 		type Moment = Self;
+		type MomentMut<'a> = &'a mut Self;
 		type Kind = Self;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.0.clone().into_inner()
@@ -1005,6 +1036,7 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Moment = Self;
+		type MomentMut<'a> = &'a mut Self;
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.value
