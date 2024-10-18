@@ -697,7 +697,7 @@ mod _flux_value_impls {
 		pub fn poly(&self, time: Time) -> Poly<A::Kind> {
 			self.flux
 				.change(FluxAccum {
-					poly: Poly::new(Constant::with_basis(self.eval(time)), time),
+					poly: Poly::new(Constant(Basis::from_inner(self.eval(time))), time),
 					time: self.time,
 				})
 				.poly
@@ -876,8 +876,8 @@ mod _constant_impls {
 	impl<T: Basis> FluxKind for Constant<T> {
 		type Basis = T;
 		const DEGREE: usize = 0;
-		fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self {
-			Constant(T::from_inner(value))
+		fn with_basis(value: Self::Basis) -> Self {
+			Constant(value)
 		}
 		fn add_basis(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
 			self.0 = T::from_inner(self.0.into_inner().add(value));

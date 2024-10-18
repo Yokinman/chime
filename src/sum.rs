@@ -37,7 +37,7 @@ impl<T: Basis, const D: usize> Sum<T, D> {
 
 impl<T: Basis, const D: usize> From<T> for Sum<T, D> {
 	fn from(value: T) -> Self {
-		Self::with_basis(value.into_inner())
+		Self::with_basis(value)
 	}
 }
 
@@ -131,8 +131,8 @@ impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
 	
 	const DEGREE: usize = D;
 	
-	fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self {
-		Self(T::from_inner(value), std::array::from_fn(|_| T::zero()))
+	fn with_basis(value: Self::Basis) -> Self {
+		Self(value, std::array::from_fn(|_| T::zero()))
 	}
 	
 	fn add_basis(mut self, value: <Self::Basis as Basis>::Inner) -> Self {
