@@ -81,7 +81,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
-	type Integ: FluxKind<Basis: Basis<Inner = KindLinear<Self>>>;
+	type Integ: FluxKind<Basis = <Self::Kind as FluxKind>::Basis>;
 	fn integ(self) -> Self::Integ;
 }
 
