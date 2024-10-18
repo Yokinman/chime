@@ -102,12 +102,12 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		let mut sum = self.clone();
-		sum.to_moment_mut_test(basis_time, to_time);
+		sum.to_moment_mut(basis_time, to_time);
 		sum
 	}
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		let secs = if to_time > basis_time {
 			(to_time - basis_time).as_secs_f64()
 		} else {

@@ -322,7 +322,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let field_ty = &field.ty;
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::Flux::to_moment_test(&self.#ident, basis_time, to_time),
+				#ident: #flux::Flux::to_moment(&self.#ident, basis_time, to_time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -365,12 +365,12 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			
-			fn to_moment_test(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment {
+			fn to_moment(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment {
 				#ident { #moment_fields }
 			}
 			
-			fn to_moment_mut_test(&mut self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::MomentMut<'_> {
-				*self = #flux::Flux::to_moment_test(self, basis_time, to_time);
+			fn to_moment_mut(&mut self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::MomentMut<'_> {
+				*self = #flux::Flux::to_moment(self, basis_time, to_time);
 				self
 			}
 		}

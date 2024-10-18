@@ -23,7 +23,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner;
 	
 	fn to_time(mut self, basis_time: Time, time: Time) -> Self {
-		let _ = self.to_moment_mut_test(basis_time, time);
+		let _ = self.to_moment_mut(basis_time, time);
 		self
 	}
 	

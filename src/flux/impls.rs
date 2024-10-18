@@ -21,10 +21,10 @@ where
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
-		T::to_moment_test(self, basis_time, to_time)
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		T::to_moment(self, basis_time, to_time)
 	}
-	fn to_moment_mut_test(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
+	fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
 }
 
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
@@ -46,11 +46,11 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 			time,
 		}
 	}
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
-		self.each_ref().map(|x| x.to_moment_test(basis_time, to_time))
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		self.each_ref().map(|x| x.to_moment(basis_time, to_time))
 	}
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
-		self.each_mut().map(|x| x.to_moment_mut_test(basis_time, to_time))
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		self.each_mut().map(|x| x.to_moment_mut(basis_time, to_time))
 	}
 }
 
@@ -76,14 +76,14 @@ impl<T: Flux> Flux for Vec<T> {
 		// changes
 		todo!()
 	}
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		self.iter()
-			.map(|x| x.to_moment_test(basis_time, to_time))
+			.map(|x| x.to_moment(basis_time, to_time))
 			.collect()
 	}
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		self.iter_mut()
-			.map(|x| x.to_moment_mut_test(basis_time, to_time))
+			.map(|x| x.to_moment_mut(basis_time, to_time))
 			.collect()
 	}
 }
@@ -102,14 +102,14 @@ where
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 		self.iter()
-			.map(|(k, v)| (k.clone(), v.to_moment_test(basis_time, to_time)))
+			.map(|(k, v)| (k.clone(), v.to_moment(basis_time, to_time)))
 			.collect()
 	}
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		self.iter_mut()
-			.map(|(k, v)| (k, v.to_moment_mut_test(basis_time, to_time)))
+			.map(|(k, v)| (k, v.to_moment_mut(basis_time, to_time)))
 			.collect()
 	}
 }

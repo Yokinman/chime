@@ -573,15 +573,15 @@ mod _change_impls {
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			self.rate.change(accum)
 		}
-		fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 			Change {
-				rate: self.rate.to_moment_test(basis_time, to_time),
+				rate: self.rate.to_moment(basis_time, to_time),
 				unit: self.unit,
 			}
 		}
-		fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 			Change {
-				rate: self.rate.to_moment_mut_test(basis_time, to_time),
+				rate: self.rate.to_moment_mut(basis_time, to_time),
 				unit: self.unit,
 			}
 		}
@@ -646,13 +646,13 @@ mod _flux_value_impls {
 		
 		/// A moment in the timeline.
 		pub fn to_moment(&self, time: Time) -> A::Moment {
-			self.flux.to_moment_test(self.time, time)
+			self.flux.to_moment(self.time, time)
 		}
 		
 		/// A reference to a moment in the timeline.
 		pub fn at(&self, time: Time) -> Moment<A> {
 			Moment {
-				moment: self.flux.to_moment_test(self.time, time),
+				moment: self.flux.to_moment(self.time, time),
 				borrow: std::marker::PhantomData,
 			}
 		}
@@ -674,7 +674,7 @@ mod _flux_value_impls {
 		pub fn at_mut(&mut self, time: Time) -> MomentMut<A> {
 			let basis_time = std::mem::replace(&mut self.time, time);
 			MomentMut {
-				moment: self.flux.to_moment_mut_test(basis_time, time),
+				moment: self.flux.to_moment_mut(basis_time, time),
 				borrow: std::marker::PhantomData,
 			}
 		}
@@ -790,10 +790,10 @@ pub trait Flux {
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
 	/// ...
-	fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment;
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment;
 	
 	/// ...
-	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
 	
 	/// Temporary convenience for constructing a [`FluxValue<Self>`].
 	fn to_flux_value(self, time: Time) -> FluxValue<Self>
@@ -863,10 +863,10 @@ mod _constant_impls {
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			accum
 		}
-		fn to_moment_test(&self, _basis_time: Time, _to_time: Time) -> Self::Moment {
+		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment {
 			self.clone()
 		}
-		fn to_moment_mut_test(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
 			self
 		}
 	}
@@ -988,15 +988,15 @@ mod tests {
 			}
 			accum
 		}
-		fn to_moment_test(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
 			Self {
 				value: FluxValue::new(self, basis_time).eval(to_time),
-				spd: self.spd.to_moment_test(basis_time, to_time),
-				misc: self.misc.to_moment_test(basis_time, to_time),
+				spd: self.spd.to_moment(basis_time, to_time),
+				misc: self.misc.to_moment(basis_time, to_time),
 			}
 		}
-		fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
-			*self = self.to_moment_test(basis_time, to_time);
+		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+			*self = self.to_moment(basis_time, to_time);
 			self
 		}
 	}
