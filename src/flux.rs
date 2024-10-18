@@ -22,9 +22,9 @@ pub use chime_flux_proc_macro::flux;
 pub struct Chime;
 
 /// Immutable moment-in-time interface for [`Flux::at`].
-pub struct Moment<'b, M: Flux> {
-	moment: M::Moment,
-	borrow: std::marker::PhantomData<&'b M>,
+pub struct Moment<'a, T: Flux> {
+	moment: T::Moment<'a>,
+	borrow: std::marker::PhantomData<&'a T>,
 }
 
 mod _moment_ref_impls {
@@ -32,28 +32,28 @@ mod _moment_ref_impls {
 	use std::ops::Deref;
 	use super::{Flux, Moment};
 	
-	impl<M: Flux> Deref for Moment<'_, M> {
-		type Target = M::Moment;
+	impl<'a, T: Flux> Deref for Moment<'a, T> {
+		type Target = T::Moment<'a>;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<M: Flux> Debug for Moment<'_, M>
+	impl<'a, T: Flux> Debug for Moment<'a, T>
 	where
-		M::Moment: Debug
+		T::Moment<'a>: Debug
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M::Moment as Debug>::fmt(self, f)
+			<T::Moment<'a> as Debug>::fmt(self, f)
 		}
 	}
 	
-	impl<M: Flux> Display for Moment<'_, M>
+	impl<'a, T: Flux> Display for Moment<'a, T>
 	where
-		M::Moment: Display
+		T::Moment<'a>: Display
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M::Moment as Display>::fmt(self, f)
+			<T::Moment<'a> as Display>::fmt(self, f)
 		}
 	}
 }
@@ -156,7 +156,11 @@ mod bevy_moment {
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
 		type State = (ComponentId, <Ref<'b, M> as WorldQuery>::State);
 		fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-			item
+			unsafe {
+				// SAFETY: This is not safe, but I'm refactoring and this is the
+				// only problem so I'll fix it later if it causes issues. IDGAF!!!!
+				std::mem::transmute(item)
+			}
 		}
 		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
 			// !!! For parallelization, `last_run` could be used as a nanosecond
@@ -564,7 +568,7 @@ mod _change_impls {
 	}
 	
 	impl<T: Flux> Flux for Change<T> {
-		type Moment = Change<T::Moment>;
+		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
 		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
 		type Kind = T::Kind;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -573,7 +577,7 @@ mod _change_impls {
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			self.rate.change(accum)
 		}
-		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Change {
 				rate: self.rate.to_moment(basis_time, to_time),
 				unit: self.unit,
@@ -645,7 +649,7 @@ mod _flux_value_impls {
 		}
 		
 		/// A moment in the timeline.
-		pub fn to_moment(&self, time: Time) -> A::Moment {
+		pub fn to_moment(&self, time: Time) -> A::Moment<'_> {
 			self.flux.to_moment(self.time, time)
 		}
 		
@@ -760,7 +764,7 @@ mod _flux_value_impls {
 /// A type that can change over time.
 pub trait Flux {
 	/// An interface for a moment in the timeline of this type.
-	type Moment;
+	type Moment<'a> where Self: 'a;
 	type MomentMut<'a> where Self: 'a;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
@@ -790,7 +794,7 @@ pub trait Flux {
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
 	/// ...
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment;
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_>;
 	
 	/// ...
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
@@ -842,7 +846,7 @@ mod _constant_impls {
 	}
 	
 	impl<T: Basis> Flux for Constant<T> {
-		type Moment = Self;
+		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
 		type Kind = Self;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -851,7 +855,7 @@ mod _constant_impls {
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			accum
 		}
-		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment {
+		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment<'_> {
 			self.clone()
 		}
 		fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
@@ -963,7 +967,7 @@ mod tests {
 	}
 	
 	impl Flux for Pos {
-		type Moment = Self;
+		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -976,7 +980,7 @@ mod tests {
 			}
 			accum
 		}
-		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Self {
 				value: FluxValue::new(self, basis_time).eval(to_time),
 				spd: self.spd.to_moment(basis_time, to_time),

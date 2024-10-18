@@ -353,7 +353,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		#item
 		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
-			type Moment = #ident #ty_generics;
+			type Moment<'a> = #ident #ty_generics;
 			type MomentMut<'a> = &'a mut #ident #ty_generics where Self: 'a;
 			type Kind = #kind_type;
 			
@@ -365,7 +365,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
 			
-			fn to_moment(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment {
+			fn to_moment(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment<'_> {
 				#ident { #moment_fields }
 			}
 			

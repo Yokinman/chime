@@ -90,7 +90,7 @@ impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 }
 
 impl<T: Basis, const D: usize> Flux for Sum<T, D> {
-	type Moment = Self;
+	type Moment<'a> = Self;
 	type MomentMut<'a> = &'a mut Self;
 	type Kind = Self;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -102,7 +102,7 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 			time: accum.time,
 		}
 	}
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		let mut sum = self.clone();
 		sum.to_moment_mut(basis_time, to_time);
 		sum

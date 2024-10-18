@@ -12,7 +12,7 @@ impl<'t, T> Flux for &'t T
 where
 	T: Flux,
 {
-	type Moment = T::Moment;
+	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	type MomentMut<'a> = () where Self: 'a;
 	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -21,14 +21,14 @@ where
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		T::change(self, accum)
 	}
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		T::to_moment(self, basis_time, to_time)
 	}
 	fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
 }
 
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
-	type Moment = [T::Moment; SIZE];
+	type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
 	type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
 	type Kind = [T::Kind; SIZE];
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -46,7 +46,7 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 			time,
 		}
 	}
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		self.each_ref().map(|x| x.to_moment(basis_time, to_time))
 	}
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
@@ -58,7 +58,7 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 
 // !!! Make underlying linear type a Vec, instead of this just being a convenience.
 impl<T: Flux> Flux for Vec<T> {
-	type Moment = Vec<T::Moment>;
+	type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = Vec<T::MomentMut<'a>> where Self: 'a;
 	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -76,7 +76,7 @@ impl<T: Flux> Flux for Vec<T> {
 		// changes
 		todo!()
 	}
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		self.iter()
 			.map(|x| x.to_moment(basis_time, to_time))
 			.collect()
@@ -90,10 +90,10 @@ impl<T: Flux> Flux for Vec<T> {
 
 impl<K, V> Flux for HashMap<K, V>
 where
-	K: std::hash::Hash + Eq + Clone,
+	K: std::hash::Hash + Eq,
 	V: Flux,
 {
-	type Moment = HashMap<K, V::Moment>;
+	type Moment<'a> = HashMap<&'a K, V::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = HashMap<&'a K, V::MomentMut<'a>> where Self: 'a;
 	type Kind = V::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
@@ -102,9 +102,9 @@ where
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		todo!()
 	}
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment {
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		self.iter()
-			.map(|(k, v)| (k.clone(), v.to_moment(basis_time, to_time)))
+			.map(|(k, v)| (k, v.to_moment(basis_time, to_time)))
 			.collect()
 	}
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
