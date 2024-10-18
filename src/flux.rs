@@ -655,14 +655,6 @@ mod _flux_value_impls {
 			self.flux.to_moment_test(self.time, time)
 		}
 		
-		/// Sets a moment in the timeline (affects all moments).
-		pub fn set_moment(&mut self, time: Time, moment: A::Moment)
-		where
-			Self: Sized
-		{
-			*self = FluxValue::new(A::from_moment(moment), time);
-		}
-		
 		/// A reference to a moment in the timeline.
 		pub fn at(&self, time: Time) -> Moment<A> {
 			Moment {
