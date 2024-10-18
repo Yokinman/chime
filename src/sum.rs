@@ -93,8 +93,8 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	type Kind = Self;
 	type Moment<'a> = Self;
 	type MomentMut<'a> = &'a mut Self;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
-		self.eval(Scalar::from(0.))
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+		self.0.clone()
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		FluxAccum {
@@ -198,7 +198,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = A::from_inner(self.0.into_inner().add(rhs.basis()));
+		self.0 = A::from_inner(self.0.into_inner().add(rhs.basis().into_inner()));
 		self
 	}
 }

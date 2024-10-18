@@ -591,7 +591,7 @@ mod _iso_impls {
 
 /// ...
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
-pub struct BasisArray<T, const N: usize>([T; N]);
+pub struct BasisArray<T, const N: usize>(pub(crate) [T; N]);
 
 /// ... [`<BasisArray as IntoIterator>::IntoIter`]
 pub struct BasisArrayIter<T, const N: usize>(std::array::IntoIter<T, N>);

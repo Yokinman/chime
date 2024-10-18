@@ -15,7 +15,7 @@ where
 	type Kind = T::Kind;
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	type MomentMut<'a> = () where Self: 'a;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		T::basis(self)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -34,7 +34,7 @@ where
 	type Kind = T::Kind;
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		T::basis(self)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -52,8 +52,8 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	type Kind = [T::Kind; SIZE];
 	type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
 	type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
-		self.each_ref().map(T::basis)
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+		crate::linear::BasisArray(self.each_ref().map(T::basis))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		let FluxAccum { poly, time } = accum;
@@ -82,12 +82,12 @@ impl<T: Flux> Flux for Vec<T> {
 	type Kind = T::Kind;
 	type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = Vec<T::MomentMut<'a>> where Self: 'a;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		let mut value: <<T::Kind as FluxKind>::Basis as Basis>::Inner = Linear::zero();
 		for item in self {
-			value = value.add(item.basis());
+			value = value.add(item.basis().into_inner());
 		}
-		value
+		Basis::from_inner(value)
 	}
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		// let mut accum = accum.into();
@@ -117,7 +117,7 @@ where
 	type Kind = V::Kind;
 	type Moment<'a> = HashMap<&'a K, V::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = HashMap<&'a K, V::MomentMut<'a>> where Self: 'a;
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		todo!()
 	}
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {

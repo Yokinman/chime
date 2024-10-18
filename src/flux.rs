@@ -554,7 +554,6 @@ pub struct Change<T> {
 
 mod _change_impls {
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
-	use crate::linear::Basis;
 	use crate::time::Time;
 	use super::{Change, Flux};
 
@@ -571,7 +570,7 @@ mod _change_impls {
 		type Kind = T::Kind;
 		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
 		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
-		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.rate.basis()
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -639,7 +638,7 @@ mod _flux_value_impls {
 		}
 		
 		/// An evaluation of this flux at some point in time.
-		pub fn basis(&self) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
+		pub fn basis(&self) -> <A::Kind as FluxKind>::Basis {
 			self.flux.basis()
 		}
 		
@@ -689,7 +688,7 @@ mod _flux_value_impls {
 		pub fn eval(&self, time: Time) -> <<A::Kind as FluxKind>::Basis as Basis>::Inner {
 			let basis_time = self.basis_time();
 			if time == basis_time {
-				return self.basis()
+				return self.basis().into_inner()
 			}
 			self.poly(basis_time).eval(time)
 		}
@@ -773,7 +772,7 @@ pub trait Flux {
 	type MomentMut<'a> where Self: 'a;
 	
 	/// The starting point of this type's change over time.
-	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
+	fn basis(&self) -> <Self::Kind as FluxKind>::Basis;
 	
 	/// Applies the change of this type to an accumulator.
 	/// 
@@ -860,8 +859,8 @@ mod _constant_impls {
 		type Kind = Self;
 		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
-		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
-			self.0.clone().into_inner()
+		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+			self.0.clone()
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			accum
@@ -981,7 +980,7 @@ mod tests {
 		type Kind = Sum<f64, 4>;
 		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
-		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.value
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
