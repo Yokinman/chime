@@ -12,9 +12,9 @@ impl<'t, T> Flux for &'t T
 where
 	T: Flux,
 {
+	type Kind = T::Kind;
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	type MomentMut<'a> = () where Self: 'a;
-	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		T::basis(self)
 	}
@@ -31,9 +31,9 @@ impl<'t, T> Flux for &'t mut T
 where
 	T: Flux,
 {
+	type Kind = T::Kind;
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
-	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		T::basis(self)
 	}
@@ -49,9 +49,9 @@ where
 }
 
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
+	type Kind = [T::Kind; SIZE];
 	type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
 	type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
-	type Kind = [T::Kind; SIZE];
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		self.each_ref().map(T::basis)
 	}
@@ -79,9 +79,9 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 
 // !!! Make underlying linear type a Vec, instead of this just being a convenience.
 impl<T: Flux> Flux for Vec<T> {
+	type Kind = T::Kind;
 	type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = Vec<T::MomentMut<'a>> where Self: 'a;
-	type Kind = T::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		let mut value: <<T::Kind as FluxKind>::Basis as Basis>::Inner = Linear::zero();
 		for item in self {
@@ -114,9 +114,9 @@ where
 	K: std::hash::Hash + Eq,
 	V: Flux,
 {
+	type Kind = V::Kind;
 	type Moment<'a> = HashMap<&'a K, V::Moment<'a>> where Self: 'a;
 	type MomentMut<'a> = HashMap<&'a K, V::MomentMut<'a>> where Self: 'a;
-	type Kind = V::Kind;
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 		todo!()
 	}

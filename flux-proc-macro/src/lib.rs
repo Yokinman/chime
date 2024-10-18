@@ -353,9 +353,9 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		#item
 		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
+			type Kind = #kind_type;
 			type Moment<'a> = #ident #ty_generics;
 			type MomentMut<'a> = &'a mut #ident #ty_generics where Self: 'a;
-			type Kind = #kind_type;
 			
 			fn basis(&self)
 				-> <<Self::Kind as #flux::kind::FluxKind>::Basis as #flux::linear::Basis>::Inner

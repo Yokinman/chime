@@ -568,9 +568,9 @@ mod _change_impls {
 	}
 	
 	impl<T: Flux> Flux for Change<T> {
+		type Kind = T::Kind;
 		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
 		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
-		type Kind = T::Kind;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.rate.basis()
 		}
@@ -763,12 +763,12 @@ mod _flux_value_impls {
 
 /// A type that can change over time.
 pub trait Flux {
+	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
+	type Kind: FluxKind;
+	
 	/// An interface for a moment in the timeline of this type.
 	type Moment<'a> where Self: 'a;
 	type MomentMut<'a> where Self: 'a;
-	
-	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
-	type Kind: FluxKind;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner;
@@ -846,9 +846,9 @@ mod _constant_impls {
 	}
 	
 	impl<T: Basis> Flux for Constant<T> {
+		type Kind = Self;
 		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
-		type Kind = Self;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.0.clone().into_inner()
 		}
@@ -967,9 +967,9 @@ mod tests {
 	}
 	
 	impl Flux for Pos {
+		type Kind = Sum<f64, 4>;
 		type Moment<'a> = Self;
 		type MomentMut<'a> = &'a mut Self;
-		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
 			self.value
 		}
