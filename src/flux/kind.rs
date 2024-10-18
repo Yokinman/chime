@@ -14,7 +14,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	
 	const DEGREE: usize;
 	
-	fn from_value(value: <Self::Basis as Basis>::Inner) -> Self;
+	fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self;
 	
 	fn add_value(self, value: <Self::Basis as Basis>::Inner) -> Self;
 	
@@ -64,7 +64,7 @@ pub trait FluxKind: Flux<Kind=Self> + Clone + Debug + 'static {
 	}
 	
 	fn zero() -> Self {
-		Self::from_value(Linear::zero())
+		Self::with_basis(Linear::zero())
 	}
 	
 	fn is_zero(&self) -> bool
@@ -162,8 +162,8 @@ where
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	type Basis = BasisArray<T::Basis, SIZE>;
 	const DEGREE: usize = T::DEGREE;
-	fn from_value(value: <Self::Basis as Basis>::Inner) -> Self {
-		value.map(|x| T::from_value(x))
+	fn with_basis(value: <Self::Basis as Basis>::Inner) -> Self {
+		value.map(T::with_basis)
 	}
 	fn add_value(self, value: <Self::Basis as Basis>::Inner) -> Self {
 		let mut values = value.into_iter();
@@ -304,7 +304,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn with_value(value: K::Basis) -> Self {
-		Self::new(K::from_value(value.into_inner()), Time::ZERO)
+		Self::new(K::with_basis(value.into_inner()), Time::ZERO)
 	}
 	
 	pub fn with_time(time: Time) -> Self {
