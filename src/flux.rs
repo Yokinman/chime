@@ -804,18 +804,6 @@ pub trait Flux {
 	}
 }
 
-/// ...
-pub struct TestMoment<'a, T: Flux> {
-	inner: T::Moment,
-	borrow: std::marker::PhantomData<&'a T>,
-}
-
-/// ...
-pub struct TestMomentMut<'a, T: Flux> {
-	inner: T::MomentMut<'a>,
-	borrow: std::marker::PhantomData<&'a mut T>,
-}
-
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
