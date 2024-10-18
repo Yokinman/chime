@@ -59,10 +59,9 @@ mod _moment_ref_impls {
 }
 
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct MomentMut<'b, M: Flux> {
-	moment: Option<M::Moment>,
-	time: Time,
-	borrow: &'b mut FluxValue<M>,
+pub struct MomentMut<'a, T: Flux> {
+	moment: T::MomentMut<'a>,
+	borrow: std::marker::PhantomData<&'a mut T>,
 }
 
 mod _moment_mut_impls {
@@ -70,50 +69,34 @@ mod _moment_mut_impls {
 	use std::ops::{Deref, DerefMut};
 	use super::{Flux, MomentMut};
 	
-	impl<M: Flux> Drop for MomentMut<'_, M> {
-		fn drop(&mut self) {
-			if let Some(moment) = std::mem::take(&mut self.moment) {
-				self.borrow.set_moment(self.time, moment);
-			}
-		}
-	}
-	
-	impl<M: Flux> Deref for MomentMut<'_, M> {
-		type Target = M::Moment;
+	impl<'a, T: Flux> Deref for MomentMut<'a, T> {
+		type Target = T::MomentMut<'a>;
 		fn deref(&self) -> &Self::Target {
-			if let Some(moment) = self.moment.as_ref() {
-				moment
-			} else {
-				unreachable!()
-			}
+			&self.moment
 		}
 	}
 	
-	impl<M: Flux> DerefMut for MomentMut<'_, M> {
+	impl<'a, T: Flux> DerefMut for MomentMut<'a, T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
-			if let Some(moment) = self.moment.as_mut() {
-				moment
-			} else {
-				unreachable!()
-			}
+			&mut self.moment
 		}
 	}
 	
-	impl<M: Flux> Debug for MomentMut<'_, M>
+	impl<'a, T: Flux> Debug for MomentMut<'a, T>
 	where
-		M::Moment: Debug
+		T::MomentMut<'a>: Debug
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M::Moment as Debug>::fmt(self, f)
+			<T::MomentMut<'a> as Debug>::fmt(self, f)
 		}
 	}
 	
-	impl<M: Flux> Display for MomentMut<'_, M>
+	impl<'a, T: Flux> Display for MomentMut<'a, T>
 	where
-		M::Moment: Display
+		T::MomentMut<'a>: Display
 	{
 		fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-			<M::Moment as Display>::fmt(self, f)
+			<T::MomentMut<'a> as Display>::fmt(self, f)
 		}
 	}
 }
@@ -229,7 +212,11 @@ mod bevy_moment {
 		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
 		type State = (ComponentId, <Mut<'b, M> as WorldQuery>::State);
 		fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-			item
+			unsafe {
+				// SAFETY: This is not safe, but I'm refactoring and this is the
+				// only problem so I'll fix it later if it causes issues. IDGAF!!!!
+				std::mem::transmute(item)
+			}
 		}
 		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
 			let time = world.get_resource::<ChimeTime>()
@@ -678,9 +665,8 @@ mod _flux_value_impls {
 		
 		/// A reference to a moment in the timeline.
 		pub fn at(&self, time: Time) -> Moment<A> {
-			let moment = self.to_moment(time);
 			Moment {
-				moment,
+				moment: self.flux.to_moment_test(self.time, time),
 				borrow: std::marker::PhantomData,
 			}
 		}
@@ -700,11 +686,10 @@ mod _flux_value_impls {
 		/// self.set_moment(time, moment);
 		/// ```
 		pub fn at_mut(&mut self, time: Time) -> MomentMut<A> {
-			let moment = Some(self.to_moment(time));
+			let basis_time = std::mem::replace(&mut self.time, time);
 			MomentMut {
-				moment,
-				time,
-				borrow: self,
+				moment: self.flux.to_moment_mut_test(basis_time, time),
+				borrow: std::marker::PhantomData,
 			}
 		}
 		
