@@ -21,25 +21,6 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// Temporary convenience for constructing a [`FluxValue<T>`] from `T::Moment`.
-pub trait FluxMoment {
-	type Flux: Flux<Moment = Self>;
-	
-	fn to_flux_value(self, time: Time) -> FluxValue<Self::Flux>
-	where
-		Self: Sized
-	{
-		FluxValue::new(Self::Flux::from_moment(self), time)
-	}
-}
-
-impl<T> FluxMoment for T
-where
-	T: Flux<Moment = T>
-{
-	type Flux = T;
-}
-
 /// Immutable moment-in-time interface for [`Flux::at`].
 pub struct Moment<'b, M: Flux> {
 	moment: M::Moment,
@@ -845,6 +826,14 @@ pub trait Flux {
 	
 	/// ...
 	fn to_moment_mut_test(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
+	
+	/// Temporary convenience for constructing a [`FluxValue<Self>`].
+	fn to_flux_value(self, time: Time) -> FluxValue<Self>
+	where
+		Self: Sized
+	{
+		FluxValue::new(self, time)
+	}
 }
 
 /// ...
