@@ -27,6 +27,27 @@ where
 	fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
 }
 
+impl<'t, T> Flux for &'t mut T
+where
+	T: Flux,
+{
+	type Moment<'a> = T::Moment<'a> where Self: 'a;
+	type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
+	type Kind = T::Kind;
+	fn basis(&self) -> <<Self::Kind as FluxKind>::Basis as Basis>::Inner {
+		T::basis(self)
+	}
+	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
+		T::change(self, accum)
+	}
+	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
+		T::to_moment(self, basis_time, to_time)
+	}
+	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		T::to_moment_mut(self, basis_time, to_time)
+	}
+}
+
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
 	type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
