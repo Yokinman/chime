@@ -6,7 +6,6 @@ use std::vec::Vec;
 use crate::{Flux, FluxMoment};
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
-use crate::linear::{Linear, Basis};
 
 impl<'t, T> Flux for &'t T
 where
@@ -91,26 +90,6 @@ impl<T: FluxMoment, const SIZE: usize> FluxMoment for [T; SIZE] {
 }
 
 // !!! impl<A: Flux, B: Flux> FluxVec for (A, B)
-
-// !!! Make underlying linear type a Vec, instead of this just being a convenience.
-impl<T: Flux> Flux for Vec<T> {
-	type Kind = T::Kind;
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
-		let mut value: <<T::Kind as FluxKind>::Basis as Basis>::Inner = Linear::zero();
-		for item in self {
-			value = value.add(item.basis().into_inner());
-		}
-		Basis::from_inner(value)
-	}
-	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		// let mut accum = accum.into();
-		// for item in self {
-		// 	changes = item.change(changes);
-		// }
-		// changes
-		todo!()
-	}
-}
 
 impl<T: FluxMoment> FluxMoment for Vec<T> {
 	type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
