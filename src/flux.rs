@@ -771,7 +771,7 @@ mod _flux_value_impls {
 }
 
 /// A type that can change over time.
-pub trait FluxChange: FluxMoment {
+pub trait FluxChange {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
 	
