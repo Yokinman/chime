@@ -3,7 +3,6 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul};
 use crate::{*, kind::*, linear::*, exp::*};
-use crate::time::Time;
 
 /// Summation over time.
 /// 
@@ -104,29 +103,24 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 
 impl<T: Basis, const D: usize> ToMoment for Sum<T, D> {
 	type Moment<'a> = Self;
-	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
+	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 		let mut sum = self.clone();
-		sum.to_moment_mut(basis_time, to_time);
+		sum.to_moment_mut(time);
 		sum
 	}
 }
 
 impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 	type MomentMut<'a> = &'a mut Self;
-	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
-		let secs = if to_time > basis_time {
-			(to_time - basis_time).as_secs_f64()
-		} else {
-			-(basis_time - to_time).as_secs_f64()
-		};
-		if secs == 0. {
+	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		if time == Scalar::from(0.) {
 			return self
 		}
 		let mut deriv = self.clone();
-		self.0 = T::from_inner(deriv.eval(Scalar::from(secs)));
+		self.0 = T::from_inner(deriv.eval(time));
 		for degree in 1..=D {
 			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
-			self.1[degree-1] = T::from_inner(deriv.eval(Scalar::from(secs)));
+			self.1[degree-1] = T::from_inner(deriv.eval(time));
 		}
 		self
 	}

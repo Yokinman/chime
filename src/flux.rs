@@ -553,7 +553,7 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::time::Time;
+	use crate::linear::Scalar;
 	use super::{Change, ToMoment, ToMomentMut};
 
 	impl<T> Change<T> {
@@ -567,9 +567,9 @@ mod _change_impls {
 	
 	impl<T: ToMoment> ToMoment for Change<T> {
 		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
+		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			Change {
-				rate: self.rate.to_moment(basis_time, to_time),
+				rate: self.rate.to_moment(time),
 				unit: self.unit,
 			}
 		}
@@ -577,9 +577,9 @@ mod _change_impls {
 	
 	impl<T: ToMomentMut> ToMomentMut for Change<T> {
 		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
-		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
 			Change {
-				rate: self.rate.to_moment_mut(basis_time, to_time),
+				rate: self.rate.to_moment_mut(time),
 				unit: self.unit,
 			}
 		}
@@ -603,7 +603,7 @@ mod _flux_value_impls {
 	use std::ops::{Deref, DerefMut};
 	use crate::{Constant, Flux, ToMoment, ToMomentMut, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
-	use crate::linear::{Basis, LinearIso};
+	use crate::linear::{Basis, LinearIso, Scalar};
 	use crate::pred::{When, WhenEq};
 	use crate::time::Time;
 	use super::FluxValue;
@@ -632,21 +632,38 @@ mod _flux_value_impls {
 			self.flux
 		}
 		
-		/// A moment in the timeline.
+		/// See [`ToMoment::to_moment`].
 		pub fn to_moment(&self, time: Time) -> A::Moment<'_> {
-			self.flux.to_moment(self.time, time)
+			let basis_time = self.time;
+			let time = if time > basis_time {
+				(time - basis_time).as_secs_f64()
+			} else {
+				-(basis_time - time).as_secs_f64()
+			};
+			self.flux.to_moment(Scalar::from(time))
 		}
 		
 		/// A reference to a moment in the timeline.
 		pub fn at(&self, time: Time) -> Moment<A> {
 			Moment {
-				moment: self.flux.to_moment(self.time, time),
+				moment: self.to_moment(time),
 				borrow: std::marker::PhantomData,
 			}
 		}
 	}
 	
 	impl<A: ToMomentMut> FluxValue<A> {
+		/// See [`ToMomentMut::to_moment_mut`].
+		pub fn to_moment_mut(&mut self, time: Time) -> A::MomentMut<'_> {
+			let basis_time = std::mem::replace(&mut self.time, time);
+			let time = if time > basis_time {
+				(time - basis_time).as_secs_f64()
+			} else {
+				-(basis_time - time).as_secs_f64()
+			};
+			self.flux.to_moment_mut(Scalar::from(time))
+		}
+		
 		/// A unique, mutable reference to a moment in the timeline.
 		/// 
 		/// ```text
@@ -662,9 +679,8 @@ mod _flux_value_impls {
 		/// self.set_moment(time, moment);
 		/// ```
 		pub fn at_mut(&mut self, time: Time) -> MomentMut<A> {
-			let basis_time = std::mem::replace(&mut self.time, time);
 			MomentMut {
-				moment: self.flux.to_moment_mut(basis_time, time),
+				moment: self.to_moment_mut(time),
 				borrow: std::marker::PhantomData,
 			}
 		}
@@ -830,8 +846,7 @@ pub trait ToMoment {
 	/// This generally returns an owned value. However, the value should be
 	/// treated as a reference, as modifying it has no effect on the timeline.
 	/// This is enforced through [`FluxValue::at`] ([`Moment`]).
-	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_>;
-	// !!! Make this unit-agnostic by passing in an f64 or similar.
+	fn to_moment(&self, time: Scalar) -> Self::Moment<'_>;
 }
 
 /// Types that represent a mutable timeline of moments.
@@ -848,7 +863,7 @@ pub trait ToMomentMut: ToMoment {
 	/// In general, this should permanently shift the basis of the value and
 	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
 	/// is enforced through [`FluxValue::at_mut`] ([`MomentMut`]).
-	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_>;
+	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_>;
 }
 
 /// No change over time.
@@ -866,7 +881,6 @@ mod _constant_impls {
 	use crate::{Flux, ToMoment, ToMomentMut};
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
-	use crate::time::Time;
 	use super::{Constant, ConstantIter};
 	
 	impl<T> Deref for Constant<T> {
@@ -900,14 +914,14 @@ mod _constant_impls {
 	
 	impl<T: Basis> ToMoment for Constant<T> {
 		type Moment<'a> = Self;
-		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment<'_> {
+		fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
 			self.clone()
 		}
 	}
 	
 	impl<T: Basis> ToMomentMut for Constant<T> {
 		type MomentMut<'a> = &'a mut Self;
-		fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
 			self
 		}
 	}
@@ -1031,19 +1045,19 @@ mod tests {
 	
 	impl ToMoment for Pos {
 		type Moment<'a> = Self;
-		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
+		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			Self {
-				value: FluxValue::new(self, basis_time).eval(to_time),
-				spd: self.spd.to_moment(basis_time, to_time),
-				misc: self.misc.to_moment(basis_time, to_time),
+				value: Basis::from_inner(self.to_kind().eval(time)),
+				spd: self.spd.to_moment(time),
+				misc: self.misc.to_moment(time),
 			}
 		}
 	}
 	
 	impl ToMomentMut for Pos {
 		type MomentMut<'a> = &'a mut Self;
-		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
-			*self = self.to_moment(basis_time, to_time);
+		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+			*self = self.to_moment(time);
 			self
 		}
 	}
