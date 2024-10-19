@@ -312,30 +312,25 @@ impl<K: FluxKind> Poly<K> {
 }
 
 impl<K: FluxKind> Poly<K> {
-	pub fn at(&self, time: Time) -> K::Basis {
-		self.kind.eval(Scalar::from(if time > self.time {
+	fn secs(&self, time: Time) -> Scalar {
+		Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		}))
+		})
+	}
+	
+	pub fn at(&self, time: Time) -> K::Basis {
+		self.kind.eval(self.secs(time))
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Basis {
-		self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
-			(time - self.time).as_secs_f64()
-		} else {
-			-(self.time - time).as_secs_f64()
-		}))
+		self.kind.clone().deriv().eval(self.secs(time))
 	}
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			let to_time = if time > self.time {
-				(time - self.time).as_secs_f64()
-			} else {
-				-(self.time - time).as_secs_f64()
-			};
-			let _ = self.kind.to_moment_mut(Scalar::from(to_time));
+			let _ = self.kind.to_moment_mut(self.secs(time));
 			self.time = time;
 		}
 		self
@@ -345,11 +340,7 @@ impl<K: FluxKind> Poly<K> {
 	where
 		KindLinear<K>: PartialOrd
 	{
-		self.kind.initial_order(Scalar::from(if time > self.time {
-			(time - self.time).as_secs_f64()
-		} else {
-			-(self.time - time).as_secs_f64()
-		}))
+		self.kind.initial_order(self.secs(time))
 	}
 	
 	pub fn integ(self) -> Poly<K::Integ>
