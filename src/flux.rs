@@ -759,7 +759,14 @@ mod _flux_value_impls {
 	}
 }
 
-/// A type that can change over time.
+/// Types with a description of change over time.
+/// 
+/// Used to facilitate interoperation between types (by way of conversion into
+/// a standard representation: [`FluxKind`]).
+/// 
+/// This is similar to [`FluxMoment`] in that both describe change over time,
+/// but specific to abstracting the timeline. User types will often implement
+/// all of `FluxChange`, [`FluxMoment`], and [`FluxMomentMut`].
 pub trait FluxChange {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
@@ -796,30 +803,42 @@ pub trait FluxChange {
 	}
 }
 
-/// ...
+/// Types that represent a timeline of moments.
+/// 
+/// This is similar to [`FluxChange`] in that both describe change over time,
+/// but specific to interfacing with the timeline. User types will often
+/// implement all of [`FluxChange`], `FluxMoment`, and [`FluxMomentMut`].
+/// 
+/// Data structures such as `HashMap<T> where T: FluxChange + FluxMoment` only
+/// implement `FluxMoment`, since they represent multiple values that change
+/// over time.
 pub trait FluxMoment {
-	/// The immutable interface for a moment in the timeline of this flux.
+	/// The interface for a moment in the timeline.
 	type Moment<'a> where Self: 'a;
 	
-	/// Produces an immutable moment in the timeline of this flux.
+	/// Produces a moment in the timeline.
 	/// 
-	/// This generally produces an owned value. However, the value should be
-	/// treated as a reference since modifying it has no effect on the original
-	/// flux. This is enforced by [`Moment`] ([`FluxValue::at`]).
+	/// This generally returns an owned value. However, the value should be
+	/// treated as a reference, as modifying it has no effect on the timeline.
+	/// This is enforced through [`FluxValue::at`] ([`Moment`]).
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_>;
 	// !!! Make this unit-agnostic by passing in an f64 or similar.
 }
 
-/// ...
+/// Types that represent a mutable timeline of moments.
+/// 
+/// This is similar to [`FluxChange`] in that both describe change over time,
+/// but specific to interfacing with the timeline. User types will often
+/// implement all of [`FluxChange`], [`FluxMoment`], and `FluxMomentMut`.
 pub trait FluxMomentMut: FluxMoment {
-	/// The mutable interface for a moment in the timeline of this flux.
+	/// The mutable interface for a moment in the timeline.
 	type MomentMut<'a> where Self: 'a;
 	
-	/// Produces a mutable moment in the timeline of this flux.
+	/// Produces a mutable moment in the timeline.
 	/// 
-	/// This should permanently shift the basis of the flux and generally return
-	/// the moment by reference, unlike [`Self::to_moment`]. If not, this is
-	/// enforced by [`MomentMut`] ([`FluxValue::at_mut`]).
+	/// In general, this should permanently shift the basis of the value and
+	/// return the moment by reference, unlike [`FluxMoment::to_moment`]. This
+	/// is enforced through [`FluxValue::at_mut`] ([`MomentMut`]).
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_>;
 }
 
