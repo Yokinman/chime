@@ -356,8 +356,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: FluxChange,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -365,8 +365,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: FluxChange,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -374,7 +374,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -383,7 +383,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -392,7 +392,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: FluxChange,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	;
 	
@@ -400,7 +400,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: FluxChange,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	;
 	
@@ -423,7 +423,7 @@ pub trait FluxVector<const SIZE: usize> {
 
 impl<A, const SIZE: usize> FluxVector<SIZE> for FluxValue<A>
 where
-	A: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+	A: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 {
 	type Kind = A::Kind;
 	
@@ -435,8 +435,8 @@ where
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: FluxChange,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.basis_time();
@@ -448,8 +448,8 @@ where
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: FluxChange,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.basis_time();
@@ -461,7 +461,7 @@ where
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -472,7 +472,7 @@ where
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -483,7 +483,7 @@ where
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: FluxChange,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
 		let time = self.basis_time();
@@ -495,7 +495,7 @@ where
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: FluxChange,
+		T: Flux,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
 		let time = self.basis_time();
@@ -601,7 +601,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, FluxChange, ToMoment, ToMomentMut, MomentMut, Moment};
+	use crate::{Constant, Flux, ToMoment, ToMomentMut, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -615,7 +615,7 @@ mod _flux_value_impls {
 		
 		pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
 		where
-			U: FluxChange,
+			U: Flux,
 		{
 			FluxValue {
 				flux: f(&self.flux),
@@ -670,13 +670,13 @@ mod _flux_value_impls {
 		}
 	}
 	
-	impl<A: FluxChange> FluxValue<A> {
+	impl<A: Flux> FluxValue<A> {
 		/// An evaluation of this flux at some point in time.
 		pub fn basis(&self) -> <A::Kind as FluxKind>::Basis {
 			self.flux.basis()
 		}
 		
-		/// The time of [`FluxChange::basis`].
+		/// The time of [`Flux::basis`].
 		pub fn basis_time(&self) -> Time {
 			self.time
 		}
@@ -706,7 +706,7 @@ mod _flux_value_impls {
 		pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
 			-> <Poly<A::Kind> as When<T::Kind>>::Pred
 		where
-			T: FluxChange,
+			T: Flux,
 			Poly<A::Kind>: When<T::Kind>
 		{
 			let time = self.basis_time();
@@ -717,7 +717,7 @@ mod _flux_value_impls {
 		pub fn when_eq<T>(&self, other: &FluxValue<T>)
 			-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
 		where
-			T: FluxChange,
+			T: Flux,
 			Poly<A::Kind>: WhenEq<T::Kind>
 		{
 			let time = self.basis_time();
@@ -764,10 +764,10 @@ mod _flux_value_impls {
 /// Used to facilitate interoperation between types (by way of conversion into
 /// a standard representation: [`FluxKind`]).
 /// 
-/// This is similar to [`ToMoment`] in that both describe change over time,
-/// but specific to abstracting the timeline. User types will often implement
-/// all of `FluxChange`, [`ToMoment`], and [`ToMomentMut`].
-pub trait FluxChange {
+/// This is similar to [`ToMoment`] in that both describe change over time, but
+/// specific to abstracting the timeline. User types will often implement all of
+/// `Flux`, [`ToMoment`], and [`ToMomentMut`].
+pub trait Flux {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
 	
@@ -805,11 +805,11 @@ pub trait FluxChange {
 
 /// Types that represent a timeline of moments.
 /// 
-/// This is similar to [`FluxChange`] in that both describe change over time,
-/// but specific to interfacing with the timeline. User types will often
-/// implement all of [`FluxChange`], `ToMoment`, and [`ToMomentMut`].
+/// This is similar to [`Flux`] in that both describe change over time, but
+/// specific to interfacing with the timeline. User types will often implement
+/// all of [`Flux`], `ToMoment`, and [`ToMomentMut`].
 /// 
-/// Data structures such as `HashMap<T> where T: FluxChange + ToMoment` only
+/// Data structures such as `HashMap<T> where T: Flux + ToMoment` only
 /// implement `ToMoment`, since they represent multiple values that change
 /// over time.
 pub trait ToMoment {
@@ -827,9 +827,9 @@ pub trait ToMoment {
 
 /// Types that represent a mutable timeline of moments.
 /// 
-/// This is similar to [`FluxChange`] in that both describe change over time,
-/// but specific to interfacing with the timeline. User types will often
-/// implement all of [`FluxChange`], [`ToMoment`], and `ToMomentMut`.
+/// This is similar to [`Flux`] in that both describe change over time, but
+/// specific to interfacing with the timeline. User types will often implement
+/// all of [`Flux`], [`ToMoment`], and `ToMomentMut`.
 pub trait ToMomentMut: ToMoment {
 	/// The mutable interface for a moment in the timeline.
 	type MomentMut<'a> where Self: 'a;
@@ -854,7 +854,7 @@ pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
 	use std::ops::{Deref, DerefMut, Mul};
-	use crate::{FluxChange, ToMoment, ToMomentMut};
+	use crate::{Flux, ToMoment, ToMomentMut};
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use crate::time::Time;
@@ -879,7 +879,7 @@ mod _constant_impls {
 		}
 	}
 	
-	impl<T: Basis> FluxChange for Constant<T> {
+	impl<T: Basis> Flux for Constant<T> {
 		type Kind = Self;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.0.clone()
@@ -1006,7 +1006,7 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	impl FluxChange for Pos {
+	impl Flux for Pos {
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.value

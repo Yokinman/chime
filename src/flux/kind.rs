@@ -6,13 +6,13 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, FluxChange, ToMomentMut, FluxValue};
+use crate::{Change, Constant, Flux, ToMomentMut, FluxValue};
 
 /// An abstract description of change over time.
 /// 
-/// Used to define the standard representations of [`FluxChange`] types. In
+/// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait FluxKind: FluxChange<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
+pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	type Basis: Basis;
 	
 	const DEGREE: usize;
@@ -88,7 +88,7 @@ pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 	fn integ(self) -> Self::Integ;
 }
 
-/// Shortcut for [`FluxChange::change`] parameter.
+/// Shortcut for [`Flux::change`] parameter.
 pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Basis>>;
 
 /// Constructs a [`Poly`]nomial by accumulating [`Change`]s.
@@ -128,7 +128,7 @@ impl<K: FluxKind> FluxAccum<K> {
 impl<A, B> Add<Change<B>> for FluxAccum<A>
 where
 	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
-	B: FluxChange<Kind: FluxIntegral>,
+	B: Flux<Kind: FluxIntegral>,
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
@@ -147,7 +147,7 @@ where
 impl<A, B> Sub<Change<B>> for FluxAccum<A>
 where
 	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
-	B: FluxChange<Kind: FluxIntegral>,
+	B: Flux<Kind: FluxIntegral>,
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
