@@ -350,7 +350,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	let flux_value_impl = quote::quote!{
 		#item
 		
-		impl #impl_generics #flux::Flux for #flux_type #where_clause {
+		impl #impl_generics #flux::FluxChange for #flux_type #where_clause {
 			type Kind = #kind_type;
 			
 			fn basis(&self)

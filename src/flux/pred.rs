@@ -603,7 +603,7 @@ where
 	}
 }
 
-/// [`crate::Flux::when`] predictive comparison.
+/// [`crate::FluxValue::when`] predictive comparison.
 pub trait When<B> {
 	type Pred: Prediction;
 	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred;
@@ -631,7 +631,7 @@ where
 	}
 }
 
-/// [`crate::Flux::when_eq`] predictive comparison.
+/// [`crate::FluxValue::when_eq`] predictive comparison.
 pub trait WhenEq<B> {
 	type Pred: Prediction;
 	fn when_eq(self, poly: Poly<B>) -> Self::Pred;

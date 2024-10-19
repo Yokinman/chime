@@ -21,7 +21,7 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// Immutable moment-in-time interface for [`Flux::at`].
+/// Immutable moment-in-time interface for [`FluxValue::at`].
 pub struct Moment<'a, T: FluxMoment> {
 	moment: T::Moment<'a>,
 	borrow: std::marker::PhantomData<&'a T>,
@@ -58,7 +58,7 @@ mod _moment_ref_impls {
 	}
 }
 
-/// Mutable moment-in-time interface for [`Flux::at_mut`].
+/// Mutable moment-in-time interface for [`FluxValue::at_mut`].
 pub struct MomentMut<'a, T: FluxMoment> {
 	moment: T::MomentMut<'a>,
 	borrow: std::marker::PhantomData<&'a mut T>,
@@ -121,7 +121,7 @@ mod bevy_moment {
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
 	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = Self;
@@ -130,14 +130,14 @@ mod bevy_moment {
 	/// SAFETY: access is read only.
 	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Component + Clone,
 	{}
 	
 	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = Moment<'b, M>;
@@ -149,7 +149,7 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = Moment<'a, M>;
@@ -209,7 +209,7 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = MomentMut<'a, M>;
@@ -263,11 +263,11 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a resource at the current `Time<Chime>`.
-	pub struct ResMoment<'w, M: Flux> {
+	pub struct ResMoment<'w, M: FluxChange> {
 		inner: Moment<'w, M>,
 	}
 	
-	impl<'w, M: Flux> Deref for ResMoment<'w, M> {
+	impl<'w, M: FluxChange> Deref for ResMoment<'w, M> {
 		type Target = Moment<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
@@ -275,18 +275,18 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a mutable resource at the current `Time<Chime>`.
-	pub struct ResMomentMut<'w, M: Flux> {
+	pub struct ResMomentMut<'w, M: FluxChange> {
 		inner: MomentMut<'w, M>,
 	}
 	
-	impl<'w, M: Flux> Deref for ResMomentMut<'w, M> {
+	impl<'w, M: FluxChange> Deref for ResMomentMut<'w, M> {
 		type Target = MomentMut<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
 		}
 	}
 	
-	impl<'w, M: Flux> DerefMut for ResMomentMut<'w, M> {
+	impl<'w, M: FluxChange> DerefMut for ResMomentMut<'w, M> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.inner
 		}
@@ -296,7 +296,7 @@ mod bevy_moment {
 	/// Safety guarantees are inherited from `impl SystemParam for Res<T>`.
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Resource + Clone,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, FluxValue<M>> as SystemParam>::State);
@@ -321,7 +321,7 @@ mod bevy_moment {
 	/// `impl SystemParam for ResMut<T>`.
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
-		M: Flux,
+		M: FluxChange,
 		FluxValue<M>: Resource + Clone,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, FluxValue<M>> as SystemParam>::State);
@@ -356,8 +356,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: FluxChange,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -365,8 +365,8 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: FluxChange,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	;
 	
@@ -374,7 +374,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -383,7 +383,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	;
@@ -392,7 +392,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: FluxChange,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	;
 	
@@ -400,7 +400,7 @@ pub trait FluxVector<const SIZE: usize> {
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: FluxChange,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	;
 	
@@ -423,7 +423,7 @@ pub trait FluxVector<const SIZE: usize> {
 
 impl<A, const SIZE: usize> FluxVector<SIZE> for FluxValue<A>
 where
-	A: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+	A: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
 {
 	type Kind = A::Kind;
 	
@@ -435,8 +435,8 @@ where
 	fn when_dis<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: FluxChange,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.basis_time();
@@ -448,8 +448,8 @@ where
 	fn when_dis_eq<T, D>(&self, other: &FluxValue<T>, dis: &FluxValue<D>)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, D::Kind>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: FluxChange,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, D::Kind>,
 	{
 		let time = self.basis_time();
@@ -461,7 +461,7 @@ where
 	fn when_dis_constant<T, D>(&self, other: &FluxValue<T>, order: Ordering, dis: D)
 		-> <Poly<Self::Kind> as WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDis<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -472,7 +472,7 @@ where
 	fn when_dis_eq_constant<T, D>(&self, other: &FluxValue<T>, dis: D)
 		-> <Poly<Self::Kind> as WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: FluxChange<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
 		Poly<Self::Kind>: WhenDisEq<SIZE, T::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
@@ -483,7 +483,7 @@ where
 	fn when_index<T>(&self, index: usize, order: Ordering, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: FluxChange,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<T::Kind>
 	{
 		let time = self.basis_time();
@@ -495,7 +495,7 @@ where
 	fn when_index_eq<T>(&self, index: usize, other: &FluxValue<T>)
 		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<T::Kind>>::Pred
 	where
-		T: Flux,
+		T: FluxChange,
 		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<T::Kind>
 	{
 		let time = self.basis_time();
@@ -555,7 +555,7 @@ pub struct Change<T> {
 mod _change_impls {
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::time::Time;
-	use super::{Change, Flux, FluxMoment};
+	use super::{Change, FluxChange, FluxMoment};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
@@ -566,7 +566,7 @@ mod _change_impls {
 		}
 	}
 	
-	impl<T: Flux> Flux for Change<T> {
+	impl<T: FluxChange> FluxChange for Change<T> {
 		type Kind = T::Kind;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.rate.basis()
@@ -594,7 +594,7 @@ mod _change_impls {
 	}
 }
 
-/// A [`Flux`] type packaged with a basis time.
+/// A [`FluxMoment`] type packaged with a basis time.
 /// e.g. `FluxValue<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(
@@ -609,7 +609,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, Flux, FluxMoment, MomentMut, Moment};
+	use crate::{Constant, FluxChange, FluxMoment, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -623,7 +623,7 @@ mod _flux_value_impls {
 		
 		pub fn map<U>(&self, f: impl Fn(&T) -> &U) ->  FluxValue<&'_ U>
 		where
-			U: Flux,
+			U: FluxChange,
 		{
 			FluxValue {
 				flux: f(&self.flux),
@@ -676,13 +676,13 @@ mod _flux_value_impls {
 		}
 	}
 	
-	impl<A: Flux> FluxValue<A> {
+	impl<A: FluxChange> FluxValue<A> {
 		/// An evaluation of this flux at some point in time.
 		pub fn basis(&self) -> <A::Kind as FluxKind>::Basis {
 			self.flux.basis()
 		}
 		
-		/// The time of [`Flux::basis`].
+		/// The time of [`FluxChange::basis`].
 		pub fn basis_time(&self) -> Time {
 			self.time
 		}
@@ -712,7 +712,7 @@ mod _flux_value_impls {
 		pub fn when<T>(&self, order: Ordering, other: &FluxValue<T>)
 			-> <Poly<A::Kind> as When<T::Kind>>::Pred
 		where
-			T: Flux,
+			T: FluxChange,
 			Poly<A::Kind>: When<T::Kind>
 		{
 			let time = self.basis_time();
@@ -723,7 +723,7 @@ mod _flux_value_impls {
 		pub fn when_eq<T>(&self, other: &FluxValue<T>)
 			-> <Poly<A::Kind> as WhenEq<T::Kind>>::Pred
 		where
-			T: Flux,
+			T: FluxChange,
 			Poly<A::Kind>: WhenEq<T::Kind>
 		{
 			let time = self.basis_time();
@@ -766,7 +766,7 @@ mod _flux_value_impls {
 }
 
 /// A type that can change over time.
-pub trait Flux: FluxMoment {
+pub trait FluxChange: FluxMoment {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
 	
@@ -838,7 +838,7 @@ pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
 	use std::ops::{Deref, DerefMut, Mul};
-	use crate::{Flux, FluxMoment};
+	use crate::{FluxChange, FluxMoment};
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use crate::time::Time;
@@ -863,7 +863,7 @@ mod _constant_impls {
 		}
 	}
 	
-	impl<T: Basis> Flux for Constant<T> {
+	impl<T: Basis> FluxChange for Constant<T> {
 		type Kind = Self;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.0.clone()
@@ -987,7 +987,7 @@ mod tests {
 		misc: Vec<Spd>,
 	}
 	
-	impl Flux for Pos {
+	impl FluxChange for Pos {
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.value

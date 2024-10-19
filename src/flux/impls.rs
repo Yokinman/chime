@@ -1,15 +1,15 @@
-//! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
+//! Convenient [`FluxChange`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::{Flux, FluxMoment};
+use crate::{FluxChange, FluxMoment};
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
 
-impl<'t, T> Flux for &'t T
+impl<'t, T> FluxChange for &'t T
 where
-	T: Flux,
+	T: FluxChange,
 {
 	type Kind = T::Kind;
 	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
@@ -32,9 +32,9 @@ where
 	fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {}
 }
 
-impl<'t, T> Flux for &'t mut T
+impl<'t, T> FluxChange for &'t mut T
 where
-	T: Flux,
+	T: FluxChange,
 {
 	type Kind = T::Kind;
 	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
@@ -59,7 +59,7 @@ where
 	}
 }
 
-impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
+impl<T: FluxChange, const SIZE: usize> FluxChange for [T; SIZE] {
 	type Kind = [T::Kind; SIZE];
 	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		crate::linear::BasisArray(self.each_ref().map(T::basis))
