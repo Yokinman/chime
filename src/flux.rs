@@ -794,6 +794,15 @@ pub trait Flux {
 	///   
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
+	/// Conversion into a standard representation.
+	fn to_kind(&self) -> Self::Kind {
+		let accum = FluxAccum {
+			poly: Poly::new(Constant(self.basis()), Time::ZERO),
+			time: Time::ZERO,
+		};
+		self.change(accum).poly.kind
+	}
+	
 	/// Temporary convenience for constructing a [`FluxValue<Self>`].
 	fn to_flux_value(self, time: Time) -> FluxValue<Self>
 	where
