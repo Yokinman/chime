@@ -322,16 +322,12 @@ impl<K: FluxKind> Poly<K> {
 }
 
 impl<K: FluxKind> Poly<K> {
-	pub fn eval(&self, time: Time) -> <K::Basis as Basis>::Inner {
+	pub fn at(&self, time: Time) -> K::Basis {
 		self.kind.eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		})).into_inner()
-	}
-	
-	pub fn at(&self, time: Time) -> K::Basis {
-		K::Basis::from_inner(self.eval(time))
+		}))
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Basis {

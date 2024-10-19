@@ -705,7 +705,7 @@ mod _flux_value_impls {
 			if time == basis_time {
 				return self.basis().into_inner()
 			}
-			self.poly(basis_time).eval(time)
+			self.poly(basis_time).at(time).into_inner()
 		}
 		
 		/// A polynomial description of this flux at the given time.
