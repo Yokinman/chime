@@ -320,7 +320,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			let field_ty = &field.ty;
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::Flux::to_moment(&self.#ident, basis_time, to_time),
+				#ident: #flux::FluxMoment::to_moment(&self.#ident, basis_time, to_time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields
@@ -352,8 +352,6 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
 			type Kind = #kind_type;
-			type Moment<'a> = #ident #ty_generics;
-			type MomentMut<'a> = &'a mut #ident #ty_generics where Self: 'a;
 			
 			fn basis(&self)
 				-> <Self::Kind as #flux::kind::FluxKind>::Basis
@@ -362,13 +360,18 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fn change(&self, accum: #flux::kind::EmptyFluxAccum<Self::Kind>)
 				-> #flux::kind::FluxAccum<Self::Kind>
 			#change_block
+		}
+		
+		impl #impl_generics #flux::FluxMoment for #flux_type #where_clause {
+			type Moment<'a> = #ident #ty_generics;
+			type MomentMut<'a> = &'a mut #ident #ty_generics where Self: 'a;
 			
 			fn to_moment(&self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::Moment<'_> {
 				#ident { #moment_fields }
 			}
 			
 			fn to_moment_mut(&mut self, basis_time: #flux::time::Time, to_time: #flux::time::Time) -> Self::MomentMut<'_> {
-				*self = #flux::Flux::to_moment(self, basis_time, to_time);
+				*self = #flux::FluxMoment::to_moment(self, basis_time, to_time);
 				self
 			}
 		}

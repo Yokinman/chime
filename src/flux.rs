@@ -555,7 +555,7 @@ pub struct Change<T> {
 mod _change_impls {
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::time::Time;
-	use super::{Change, Flux};
+	use super::{Change, Flux, FluxMoment};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
@@ -568,14 +568,17 @@ mod _change_impls {
 	
 	impl<T: Flux> Flux for Change<T> {
 		type Kind = T::Kind;
-		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
-		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.rate.basis()
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			self.rate.change(accum)
 		}
+	}
+	
+	impl<T: FluxMoment> FluxMoment for Change<T> {
+		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
+		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
 		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Change {
 				rate: self.rate.to_moment(basis_time, to_time),
@@ -761,15 +764,9 @@ mod _flux_value_impls {
 }
 
 /// A type that can change over time.
-pub trait Flux {
+pub trait Flux: FluxMoment {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
-	
-	/// The immutable interface for a moment in the timeline of this flux.
-	type Moment<'a> where Self: 'a;
-	
-	/// The mutable interface for a moment in the timeline of this flux.
-	type MomentMut<'a> where Self: 'a;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> <Self::Kind as FluxKind>::Basis;
@@ -794,6 +791,23 @@ pub trait Flux {
 	///   
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
 	
+	/// Temporary convenience for constructing a [`FluxValue<Self>`].
+	fn to_flux_value(self, time: Time) -> FluxValue<Self>
+	where
+		Self: Sized
+	{
+		FluxValue::new(self, time)
+	}
+}
+
+/// ...
+pub trait FluxMoment {
+	/// The immutable interface for a moment in the timeline of this flux.
+	type Moment<'a> where Self: 'a;
+	
+	/// The mutable interface for a moment in the timeline of this flux.
+	type MomentMut<'a> where Self: 'a;
+	
 	/// Produces an immutable moment in the timeline of this flux.
 	/// 
 	/// This generally produces an owned value. However, the value should be
@@ -808,14 +822,6 @@ pub trait Flux {
 	/// the moment by reference, unlike [`Self::to_moment`]. If not, this is
 	/// enforced by [`MomentMut`] ([`FluxValue::at_mut`]).
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_>;
-	
-	/// Temporary convenience for constructing a [`FluxValue<Self>`].
-	fn to_flux_value(self, time: Time) -> FluxValue<Self>
-	where
-		Self: Sized
-	{
-		FluxValue::new(self, time)
-	}
 }
 
 /// No change over time.
@@ -830,7 +836,7 @@ pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
 	use std::ops::{Deref, DerefMut, Mul};
-	use crate::Flux;
+	use crate::{Flux, FluxMoment};
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use crate::time::Time;
@@ -857,14 +863,17 @@ mod _constant_impls {
 	
 	impl<T: Basis> Flux for Constant<T> {
 		type Kind = Self;
-		type Moment<'a> = Self;
-		type MomentMut<'a> = &'a mut Self;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.0.clone()
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 			accum
 		}
+	}
+	
+	impl<T: Basis> FluxMoment for Constant<T> {
+		type Moment<'a> = Self;
+		type MomentMut<'a> = &'a mut Self;
 		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment<'_> {
 			self.clone()
 		}
@@ -978,8 +987,6 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Kind = Sum<f64, 4>;
-		type Moment<'a> = Self;
-		type MomentMut<'a> = &'a mut Self;
 		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 			self.value
 		}
@@ -990,6 +997,11 @@ mod tests {
 			}
 			accum
 		}
+	}
+	
+	impl FluxMoment for Pos {
+		type Moment<'a> = Self;
+		type MomentMut<'a> = &'a mut Self;
 		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Self {
 				value: FluxValue::new(self, basis_time).eval(to_time),
