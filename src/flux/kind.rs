@@ -25,16 +25,6 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	
 	fn eval(&self, time: Scalar) -> Self::Basis;
 	
-	fn to_time(mut self, basis_time: Time, time: Time) -> Self {
-		let time = if time > basis_time {
-			(time - basis_time).as_secs_f64()
-		} else {
-			-(basis_time - time).as_secs_f64()
-		};
-		let _ = self.to_moment_mut(Scalar::from(time));
-		self
-	}
-	
 	/// The order at or immediately preceding the value at a time.
 	/// 
 	/// This should be the first non-zero [`FluxKind::eval`] value of this kind
@@ -340,7 +330,12 @@ impl<K: FluxKind> Poly<K> {
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			self.kind = self.kind.to_time(self.time, time);
+			let to_time = if time > self.time {
+				(time - self.time).as_secs_f64()
+			} else {
+				-(self.time - time).as_secs_f64()
+			};
+			let _ = self.kind.to_moment_mut(Scalar::from(to_time));
 			self.time = time;
 		}
 		self
