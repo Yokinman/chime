@@ -66,7 +66,8 @@ where
 		// Covers the range of equality, but stops where the trend reverses.
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
-		let sign = diff_poly.rate_at(time).into_inner().sign();
+		let diff_rate = diff_poly.clone().deriv();
+		let sign = diff_rate.at(time).into_inner().sign();
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -76,7 +77,7 @@ where
 				time.checked_sub(inc_time)
 			} {
 				 // Stop Before Rate Reverses:
-				let rate = diff_poly.rate_at(next_time).into_inner();
+				let rate = diff_rate.at(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
@@ -148,7 +149,8 @@ where
 		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
-		let sign = diff_poly.rate_at(time).into_inner().sign();
+		let diff_rate = diff_poly.clone().deriv();
+		let sign = diff_rate.at(time).into_inner().sign();
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -157,7 +159,7 @@ where
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
-					let rate = diff_poly.rate_at(next_time).into_inner();
+					let rate = diff_rate.at(next_time).into_inner();
 					if sign != rate.sign() && !rate.is_zero() {
 						if inc_time == time::NANOSEC {
 							return Some(time)
@@ -218,7 +220,7 @@ where
 			let mut inc_time = time::NANOSEC;
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
-				let rate = diff_poly.rate_at(next_time).into_inner();
+				let rate = diff_rate.at(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}

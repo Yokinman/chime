@@ -324,10 +324,6 @@ impl<K: FluxKind> Poly<K> {
 		self.kind.eval(self.secs(time))
 	}
 	
-	pub fn rate_at(&self, time: Time) -> K::Basis {
-		self.kind.clone().deriv().eval(self.secs(time))
-	}
-	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
 			let _ = self.kind.to_moment_mut(self.secs(time));
