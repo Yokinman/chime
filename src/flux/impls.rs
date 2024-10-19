@@ -106,20 +106,6 @@ impl<T: FluxMoment> FluxMoment for Vec<T> {
 	}
 }
 
-impl<K, V> Flux for HashMap<K, V>
-where
-	K: std::hash::Hash + Eq,
-	V: Flux,
-{
-	type Kind = V::Kind;
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
-		todo!()
-	}
-	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		todo!()
-	}
-}
-
 impl<K, V> FluxMoment for HashMap<K, V>
 where
 	K: std::hash::Hash + Eq,
