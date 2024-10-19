@@ -104,12 +104,15 @@ impl<T: Basis, const D: usize> FluxChange for Sum<T, D> {
 
 impl<T: Basis, const D: usize> FluxMoment for Sum<T, D> {
 	type Moment<'a> = Self;
-	type MomentMut<'a> = &'a mut Self;
 	fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 		let mut sum = self.clone();
 		sum.to_moment_mut(basis_time, to_time);
 		sum
 	}
+}
+
+impl<T: Basis, const D: usize> FluxMomentMut for Sum<T, D> {
+	type MomentMut<'a> = &'a mut Self;
 	fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		let secs = if to_time > basis_time {
 			(to_time - basis_time).as_secs_f64()

@@ -6,10 +6,10 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, FluxChange, FluxValue};
+use crate::{Change, Constant, FluxChange, FluxMomentMut, FluxValue};
 
 /// Defines a kind of change as the structure of a polynomial.
-pub trait FluxKind: FluxChange<Kind=Self> + Clone + Debug + 'static {
+pub trait FluxKind: FluxChange<Kind=Self> + FluxMomentMut + Clone + Debug + 'static {
 	type Basis: Basis;
 	
 	const DEGREE: usize;
