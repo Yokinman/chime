@@ -553,9 +553,8 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::time::Time;
-	use super::{Change, FluxChange, FluxMoment, FluxMomentMut};
+	use super::{Change, FluxMoment, FluxMomentMut};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
@@ -563,16 +562,6 @@ mod _change_impls {
 				rate: &self.rate,
 				unit: self.unit,
 			}
-		}
-	}
-	
-	impl<T: FluxChange> FluxChange for Change<T> {
-		type Kind = T::Kind;
-		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
-			self.rate.basis()
-		}
-		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-			self.rate.change(accum)
 		}
 	}
 	
