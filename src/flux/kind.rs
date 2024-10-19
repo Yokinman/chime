@@ -6,13 +6,13 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, FluxChange, FluxMomentMut, FluxValue};
+use crate::{Change, Constant, FluxChange, ToMomentMut, FluxValue};
 
 /// An abstract description of change over time.
 /// 
 /// Used to define the standard representations of [`FluxChange`] types. In
 /// other words, the layout of a polynomial.
-pub trait FluxKind: FluxChange<Kind=Self> + FluxMomentMut + Clone + Debug + 'static {
+pub trait FluxKind: FluxChange<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	type Basis: Basis;
 	
 	const DEGREE: usize;

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 
-use crate::{FluxChange, FluxMoment, FluxMomentMut};
+use crate::{FluxChange, ToMoment, ToMomentMut};
 use crate::time::Time;
 use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
 
@@ -20,9 +20,9 @@ where
 	}
 }
 
-impl<'t, T> FluxMoment for &'t T
+impl<'t, T> ToMoment for &'t T
 where
-	T: FluxMoment,
+	T: ToMoment,
 {
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_> {
@@ -43,9 +43,9 @@ where
 	}
 }
 
-impl<'t, T> FluxMoment for &'t mut T
+impl<'t, T> ToMoment for &'t mut T
 where
-	T: FluxMoment,
+	T: ToMoment,
 {
 	type Moment<'a> = T::Moment<'a> where Self: 'a;
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_> {
@@ -53,9 +53,9 @@ where
 	}
 }
 
-impl<'t, T> FluxMomentMut for &'t mut T
+impl<'t, T> ToMomentMut for &'t mut T
 where
-	T: FluxMomentMut,
+	T: ToMomentMut,
 {
 	type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_> {
@@ -82,21 +82,21 @@ impl<T: FluxChange, const SIZE: usize> FluxChange for [T; SIZE] {
 	}
 }
 
-impl<T: FluxMoment, const SIZE: usize> FluxMoment for [T; SIZE] {
+impl<T: ToMoment, const SIZE: usize> ToMoment for [T; SIZE] {
 	type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_> {
 		self.each_ref().map(|x| x.to_moment(from_time, to_time))
 	}
 }
 
-impl<T: FluxMomentMut, const SIZE: usize> FluxMomentMut for [T; SIZE] {
+impl<T: ToMomentMut, const SIZE: usize> ToMomentMut for [T; SIZE] {
 	type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		self.each_mut().map(|x| x.to_moment_mut(from_time, to_time))
 	}
 }
 
-impl<T: FluxMoment> FluxMoment for Vec<T> {
+impl<T: ToMoment> ToMoment for Vec<T> {
 	type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_> {
 		self.iter()
@@ -105,7 +105,7 @@ impl<T: FluxMoment> FluxMoment for Vec<T> {
 	}
 }
 
-impl<T: FluxMomentMut> FluxMomentMut for Vec<T> {
+impl<T: ToMomentMut> ToMomentMut for Vec<T> {
 	type MomentMut<'a> = Vec<T::MomentMut<'a>> where Self: 'a;
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 		self.iter_mut()
@@ -114,10 +114,10 @@ impl<T: FluxMomentMut> FluxMomentMut for Vec<T> {
 	}
 }
 
-impl<K, V> FluxMoment for HashMap<K, V>
+impl<K, V> ToMoment for HashMap<K, V>
 where
 	K: std::hash::Hash + Eq,
-	V: FluxMoment,
+	V: ToMoment,
 {
 	type Moment<'a> = HashMap<&'a K, V::Moment<'a>> where Self: 'a;
 	fn to_moment(&self, from_time: Time, to_time: Time) -> Self::Moment<'_> {
@@ -127,10 +127,10 @@ where
 	}
 }
 
-impl<K, V> FluxMomentMut for HashMap<K, V>
+impl<K, V> ToMomentMut for HashMap<K, V>
 where
 	K: std::hash::Hash + Eq,
-	V: FluxMomentMut,
+	V: ToMomentMut,
 {
 	type MomentMut<'a> = HashMap<&'a K, V::MomentMut<'a>> where Self: 'a;
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_> {

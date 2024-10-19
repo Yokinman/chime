@@ -22,7 +22,7 @@ pub use chime_flux_proc_macro::flux;
 pub struct Chime;
 
 /// Immutable moment-in-time interface for [`FluxValue::at`].
-pub struct Moment<'a, T: FluxMoment> {
+pub struct Moment<'a, T: ToMoment> {
 	moment: T::Moment<'a>,
 	borrow: std::marker::PhantomData<&'a T>,
 }
@@ -30,16 +30,16 @@ pub struct Moment<'a, T: FluxMoment> {
 mod _moment_ref_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::Deref;
-	use super::{FluxMoment, Moment};
+	use super::{ToMoment, Moment};
 	
-	impl<'a, T: FluxMoment> Deref for Moment<'a, T> {
+	impl<'a, T: ToMoment> Deref for Moment<'a, T> {
 		type Target = T::Moment<'a>;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<'a, T: FluxMoment> Debug for Moment<'a, T>
+	impl<'a, T: ToMoment> Debug for Moment<'a, T>
 	where
 		T::Moment<'a>: Debug
 	{
@@ -48,7 +48,7 @@ mod _moment_ref_impls {
 		}
 	}
 	
-	impl<'a, T: FluxMoment> Display for Moment<'a, T>
+	impl<'a, T: ToMoment> Display for Moment<'a, T>
 	where
 		T::Moment<'a>: Display
 	{
@@ -59,7 +59,7 @@ mod _moment_ref_impls {
 }
 
 /// Mutable moment-in-time interface for [`FluxValue::at_mut`].
-pub struct MomentMut<'a, T: FluxMomentMut> {
+pub struct MomentMut<'a, T: ToMomentMut> {
 	moment: T::MomentMut<'a>,
 	borrow: std::marker::PhantomData<&'a mut T>,
 }
@@ -67,22 +67,22 @@ pub struct MomentMut<'a, T: FluxMomentMut> {
 mod _moment_mut_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::{Deref, DerefMut};
-	use super::{FluxMomentMut, MomentMut};
+	use super::{ToMomentMut, MomentMut};
 	
-	impl<'a, T: FluxMomentMut> Deref for MomentMut<'a, T> {
+	impl<'a, T: ToMomentMut> Deref for MomentMut<'a, T> {
 		type Target = T::MomentMut<'a>;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<'a, T: FluxMomentMut> DerefMut for MomentMut<'a, T> {
+	impl<'a, T: ToMomentMut> DerefMut for MomentMut<'a, T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.moment
 		}
 	}
 	
-	impl<'a, T: FluxMomentMut> Debug for MomentMut<'a, T>
+	impl<'a, T: ToMomentMut> Debug for MomentMut<'a, T>
 	where
 		T::MomentMut<'a>: Debug
 	{
@@ -91,7 +91,7 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<'a, T: FluxMomentMut> Display for MomentMut<'a, T>
+	impl<'a, T: ToMomentMut> Display for MomentMut<'a, T>
 	where
 		T::MomentMut<'a>: Display
 	{
@@ -121,7 +121,7 @@ mod bevy_moment {
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
 	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
-		M: FluxMoment,
+		M: ToMoment,
 		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = Self;
@@ -130,14 +130,14 @@ mod bevy_moment {
 	/// SAFETY: access is read only.
 	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
-		M: FluxMoment,
+		M: ToMoment,
 		FluxValue<M>: Component + Clone,
 	{}
 	
 	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
-		M: FluxMomentMut,
+		M: ToMomentMut,
 		FluxValue<M>: Component + Clone,
 	{
 		type ReadOnly = Moment<'b, M>;
@@ -149,7 +149,7 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
-		M: FluxMoment,
+		M: ToMoment,
 		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = Moment<'a, M>;
@@ -209,7 +209,7 @@ mod bevy_moment {
 	/// read access for that resource in `update_component_access`.
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
-		M: FluxMomentMut,
+		M: ToMomentMut,
 		FluxValue<M>: Component + Clone,
 	{
 		type Item<'a> = MomentMut<'a, M>;
@@ -263,11 +263,11 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a resource at the current `Time<Chime>`.
-	pub struct ResMoment<'w, M: FluxMoment> {
+	pub struct ResMoment<'w, M: ToMoment> {
 		inner: Moment<'w, M>,
 	}
 	
-	impl<'w, M: FluxMoment> Deref for ResMoment<'w, M> {
+	impl<'w, M: ToMoment> Deref for ResMoment<'w, M> {
 		type Target = Moment<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
@@ -275,18 +275,18 @@ mod bevy_moment {
 	}
 	
 	/// `SystemParam` for fetching a mutable resource at the current `Time<Chime>`.
-	pub struct ResMomentMut<'w, M: FluxMomentMut> {
+	pub struct ResMomentMut<'w, M: ToMomentMut> {
 		inner: MomentMut<'w, M>,
 	}
 	
-	impl<'w, M: FluxMomentMut> Deref for ResMomentMut<'w, M> {
+	impl<'w, M: ToMomentMut> Deref for ResMomentMut<'w, M> {
 		type Target = MomentMut<'w, M>;
 		fn deref(&self) -> &Self::Target {
 			&self.inner
 		}
 	}
 	
-	impl<'w, M: FluxMomentMut> DerefMut for ResMomentMut<'w, M> {
+	impl<'w, M: ToMomentMut> DerefMut for ResMomentMut<'w, M> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.inner
 		}
@@ -296,7 +296,7 @@ mod bevy_moment {
 	/// Safety guarantees are inherited from `impl SystemParam for Res<T>`.
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
-		M: FluxMoment,
+		M: ToMoment,
 		FluxValue<M>: Resource + Clone,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, FluxValue<M>> as SystemParam>::State);
@@ -321,7 +321,7 @@ mod bevy_moment {
 	/// `impl SystemParam for ResMut<T>`.
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
-		M: FluxMomentMut,
+		M: ToMomentMut,
 		FluxValue<M>: Resource + Clone,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, FluxValue<M>> as SystemParam>::State);
@@ -554,7 +554,7 @@ pub struct Change<T> {
 
 mod _change_impls {
 	use crate::time::Time;
-	use super::{Change, FluxMoment, FluxMomentMut};
+	use super::{Change, ToMoment, ToMomentMut};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
@@ -565,7 +565,7 @@ mod _change_impls {
 		}
 	}
 	
-	impl<T: FluxMoment> FluxMoment for Change<T> {
+	impl<T: ToMoment> ToMoment for Change<T> {
 		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
 		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Change {
@@ -575,7 +575,7 @@ mod _change_impls {
 		}
 	}
 	
-	impl<T: FluxMomentMut> FluxMomentMut for Change<T> {
+	impl<T: ToMomentMut> ToMomentMut for Change<T> {
 		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
 		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 			Change {
@@ -586,7 +586,7 @@ mod _change_impls {
 	}
 }
 
-/// A [`FluxMoment`] type packaged with a basis time.
+/// A [`ToMoment`] type packaged with a basis time.
 /// e.g. `FluxValue<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(
@@ -601,7 +601,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, FluxChange, FluxMoment, FluxMomentMut, MomentMut, Moment};
+	use crate::{Constant, FluxChange, ToMoment, ToMomentMut, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -624,7 +624,7 @@ mod _flux_value_impls {
 		}
 	}
 	
-	impl<A: FluxMoment> FluxValue<A> {
+	impl<A: ToMoment> FluxValue<A> {
 		// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 		// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
 		
@@ -646,7 +646,7 @@ mod _flux_value_impls {
 		}
 	}
 	
-	impl<A: FluxMomentMut> FluxValue<A> {
+	impl<A: ToMomentMut> FluxValue<A> {
 		/// A unique, mutable reference to a moment in the timeline.
 		/// 
 		/// ```text
@@ -764,9 +764,9 @@ mod _flux_value_impls {
 /// Used to facilitate interoperation between types (by way of conversion into
 /// a standard representation: [`FluxKind`]).
 /// 
-/// This is similar to [`FluxMoment`] in that both describe change over time,
+/// This is similar to [`ToMoment`] in that both describe change over time,
 /// but specific to abstracting the timeline. User types will often implement
-/// all of `FluxChange`, [`FluxMoment`], and [`FluxMomentMut`].
+/// all of `FluxChange`, [`ToMoment`], and [`ToMomentMut`].
 pub trait FluxChange {
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind;
@@ -807,12 +807,12 @@ pub trait FluxChange {
 /// 
 /// This is similar to [`FluxChange`] in that both describe change over time,
 /// but specific to interfacing with the timeline. User types will often
-/// implement all of [`FluxChange`], `FluxMoment`, and [`FluxMomentMut`].
+/// implement all of [`FluxChange`], `ToMoment`, and [`ToMomentMut`].
 /// 
-/// Data structures such as `HashMap<T> where T: FluxChange + FluxMoment` only
-/// implement `FluxMoment`, since they represent multiple values that change
+/// Data structures such as `HashMap<T> where T: FluxChange + ToMoment` only
+/// implement `ToMoment`, since they represent multiple values that change
 /// over time.
-pub trait FluxMoment {
+pub trait ToMoment {
 	/// The interface for a moment in the timeline.
 	type Moment<'a> where Self: 'a;
 	
@@ -829,15 +829,15 @@ pub trait FluxMoment {
 /// 
 /// This is similar to [`FluxChange`] in that both describe change over time,
 /// but specific to interfacing with the timeline. User types will often
-/// implement all of [`FluxChange`], [`FluxMoment`], and `FluxMomentMut`.
-pub trait FluxMomentMut: FluxMoment {
+/// implement all of [`FluxChange`], [`ToMoment`], and `ToMomentMut`.
+pub trait ToMomentMut: ToMoment {
 	/// The mutable interface for a moment in the timeline.
 	type MomentMut<'a> where Self: 'a;
 	
 	/// Produces a mutable moment in the timeline.
 	/// 
 	/// In general, this should permanently shift the basis of the value and
-	/// return the moment by reference, unlike [`FluxMoment::to_moment`]. This
+	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
 	/// is enforced through [`FluxValue::at_mut`] ([`MomentMut`]).
 	fn to_moment_mut(&mut self, from_time: Time, to_time: Time) -> Self::MomentMut<'_>;
 }
@@ -854,7 +854,7 @@ pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
 	use std::ops::{Deref, DerefMut, Mul};
-	use crate::{FluxChange, FluxMoment, FluxMomentMut};
+	use crate::{FluxChange, ToMoment, ToMomentMut};
 	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use crate::time::Time;
@@ -889,14 +889,14 @@ mod _constant_impls {
 		}
 	}
 	
-	impl<T: Basis> FluxMoment for Constant<T> {
+	impl<T: Basis> ToMoment for Constant<T> {
 		type Moment<'a> = Self;
 		fn to_moment(&self, _basis_time: Time, _to_time: Time) -> Self::Moment<'_> {
 			self.clone()
 		}
 	}
 	
-	impl<T: Basis> FluxMomentMut for Constant<T> {
+	impl<T: Basis> ToMomentMut for Constant<T> {
 		type MomentMut<'a> = &'a mut Self;
 		fn to_moment_mut(&mut self, _basis_time: Time, _to_time: Time) -> Self::MomentMut<'_> {
 			self
@@ -1020,7 +1020,7 @@ mod tests {
 		}
 	}
 	
-	impl FluxMoment for Pos {
+	impl ToMoment for Pos {
 		type Moment<'a> = Self;
 		fn to_moment(&self, basis_time: Time, to_time: Time) -> Self::Moment<'_> {
 			Self {
@@ -1031,7 +1031,7 @@ mod tests {
 		}
 	}
 	
-	impl FluxMomentMut for Pos {
+	impl ToMomentMut for Pos {
 		type MomentMut<'a> = &'a mut Self;
 		fn to_moment_mut(&mut self, basis_time: Time, to_time: Time) -> Self::MomentMut<'_> {
 			*self = self.to_moment(basis_time, to_time);
