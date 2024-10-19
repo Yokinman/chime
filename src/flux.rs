@@ -22,7 +22,7 @@ pub use chime_flux_proc_macro::flux;
 pub struct Chime;
 
 /// Immutable moment-in-time interface for [`Flux::at`].
-pub struct Moment<'a, T: Flux> {
+pub struct Moment<'a, T: FluxMoment> {
 	moment: T::Moment<'a>,
 	borrow: std::marker::PhantomData<&'a T>,
 }
@@ -30,16 +30,16 @@ pub struct Moment<'a, T: Flux> {
 mod _moment_ref_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::Deref;
-	use super::{Flux, Moment};
+	use super::{FluxMoment, Moment};
 	
-	impl<'a, T: Flux> Deref for Moment<'a, T> {
+	impl<'a, T: FluxMoment> Deref for Moment<'a, T> {
 		type Target = T::Moment<'a>;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<'a, T: Flux> Debug for Moment<'a, T>
+	impl<'a, T: FluxMoment> Debug for Moment<'a, T>
 	where
 		T::Moment<'a>: Debug
 	{
@@ -48,7 +48,7 @@ mod _moment_ref_impls {
 		}
 	}
 	
-	impl<'a, T: Flux> Display for Moment<'a, T>
+	impl<'a, T: FluxMoment> Display for Moment<'a, T>
 	where
 		T::Moment<'a>: Display
 	{
@@ -59,7 +59,7 @@ mod _moment_ref_impls {
 }
 
 /// Mutable moment-in-time interface for [`Flux::at_mut`].
-pub struct MomentMut<'a, T: Flux> {
+pub struct MomentMut<'a, T: FluxMoment> {
 	moment: T::MomentMut<'a>,
 	borrow: std::marker::PhantomData<&'a mut T>,
 }
@@ -67,22 +67,22 @@ pub struct MomentMut<'a, T: Flux> {
 mod _moment_mut_impls {
 	use std::fmt::{Debug, Display, Formatter};
 	use std::ops::{Deref, DerefMut};
-	use super::{Flux, MomentMut};
+	use super::{FluxMoment, MomentMut};
 	
-	impl<'a, T: Flux> Deref for MomentMut<'a, T> {
+	impl<'a, T: FluxMoment> Deref for MomentMut<'a, T> {
 		type Target = T::MomentMut<'a>;
 		fn deref(&self) -> &Self::Target {
 			&self.moment
 		}
 	}
 	
-	impl<'a, T: Flux> DerefMut for MomentMut<'a, T> {
+	impl<'a, T: FluxMoment> DerefMut for MomentMut<'a, T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.moment
 		}
 	}
 	
-	impl<'a, T: Flux> Debug for MomentMut<'a, T>
+	impl<'a, T: FluxMoment> Debug for MomentMut<'a, T>
 	where
 		T::MomentMut<'a>: Debug
 	{
@@ -91,7 +91,7 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<'a, T: Flux> Display for MomentMut<'a, T>
+	impl<'a, T: FluxMoment> Display for MomentMut<'a, T>
 	where
 		T::MomentMut<'a>: Display
 	{
@@ -609,7 +609,7 @@ pub struct FluxValue<T> {
 mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::{Constant, Flux, MomentMut, Moment};
+	use crate::{Constant, Flux, FluxMoment, MomentMut, Moment};
 	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso};
 	use crate::pred::{When, WhenEq};
@@ -632,22 +632,12 @@ mod _flux_value_impls {
 		}
 	}
 	
-	impl<A: Flux> FluxValue<A> {
+	impl<A: FluxMoment> FluxValue<A> {
 		// !!! Deriving PartialEq, Eq should count `f(t) = 1 + 2t` and
 		// `g(t) = 3 + 2(t-basis_time)` as the same Flux if `basis_time = 1`.
 		
 		pub fn into_flux(self) -> A {
 			self.flux
-		}
-		
-		/// An evaluation of this flux at some point in time.
-		pub fn basis(&self) -> <A::Kind as FluxKind>::Basis {
-			self.flux.basis()
-		}
-		
-		/// The time of [`Flux::basis`].
-		pub fn basis_time(&self) -> Time {
-			self.time
 		}
 		
 		/// A moment in the timeline.
@@ -683,6 +673,18 @@ mod _flux_value_impls {
 				moment: self.flux.to_moment_mut(basis_time, time),
 				borrow: std::marker::PhantomData,
 			}
+		}
+	}
+	
+	impl<A: Flux> FluxValue<A> {
+		/// An evaluation of this flux at some point in time.
+		pub fn basis(&self) -> <A::Kind as FluxKind>::Basis {
+			self.flux.basis()
+		}
+		
+		/// The time of [`Flux::basis`].
+		pub fn basis_time(&self) -> Time {
+			self.time
 		}
 		
 		/// A point in the timeline.
