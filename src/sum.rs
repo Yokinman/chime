@@ -117,10 +117,10 @@ impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 			return self
 		}
 		let mut deriv = self.clone();
-		self.0 = T::from_inner(deriv.eval(time));
+		self.0 = deriv.eval(time);
 		for degree in 1..=D {
 			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
-			self.1[degree-1] = T::from_inner(deriv.eval(time));
+			self.1[degree-1] = deriv.eval(time);
 		}
 		self
 	}
@@ -152,15 +152,15 @@ impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
 		self
 	}
 	
-	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner {
+	fn eval(&self, time: Scalar) -> Self::Basis {
 		if time == Scalar::from(0.) {
-			return self.0.clone().into_inner()
+			return self.0.clone()
 		}
 		let mut value = <T::Inner as Linear>::zero();
 		for degree in 1..=D {
 			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
 		}
-		value.mul_scalar(time).add(self.0.clone().into_inner())
+		Basis::from_inner(value.mul_scalar(time).add(self.0.clone().into_inner()))
 	}
 }
 

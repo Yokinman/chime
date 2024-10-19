@@ -307,7 +307,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		if value_idents.contains(&ident.unraw()) {
 			moment_fields = quote::quote!{
 				#moment_fields
-				#ident: #flux::linear::Basis::from_inner(#flux::kind::FluxKind::eval(&#flux::Flux::to_kind(self), time)),
+				#ident: #flux::kind::FluxKind::eval(&#flux::Flux::to_kind(self), time),
 			};
 			flux_fields = quote::quote!{
 				#flux_fields

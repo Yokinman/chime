@@ -939,8 +939,8 @@ mod _constant_impls {
 		fn deriv(self) -> Self {
 			Self::zero()
 		}
-		fn eval(&self, _time: Scalar) -> <Self::Basis as Basis>::Inner {
-			self.0.clone().into_inner()
+		fn eval(&self, _time: Scalar) -> Self::Basis {
+			self.0.clone()
 		}
 	}
 	
@@ -1047,7 +1047,7 @@ mod tests {
 		type Moment<'a> = Self;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			Self {
-				value: Basis::from_inner(self.to_kind().eval(time)),
+				value: self.to_kind().eval(time),
 				spd: self.spd.to_moment(time),
 				misc: self.misc.to_moment(time),
 			}

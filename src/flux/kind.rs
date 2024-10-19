@@ -23,7 +23,7 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	
 	fn deriv(self) -> Self;
 	
-	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner;
+	fn eval(&self, time: Scalar) -> Self::Basis;
 	
 	fn to_time(mut self, basis_time: Time, time: Time) -> Self {
 		let time = if time > basis_time {
@@ -52,6 +52,7 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 		
 		for degree in 0..=Self::DEGREE {
 			let order = deriv.eval(time)
+				.into_inner()
 				.partial_cmp(&Linear::zero());
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
@@ -180,8 +181,8 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
 	}
-	fn eval(&self, time: Scalar) -> <Self::Basis as Basis>::Inner {
-		self.each_ref().map(|x| T::eval(x, time))
+	fn eval(&self, time: Scalar) -> Self::Basis {
+		BasisArray(self.each_ref().map(|x| T::eval(x, time)))
 	}
 }
 
@@ -326,7 +327,7 @@ impl<K: FluxKind> Poly<K> {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		}))
+		})).into_inner()
 	}
 	
 	pub fn at(&self, time: Time) -> K::Basis {
@@ -334,11 +335,11 @@ impl<K: FluxKind> Poly<K> {
 	}
 	
 	pub fn rate_at(&self, time: Time) -> K::Basis {
-		K::Basis::from_inner(self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
+		self.kind.clone().deriv().eval(Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		})))
+		}))
 	}
 	
 	pub fn to_time(mut self, time: Time) -> Self {
