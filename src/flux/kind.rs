@@ -343,6 +343,11 @@ impl<K: FluxKind> Poly<K> {
 		self.kind.initial_order(self.secs(time))
 	}
 	
+	pub fn deriv(mut self) -> Self {
+		self.kind = self.kind.deriv();
+		self
+	}
+	
 	pub fn integ(self) -> Poly<K::Integ>
 	where
 		K: FluxIntegral,
