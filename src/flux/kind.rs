@@ -328,6 +328,14 @@ impl<T: Flux> Poly<T> {
 	pub fn basis_time(&self) -> Time {
 		self.time
 	}
+	
+	/// Conversion into a standard representation.
+	pub fn to_kind(&self) -> Poly<T::Kind> {
+		Poly {
+			kind: self.kind.to_kind(),
+			time: self.time,
+		}
+	}
 }
 
 impl<K: FluxKind> Poly<K> {
