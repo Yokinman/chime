@@ -297,8 +297,8 @@ where
 	}
 }
 
-impl<K: FluxKind> Poly<K> {
-	pub fn new(kind: K, time: Time) -> Self {
+impl<T> Poly<T> {
+	pub fn new(kind: T, time: Time) -> Self {
 		Self { kind, time }
 	}
 }
