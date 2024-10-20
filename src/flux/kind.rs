@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, FluxValue, ToMoment, ToMomentMut};
+use crate::{Change, Constant, Flux, FluxValue, Moment, MomentMut, ToMoment, ToMomentMut};
 
 /// An abstract description of change over time.
 /// 
@@ -355,16 +355,32 @@ impl<K: FluxKind> Poly<K> {
 }
 
 impl<T: ToMoment> Poly<T> {
+	/// See [`ToMoment::to_moment`].
 	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
 		self.kind.to_moment(self.secs(time))
+	}
+	
+	pub fn at(&self, time: Time) -> Moment<T> {
+		Moment {
+			moment: self.to_moment(time),
+			borrow: std::marker::PhantomData,
+		}
 	}
 }
 
 impl<T: ToMomentMut> Poly<T> {
+	/// See [`ToMomentMut::to_moment_mut`].
 	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
 		let secs = self.secs(time);
 		self.time = time;
 		self.kind.to_moment_mut(secs)
+	}
+	
+	pub fn at_mut(&mut self, time: Time) -> MomentMut<T> {
+		MomentMut {
+			moment: self.to_moment_mut(time),
+			borrow: std::marker::PhantomData,
+		}
 	}
 }
 
