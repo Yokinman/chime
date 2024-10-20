@@ -640,20 +640,20 @@ pub trait WhenEq<B> {
 
 impl<A, B> WhenEq<B> for Poly<A>
 where
-	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-	<A as ops::Sub<B>>::Output: Roots + PartialEq,
-	KindLinear<A>: PartialEq,
+	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	B: Flux<Kind: FluxKind<Basis: Basis<Inner = KindLinear<A::Kind>>>>,
+	KindLinear<A::Kind>: PartialEq,
 {
-	type Pred = PredFilter<PredEq<<A as ops::Sub<B>>::Output>, DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>>;
+	type Pred = PredFilter<
+		PredEq<<A::Kind as ops::Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
+	>;
 	fn when_eq(self, poly: Poly<B>) -> Self::Pred {
-		let diff_poly = self.clone() - poly.clone();
+		let a_poly = self.to_kind();
+		let b_poly = poly.to_kind();
+		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
-			.when_zero(DiffTimeFilterMap {
-				a_poly: self,
-				b_poly: poly,
-				diff_poly
-			})
+			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })
 	}
 }
 
