@@ -301,9 +301,14 @@ impl<T> Poly<T> {
 	pub fn new(kind: T, time: Time) -> Self {
 		Self { kind, time }
 	}
-}
-
-impl<T> Poly<T> {
+	
+	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Poly<&'_ U> {
+		Poly {
+			kind: f(&self.kind),
+			time: self.time,
+		}
+	}
+	
 	fn secs(&self, time: Time) -> Scalar {
 		Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
