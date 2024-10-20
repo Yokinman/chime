@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::Add;
 
 use crate::linear::{Linear, Basis, Scalar, Vector};
-use crate::{Flux, time};
+use crate::time;
 use crate::time::Time;
 use crate::kind::*;
 
@@ -613,17 +613,16 @@ pub trait When<B> {
 
 impl<A, B> When<B> for Poly<A>
 where
-	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
-	B: Flux<Kind: FluxKind<Basis: Basis<Inner = KindLinear<A::Kind>>>>,
-	KindLinear<A::Kind>: PartialOrd,
+	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
+	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A::Kind as ops::Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
+		Pred<<A as ops::Sub<B>>::Output>,
+		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
-	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred {
-		let a_poly = self.to_kind();
-		let b_poly = poly.to_kind();
+	fn when(self, order: Ordering, b_poly: Poly<B>) -> Self::Pred {
+		let a_poly = self;
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
 			.when_sign(order, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
@@ -640,17 +639,16 @@ pub trait WhenEq<B> {
 
 impl<A, B> WhenEq<B> for Poly<A>
 where
-	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
-	B: Flux<Kind: FluxKind<Basis: Basis<Inner = KindLinear<A::Kind>>>>,
-	KindLinear<A::Kind>: PartialEq,
+	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
+	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<A::Kind as ops::Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
+		PredEq<<A as ops::Sub<B>>::Output>,
+		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
-	fn when_eq(self, poly: Poly<B>) -> Self::Pred {
-		let a_poly = self.to_kind();
-		let b_poly = poly.to_kind();
+	fn when_eq(self, b_poly: Poly<B>) -> Self::Pred {
+		let a_poly = self;
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
 			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })
@@ -665,40 +663,38 @@ pub trait WhenDis<const SIZE: usize, B, D> {
 
 impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Poly<A>
 where
-	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D::Kind>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D::Kind>>>>>,
-	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
-		<B::Kind as Vector<SIZE>>::Output,
+	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
+	D: FluxKind + ops::Sqr,
+	A::Output: ops::Sub<
+		B::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
+			Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ ops::Sub<
-				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
+				<D as ops::Sqr>::Output,
+				Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
 			+ PartialEq,
 		>,
 	>,
-	KindLinear<D::Kind>: PartialOrd,
+	KindLinear<D>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		Pred<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			A, B, D,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred {
+	fn when_dis(self, b_pos: Poly<B>, order: Ordering, dis_poly: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
-		let a_pos = self.to_kind();
-		let b_pos = poly.to_kind();
-		let dis_poly = dis.to_kind();
+		let a_pos = self;
 		
-		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).kind
 				.sub(b_pos.index(i).to_time(a_pos.time).kind)
@@ -723,40 +719,38 @@ pub trait WhenDisEq<const SIZE: usize, B, D> {
 
 impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Poly<A>
 where
-	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D::Kind>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D::Kind>>>>>,
-	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
-		<B::Kind as Vector<SIZE>>::Output,
+	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
+	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
+	D: FluxKind + ops::Sqr,
+	A::Output: ops::Sub<
+		B::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
+			Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ ops::Sub<
-				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
+				<D as ops::Sqr>::Output,
+				Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
 			+ PartialEq,
 		>,
 	>,
-	KindLinear<D::Kind>: PartialEq,
+	KindLinear<D>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		PredEq<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			A, B, D,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred {
+	fn when_dis_eq(self, b_pos: Poly<B>, dis_poly: Poly<D>) -> Self::Pred {
 		use ops::*;
 		
-		let a_pos = self.to_kind();
-		let b_pos = poly.to_kind();
-		let dis_poly = dis.to_kind();
+		let a_pos = self;
 		
-		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).kind
 				.sub(b_pos.index(i).to_time(a_pos.time).kind)
