@@ -67,7 +67,7 @@ where
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.at(time).into_inner().sign();
+		let sign = diff_rate.eval(time).into_inner().sign();
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -77,14 +77,14 @@ where
 				time.checked_sub(inc_time)
 			} {
 				 // Stop Before Rate Reverses:
-				let rate = diff_rate.at(next_time).into_inner();
+				let rate = diff_rate.eval(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
 				
 				 // Stop Before Inequality:
-				if A::Basis::inner_id(a_poly.at(next_time).into_inner())
-					!= B::Basis::inner_id(b_poly.at(next_time).into_inner())
+				if A::Basis::inner_id(a_poly.eval(next_time).into_inner())
+					!= B::Basis::inner_id(b_poly.eval(next_time).into_inner())
 				{
 					break
 				}
@@ -150,7 +150,7 @@ where
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.at(time).into_inner().sign();
+		let sign = diff_rate.eval(time).into_inner().sign();
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -159,7 +159,7 @@ where
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
-					let rate = diff_rate.at(next_time).into_inner();
+					let rate = diff_rate.eval(next_time).into_inner();
 					if sign != rate.sign() && !rate.is_zero() {
 						if inc_time == time::NANOSEC {
 							return Some(time)
@@ -168,13 +168,13 @@ where
 					}
 					
 					 // Calculate Actual Distances:
-					let dis = dis_poly.at(next_time).into_inner();
+					let dis = dis_poly.eval(next_time).into_inner();
 					let mut a_dis = <KindLinear<D> as Linear>::zero();
 					let mut b_dis = <KindLinear<D> as Linear>::zero();
 					let mut real_diff = <KindLinear<D> as Linear>::zero();
 					for i in 0..SIZE {
-						let a = a_pos.index(i).at(next_time).into_inner();
-						let b = b_pos.index(i).at(next_time).into_inner();
+						let a = a_pos.index(i).eval(next_time).into_inner();
+						let b = b_pos.index(i).eval(next_time).into_inner();
 						a_dis = a_dis.add(a.clone().sqr());
 						b_dis = b_dis.add(b.clone().sqr());
 						real_diff = real_diff.add(a.sub(b).sqr());
@@ -192,7 +192,7 @@ where
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = Linear::mul_scalar(
-							pos_poly.at(next_time).into_inner().sqrt().sub(dis),
+							pos_poly.eval(next_time).into_inner().sqrt().sub(dis),
 							round_factor
 						);
 						if
@@ -220,7 +220,7 @@ where
 			let mut inc_time = time::NANOSEC;
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
-				let rate = diff_rate.at(next_time).into_inner();
+				let rate = diff_rate.eval(next_time).into_inner();
 				if sign != rate.sign() && !rate.is_zero() {
 					break
 				}
@@ -228,11 +228,11 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <A::Output as FluxKind>::Basis::inner_id(a_pos.index(i).at(next_time).into_inner())
-						.sub(<B::Output as FluxKind>::Basis::inner_id(b_pos.index(i).at(next_time).into_inner()));
+					let x = <A::Output as FluxKind>::Basis::inner_id(a_pos.index(i).eval(next_time).into_inner())
+						.sub(<B::Output as FluxKind>::Basis::inner_id(b_pos.index(i).eval(next_time).into_inner()));
 					pos = pos.add(x.sqr());
 				}
-				let dis = D::Basis::inner_id(dis_poly.at(next_time).into_inner());
+				let dis = D::Basis::inner_id(dis_poly.eval(next_time).into_inner());
 				if pos != dis.sqr() {
 					break
 				}

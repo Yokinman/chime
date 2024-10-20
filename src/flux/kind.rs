@@ -320,7 +320,7 @@ impl<K: FluxKind> Poly<K> {
 		})
 	}
 	
-	pub fn at(&self, time: Time) -> K::Basis {
+	pub fn eval(&self, time: Time) -> K::Basis {
 		self.kind.eval(self.secs(time))
 	}
 	
