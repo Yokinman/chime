@@ -301,14 +301,6 @@ impl<K: FluxKind> Poly<K> {
 	pub fn new(kind: K, time: Time) -> Self {
 		Self { kind, time }
 	}
-	
-	pub fn with_value(value: K::Basis) -> Self {
-		Self::new(K::with_basis(value), Time::ZERO)
-	}
-	
-	pub fn with_time(time: Time) -> Self {
-		Self::new(K::zero(), time)
-	}
 }
 
 impl<T> Poly<T> {
