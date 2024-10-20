@@ -318,6 +318,18 @@ impl<T> Poly<T> {
 	}
 }
 
+impl<T: Flux> Poly<T> {
+	/// An evaluation of this flux at some point in time.
+	pub fn basis(&self) -> <T::Kind as FluxKind>::Basis {
+		self.kind.basis()
+	}
+	
+	/// The time of [`Flux::basis`].
+	pub fn basis_time(&self) -> Time {
+		self.time
+	}
+}
+
 impl<K: FluxKind> Poly<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
 		self.kind.eval(self.secs(time))
