@@ -3,8 +3,8 @@
 use std::cmp::Ordering;
 use std::ops::Add;
 
-use crate::linear::{Linear, LinearIso, Basis, Scalar, Vector};
-use crate::time;
+use crate::linear::{Linear, Basis, Scalar, Vector};
+use crate::{Flux, time};
 use crate::time::Time;
 use crate::kind::*;
 
@@ -613,23 +613,20 @@ pub trait When<B> {
 
 impl<A, B> When<B> for Poly<A>
 where
-	A: FluxKind + ops::Sub<B>,
-	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-	<A as ops::Sub<B>>::Output: Roots + PartialEq,
-	KindLinear<A>: PartialOrd,
+	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	B: Flux<Kind: FluxKind<Basis: Basis<Inner = KindLinear<A::Kind>>>>,
+	KindLinear<A::Kind>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A as ops::Sub<B>>::Output>,
-		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
+		Pred<<A::Kind as ops::Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
 	>;
 	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred {
-		let diff_poly = self.clone() - poly.clone();
+		let a_poly = self.to_kind();
+		let b_poly = poly.to_kind();
+		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
-			.when_sign(order, DiffTimeFilterMap {
-				a_poly: self,
-				b_poly: poly,
-				diff_poly
-			})
+			.when_sign(order, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
 	}
 }
 
