@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, ToMomentMut, FluxValue};
+use crate::{Change, Constant, Flux, FluxValue, ToMoment, ToMomentMut};
 
 /// An abstract description of change over time.
 /// 
@@ -311,7 +311,7 @@ impl<K: FluxKind> Poly<K> {
 	}
 }
 
-impl<K: FluxKind> Poly<K> {
+impl<T> Poly<T> {
 	fn secs(&self, time: Time) -> Scalar {
 		Scalar::from(if time > self.time {
 			(time - self.time).as_secs_f64()
@@ -319,7 +319,9 @@ impl<K: FluxKind> Poly<K> {
 			-(self.time - time).as_secs_f64()
 		})
 	}
-	
+}
+
+impl<K: FluxKind> Poly<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
 		self.kind.eval(self.secs(time))
 	}
@@ -349,6 +351,20 @@ impl<K: FluxKind> Poly<K> {
 		K: FluxIntegral,
 	{
 		Poly::new(self.kind.integ(), self.time)
+	}
+}
+
+impl<T: ToMoment> Poly<T> {
+	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
+		self.kind.to_moment(self.secs(time))
+	}
+}
+
+impl<T: ToMomentMut> Poly<T> {
+	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
+		let secs = self.secs(time);
+		self.time = time;
+		self.kind.to_moment_mut(secs)
 	}
 }
 
