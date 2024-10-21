@@ -118,9 +118,10 @@ impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 		}
 		let mut deriv = self.clone();
 		self.0 = deriv.eval(time);
-		for degree in 1..=D {
-			deriv = deriv.deriv().mul(Scalar::from(1. / (degree as f64)));
+		for degree in 1..D {
+			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
 			self.1[degree-1] = deriv.eval(time);
+			// !!! This could be made more accurate with manual deriv/eval code.
 		}
 		self
 	}
