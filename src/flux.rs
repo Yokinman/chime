@@ -18,7 +18,7 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// Immutable moment-in-time interface for [`FluxValue::at`].
+/// Immutable moment-in-time interface for [`Poly::at`].
 pub struct Moment<'a, T: ToMoment> {
 	moment: T::Moment<'a>,
 	borrow: std::marker::PhantomData<&'a T>,
@@ -55,7 +55,7 @@ mod _moment_ref_impls {
 	}
 }
 
-/// Mutable moment-in-time interface for [`FluxValue::at_mut`].
+/// Mutable moment-in-time interface for [`Poly::at_mut`].
 pub struct MomentMut<'a, T: ToMomentMut> {
 	moment: T::MomentMut<'a>,
 	borrow: std::marker::PhantomData<&'a mut T>,
@@ -112,14 +112,14 @@ mod bevy_moment {
 	
 	type ChimeTime = bevy_time::Time<Chime>;
 	
-	type Ref<'b, M> = &'b FluxValue<M>;
-	type Mut<'b, M> = &'b mut FluxValue<M>;
+	type Ref<'b, M> = &'b Poly<M>;
+	type Mut<'b, M> = &'b mut Poly<M>;
 	
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
 	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		FluxValue<M>: Component + Clone,
+		Poly<M>: Component + Clone,
 	{
 		type ReadOnly = Self;
 	}
@@ -128,14 +128,14 @@ mod bevy_moment {
 	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		FluxValue<M>: Component + Clone,
+		Poly<M>: Component + Clone,
 	{}
 	
 	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		FluxValue<M>: Component + Clone,
+		Poly<M>: Component + Clone,
 	{
 		type ReadOnly = Moment<'b, M>;
 	}
@@ -147,7 +147,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
 		M: ToMoment,
-		FluxValue<M>: Component + Clone,
+		Poly<M>: Component + Clone,
 	{
 		type Item<'a> = Moment<'a, M>;
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
@@ -207,7 +207,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		FluxValue<M>: Component + Clone,
+		Poly<M>: Component + Clone,
 	{
 		type Item<'a> = MomentMut<'a, M>;
 		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
@@ -294,19 +294,19 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
 		M: ToMoment,
-		FluxValue<M>: Resource + Clone,
+		Poly<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, FluxValue<M>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, Poly<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMoment<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <Res<'w, FluxValue<M>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <Res<'w, Poly<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <Res<'w, FluxValue<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <Res<'w, Poly<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at(time);
 			ResMoment { inner }
@@ -319,19 +319,19 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
 		M: ToMomentMut,
-		FluxValue<M>: Resource + Clone,
+		Poly<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, FluxValue<M>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, Poly<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMomentMut<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <ResMut<'w, FluxValue<M>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <ResMut<'w, Poly<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <ResMut<'w, FluxValue<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <ResMut<'w, Poly<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at_mut(time);
 			ResMomentMut { inner }
@@ -397,10 +397,6 @@ mod _change_impls {
 	}
 }
 
-/// A [`ToMoment`] type packaged with a basis time.
-/// e.g. `FluxValue<1 + 2x>` => `1 + 2(x-time)`.
-pub type FluxValue<T> = Poly<T>;
-
 /// Types with a description of change over time.
 /// 
 /// Used to facilitate interoperation between types (by way of conversion into
@@ -441,12 +437,12 @@ pub trait Flux {
 		self.change(FluxAccum(Constant(self.basis()))).0
 	}
 	
-	/// Temporary convenience for constructing a [`FluxValue<Self>`].
-	fn to_flux_value(self, time: Time) -> FluxValue<Self>
+	/// Temporary convenience for constructing a [`Poly<Self>`].
+	fn to_flux_value(self, time: Time) -> Poly<Self>
 	where
 		Self: Sized
 	{
-		FluxValue::new(self, time)
+		Poly::new(self, time)
 	}
 }
 
@@ -467,7 +463,7 @@ pub trait ToMoment {
 	/// 
 	/// This generally returns an owned value. However, the value should be
 	/// treated as a reference, as modifying it has no effect on the timeline.
-	/// This is enforced through [`FluxValue::at`] ([`Moment`]).
+	/// This is enforced through [`Poly::at`] ([`Moment`]).
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_>;
 }
 
@@ -484,7 +480,7 @@ pub trait ToMomentMut: ToMoment {
 	/// 
 	/// In general, this should permanently shift the basis of the value and
 	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
-	/// is enforced through [`FluxValue::at_mut`] ([`MomentMut`]).
+	/// is enforced through [`Poly::at_mut`] ([`MomentMut`]).
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_>;
 }
 
@@ -750,7 +746,7 @@ mod tests {
 		}
 	}
 	
-	fn position() -> FluxValue<Pos> {
+	fn position() -> Poly<Pos> {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
