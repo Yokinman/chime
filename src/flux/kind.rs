@@ -1,7 +1,7 @@
 //! Defining a kind of change over time.
 
 use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
@@ -224,6 +224,11 @@ pub mod ops {
 
 /// A [`FluxKind`] paired with a basis time.
 /// e.g. `Poly<1 + 2x>` => `1 + 2(x-time)`.
+#[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(
+	bevy_ecs::component::Component,
+	bevy_ecs::system::Resource,
+))]
 pub struct Poly<K> {
 	pub kind: K,
 	pub time: Time,
@@ -233,35 +238,6 @@ pub struct Poly<K> {
 pub struct PolyIter<T> {
 	iter: T,
 	time: Time,
-}
-
-impl<K> Clone for Poly<K>
-where
-	K: Clone
-{
-	fn clone(&self) -> Self {
-		Self {
-			kind: self.kind.clone(),
-			time: self.time,
-		}
-	}
-}
-
-impl<K> Copy for Poly<K>
-where
-	K: Copy
-{}
-
-impl<K> Debug for Poly<K>
-where
-	K: Debug
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		f.debug_tuple("Poly")
-			.field(&self.kind)
-			.field(&self.time)
-			.finish()
-	}
 }
 
 impl<K> PartialEq for Poly<K>
@@ -472,12 +448,6 @@ impl<K: FluxKind> Poly<K> {
 			pred: crate::pred::PredEq { poly: self },
 			filter,
 		}
-	}
-}
-
-impl<K: FluxKind> Default for Poly<K> {
-	fn default() -> Self {
-		Poly::new(K::zero(), Time::ZERO)
 	}
 }
 
