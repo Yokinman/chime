@@ -538,7 +538,7 @@ where
 }
 
 /// Multidimensional change over time.
-pub trait PolyVector<const SIZE: usize> {
+pub trait TemporalVector<const SIZE: usize> {
 	type Kind: Vector<SIZE, Output: FluxKind> + 'static;
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -625,7 +625,7 @@ pub trait PolyVector<const SIZE: usize> {
 	//   which the roots may be and iterate through it.
 }
 
-impl<T, const SIZE: usize> PolyVector<SIZE> for Temporal<T>
+impl<T, const SIZE: usize> TemporalVector<SIZE> for Temporal<T>
 where
 	T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 {
