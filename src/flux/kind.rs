@@ -245,6 +245,8 @@ where
 	K: PartialEq
 {
 	fn eq(&self, other: &Self) -> bool {
+		// ??? Deriving PartialEq, Eq could count `f(t) = 1 + 2t` and
+ 		// `g(t) = 3 + 2(t-basis_time)` as the same if `basis_time = 1`.
 		self.kind == other.kind && self.time == other.time
 	}
 }
@@ -614,6 +616,13 @@ pub trait PolyVector<const SIZE: usize> {
 	{
 		self.when_index_eq(index, &Poly::new(Constant::from(C::into_linear(other)), Time::ZERO))
 	}
+	
+	// !!!
+	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
+	// - to fit a line segment, filter predicted times.
+	// - for non-fixed angle line segments, use a double distance check?
+	// - rotating point-line may be handleable iteratively, find the bounds in
+	//   which the roots may be and iterate through it.
 }
 
 impl<T, const SIZE: usize> PolyVector<SIZE> for Poly<T>
