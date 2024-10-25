@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
 use crate::time::Time;
@@ -270,6 +270,19 @@ where
 {
 	fn eq(&self, other: &Self) -> bool {
 		self.kind == other.kind && self.time == other.time
+	}
+}
+	
+impl<T> Deref for Poly<T> {
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.kind
+	}
+}
+
+impl<T> DerefMut for Poly<T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.kind
 	}
 }
 
