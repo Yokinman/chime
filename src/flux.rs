@@ -710,12 +710,14 @@ mod _flux_value_impls {
 		
 		/// A polynomial description of this flux at the given time.
 		pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-			self.flux
+			let mut poly = self.flux
 				.change(FluxAccum {
-					poly: Poly::new(Constant(Basis::from_inner(self.eval(time))), time),
+					poly: Poly::new(Constant(self.basis()), self.basis_time()),
 					time: self.time,
 				})
-				.poly
+				.poly;
+			let _ = poly.to_moment_mut(time);
+			poly
 		}
 		
 		/// Ranges when this is above/below/equal to another flux.
