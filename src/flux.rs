@@ -710,12 +710,10 @@ mod _flux_value_impls {
 		
 		/// A polynomial description of this flux at the given time.
 		pub fn poly(&self, time: Time) -> Poly<A::Kind> {
-			let mut poly = self.flux
-				.change(FluxAccum {
-					poly: Poly::new(Constant(self.basis()), self.basis_time()),
-					time: self.time,
-				})
-				.poly;
+			let mut poly = Poly::new(
+				self.flux.to_kind(),
+				self.time
+			);
 			let _ = poly.to_moment_mut(time);
 			poly
 		}
@@ -814,11 +812,7 @@ pub trait Flux {
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		let accum = FluxAccum {
-			poly: Poly::new(Constant(self.basis()), Time::ZERO),
-			time: Time::ZERO,
-		};
-		self.change(accum).poly.kind
+		self.change(FluxAccum(Constant(self.basis()))).0
 	}
 	
 	/// Temporary convenience for constructing a [`FluxValue<Self>`].

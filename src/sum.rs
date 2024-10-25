@@ -93,11 +93,8 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
 		self.0.clone()
 	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		FluxAccum {
-			poly: Poly::new(self.clone(), accum.poly.time),
-			time: accum.time,
-		}
+	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
+		FluxAccum(self.clone())
 	}
 }
 

@@ -94,30 +94,16 @@ pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Basis>>;
 /// let x = x + Constant(2.).per(chime::time::SEC);
 /// let sum: Sum<f64, 1> = x.poly;
 /// ```
-pub struct FluxAccum<K> {
-	/// Accumulated polynomial.
-	pub poly: Poly<K>,
-	
-	/// The basis time of the changes being accumulated.
-	pub time: Time,
-}
+pub struct FluxAccum<K>(pub K);
 
 impl<K: FluxKind> FluxAccum<K> {
-	pub fn new(poly: Poly<K>, time: Time) -> Self {
-		Self { poly, time }
-	}
-	
 	/// Workaround for the overlapping impl `From<T> for U`.
 	pub fn into<T>(self) -> FluxAccum<T>
 	where
 		T: FluxKind,
 		K: Into<T>,
 	{
-		let FluxAccum { poly, time } = self;
-		FluxAccum {
-			poly: Poly { kind: poly.kind.into(), time: poly.time },
-			time,
-		}
+		FluxAccum(self.0.into())
 	}
 }
 
@@ -128,15 +114,9 @@ where
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
-		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let poly_time = poly.time;
-		let sub_poly = FluxValue::new(rate, time).poly(poly_time);
 		let time_scale = unit.as_secs_f64().recip();
-		FluxAccum {
-			poly: poly + (sub_poly * Scalar::from(time_scale)).integ(),
-			time,
-		}
+		FluxAccum(self.0.add((rate.to_kind() * Scalar::from(time_scale)).integ()))
 	}
 }
 
@@ -147,14 +127,9 @@ where
 {
 	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
-		let FluxAccum { poly, time } = self;
 		let Change { rate, unit } = rhs;
-		let sub_poly = FluxValue::new(rate, time).poly(poly.time);
-		let time_scale = unit.as_secs_f64().recip();
-		FluxAccum {
-			poly: poly + (sub_poly * Scalar::from(time_scale * -1.)).integ(),
-			time,
-		}
+		let time_scale = unit.as_secs_f64().recip() * -1.;
+		FluxAccum(self.0.add((rate.to_kind() * Scalar::from(time_scale)).integ()))
 	}
 }
 

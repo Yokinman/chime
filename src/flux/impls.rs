@@ -69,16 +69,10 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 		crate::linear::BasisArray(self.each_ref().map(T::basis))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		let FluxAccum { poly, time } = accum;
-		let poly_time = poly.time;
-		let mut accums = poly.into_iter()
-			.map(|poly| FluxAccum { poly, time });
+		let mut accums = accum.0.into_iter();
 		let poly = self.each_ref()
-			.map(|x| x.change(accums.next().unwrap()).poly.kind);
-		FluxAccum {
-			poly: Poly::new(poly, poly_time),
-			time,
-		}
+			.map(|x| x.change(FluxAccum(accums.next().unwrap())).0);
+		FluxAccum(poly)
 	}
 }
 
