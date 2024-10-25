@@ -1,7 +1,6 @@
 //! Utilities for describing how a type changes over time.
 
 pub mod time;
-pub mod kind;
 pub mod pred;
 mod impls;
 
