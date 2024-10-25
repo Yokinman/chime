@@ -18,8 +18,8 @@ use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 	bevy_ecs::system::Resource,
 ))]
 pub struct Temporal<T> {
-	pub inner: T,
-	pub time: Time,
+	pub(crate) inner: T,
+	pub(crate) time: Time,
 }
 
 /// ... [`<Temporal as IntoIterator>::IntoIter`]
