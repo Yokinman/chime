@@ -7,6 +7,7 @@ mod impls;
 use crate::{
 	linear::*,
 	kind::*,
+	temporal::Temporal,
 };
 
 use self::time::Time;
@@ -19,8 +20,8 @@ pub struct Chime;
 
 /// Immutable moment-in-time interface for [`Temporal::at`].
 pub struct Moment<'a, T: ToMoment> {
-	moment: T::Moment<'a>,
-	borrow: std::marker::PhantomData<&'a T>,
+	pub(crate) moment: T::Moment<'a>,
+	pub(crate) borrow: std::marker::PhantomData<&'a T>,
 }
 
 mod _moment_ref_impls {
@@ -56,8 +57,8 @@ mod _moment_ref_impls {
 
 /// Mutable moment-in-time interface for [`Temporal::at_mut`].
 pub struct MomentMut<'a, T: ToMomentMut> {
-	moment: T::MomentMut<'a>,
-	borrow: std::marker::PhantomData<&'a mut T>,
+	pub(crate) moment: T::MomentMut<'a>,
+	pub(crate) borrow: std::marker::PhantomData<&'a mut T>,
 }
 
 mod _moment_mut_impls {
@@ -631,6 +632,7 @@ mod tests {
 	use std::ops::Deref;
 	use super::*;
 	use super::time::{SEC, TimeRanges};
+	use crate::temporal::TemporalVector;
 	use crate::sum::Sum;
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;

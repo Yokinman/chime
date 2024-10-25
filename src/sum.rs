@@ -679,6 +679,7 @@ where
 #[cfg(test)]
 mod tests {
 	use crate::time::*;
+	use crate::temporal::Temporal;
 	use crate::pred::Prediction;
 	use super::*;
 	

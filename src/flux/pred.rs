@@ -6,6 +6,7 @@ use std::ops::Add;
 use crate::linear::{Linear, Basis, Scalar, Vector};
 use crate::time;
 use crate::time::Time;
+use crate::temporal::Temporal;
 use crate::kind::*;
 
 /// Function that converts a root value to a Time, or ignores it.

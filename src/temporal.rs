@@ -7,6 +7,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
 use crate::time::Time;
 use crate::{Change, Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
+use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 
 /// A [`FluxKind`] paired with a basis time.
@@ -205,9 +206,9 @@ impl<T: ToMomentMut> Temporal<T> {
 }
 
 impl<K: FluxKind> Temporal<K> {
-	pub fn sqr(self) -> Temporal<<K as ops::Sqr>::Output>
+	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
 	where
-		K: ops::Sqr
+		K: kind_ops::Sqr
 	{
 		Temporal::new(self.inner.sqr(), self.time)
 	}
@@ -248,9 +249,9 @@ impl<K: FluxKind> From<K> for Temporal<K> {
 
 impl<A: FluxKind, B: FluxKind> Add<Temporal<B>> for Temporal<A>
 where
-	A: ops::Add<B>
+	A: kind_ops::Add<B>
 {
-	type Output = Temporal<<A as ops::Add<B>>::Output>;
+	type Output = Temporal<<A as kind_ops::Add<B>>::Output>;
 	fn add(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
 			inner: self.inner.add(rhs.to_time(self.time).inner),
@@ -261,9 +262,9 @@ where
 
 impl<A: FluxKind, B: FluxKind> Sub<Temporal<B>> for Temporal<A>
 where
-	A: ops::Sub<B>
+	A: kind_ops::Sub<B>
 {
-	type Output = Temporal<<A as ops::Sub<B>>::Output>;
+	type Output = Temporal<<A as kind_ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
 			inner: self.inner.sub(rhs.to_time(self.time).inner),
