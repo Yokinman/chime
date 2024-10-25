@@ -93,6 +93,15 @@ where
 				inc_time += inc_time;
 			}
 			if inc_time == time::NANOSEC {
+				if is_end {
+					if time.checked_add(inc_time).is_none() {
+						return None
+					}
+				} else {
+					if time.checked_sub(inc_time).is_none() {
+						return None
+					}
+				}
 				break
 			}
 		}
@@ -208,6 +217,9 @@ where
 					inc_time += inc_time;
 				}
 				if inc_time == time::NANOSEC {
+					if time.checked_sub(inc_time).is_none() {
+						return None
+					}
 					break
 				}
 			}
@@ -241,6 +253,9 @@ where
 				inc_time += inc_time;
 			}
 			if inc_time == time::NANOSEC {
+				if time.checked_add(inc_time).is_none() {
+					return None
+				}
 				break
 			}
 		}
