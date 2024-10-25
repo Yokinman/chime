@@ -602,7 +602,7 @@ mod _flux_value_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
 	use crate::{Constant, Flux, ToMoment, ToMomentMut, MomentMut, Moment};
-	use crate::kind::{FluxAccum, FluxKind, KindLinear, Poly};
+	use crate::kind::{FluxKind, KindLinear, Poly};
 	use crate::linear::{Basis, LinearIso, Scalar};
 	use crate::pred::{When, WhenEq};
 	use crate::time::Time;

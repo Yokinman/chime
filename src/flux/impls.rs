@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::vec::Vec;
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind, Poly};
+use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
 use crate::linear::Scalar;
 
 impl<'t, T> Flux for &'t T
