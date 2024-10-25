@@ -55,7 +55,7 @@ mod _moment_ref_impls {
 	}
 }
 
-/// Mutable moment-in-time interface for [`Temporal::at_mut`].
+/// Mutable moment-in-time interface for [`Temporal::moment_mut`].
 pub struct MomentMut<'a, T: ToMomentMut> {
 	pub(crate) moment: T::MomentMut<'a>,
 	pub(crate) borrow: std::marker::PhantomData<&'a mut T>,
@@ -235,7 +235,7 @@ mod bevy_moment {
 		unsafe fn fetch<'w>((time, fetch): &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Self::Item<'w> {
 			<Mut<'b, M> as WorldQuery>::fetch(fetch, entity, table_row)
 				.into_inner()
-				.at_mut(*time)
+				.moment_mut(*time)
 		}
 		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
 	        assert!(
@@ -333,7 +333,7 @@ mod bevy_moment {
 				.elapsed();
 			let inner = <ResMut<'w, Temporal<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
-				.at_mut(time);
+				.moment_mut(time);
 			ResMomentMut { inner }
 		}
 	}
@@ -480,7 +480,7 @@ pub trait ToMomentMut: ToMoment {
 	/// 
 	/// In general, this should permanently shift the basis of the value and
 	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
-	/// is enforced through [`Temporal::at_mut`] ([`MomentMut`]).
+	/// is enforced through [`Temporal::moment_mut`] ([`MomentMut`]).
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_>;
 }
 
@@ -842,10 +842,10 @@ mod tests {
 		assert_eq!(pos.moment(200*SEC).round(), -209778.);
 		
 		 // Update:
-		assert_eq!(pos.at_mut(20*SEC).round(), -113.);
+		assert_eq!(pos.moment_mut(20*SEC).round(), -113.);
 		assert_eq!(pos.moment(100*SEC).round(), 8339.);
 		assert_eq!(pos.moment(200*SEC).round(), -209778.);
-		assert_eq!(pos.at_mut(100*SEC).round(), 8339.);
+		assert_eq!(pos.moment_mut(100*SEC).round(), 8339.);
 		assert_eq!(pos.moment(200*SEC).round(), -209778.);
 	}
 	
@@ -862,7 +862,7 @@ mod tests {
 			]), 10*SEC)
 		);
 		for _ in 0..2 {
-			pos.at_mut(20*SEC);
+			pos.moment_mut(20*SEC);
 			assert_poly!(
 				pos.poly(pos.basis_time()),
 				Temporal::new(Sum::new(-112.55, [
@@ -873,7 +873,7 @@ mod tests {
 				]), 20*SEC)
 			);
 		}
-		pos.at_mut(0*SEC);
+		pos.moment_mut(0*SEC);
 		assert_poly!(
 			pos.poly(pos.basis_time()),
 			Temporal::new(Sum::new(32., [
@@ -921,19 +921,19 @@ mod tests {
 		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), []);
 		assert_time_ranges!(a_pos.when(Ordering::Equal, &b_pos), [(Time::ZERO, Time::MAX)]);
 		assert_times!(a_pos.when_eq(&b_pos), []);
-		a_pos.at_mut(20*SEC);
+		a_pos.moment_mut(20*SEC);
 		
 		 // Apply Changes:
-		b_pos.at_mut(0*SEC).misc.push(Spd {
+		b_pos.moment_mut(0*SEC).misc.push(Spd {
 			value: 2.5,
 			..Default::default()
 		});
-		b_pos.at_mut(0*SEC).misc.push(Spd {
+		b_pos.moment_mut(0*SEC).misc.push(Spd {
 			value: 12.,
 			fric: Fric { value: 0.5 },
 			..Default::default()
 		});
-		b_pos.at_mut(10*SEC).value -= 100.0;
+		b_pos.moment_mut(10*SEC).value -= 100.0;
 		
 		 // Check After:
 		assert_eq!(

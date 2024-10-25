@@ -197,7 +197,7 @@ impl<T: ToMomentMut> Temporal<T> {
 		self.inner.to_moment_mut(secs)
 	}
 	
-	pub fn at_mut(&mut self, time: Time) -> MomentMut<T> {
+	pub fn moment_mut(&mut self, time: Time) -> MomentMut<T> {
 		MomentMut {
 			moment: self.to_moment_mut(time),
 			borrow: std::marker::PhantomData,
