@@ -4,9 +4,9 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
+use crate::linear::{Scalar, Vector, LinearIso};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
+use crate::{Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 

@@ -2,12 +2,11 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
+use crate::linear::{Linear, Basis, BasisArray, Scalar};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
+use crate::{Change, Constant, Flux, ToMomentMut};
 
 /// An abstract description of change over time.
 /// 
