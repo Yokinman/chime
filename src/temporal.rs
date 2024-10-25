@@ -147,7 +147,7 @@ impl<K: FluxKind> Temporal<K> {
 		self.inner.eval(self.secs(time))
 	}
 	
-	pub fn to_time(mut self, time: Time) -> Self {
+	pub fn at_time(mut self, time: Time) -> Self {
 		if self.time != time {
 			let _ = self.inner.to_moment_mut(self.secs(time));
 			self.time = time;
@@ -254,7 +254,7 @@ where
 	type Output = Temporal<<A as kind_ops::Add<B>>::Output>;
 	fn add(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
-			inner: self.inner.add(rhs.to_time(self.time).inner),
+			inner: self.inner.add(rhs.at_time(self.time).inner),
 			time: self.time,
 		}
 	}
@@ -267,7 +267,7 @@ where
 	type Output = Temporal<<A as kind_ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
-			inner: self.inner.sub(rhs.to_time(self.time).inner),
+			inner: self.inner.sub(rhs.at_time(self.time).inner),
 			time: self.time,
 		}
 	}

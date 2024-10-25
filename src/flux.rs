@@ -885,7 +885,7 @@ mod tests {
 		);
 		
 		assert_poly!(
-			Temporal::new(Sum::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).to_time(320*time::MILLISEC),
+			Temporal::new(Sum::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).at_time(320*time::MILLISEC),
 			Temporal::new(Sum::new(-29.341750272_f64, [26.2289216, -3.13568, -1.616, 0.3]), 320*time::MILLISEC)
 		);
 	}

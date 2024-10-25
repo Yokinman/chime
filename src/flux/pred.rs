@@ -713,7 +713,7 @@ where
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
-				.sub(b_pos.index(i).to_time(a_pos.time).inner)
+				.sub(b_pos.index(i).at_time(a_pos.time).inner)
 				.sqr();
 		}
 		
@@ -769,7 +769,7 @@ where
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
-				.sub(b_pos.index(i).to_time(a_pos.time).inner)
+				.sub(b_pos.index(i).at_time(a_pos.time).inner)
 				.sqr();
 		}
 		
