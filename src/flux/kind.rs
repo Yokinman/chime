@@ -235,7 +235,7 @@ pub struct Temporal<T> {
 }
 
 /// ... [`<Temporal as IntoIterator>::IntoIter`]
-pub struct PolyIter<T> {
+pub struct TemporalIter<T> {
 	iter: T,
 	time: Time,
 }
@@ -514,16 +514,16 @@ where
 	K: IntoIterator<Item: FluxKind>,
 {
 	type Item = Temporal<K::Item>;
-	type IntoIter = PolyIter<K::IntoIter>;
+	type IntoIter = TemporalIter<K::IntoIter>;
 	fn into_iter(self) -> Self::IntoIter {
-		PolyIter {
+		TemporalIter {
 			iter: self.inner.into_iter(),
 			time: self.time,
 		}
 	}
 }
 
-impl<T> Iterator for PolyIter<T>
+impl<T> Iterator for TemporalIter<T>
 where
 	T: Iterator<Item: FluxKind>,
 {
