@@ -4,9 +4,10 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector};
+use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, FluxValue, Moment, MomentMut, ToMoment, ToMomentMut};
+use crate::{Change, Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
+use crate::pred::{When, WhenEq};
 
 /// An abstract description of change over time.
 /// 
@@ -310,6 +311,55 @@ impl<T: Flux> Poly<T> {
 			kind: self.kind.to_kind(),
 			time: self.time,
 		}
+	}
+	
+	/// A polynomial description of this flux at the given time.
+	pub fn poly(&self, time: Time) -> Poly<T::Kind> {
+		let mut kind = self.kind.to_kind();
+		let _ = kind.to_moment_mut(self.secs(time));
+		Poly { kind, time }
+	}
+	
+	/// Ranges when this is above/below/equal to another flux.
+	pub fn when<U>(&self, cmp: Ordering, other: &Poly<U>)
+		-> <Poly<T::Kind> as When<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<T::Kind>: When<U::Kind>
+	{
+		let time = self.basis_time();
+		When::when(self.poly(time), cmp, other.poly(time))
+	}
+	
+	/// Times when this is equal to another flux.
+	pub fn when_eq<U>(&self, other: &Poly<U>)
+		-> <Poly<T::Kind> as WhenEq<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<T::Kind>: WhenEq<U::Kind>
+	{
+		let time = self.basis_time();
+		WhenEq::when_eq(self.poly(time), other.poly(time))
+	}
+	
+	/// Ranges when this is above/below/equal to a constant.
+	pub fn when_constant<U>(&self, cmp: Ordering, other: U)
+		-> <Poly<T::Kind> as When<Constant<KindLinear<T::Kind>>>>::Pred
+	where
+		U: LinearIso<KindLinear<T::Kind>>,
+		Poly<T::Kind>: When<Constant<KindLinear<T::Kind>>>
+	{
+		self.when(cmp, &Poly::new(Constant::from(U::into_linear(other)), Time::ZERO))
+	}
+	
+	/// Times when this is equal to a constant.
+	pub fn when_eq_constant<U>(&self, other: U)
+		-> <Poly<T::Kind> as WhenEq<Constant<KindLinear<T::Kind>>>>::Pred
+	where
+		U: LinearIso<KindLinear<T::Kind>>,
+		Poly<T::Kind>: WhenEq<Constant<KindLinear<T::Kind>>>
+	{
+		self.when_eq(&Poly::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
 }
 
