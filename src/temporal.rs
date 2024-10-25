@@ -165,6 +165,40 @@ impl<K: FluxKind> Temporal<K> {
 	{
 		Temporal::new(self.inner.integ(), self.time)
 	}
+	
+	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
+	where
+		K: kind_ops::Sqr
+	{
+		Temporal::new(self.inner.sqr(), self.time)
+	}
+	
+	/// Ranges when the sign is greater than, less than, or equal to zero.
+	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K>, F>
+	where
+		F: crate::pred::TimeFilterMap,
+		K: Roots + PartialEq,
+		KindLinear<K>: PartialOrd,
+	{
+		let pred = crate::pred::Pred {
+			poly: self,
+			order
+		};
+		crate::pred::PredFilter { pred, filter }
+	}
+	
+	/// Times when the value is equal to zero.
+	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K>, F>
+	where
+		F: crate::pred::TimeFilterMap,
+		K: Roots + PartialEq,
+		KindLinear<K>: PartialEq,
+	{
+		crate::pred::PredFilter {
+			pred: crate::pred::PredEq { poly: self },
+			filter,
+		}
+	}
 }
 
 impl<T: ToMoment> Temporal<T> {
@@ -202,42 +236,6 @@ impl<T: ToMomentMut> Temporal<T> {
 			self.time = time;
 		}
 		self
-	}
-}
-
-impl<K: FluxKind> Temporal<K> {
-	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
-	where
-		K: kind_ops::Sqr
-	{
-		Temporal::new(self.inner.sqr(), self.time)
-	}
-	
-	/// Ranges when the sign is greater than, less than, or equal to zero.
-	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K>, F>
-	where
-		F: crate::pred::TimeFilterMap,
-		K: Roots + PartialEq,
-		KindLinear<K>: PartialOrd,
-	{
-		let pred = crate::pred::Pred {
-			poly: self,
-			order
-		};
-		crate::pred::PredFilter { pred, filter }
-	}
-	
-	/// Times when the value is equal to zero.
-	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K>, F>
-	where
-		F: crate::pred::TimeFilterMap,
-		K: Roots + PartialEq,
-		KindLinear<K>: PartialEq,
-	{
-		crate::pred::PredFilter {
-			pred: crate::pred::PredEq { poly: self },
-			filter,
-		}
 	}
 }
 
