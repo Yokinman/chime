@@ -18,7 +18,7 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// Immutable moment-in-time interface for [`Poly::at`].
+/// Immutable moment-in-time interface for [`Temporal::at`].
 pub struct Moment<'a, T: ToMoment> {
 	moment: T::Moment<'a>,
 	borrow: std::marker::PhantomData<&'a T>,
@@ -55,7 +55,7 @@ mod _moment_ref_impls {
 	}
 }
 
-/// Mutable moment-in-time interface for [`Poly::at_mut`].
+/// Mutable moment-in-time interface for [`Temporal::at_mut`].
 pub struct MomentMut<'a, T: ToMomentMut> {
 	moment: T::MomentMut<'a>,
 	borrow: std::marker::PhantomData<&'a mut T>,
@@ -112,14 +112,14 @@ mod bevy_moment {
 	
 	type ChimeTime = bevy_time::Time<Chime>;
 	
-	type Ref<'b, M> = &'b Poly<M>;
-	type Mut<'b, M> = &'b mut Poly<M>;
+	type Ref<'b, M> = &'b Temporal<M>;
+	type Mut<'b, M> = &'b mut Temporal<M>;
 	
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
 	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		Poly<M>: Component + Clone,
+		Temporal<M>: Component + Clone,
 	{
 		type ReadOnly = Self;
 	}
@@ -128,14 +128,14 @@ mod bevy_moment {
 	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		Poly<M>: Component + Clone,
+		Temporal<M>: Component + Clone,
 	{}
 	
 	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		Poly<M>: Component + Clone,
+		Temporal<M>: Component + Clone,
 	{
 		type ReadOnly = Moment<'b, M>;
 	}
@@ -147,7 +147,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
 		M: ToMoment,
-		Poly<M>: Component + Clone,
+		Temporal<M>: Component + Clone,
 	{
 		type Item<'a> = Moment<'a, M>;
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
@@ -207,7 +207,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		Poly<M>: Component + Clone,
+		Temporal<M>: Component + Clone,
 	{
 		type Item<'a> = MomentMut<'a, M>;
 		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
@@ -294,19 +294,19 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
 		M: ToMoment,
-		Poly<M>: Resource + Clone,
+		Temporal<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, Poly<M>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, Temporal<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMoment<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <Res<'w, Poly<M>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <Res<'w, Temporal<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <Res<'w, Poly<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <Res<'w, Temporal<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at(time);
 			ResMoment { inner }
@@ -319,19 +319,19 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
 		M: ToMomentMut,
-		Poly<M>: Resource + Clone,
+		Temporal<M>: Resource + Clone,
 	{
-		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, Poly<M>> as SystemParam>::State);
+		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, Temporal<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMomentMut<'world, M>;
 		fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
 			let time_state = <Res<'w, ChimeTime> as SystemParam>::init_state(world, system_meta);
-			let res_state = <ResMut<'w, Poly<M>> as SystemParam>::init_state(world, system_meta);
+			let res_state = <ResMut<'w, Temporal<M>> as SystemParam>::init_state(world, system_meta);
 			(time_state, res_state)
 		}
 		unsafe fn get_param<'world, 'state>((time_state, res_state): &'state mut Self::State, system_meta: &SystemMeta, world: UnsafeWorldCell<'world>, change_tick: Tick) -> Self::Item<'world, 'state> {
 			let time = <Res<'w, ChimeTime> as SystemParam>::get_param(time_state, system_meta, world, change_tick)
 				.elapsed();
-			let inner = <ResMut<'w, Poly<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
+			let inner = <ResMut<'w, Temporal<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
 				.at_mut(time);
 			ResMomentMut { inner }
@@ -437,12 +437,12 @@ pub trait Flux {
 		self.change(FluxAccum(Constant(self.basis()))).0
 	}
 	
-	/// Temporary convenience for constructing a [`Poly<Self>`].
-	fn to_flux_value(self, time: Time) -> Poly<Self>
+	/// Temporary convenience for constructing a [`Temporal<Self>`].
+	fn to_flux_value(self, time: Time) -> Temporal<Self>
 	where
 		Self: Sized
 	{
-		Poly::new(self, time)
+		Temporal::new(self, time)
 	}
 }
 
@@ -463,7 +463,7 @@ pub trait ToMoment {
 	/// 
 	/// This generally returns an owned value. However, the value should be
 	/// treated as a reference, as modifying it has no effect on the timeline.
-	/// This is enforced through [`Poly::at`] ([`Moment`]).
+	/// This is enforced through [`Temporal::at`] ([`Moment`]).
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_>;
 }
 
@@ -480,7 +480,7 @@ pub trait ToMomentMut: ToMoment {
 	/// 
 	/// In general, this should permanently shift the basis of the value and
 	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
-	/// is enforced through [`Poly::at_mut`] ([`MomentMut`]).
+	/// is enforced through [`Temporal::at_mut`] ([`MomentMut`]).
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_>;
 }
 
@@ -746,7 +746,7 @@ mod tests {
 		}
 	}
 	
-	fn position() -> Poly<Pos> {
+	fn position() -> Temporal<Pos> {
 		let pos = Pos {
 			value: 32.0, 
 			spd: Spd {
@@ -853,7 +853,7 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.poly(10*SEC),
-			Poly::new(Sum::new(-63.15, [
+			Temporal::new(Sum::new(-63.15, [
 				-11.9775,
 				0.270416666666666,
 				0.0475,
@@ -864,7 +864,7 @@ mod tests {
 			pos.at_mut(20*SEC);
 			assert_poly!(
 				pos.poly(pos.basis_time()),
-				Poly::new(Sum::new(-112.55, [
+				Temporal::new(Sum::new(-112.55, [
 					 6.0141666666666666666,
 					 1.4454166666666666666,
 					 0.0308333333333333333,
@@ -875,7 +875,7 @@ mod tests {
 		pos.at_mut(0*SEC);
 		assert_poly!(
 			pos.poly(pos.basis_time()),
-			Poly::new(Sum::new(32., [
+			Temporal::new(Sum::new(32., [
 				-1.4691666666666666666,
 				-1.4045833333333333333,
 				 0.0641666666666666666,
@@ -884,8 +884,8 @@ mod tests {
 		);
 		
 		assert_poly!(
-			Poly::new(Sum::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).to_time(320*time::MILLISEC),
-			Poly::new(Sum::new(-29.341750272_f64, [26.2289216, -3.13568, -1.616, 0.3]), 320*time::MILLISEC)
+			Temporal::new(Sum::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).to_time(320*time::MILLISEC),
+			Temporal::new(Sum::new(-29.341750272_f64, [26.2289216, -3.13568, -1.616, 0.3]), 320*time::MILLISEC)
 		);
 	}
 	

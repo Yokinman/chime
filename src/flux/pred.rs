@@ -35,9 +35,9 @@ impl TimeFilterMap for PreTimeFilterMap {
 
 /// ...
 pub struct DiffTimeFilterMap<A, B, D> {
-	a_poly: Poly<A>,
-	b_poly: Poly<B>,
-	diff_poly: Poly<D>,
+	a_poly: Temporal<A>,
+	b_poly: Temporal<B>,
+	diff_poly: Temporal<D>,
 }
 
 impl<A, B, D> Clone for DiffTimeFilterMap<A, B, D>
@@ -112,11 +112,11 @@ where
 
 /// ...
 pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F> {
-	a_pos: Poly<A>,
-	b_pos: Poly<B>,
-	dis_poly: Poly<D>,
-	pos_poly: Poly<E>,
-	diff_poly: Poly<F>,
+	a_pos: Temporal<A>,
+	b_pos: Temporal<B>,
+	dis_poly: Temporal<D>,
+	pos_poly: Temporal<E>,
+	diff_poly: Temporal<F>,
 }
 
 impl<const SIZE: usize, A, B, D, E, F> Clone
@@ -414,7 +414,7 @@ impl<P: Prediction> Prediction for Option<P> {
 
 /// ...
 pub struct Pred<K> {
-	pub(crate) poly: Poly<K>,
+	pub(crate) poly: Temporal<K>,
 	pub(crate) order: Ordering,
 }
 
@@ -451,7 +451,7 @@ where
 
 /// ...
 pub struct PredEq<K> {
-	pub(crate) poly: Poly<K>,
+	pub(crate) poly: Temporal<K>,
 }
 
 impl<K> Clone for PredEq<K>
@@ -620,13 +620,13 @@ where
 	}
 }
 
-/// [`crate::Poly::when`] predictive comparison.
+/// [`crate::Temporal::when`] predictive comparison.
 pub trait When<B> {
 	type Pred: Prediction;
-	fn when(self, order: Ordering, poly: Poly<B>) -> Self::Pred;
+	fn when(self, order: Ordering, poly: Temporal<B>) -> Self::Pred;
 }
 
-impl<A, B> When<B> for Poly<A>
+impl<A, B> When<B> for Temporal<A>
 where
 	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
 	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
@@ -636,7 +636,7 @@ where
 		Pred<<A as ops::Sub<B>>::Output>,
 		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
-	fn when(self, order: Ordering, b_poly: Poly<B>) -> Self::Pred {
+	fn when(self, order: Ordering, b_poly: Temporal<B>) -> Self::Pred {
 		let a_poly = self;
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
@@ -644,15 +644,15 @@ where
 	}
 }
 
-/// [`crate::Poly::when_eq`] predictive comparison.
+/// [`crate::Temporal::when_eq`] predictive comparison.
 pub trait WhenEq<B> {
 	type Pred: Prediction;
-	fn when_eq(self, poly: Poly<B>) -> Self::Pred;
+	fn when_eq(self, poly: Temporal<B>) -> Self::Pred;
 	// ??? Add `diff_poly` method, make `When` a sub-trait, elide the returned
 	// `DiffTimeFilterMap` type, and provide `when(_eq)` by default.
 }
 
-impl<A, B> WhenEq<B> for Poly<A>
+impl<A, B> WhenEq<B> for Temporal<A>
 where
 	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
 	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
@@ -662,7 +662,7 @@ where
 		PredEq<<A as ops::Sub<B>>::Output>,
 		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
 	>;
-	fn when_eq(self, b_poly: Poly<B>) -> Self::Pred {
+	fn when_eq(self, b_poly: Temporal<B>) -> Self::Pred {
 		let a_poly = self;
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
@@ -673,10 +673,10 @@ where
 /// [`crate::FluxVector::when_dis`] predictive distance comparison.
 pub trait WhenDis<const SIZE: usize, B, D> {
 	type Pred: Prediction;
-	fn when_dis(self, poly: Poly<B>, order: Ordering, dis: Poly<D>) -> Self::Pred;
+	fn when_dis(self, poly: Temporal<B>, order: Ordering, dis: Temporal<D>) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Poly<A>
+impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Temporal<A>
 where
 	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
 	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
@@ -704,7 +704,7 @@ where
 			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis(self, b_pos: Poly<B>, order: Ordering, dis_poly: Poly<D>) -> Self::Pred {
+	fn when_dis(self, b_pos: Temporal<B>, order: Ordering, dis_poly: Temporal<D>) -> Self::Pred {
 		use ops::*;
 		
 		let a_pos = self;
@@ -716,7 +716,7 @@ where
 				.sqr();
 		}
 		
-		let pos_poly = Poly::new(sum, a_pos.time);
+		let pos_poly = Temporal::new(sum, a_pos.time);
 		let diff_poly = pos_poly.clone() - dis_poly.clone().sqr();
 		
 		diff_poly.clone().when_sign(
@@ -729,10 +729,10 @@ where
 /// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
 pub trait WhenDisEq<const SIZE: usize, B, D> {
 	type Pred: Prediction;
-	fn when_dis_eq(self, poly: Poly<B>, dis: Poly<D>) -> Self::Pred;
+	fn when_dis_eq(self, poly: Temporal<B>, dis: Temporal<D>) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Poly<A>
+impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Temporal<A>
 where
 	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
 	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
@@ -760,7 +760,7 @@ where
 			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis_eq(self, b_pos: Poly<B>, dis_poly: Poly<D>) -> Self::Pred {
+	fn when_dis_eq(self, b_pos: Temporal<B>, dis_poly: Temporal<D>) -> Self::Pred {
 		use ops::*;
 		
 		let a_pos = self;
@@ -772,7 +772,7 @@ where
 				.sqr();
 		}
 		
-		let pos_poly = Poly::new(sum, a_pos.time);
+		let pos_poly = Temporal::new(sum, a_pos.time);
 		let diff_poly = pos_poly.clone() - dis_poly.clone().sqr();
 		
 		diff_poly.clone()
@@ -785,14 +785,14 @@ fn consistent_sign_pred() {
 	use crate::sum::Sum;
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
-		let poly = Poly::new([
+		let poly = Temporal::new([
 			Sum::new(-2., [5., -2.]),
 			Sum::zero()
 		], time);
 		poly.when_dis(
-			Poly::new([Sum::<f64, 2>::zero(); 2], time),
+			Temporal::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
-			Poly::new(crate::Constant::from(1.), time),
+			Temporal::new(crate::Constant::from(1.), time),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (

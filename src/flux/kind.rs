@@ -88,7 +88,7 @@ pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 /// Shortcut for [`Flux::change`] parameter.
 pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Basis>>;
 
-/// Constructs a [`Poly`]nomial by accumulating [`Change`]s.
+/// Constructs a [`Temporal`]nomial by accumulating [`Change`]s.
 /// 
 /// ```text
 /// let x = FluxAccum::<Constant<f64>>::default();
@@ -223,24 +223,24 @@ pub mod ops {
 }
 
 /// A [`FluxKind`] paired with a basis time.
-/// e.g. `Poly<1 + 2x>` => `1 + 2(x-time)`.
+/// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(
 	bevy_ecs::component::Component,
 	bevy_ecs::system::Resource,
 ))]
-pub struct Poly<K> {
+pub struct Temporal<K> {
 	pub kind: K,
 	pub time: Time,
 }
 
-/// ... [`<Poly as IntoIterator>::IntoIter`]
+/// ... [`<Temporal as IntoIterator>::IntoIter`]
 pub struct PolyIter<T> {
 	iter: T,
 	time: Time,
 }
 
-impl<K> PartialEq for Poly<K>
+impl<K> PartialEq for Temporal<K>
 where
 	K: PartialEq
 {
@@ -251,26 +251,26 @@ where
 	}
 }
 	
-impl<T> Deref for Poly<T> {
+impl<T> Deref for Temporal<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		&self.kind
 	}
 }
 
-impl<T> DerefMut for Poly<T> {
+impl<T> DerefMut for Temporal<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.kind
 	}
 }
 
-impl<T> Poly<T> {
+impl<T> Temporal<T> {
 	pub fn new(kind: T, time: Time) -> Self {
 		Self { kind, time }
 	}
 	
-	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Poly<&'_ U> {
-		Poly {
+	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Temporal<&'_ U> {
+		Temporal {
 			kind: f(&self.kind),
 			time: self.time,
 		}
@@ -285,7 +285,7 @@ impl<T> Poly<T> {
 	}
 }
 
-impl<T: Flux> Poly<T> {
+impl<T: Flux> Temporal<T> {
 	/// An evaluation of this flux at some point in time.
 	pub fn basis(&self) -> <T::Kind as FluxKind>::Basis {
 		self.kind.basis()
@@ -297,37 +297,37 @@ impl<T: Flux> Poly<T> {
 	}
 	
 	/// Conversion into a standard representation.
-	pub fn to_kind(&self) -> Poly<T::Kind> {
-		Poly {
+	pub fn to_kind(&self) -> Temporal<T::Kind> {
+		Temporal {
 			kind: self.kind.to_kind(),
 			time: self.time,
 		}
 	}
 	
 	/// A polynomial description of this flux at the given time.
-	pub fn poly(&self, time: Time) -> Poly<T::Kind> {
+	pub fn poly(&self, time: Time) -> Temporal<T::Kind> {
 		let mut kind = self.kind.to_kind();
 		let _ = kind.to_moment_mut(self.secs(time));
-		Poly { kind, time }
+		Temporal { kind, time }
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	pub fn when<U>(&self, cmp: Ordering, other: &Poly<U>)
-		-> <Poly<T::Kind> as When<U::Kind>>::Pred
+	pub fn when<U>(&self, cmp: Ordering, other: &Temporal<U>)
+		-> <Temporal<T::Kind> as When<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<T::Kind>: When<U::Kind>
+		Temporal<T::Kind>: When<U::Kind>
 	{
 		let time = self.basis_time();
 		When::when(self.poly(time), cmp, other.poly(time))
 	}
 	
 	/// Times when this is equal to another flux.
-	pub fn when_eq<U>(&self, other: &Poly<U>)
-		-> <Poly<T::Kind> as WhenEq<U::Kind>>::Pred
+	pub fn when_eq<U>(&self, other: &Temporal<U>)
+		-> <Temporal<T::Kind> as WhenEq<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<T::Kind>: WhenEq<U::Kind>
+		Temporal<T::Kind>: WhenEq<U::Kind>
 	{
 		let time = self.basis_time();
 		WhenEq::when_eq(self.poly(time), other.poly(time))
@@ -335,26 +335,26 @@ impl<T: Flux> Poly<T> {
 	
 	/// Ranges when this is above/below/equal to a constant.
 	pub fn when_constant<U>(&self, cmp: Ordering, other: U)
-		-> <Poly<T::Kind> as When<Constant<KindLinear<T::Kind>>>>::Pred
+		-> <Temporal<T::Kind> as When<Constant<KindLinear<T::Kind>>>>::Pred
 	where
 		U: LinearIso<KindLinear<T::Kind>>,
-		Poly<T::Kind>: When<Constant<KindLinear<T::Kind>>>
+		Temporal<T::Kind>: When<Constant<KindLinear<T::Kind>>>
 	{
-		self.when(cmp, &Poly::new(Constant::from(U::into_linear(other)), Time::ZERO))
+		self.when(cmp, &Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when this is equal to a constant.
 	pub fn when_eq_constant<U>(&self, other: U)
-		-> <Poly<T::Kind> as WhenEq<Constant<KindLinear<T::Kind>>>>::Pred
+		-> <Temporal<T::Kind> as WhenEq<Constant<KindLinear<T::Kind>>>>::Pred
 	where
 		U: LinearIso<KindLinear<T::Kind>>,
-		Poly<T::Kind>: WhenEq<Constant<KindLinear<T::Kind>>>
+		Temporal<T::Kind>: WhenEq<Constant<KindLinear<T::Kind>>>
 	{
-		self.when_eq(&Poly::new(Constant::from(U::into_linear(other)), Time::ZERO))
+		self.when_eq(&Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
 }
 
-impl<K: FluxKind> Poly<K> {
+impl<K: FluxKind> Temporal<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
 		self.kind.eval(self.secs(time))
 	}
@@ -379,15 +379,15 @@ impl<K: FluxKind> Poly<K> {
 		self
 	}
 	
-	pub fn integ(self) -> Poly<K::Integ>
+	pub fn integ(self) -> Temporal<K::Integ>
 	where
 		K: FluxIntegral,
 	{
-		Poly::new(self.kind.integ(), self.time)
+		Temporal::new(self.kind.integ(), self.time)
 	}
 }
 
-impl<T: ToMoment> Poly<T> {
+impl<T: ToMoment> Temporal<T> {
 	/// See [`ToMoment::to_moment`].
 	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
 		self.kind.to_moment(self.secs(time))
@@ -401,7 +401,7 @@ impl<T: ToMoment> Poly<T> {
 	}
 }
 
-impl<T: ToMomentMut> Poly<T> {
+impl<T: ToMomentMut> Temporal<T> {
 	/// See [`ToMomentMut::to_moment_mut`].
 	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
 		let secs = self.secs(time);
@@ -417,12 +417,12 @@ impl<T: ToMomentMut> Poly<T> {
 	}
 }
 
-impl<K: FluxKind> Poly<K> {
-	pub fn sqr(self) -> Poly<<K as ops::Sqr>::Output>
+impl<K: FluxKind> Temporal<K> {
+	pub fn sqr(self) -> Temporal<<K as ops::Sqr>::Output>
 	where
 		K: ops::Sqr
 	{
-		Poly::new(self.kind.sqr(), self.time)
+		Temporal::new(self.kind.sqr(), self.time)
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -453,39 +453,39 @@ impl<K: FluxKind> Poly<K> {
 	}
 }
 
-impl<K: FluxKind> From<K> for Poly<K> {
+impl<K: FluxKind> From<K> for Temporal<K> {
 	fn from(value: K) -> Self {
 		Self::new(value, Time::ZERO)
 	}
 }
 
-impl<A: FluxKind, B: FluxKind> Add<Poly<B>> for Poly<A>
+impl<A: FluxKind, B: FluxKind> Add<Temporal<B>> for Temporal<A>
 where
 	A: ops::Add<B>
 {
-	type Output = Poly<<A as ops::Add<B>>::Output>;
-	fn add(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
+	type Output = Temporal<<A as ops::Add<B>>::Output>;
+	fn add(self, rhs: Temporal<B>) -> Self::Output {
+		Temporal {
 			kind: self.kind.add(rhs.to_time(self.time).kind),
 			time: self.time,
 		}
 	}
 }
 
-impl<A: FluxKind, B: FluxKind> Sub<Poly<B>> for Poly<A>
+impl<A: FluxKind, B: FluxKind> Sub<Temporal<B>> for Temporal<A>
 where
 	A: ops::Sub<B>
 {
-	type Output = Poly<<A as ops::Sub<B>>::Output>;
-	fn sub(self, rhs: Poly<B>) -> Self::Output {
-		Poly {
+	type Output = Temporal<<A as ops::Sub<B>>::Output>;
+	fn sub(self, rhs: Temporal<B>) -> Self::Output {
+		Temporal {
 			kind: self.kind.sub(rhs.to_time(self.time).kind),
 			time: self.time,
 		}
 	}
 }
 
-impl<K> Mul<Scalar> for Poly<K>
+impl<K> Mul<Scalar> for Temporal<K>
 where
 	K: Mul<Scalar, Output=K>
 {
@@ -496,24 +496,24 @@ where
 	}
 }
 
-impl<K, const SIZE: usize> Vector<SIZE> for Poly<K>
+impl<K, const SIZE: usize> Vector<SIZE> for Temporal<K>
 where
 	K: Vector<SIZE>,
 {
-	type Output = Poly<K::Output>;
+	type Output = Temporal<K::Output>;
 	fn index(&self, index: usize) -> Self::Output {
-		Poly {
+		Temporal {
 			kind: self.kind.index(index),
 			time: self.time,
 		}
 	}
 }
 
-impl<K> IntoIterator for Poly<K>
+impl<K> IntoIterator for Temporal<K>
 where
 	K: IntoIterator<Item: FluxKind>,
 {
-	type Item = Poly<K::Item>;
+	type Item = Temporal<K::Item>;
 	type IntoIter = PolyIter<K::IntoIter>;
 	fn into_iter(self) -> Self::IntoIter {
 		PolyIter {
@@ -527,10 +527,10 @@ impl<T> Iterator for PolyIter<T>
 where
 	T: Iterator<Item: FluxKind>,
 {
-	type Item = Poly<T::Item>;
+	type Item = Temporal<T::Item>;
 	fn next(&mut self) -> Option<Self::Item> {
 		self.iter.next()
-			.map(|x| Poly::new(x, self.time))
+			.map(|x| Temporal::new(x, self.time))
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.iter.size_hint()
@@ -542,79 +542,79 @@ pub trait PolyVector<const SIZE: usize> {
 	type Kind: Vector<SIZE, Output: FluxKind> + 'static;
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<U, D>(&self, other: &Poly<U>, cmp: Ordering, dis: &Poly<D>)
-		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	fn when_dis<U, D>(&self, other: &Temporal<U>, cmp: Ordering, dis: &Temporal<D>)
+		-> <Temporal<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: Flux,
-		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
+		Temporal<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
 	;
 	
 	/// Ranges when the distance to another vector is equal to X.
-	fn when_dis_eq<U, D>(&self, other: &Poly<U>, dis: &Poly<D>)
-		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	fn when_dis_eq<U, D>(&self, other: &Temporal<U>, dis: &Temporal<D>)
+		-> <Temporal<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: Flux,
-		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
+		Temporal<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
 	;
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Poly<U>)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Temporal<U>)
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
 	;
 	
 	/// Times when a component is equal to another flux.
-	fn when_index_eq<U>(&self, index: usize, other: &Poly<U>)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	fn when_index_eq<U>(&self, index: usize, other: &Temporal<U>)
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
 	;
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
-	fn when_dis_constant<U, C>(&self, other: &Poly<U>, cmp: Ordering, dis: C)
-		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	fn when_dis_constant<U, C>(&self, other: &Temporal<U>, cmp: Ordering, dis: C)
+		-> <Temporal<Self::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+		Temporal<Self::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
-		self.when_dis(other, cmp, &Poly::new(Constant::from(C::into_linear(dis)), Time::ZERO))
+		self.when_dis(other, cmp, &Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
-	fn when_dis_eq_constant<U, C>(&self, other: &Poly<U>, dis: C)
-		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	fn when_dis_eq_constant<U, C>(&self, other: &Temporal<U>, dis: C)
+		-> <Temporal<Self::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+		Temporal<Self::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
 	{
-		self.when_dis_eq(other, &Poly::new(Constant::from(C::into_linear(dis)), Time::ZERO))
+		self.when_dis_eq(other, &Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO))
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
 	fn when_index_constant<C>(&self, index: usize, cmp: Ordering, other: C)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
 	{
-		self.when_index(index, cmp, &Poly::new(Constant::from(C::into_linear(other)), Time::ZERO))
+		self.when_index(index, cmp, &Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when a component is equal to a constant.
 	fn when_index_eq_constant<C>(&self, index: usize, other: C)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
 		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
 	{
-		self.when_index_eq(index, &Poly::new(Constant::from(C::into_linear(other)), Time::ZERO))
+		self.when_index_eq(index, &Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO))
 	}
 	
 	// !!!
@@ -625,60 +625,60 @@ pub trait PolyVector<const SIZE: usize> {
 	//   which the roots may be and iterate through it.
 }
 
-impl<T, const SIZE: usize> PolyVector<SIZE> for Poly<T>
+impl<T, const SIZE: usize> PolyVector<SIZE> for Temporal<T>
 where
 	T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 {
 	type Kind = T::Kind;
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	fn when_dis<U, D>(&self, other: &Poly<U>, cmp: Ordering, dis: &Poly<D>)
-		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	fn when_dis<U, D>(&self, other: &Temporal<U>, cmp: Ordering, dis: &Temporal<D>)
+		-> <Temporal<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: Flux,
-		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
+		Temporal<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
 	{
 		self.poly(self.time)
 			.when_dis(other.poly(self.time), cmp, dis.poly(self.time))
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
-	fn when_dis_eq<U, D>(&self, other: &Poly<U>, dis: &Poly<D>)
-		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	fn when_dis_eq<U, D>(&self, other: &Temporal<U>, dis: &Temporal<D>)
+		-> <Temporal<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
 	where
 		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
 		D: Flux,
-		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
+		Temporal<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
 	{
 		self.poly(self.time)
 			.when_dis_eq(other.poly(self.time), dis.poly(self.time))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Poly<U>)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Temporal<U>)
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
 	{
 		self.poly(self.time).index(index)
 			.when(cmp, other.poly(self.time))
 	}
 	
 	/// Times when a component is equal to another flux.
-	fn when_index_eq<U>(&self, index: usize, other: &Poly<U>)
-		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	fn when_index_eq<U>(&self, index: usize, other: &Temporal<U>)
+		-> <Temporal<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
 	where
 		U: Flux,
-		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
+		Temporal<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
 	{
 		self.poly(self.time).index(index)
 			.when_eq(other.poly(self.time))
 	}
 }
 
-/// Roots of a [`Poly`]nomial.
+/// Roots of a [`Temporal`]nomial.
 /// 
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.

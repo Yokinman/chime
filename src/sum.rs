@@ -682,7 +682,7 @@ mod tests {
 	use crate::pred::Prediction;
 	use super::*;
 	
-	fn real_roots<K>(poly: Poly<K>) -> impl Iterator<Item=f64>
+	fn real_roots<K>(poly: Temporal<K>) -> impl Iterator<Item=f64>
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,
@@ -726,7 +726,7 @@ mod tests {
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,
 	{
-		let mut r = real_roots(Poly::from(p)).into_iter()
+		let mut r = real_roots(Temporal::from(p)).into_iter()
 			.collect::<Vec<f64>>();
 		let mut expected_roots = expected_roots.into_iter()
 			.copied()
@@ -767,7 +767,7 @@ mod tests {
 			Sum(20., [4., -7.]),
 			&[-10./7., 2.]
 		);
-		let r = real_roots(Poly::from(Sum(-40./3., [-2./3., 17./100.])))
+		let r = real_roots(Temporal::from(Sum(-40./3., [-2./3., 17./100.])))
 			.into_iter().collect::<Vec<_>>();
 		assert_roots(
 			Sum(40./3., [2./3., -17./100.]),
@@ -794,7 +794,7 @@ mod tests {
 			&[3.54987407349455e-32]
 		);
 		assert_eq!(
-			real_roots(Poly::from(Sum(
+			real_roots(Temporal::from(Sum(
 				-236263115684.8131,
 				[-9476965815.566229, -95034754.784949, 1.0]
 			))).count(),
@@ -883,7 +883,7 @@ mod tests {
 			Sum(-35.99999999999999, [8.046918796812349e-6, 2999.99988981303, -54772.25541522836, 250000.0]),
 			&[-0.067702232, 0.177246743]
 		);
-		assert_eq!(Poly::new(Sum(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*NANOSEC).eval(1209618450*NANOSEC), -181.99999999999994);
+		assert_eq!(Temporal::new(Sum(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*NANOSEC).eval(1209618450*NANOSEC), -181.99999999999994);
 		assert_roots(
 			Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
 			&[-0.191570016, -1.11113e-8, 9.11132e-9, 0.187579734]
@@ -944,8 +944,8 @@ mod tests {
 		// https://www.desmos.com/calculator/1z97cqlopx
 		
 		 // Basic Check:
-		let a = Poly::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
-		let b = Poly::new(Constant::from(-194.), SEC);
+		let a = Temporal::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
+		let b = Temporal::new(Constant::from(-194.), SEC);
 		assert_eq!(
 			Vec::from_iter(crate::pred::WhenEq::when_eq(a, b)
 				.into_ranges(Time::ZERO)
@@ -957,15 +957,15 @@ mod tests {
 		);
 		
 		 // Distance Check:
-		let a = Poly::new([
+		let a = Temporal::new([
 			Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]),
 			Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.])
 		], SEC);
-		let b = Poly::new([
+		let b = Temporal::new([
 			Constant::from(-3.8808053943969956e-5),
 			Constant::from(-193.99999999999997)
 		], SEC);
-		let dis = Poly::new(Constant::from(12.), SEC);
+		let dis = Temporal::new(Constant::from(12.), SEC);
 		assert_eq!(
 			Vec::from_iter(crate::pred::WhenDisEq::when_dis_eq(a, b, dis)
 				.into_ranges(Time::ZERO)
