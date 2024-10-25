@@ -7,7 +7,7 @@ use std::ops::{Add, Mul, Sub};
 use crate::linear::{Linear, Basis, BasisArray, Scalar, Vector, LinearIso};
 use crate::time::Time;
 use crate::{Change, Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::pred::{When, WhenEq};
+use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 
 /// An abstract description of change over time.
 /// 
@@ -549,6 +549,140 @@ where
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.iter.size_hint()
+	}
+}
+
+/// Multidimensional change over time.
+pub trait PolyVector<const SIZE: usize> {
+	type Kind: Vector<SIZE, Output: FluxKind> + 'static;
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis<U, D>(&self, other: &Poly<U>, cmp: Ordering, dis: &Poly<D>)
+		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
+	;
+	
+	/// Ranges when the distance to another vector is equal to X.
+	fn when_dis_eq<U, D>(&self, other: &Poly<U>, dis: &Poly<D>)
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
+	;
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Poly<U>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
+	;
+	
+	/// Times when a component is equal to another flux.
+	fn when_index_eq<U>(&self, index: usize, other: &Poly<U>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
+	;
+	
+	/// Ranges when the distance to another vector is above/below/equal to a constant.
+	fn when_dis_constant<U, C>(&self, other: &Poly<U>, cmp: Ordering, dis: C)
+		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+	{
+		self.when_dis(other, cmp, &Poly::new(Constant::from(C::into_linear(dis)), Time::ZERO))
+	}
+	
+	/// Ranges when the distance to another vector is equal to a constant.
+	fn when_dis_eq_constant<U, C>(&self, other: &Poly<U>, dis: C)
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>,
+	{
+		self.when_dis_eq(other, &Poly::new(Constant::from(C::into_linear(dis)), Time::ZERO))
+	}
+	
+	/// Ranges when a component is above/below/equal to a constant.
+	fn when_index_constant<C>(&self, index: usize, cmp: Ordering, other: C)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+	{
+		self.when_index(index, cmp, &Poly::new(Constant::from(C::into_linear(other)), Time::ZERO))
+	}
+	
+	/// Times when a component is equal to a constant.
+	fn when_index_eq_constant<C>(&self, index: usize, other: C)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		C: LinearIso<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<Self::Kind as Vector<SIZE>>::Output>>>
+	{
+		self.when_index_eq(index, &Poly::new(Constant::from(C::into_linear(other)), Time::ZERO))
+	}
+}
+
+impl<T, const SIZE: usize> PolyVector<SIZE> for Poly<T>
+where
+	T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+{
+	type Kind = T::Kind;
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	fn when_dis<U, D>(&self, other: &Poly<U>, cmp: Ordering, dis: &Poly<D>)
+		-> <Poly<Self::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Poly<Self::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
+	{
+		self.poly(self.time)
+			.when_dis(other.poly(self.time), cmp, dis.poly(self.time))
+	}
+	
+	/// Ranges when the distance to another vector is equal to X.
+	fn when_dis_eq<U, D>(&self, other: &Poly<U>, dis: &Poly<D>)
+		-> <Poly<Self::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Poly<Self::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
+	{
+		self.poly(self.time)
+			.when_dis_eq(other.poly(self.time), dis.poly(self.time))
+	}
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	fn when_index<U>(&self, index: usize, cmp: Ordering, other: &Poly<U>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: When<U::Kind>
+	{
+		self.poly(self.time).index(index)
+			.when(cmp, other.poly(self.time))
+	}
+	
+	/// Times when a component is equal to another flux.
+	fn when_index_eq<U>(&self, index: usize, other: &Poly<U>)
+		-> <Poly<<Self::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	where
+		U: Flux,
+		Poly<<Self::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>
+	{
+		self.poly(self.time).index(index)
+			.when_eq(other.poly(self.time))
 	}
 }
 
