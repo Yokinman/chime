@@ -181,7 +181,7 @@ impl<T: ToMoment> Temporal<T> {
 		self.inner.to_moment(self.secs(time))
 	}
 	
-	pub fn at(&self, time: Time) -> Moment<T> {
+	pub fn moment(&self, time: Time) -> Moment<T> {
 		Moment {
 			moment: self.to_moment(time),
 			borrow: std::marker::PhantomData,

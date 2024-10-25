@@ -18,7 +18,7 @@ pub use chime_flux_proc_macro::flux;
 #[derive(Default)]
 pub struct Chime;
 
-/// Immutable moment-in-time interface for [`Temporal::at`].
+/// Immutable moment-in-time interface for [`Temporal::moment`].
 pub struct Moment<'a, T: ToMoment> {
 	pub(crate) moment: T::Moment<'a>,
 	pub(crate) borrow: std::marker::PhantomData<&'a T>,
@@ -176,7 +176,7 @@ mod bevy_moment {
 		}
 		unsafe fn fetch<'w>((time, fetch): &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Self::Item<'w> {
 			<Ref<'b, M> as WorldQuery>::fetch(fetch, entity, table_row)
-				.at(*time)
+				.moment(*time)
 		}
 		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
 	        assert!(
@@ -308,7 +308,7 @@ mod bevy_moment {
 				.elapsed();
 			let inner = <Res<'w, Temporal<M>> as SystemParam>::get_param(res_state, system_meta, world, change_tick)
 				.into_inner()
-				.at(time);
+				.moment(time);
 			ResMoment { inner }
 		}
 	}
@@ -463,7 +463,7 @@ pub trait ToMoment {
 	/// 
 	/// This generally returns an owned value. However, the value should be
 	/// treated as a reference, as modifying it has no effect on the timeline.
-	/// This is enforced through [`Temporal::at`] ([`Moment`]).
+	/// This is enforced through [`Temporal::moment`] ([`Moment`]).
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_>;
 }
 
@@ -835,18 +835,18 @@ mod tests {
 		assert_eq!(pos.basis_time(), 10*SEC);
 		
 		 // Values:
-		assert_eq!(pos.at(0*SEC).round(), 32.);
-		assert_eq!(pos.at(10*SEC).round(), -63.);
-		assert_eq!(pos.at(20*SEC).round(), -113.);
-		assert_eq!(pos.at(100*SEC).round(), 8339.);
-		assert_eq!(pos.at(200*SEC).round(), -209778.);
+		assert_eq!(pos.moment(0*SEC).round(), 32.);
+		assert_eq!(pos.moment(10*SEC).round(), -63.);
+		assert_eq!(pos.moment(20*SEC).round(), -113.);
+		assert_eq!(pos.moment(100*SEC).round(), 8339.);
+		assert_eq!(pos.moment(200*SEC).round(), -209778.);
 		
 		 // Update:
 		assert_eq!(pos.at_mut(20*SEC).round(), -113.);
-		assert_eq!(pos.at(100*SEC).round(), 8339.);
-		assert_eq!(pos.at(200*SEC).round(), -209778.);
+		assert_eq!(pos.moment(100*SEC).round(), 8339.);
+		assert_eq!(pos.moment(200*SEC).round(), -209778.);
 		assert_eq!(pos.at_mut(100*SEC).round(), 8339.);
-		assert_eq!(pos.at(200*SEC).round(), -209778.);
+		assert_eq!(pos.moment(200*SEC).round(), -209778.);
 	}
 	
 	#[test]
