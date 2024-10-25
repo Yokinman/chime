@@ -229,8 +229,8 @@ pub mod ops {
 	bevy_ecs::component::Component,
 	bevy_ecs::system::Resource,
 ))]
-pub struct Temporal<K> {
-	pub kind: K,
+pub struct Temporal<T> {
+	pub inner: T,
 	pub time: Time,
 }
 
@@ -247,31 +247,31 @@ where
 	fn eq(&self, other: &Self) -> bool {
 		// ??? Deriving PartialEq, Eq could count `f(t) = 1 + 2t` and
  		// `g(t) = 3 + 2(t-basis_time)` as the same if `basis_time = 1`.
-		self.kind == other.kind && self.time == other.time
+		self.inner == other.inner && self.time == other.time
 	}
 }
 	
 impl<T> Deref for Temporal<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
-		&self.kind
+		&self.inner
 	}
 }
 
 impl<T> DerefMut for Temporal<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.kind
+		&mut self.inner
 	}
 }
 
 impl<T> Temporal<T> {
-	pub fn new(kind: T, time: Time) -> Self {
-		Self { kind, time }
+	pub fn new(inner: T, time: Time) -> Self {
+		Self { inner, time }
 	}
 	
 	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Temporal<&'_ U> {
 		Temporal {
-			kind: f(&self.kind),
+			inner: f(&self.inner),
 			time: self.time,
 		}
 	}
@@ -288,7 +288,7 @@ impl<T> Temporal<T> {
 impl<T: Flux> Temporal<T> {
 	/// An evaluation of this flux at some point in time.
 	pub fn basis(&self) -> <T::Kind as FluxKind>::Basis {
-		self.kind.basis()
+		self.inner.basis()
 	}
 	
 	/// The time of [`Flux::basis`].
@@ -299,16 +299,16 @@ impl<T: Flux> Temporal<T> {
 	/// Conversion into a standard representation.
 	pub fn to_kind(&self) -> Temporal<T::Kind> {
 		Temporal {
-			kind: self.kind.to_kind(),
+			inner: self.inner.to_kind(),
 			time: self.time,
 		}
 	}
 	
 	/// A polynomial description of this flux at the given time.
 	pub fn poly(&self, time: Time) -> Temporal<T::Kind> {
-		let mut kind = self.kind.to_kind();
-		let _ = kind.to_moment_mut(self.secs(time));
-		Temporal { kind, time }
+		let mut inner = self.inner.to_kind();
+		let _ = inner.to_moment_mut(self.secs(time));
+		Temporal { inner, time }
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
@@ -356,12 +356,12 @@ impl<T: Flux> Temporal<T> {
 
 impl<K: FluxKind> Temporal<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
-		self.kind.eval(self.secs(time))
+		self.inner.eval(self.secs(time))
 	}
 	
 	pub fn to_time(mut self, time: Time) -> Self {
 		if self.time != time {
-			let _ = self.kind.to_moment_mut(self.secs(time));
+			let _ = self.inner.to_moment_mut(self.secs(time));
 			self.time = time;
 		}
 		self
@@ -371,11 +371,11 @@ impl<K: FluxKind> Temporal<K> {
 	where
 		KindLinear<K>: PartialOrd
 	{
-		self.kind.initial_order(self.secs(time))
+		self.inner.initial_order(self.secs(time))
 	}
 	
 	pub fn deriv(mut self) -> Self {
-		self.kind = self.kind.deriv();
+		self.inner = self.inner.deriv();
 		self
 	}
 	
@@ -383,14 +383,14 @@ impl<K: FluxKind> Temporal<K> {
 	where
 		K: FluxIntegral,
 	{
-		Temporal::new(self.kind.integ(), self.time)
+		Temporal::new(self.inner.integ(), self.time)
 	}
 }
 
 impl<T: ToMoment> Temporal<T> {
 	/// See [`ToMoment::to_moment`].
 	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
-		self.kind.to_moment(self.secs(time))
+		self.inner.to_moment(self.secs(time))
 	}
 	
 	pub fn at(&self, time: Time) -> Moment<T> {
@@ -406,7 +406,7 @@ impl<T: ToMomentMut> Temporal<T> {
 	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
 		let secs = self.secs(time);
 		self.time = time;
-		self.kind.to_moment_mut(secs)
+		self.inner.to_moment_mut(secs)
 	}
 	
 	pub fn at_mut(&mut self, time: Time) -> MomentMut<T> {
@@ -422,7 +422,7 @@ impl<K: FluxKind> Temporal<K> {
 	where
 		K: ops::Sqr
 	{
-		Temporal::new(self.kind.sqr(), self.time)
+		Temporal::new(self.inner.sqr(), self.time)
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -466,7 +466,7 @@ where
 	type Output = Temporal<<A as ops::Add<B>>::Output>;
 	fn add(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
-			kind: self.kind.add(rhs.to_time(self.time).kind),
+			inner: self.inner.add(rhs.to_time(self.time).inner),
 			time: self.time,
 		}
 	}
@@ -479,7 +479,7 @@ where
 	type Output = Temporal<<A as ops::Sub<B>>::Output>;
 	fn sub(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
-			kind: self.kind.sub(rhs.to_time(self.time).kind),
+			inner: self.inner.sub(rhs.to_time(self.time).inner),
 			time: self.time,
 		}
 	}
@@ -491,7 +491,7 @@ where
 {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.kind = self.kind * rhs;
+		self.inner = self.inner * rhs;
 		self
 	}
 }
@@ -503,7 +503,7 @@ where
 	type Output = Temporal<K::Output>;
 	fn index(&self, index: usize) -> Self::Output {
 		Temporal {
-			kind: self.kind.index(index),
+			inner: self.inner.index(index),
 			time: self.time,
 		}
 	}
@@ -517,7 +517,7 @@ where
 	type IntoIter = PolyIter<K::IntoIter>;
 	fn into_iter(self) -> Self::IntoIter {
 		PolyIter {
-			iter: self.kind.into_iter(),
+			iter: self.inner.into_iter(),
 			time: self.time,
 		}
 	}

@@ -441,7 +441,7 @@ where
 			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
 		let times = RootFilterMap {
-			times: self.poly.kind.roots().into_times(),
+			times: self.poly.inner.roots().into_times(),
 			basis: self.poly.time,
 			prev_time: Time::ZERO,
 		};
@@ -472,13 +472,13 @@ where
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
-		let basis_order = if self.poly.kind.is_zero() {
+		let basis_order = if self.poly.inner.is_zero() {
 			Ordering::Equal
 		} else {
 			Ordering::Greater
 		};
 		let times = RootFilterMap {
-			times: self.poly.kind.roots().into_times(),
+			times: self.poly.inner.roots().into_times(),
 			basis: self.poly.time,
 			prev_time: Time::ZERO,
 		};
@@ -711,8 +711,8 @@ where
 		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + a_pos.index(i).kind
-				.sub(b_pos.index(i).to_time(a_pos.time).kind)
+			sum = sum + a_pos.index(i).inner
+				.sub(b_pos.index(i).to_time(a_pos.time).inner)
 				.sqr();
 		}
 		
@@ -767,8 +767,8 @@ where
 		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + a_pos.index(i).kind
-				.sub(b_pos.index(i).to_time(a_pos.time).kind)
+			sum = sum + a_pos.index(i).inner
+				.sub(b_pos.index(i).to_time(a_pos.time).inner)
 				.sqr();
 		}
 		
