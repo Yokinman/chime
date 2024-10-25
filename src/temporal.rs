@@ -147,14 +147,6 @@ impl<K: FluxKind> Temporal<K> {
 		self.inner.eval(self.secs(time))
 	}
 	
-	pub fn at_time(mut self, time: Time) -> Self {
-		if self.time != time {
-			let _ = self.inner.to_moment_mut(self.secs(time));
-			self.time = time;
-		}
-		self
-	}
-	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
 		KindLinear<K>: PartialOrd
@@ -202,6 +194,14 @@ impl<T: ToMomentMut> Temporal<T> {
 			moment: self.to_moment_mut(time),
 			borrow: std::marker::PhantomData,
 		}
+	}
+	
+	pub fn at_time(mut self, time: Time) -> Self {
+		if self.time != time {
+			let _ = self.inner.to_moment_mut(self.secs(time));
+			self.time = time;
+		}
+		self
 	}
 }
 
