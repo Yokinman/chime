@@ -750,23 +750,27 @@ where
 }
 
 /// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B, D> {
+pub trait WhenDisEq<const SIZE: usize, B: Flux, D: Flux>: Flux {
 	type Pred: Prediction;
-	fn when_dis_eq(self, poly: Temporal<B>, dis: Temporal<D>) -> Self::Pred;
+	fn when_dis_eq(
+		a_pos: Temporal<Self::Kind>,
+		b_pos: Temporal<B::Kind>,
+		dis: Temporal<D::Kind>,
+	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for Temporal<A>
+impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for A
 where
-	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
-	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
-	D: FluxKind + ops::Sqr,
-	A::Output: ops::Sub<
-		B::Output,
+	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	D: Flux<Kind: ops::Sqr>,
+	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
+		<B::Kind as Vector<SIZE>>::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
+			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
 			+ ops::Sub<
-				<D as ops::Sqr>::Output,
-				Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output
+				<D::Kind as ops::Sqr>::Output,
+				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
 			+ PartialEq,
@@ -775,20 +779,22 @@ where
 	KindLinear<D>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
+		PredEq<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A, B, D,
-			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
-			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			A::Kind, B::Kind, D::Kind,
+			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis_eq(self, b_pos: Temporal<B>, dis_poly: Temporal<D>) -> Self::Pred {
+	fn when_dis_eq(
+		a_pos: Temporal<A::Kind>,
+		b_pos: Temporal<B::Kind>,
+		dis_poly: Temporal<D::Kind>,
+	) -> Self::Pred {
 		use ops::*;
 		
-		let a_pos = self;
-		
-		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
 				.sub(b_pos.index(i).at_time(a_pos.time).inner)

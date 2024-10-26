@@ -967,7 +967,7 @@ mod tests {
 		], SEC);
 		let dis = Temporal::new(Constant::from(12.), SEC);
 		assert_eq!(
-			Vec::from_iter(crate::pred::WhenDisEq::when_dis_eq(a, b, dis)
+			Vec::from_iter(a.when_dis_eq(&b, &dis)
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[

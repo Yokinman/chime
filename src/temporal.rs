@@ -160,14 +160,13 @@ impl<T: Flux> Temporal<T> {
 		&self,
 		other: &Temporal<U>,
 		dis: &Temporal<D>,
-	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	) -> T::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: WhenDisEq<SIZE, U, D>,
+		U: Flux,
 		D: Flux,
-		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
 	{
-		WhenDisEq::when_dis_eq(
+		T::when_dis_eq(
 			self.poly(self.time),
 			other.poly(self.time),
 			dis.poly(self.time),
@@ -233,12 +232,12 @@ impl<T: Flux> Temporal<T> {
 		&self,
 		other: &Temporal<U>,
 		dis: C,
-	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	) -> T::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
+		T::Kind: Vector<SIZE, Output: FluxKind>,
+		T: WhenDisEq<SIZE, U, Constant<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>>,
+		U: Flux,
+		C: LinearIso<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>,
 	{
 		self.when_dis_eq(
 			other,
