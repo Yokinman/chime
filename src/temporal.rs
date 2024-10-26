@@ -337,8 +337,12 @@ impl<T: Flux> Temporal<T> {
 		D: Flux,
 		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
 	{
-		self.poly(self.time)
-			.when_dis(other.poly(self.time), cmp, dis.poly(self.time))
+		WhenDis::when_dis(
+			self.poly(self.time),
+			other.poly(self.time),
+			cmp,
+			dis.poly(self.time),
+		)
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
@@ -353,8 +357,11 @@ impl<T: Flux> Temporal<T> {
 		D: Flux,
 		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
 	{
-		self.poly(self.time)
-			.when_dis_eq(other.poly(self.time), dis.poly(self.time))
+		WhenDisEq::when_dis_eq(
+			self.poly(self.time),
+			other.poly(self.time),
+			dis.poly(self.time),
+		)
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
@@ -369,8 +376,11 @@ impl<T: Flux> Temporal<T> {
 		U: Flux,
 		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<U::Kind>,
 	{
-		self.poly(self.time).index(index)
-			.when(cmp, other.poly(self.time))
+		When::when(
+			self.poly(self.time).index(index),
+			cmp,
+			other.poly(self.time),
+		)
 	}
 	
 	/// Times when a component is equal to another flux.
@@ -384,8 +394,10 @@ impl<T: Flux> Temporal<T> {
 		U: Flux,
 		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>,
 	{
-		self.poly(self.time).index(index)
-			.when_eq(other.poly(self.time))
+		WhenEq::when_eq(
+			self.poly(self.time).index(index),
+			other.poly(self.time),
+		)
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
