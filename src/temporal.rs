@@ -140,6 +140,163 @@ impl<T: Flux> Temporal<T> {
 	{
 		self.when_eq(&Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
+	
+	/// Ranges when the distance to another vector is above/below/equal to X.
+	pub fn when_dis<U, D, const SIZE: usize>(
+		&self,
+		other: &Temporal<U>,
+		cmp: Ordering,
+		dis: &Temporal<D>,
+	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
+	{
+		WhenDis::when_dis(
+			self.poly(self.time),
+			other.poly(self.time),
+			cmp,
+			dis.poly(self.time),
+		)
+	}
+	
+	/// Ranges when the distance to another vector is equal to X.
+	pub fn when_dis_eq<U, D, const SIZE: usize>(
+		&self,
+		other: &Temporal<U>,
+		dis: &Temporal<D>,
+	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		D: Flux,
+		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
+	{
+		WhenDisEq::when_dis_eq(
+			self.poly(self.time),
+			other.poly(self.time),
+			dis.poly(self.time),
+		)
+	}
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	pub fn when_index<U, const SIZE: usize>(
+		&self,
+		index: usize,
+		cmp: Ordering,
+		other: &Temporal<U>,
+	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux,
+		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<U::Kind>,
+	{
+		When::when(
+			self.poly(self.time).index(index),
+			cmp,
+			other.poly(self.time),
+		)
+	}
+	
+	/// Times when a component is equal to another flux.
+	pub fn when_index_eq<U, const SIZE: usize>(
+		&self,
+		index: usize,
+		other: &Temporal<U>,
+	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux,
+		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>,
+	{
+		WhenEq::when_eq(
+			self.poly(self.time).index(index),
+			other.poly(self.time),
+		)
+	}
+	
+	/// Ranges when the distance to another vector is above/below/equal to a constant.
+	pub fn when_dis_constant<U, C, const SIZE: usize>(
+		&self,
+		other: &Temporal<U>,
+		cmp: Ordering,
+		dis: C,
+	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
+	{
+		self.when_dis(
+			other,
+			cmp,
+			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
+		)
+	}
+	
+	/// Ranges when the distance to another vector is equal to a constant.
+	pub fn when_dis_eq_constant<U, C, const SIZE: usize>(
+		&self,
+		other: &Temporal<U>,
+		dis: C,
+	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
+	{
+		self.when_dis_eq(
+			other,
+			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
+		)
+	}
+	
+	/// Ranges when a component is above/below/equal to a constant.
+	pub fn when_index_constant<C, const SIZE: usize>(
+		&self,
+		index: usize,
+		cmp: Ordering,
+		other: C,
+	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
+	{
+		self.when_index(
+			index,
+			cmp,
+			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
+		)
+	}
+	
+	/// Times when a component is equal to a constant.
+	pub fn when_index_eq_constant<C, const SIZE: usize>(
+		&self,
+		index: usize,
+		other: C,
+	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	where
+		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
+	{
+		self.when_index_eq(
+			index,
+			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
+		)
+	}
+	
+	// !!!
+	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
+	// - to fit a line segment, filter predicted times.
+	// - for non-fixed angle line segments, use a double distance check?
+	// - rotating point-line may be handleable iteratively, find the bounds in
+	//   which the roots may be and iterate through it.
 }
 
 impl<K: FluxKind> Temporal<K> {
@@ -321,163 +478,4 @@ where
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.iter.size_hint()
 	}
-}
-
-impl<T: Flux> Temporal<T> {
-	/// Ranges when the distance to another vector is above/below/equal to X.
-	pub fn when_dis<U, D, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		cmp: Ordering,
-		dis: &Temporal<D>,
-	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
-		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
-	{
-		WhenDis::when_dis(
-			self.poly(self.time),
-			other.poly(self.time),
-			cmp,
-			dis.poly(self.time),
-		)
-	}
-	
-	/// Ranges when the distance to another vector is equal to X.
-	pub fn when_dis_eq<U, D, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		dis: &Temporal<D>,
-	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, D::Kind>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		D: Flux,
-		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, D::Kind>,
-	{
-		WhenDisEq::when_dis_eq(
-			self.poly(self.time),
-			other.poly(self.time),
-			dis.poly(self.time),
-		)
-	}
-	
-	/// Ranges when a component is above/below/equal to another flux.
-	pub fn when_index<U, const SIZE: usize>(
-		&self,
-		index: usize,
-		cmp: Ordering,
-		other: &Temporal<U>,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<U::Kind>,
-	{
-		When::when(
-			self.poly(self.time).index(index),
-			cmp,
-			other.poly(self.time),
-		)
-	}
-	
-	/// Times when a component is equal to another flux.
-	pub fn when_index_eq<U, const SIZE: usize>(
-		&self,
-		index: usize,
-		other: &Temporal<U>,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>,
-	{
-		WhenEq::when_eq(
-			self.poly(self.time).index(index),
-			other.poly(self.time),
-		)
-	}
-	
-	/// Ranges when the distance to another vector is above/below/equal to a constant.
-	pub fn when_dis_constant<U, C, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		cmp: Ordering,
-		dis: C,
-	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
-	{
-		self.when_dis(
-			other,
-			cmp,
-			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
-		)
-	}
-	
-	/// Ranges when the distance to another vector is equal to a constant.
-	pub fn when_dis_eq_constant<U, C, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		dis: C,
-	) -> <Temporal<T::Kind> as WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<T::Kind>: WhenDisEq<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
-	{
-		self.when_dis_eq(
-			other,
-			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
-		)
-	}
-	
-	/// Ranges when a component is above/below/equal to a constant.
-	pub fn when_index_constant<C, const SIZE: usize>(
-		&self,
-		index: usize,
-		cmp: Ordering,
-		other: C,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
-	{
-		self.when_index(
-			index,
-			cmp,
-			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
-		)
-	}
-	
-	/// Times when a component is equal to a constant.
-	pub fn when_index_eq_constant<C, const SIZE: usize>(
-		&self,
-		index: usize,
-		other: C,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
-	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
-	{
-		self.when_index_eq(
-			index,
-			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
-		)
-	}
-	
-	// !!!
-	// - to rotate line by a fixed angle, multiply axial polynomials by Scalar?
-	// - to fit a line segment, filter predicted times.
-	// - for non-fixed angle line segments, use a double distance check?
-	// - rotating point-line may be handleable iteratively, find the bounds in
-	//   which the roots may be and iterate through it.
 }
