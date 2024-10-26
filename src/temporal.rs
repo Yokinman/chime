@@ -173,40 +173,6 @@ impl<T: Flux> Temporal<T> {
 		)
 	}
 	
-	/// Ranges when a component is above/below/equal to another flux.
-	pub fn when_index<U, const SIZE: usize>(
-		&self,
-		index: usize,
-		cmp: Ordering,
-		other: &Temporal<U>,
-	) -> <<T::Kind as Vector<SIZE>>::Output as When<U>>::Pred
-	where
-		T::Kind: Vector<SIZE, Output: FluxKind + When<U>>,
-		U: Flux,
-	{
-		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
-			self.poly(self.time).index(index),
-			cmp,
-			other.poly(self.time),
-		)
-	}
-	
-	/// Times when a component is equal to another flux.
-	pub fn when_index_eq<U, const SIZE: usize>(
-		&self,
-		index: usize,
-		other: &Temporal<U>,
-	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::Pred
-	where
-		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<U>>,
-		U: Flux,
-	{
-		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
-			self.poly(self.time).index(index),
-			other.poly(self.time),
-		)
-	}
-	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
 	pub fn when_dis_constant<U, C, const SIZE: usize>(
 		&self,
@@ -242,6 +208,40 @@ impl<T: Flux> Temporal<T> {
 		self.when_dis_eq(
 			other,
 			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
+		)
+	}
+	
+	/// Ranges when a component is above/below/equal to another flux.
+	pub fn when_index<U, const SIZE: usize>(
+		&self,
+		index: usize,
+		cmp: Ordering,
+		other: &Temporal<U>,
+	) -> <<T::Kind as Vector<SIZE>>::Output as When<U>>::Pred
+	where
+		T::Kind: Vector<SIZE, Output: FluxKind + When<U>>,
+		U: Flux,
+	{
+		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
+			self.poly(self.time).index(index),
+			cmp,
+			other.poly(self.time),
+		)
+	}
+	
+	/// Times when a component is equal to another flux.
+	pub fn when_index_eq<U, const SIZE: usize>(
+		&self,
+		index: usize,
+		other: &Temporal<U>,
+	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::Pred
+	where
+		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<U>>,
+		U: Flux,
+	{
+		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
+			self.poly(self.time).index(index),
+			other.poly(self.time),
 		)
 	}
 	
