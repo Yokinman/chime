@@ -141,14 +141,13 @@ impl<T: Flux> Temporal<T> {
 		other: &Temporal<U>,
 		cmp: Ordering,
 		dis: &Temporal<D>,
-	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, D::Kind>>::Pred
+	) -> T::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T: WhenDis<SIZE, U, D>,
+		U: Flux,
 		D: Flux,
-		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, D::Kind>,
 	{
-		WhenDis::when_dis(
+		T::when_dis(
 			self.poly(self.time),
 			other.poly(self.time),
 			cmp,
@@ -215,12 +214,12 @@ impl<T: Flux> Temporal<T> {
 		other: &Temporal<U>,
 		cmp: Ordering,
 		dis: C,
-	) -> <Temporal<T::Kind> as WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	) -> T::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		U: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<T::Kind>: WhenDis<SIZE, U::Kind, Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>,
+		T::Kind: Vector<SIZE, Output: FluxKind>,
+		T: WhenDis<SIZE, U, Constant<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>>,
+		U: Flux,
+		C: LinearIso<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>,
 	{
 		self.when_dis(
 			other,

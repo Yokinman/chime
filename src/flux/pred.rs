@@ -686,23 +686,28 @@ where
 }
 
 /// [`crate::FluxVector::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B, D> {
+pub trait WhenDis<const SIZE: usize, B: Flux, D: Flux>: Flux {
 	type Pred: Prediction;
-	fn when_dis(self, poly: Temporal<B>, order: Ordering, dis: Temporal<D>) -> Self::Pred;
+	fn when_dis(
+		a_poly: Temporal<Self::Kind>,
+		b_poly: Temporal<B::Kind>,
+		cmp: Ordering,
+		dis: Temporal<D::Kind>,
+	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for Temporal<A>
+impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for A
 where
-	A: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
-	B: FluxKind + Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>,
-	D: FluxKind + ops::Sqr,
-	A::Output: ops::Sub<
-		B::Output,
+	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	D: Flux<Kind: ops::Sqr>,
+	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
+		<B::Kind as Vector<SIZE>>::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>
+			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
 			+ ops::Sub<
-				<D as ops::Sqr>::Output,
-				Output = <<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output
+				<D::Kind as ops::Sqr>::Output,
+				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
 			+ PartialEq,
@@ -711,20 +716,23 @@ where
 	KindLinear<D>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output>,
+		Pred<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A, B, D,
-			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
-			<<A::Output as ops::Sub<B::Output>>::Output as ops::Sqr>::Output,
+			A::Kind, B::Kind, D::Kind,
+			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
-	fn when_dis(self, b_pos: Temporal<B>, order: Ordering, dis_poly: Temporal<D>) -> Self::Pred {
+	fn when_dis(
+		a_pos: Temporal<A::Kind>,
+		b_pos: Temporal<B::Kind>,
+		cmp: Ordering,
+		dis_poly: Temporal<D::Kind>,
+	) -> Self::Pred {
 		use ops::*;
 		
-		let a_pos = self;
-		
-		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
 				.sub(b_pos.index(i).at_time(a_pos.time).inner)
@@ -735,7 +743,7 @@ where
 		let diff_poly = pos_poly.clone() - dis_poly.clone().sqr();
 		
 		diff_poly.clone().when_sign(
-			order,
+			cmp,
 			DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly },
 		)
 	}
@@ -805,9 +813,9 @@ fn consistent_sign_pred() {
 			Sum::zero()
 		], time);
 		poly.when_dis(
-			Temporal::new([Sum::<f64, 2>::zero(); 2], time),
+			&Temporal::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
-			Temporal::new(crate::Constant::from(1.), time),
+			&Temporal::new(crate::Constant::from(1.), time),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (
