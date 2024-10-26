@@ -7,12 +7,13 @@ mod impls;
 use crate::{
 	linear::*,
 	kind::*,
-	temporal::Temporal,
 };
 
 use self::time::Time;
 
 pub use chime_flux_proc_macro::flux;
+
+pub use crate::temporal::Temporal;
 
 /// Context for a `bevy_time::Time`.
 #[derive(Default)]
