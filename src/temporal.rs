@@ -75,7 +75,7 @@ impl<T> Temporal<T> {
 
 impl<T: Flux> Temporal<T> {
 	/// An evaluation of this flux at some point in time.
-	pub fn basis(&self) -> <T::Kind as FluxKind>::Basis {
+	pub fn basis(&self) -> T::Basis {
 		self.inner.basis()
 	}
 	

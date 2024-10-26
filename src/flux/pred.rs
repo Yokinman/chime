@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::Add;
 
 use crate::linear::{Linear, Basis, Scalar, Vector};
-use crate::time;
+use crate::{Flux, time};
 use crate::time::Time;
 use crate::temporal::Temporal;
 use crate::kind::*;
@@ -189,15 +189,15 @@ where
 						b_dis = b_dis.add(b.clone().sqr());
 						real_diff = real_diff.add(a.sub(b).sqr());
 					}
-					a_dis = <A::Output as FluxKind>::Basis::inner_id(a_dis.sqrt());
-					b_dis = <B::Output as FluxKind>::Basis::inner_id(b_dis.sqrt());
+					a_dis = <A::Output as Flux>::Basis::inner_id(a_dis.sqrt());
+					b_dis = <B::Output as Flux>::Basis::inner_id(b_dis.sqrt());
 					real_diff = Linear::mul_scalar(real_diff.sqrt().sub(dis.clone()), round_factor);
 					let c_dis = D::Basis::inner_id(dis.clone());
 					
 					 // Undershoot Actual Distances:
 					if
-						a_dis != <A::Output as FluxKind>::Basis::inner_id(a_dis.clone().add(real_diff.clone())) &&
-						b_dis != <B::Output as FluxKind>::Basis::inner_id(b_dis.clone().add(real_diff.clone())) &&
+						a_dis != <A::Output as Flux>::Basis::inner_id(a_dis.clone().add(real_diff.clone())) &&
+						b_dis != <B::Output as Flux>::Basis::inner_id(b_dis.clone().add(real_diff.clone())) &&
 						c_dis != D::Basis::inner_id(c_dis.clone().add(real_diff))
 					{
 						 // Undershoot Predicted Distances:
@@ -206,8 +206,8 @@ where
 							round_factor
 						);
 						if
-							a_dis != <A::Output as FluxKind>::Basis::inner_id(a_dis.clone().add(pred_diff.clone())) &&
-							b_dis != <B::Output as FluxKind>::Basis::inner_id(b_dis.clone().add(pred_diff.clone())) &&
+							a_dis != <A::Output as Flux>::Basis::inner_id(a_dis.clone().add(pred_diff.clone())) &&
+							b_dis != <B::Output as Flux>::Basis::inner_id(b_dis.clone().add(pred_diff.clone())) &&
 							c_dis != D::Basis::inner_id(c_dis.clone().add(pred_diff))
 						{
 							break
@@ -241,8 +241,8 @@ where
 				 // Stop Before Inequality:
 				let mut pos = <KindLinear<D> as Linear>::zero();
 				for i in 0..SIZE {
-					let x = <A::Output as FluxKind>::Basis::inner_id(a_pos.index(i).eval(next_time).into_inner())
-						.sub(<B::Output as FluxKind>::Basis::inner_id(b_pos.index(i).eval(next_time).into_inner()));
+					let x = <A::Output as Flux>::Basis::inner_id(a_pos.index(i).eval(next_time).into_inner())
+						.sub(<B::Output as Flux>::Basis::inner_id(b_pos.index(i).eval(next_time).into_inner()));
 					pos = pos.add(x.sqr());
 				}
 				let dis = D::Basis::inner_id(dis_poly.eval(next_time).into_inner());

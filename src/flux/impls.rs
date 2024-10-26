@@ -4,15 +4,16 @@ use std::collections::HashMap;
 use std::vec::Vec;
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
-use crate::linear::Scalar;
+use crate::kind::{EmptyFluxAccum, FluxAccum};
+use crate::linear::{BasisArray, Scalar};
 
 impl<'t, T> Flux for &'t T
 where
 	T: Flux,
 {
+	type Basis = T::Basis;
 	type Kind = T::Kind;
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+	fn basis(&self) -> Self::Basis {
 		T::basis(self)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -34,8 +35,9 @@ impl<'t, T> Flux for &'t mut T
 where
 	T: Flux,
 {
+	type Basis = T::Basis;
 	type Kind = T::Kind;
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+	fn basis(&self) -> Self::Basis {
 		T::basis(self)
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -64,9 +66,10 @@ where
 }
 
 impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
+	type Basis = BasisArray<T::Basis, SIZE>;
 	type Kind = [T::Kind; SIZE];
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
-		crate::linear::BasisArray(self.each_ref().map(T::basis))
+	fn basis(&self) -> Self::Basis {
+		BasisArray(self.each_ref().map(T::basis))
 	}
 	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
 		let mut accums = accum.0.into_iter();

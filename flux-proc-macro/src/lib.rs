@@ -351,10 +351,10 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 		#item
 		
 		impl #impl_generics #flux::Flux for #flux_type #where_clause {
+			type Basis = <#kind_type as #flux::Flux>::Basis;
 			type Kind = #kind_type;
 			
-			fn basis(&self)
-				-> <Self::Kind as #flux::kind::FluxKind>::Basis
+			fn basis(&self) -> Self::Basis
 			#value_block
 			
 			fn change(&self, accum: #flux::kind::EmptyFluxAccum<Self::Kind>)

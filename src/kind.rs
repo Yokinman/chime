@@ -13,8 +13,6 @@ use crate::{Change, Constant, Flux, ToMomentMut};
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
 pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
-	type Basis: Basis;
-	
 	const DEGREE: usize;
 	
 	fn with_basis(value: Self::Basis) -> Self;
@@ -80,12 +78,12 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
-	type Integ: FluxKind<Basis = <Self::Kind as FluxKind>::Basis>;
+	type Integ: FluxKind<Basis = Self::Basis>;
 	fn integ(self) -> Self::Integ;
 }
 
 /// Shortcut for [`Flux::change`] parameter.
-pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as FluxKind>::Basis>>;
+pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as Flux>::Basis>>;
 
 /// Constructs a [`FluxKind`] polynomial by accumulating [`Change`]s.
 /// 
@@ -134,7 +132,6 @@ where
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
-	type Basis = BasisArray<T::Basis, SIZE>;
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(value: Self::Basis) -> Self {
 		value.0.map(T::with_basis)
@@ -152,7 +149,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 }
 
 /// Shortcut for the inner [`Linear`] type of a [`FluxKind`].
-pub(crate) type KindLinear<T> = <<T as FluxKind>::Basis as Basis>::Inner;
+pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
 
 /// Combining [`FluxKind`] types.
 /// 

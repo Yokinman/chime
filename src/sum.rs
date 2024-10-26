@@ -89,8 +89,9 @@ impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 }
 
 impl<T: Basis, const D: usize> Flux for Sum<T, D> {
+	type Basis = T;
 	type Kind = Self;
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
 	fn change(&self, _accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -125,8 +126,6 @@ impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 }
 
 impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
-	type Basis = T;
-	
 	const DEGREE: usize = D;
 	
 	fn with_basis(value: Self::Basis) -> Self {

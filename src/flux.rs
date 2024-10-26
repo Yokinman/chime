@@ -406,11 +406,14 @@ mod _change_impls {
 /// specific to abstracting the timeline. User types will often implement all of
 /// `Flux`, [`ToMoment`], and [`ToMomentMut`].
 pub trait Flux {
+	/// ...
+	type Basis: Basis;
+	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
-	type Kind: FluxKind;
+	type Kind: FluxKind<Basis = Self::Basis>;
 	
 	/// The starting point of this type's change over time.
-	fn basis(&self) -> <Self::Kind as FluxKind>::Basis;
+	fn basis(&self) -> Self::Basis;
 	
 	/// Applies the change of this type to an accumulator.
 	/// 
@@ -521,8 +524,9 @@ mod _constant_impls {
 	}
 	
 	impl<T: Basis> Flux for Constant<T> {
+		type Basis = T;
 		type Kind = Self;
-		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+		fn basis(&self) -> Self::Basis {
 			self.0.clone()
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
@@ -545,7 +549,6 @@ mod _constant_impls {
 	}
 	
 	impl<T: Basis> FluxKind for Constant<T> {
-		type Basis = T;
 		const DEGREE: usize = 0;
 		fn with_basis(value: Self::Basis) -> Self {
 			Constant(value)
@@ -650,8 +653,9 @@ mod tests {
 	}
 	
 	impl Flux for Pos {
+		type Basis = f64;
 		type Kind = Sum<f64, 4>;
-		fn basis(&self) -> <Self::Kind as FluxKind>::Basis {
+		fn basis(&self) -> Self::Basis {
 			self.value
 		}
 		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
