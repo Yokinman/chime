@@ -234,6 +234,8 @@ mod _linear_plus_impls {
 	where
 		T: Linear,
 	{
+		// !!! Replace this with manual impls so types like `BasisArray` don't
+		// have to exist?
 		type Inner = T;
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
