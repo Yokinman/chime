@@ -947,7 +947,7 @@ mod tests {
 		let a = Temporal::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
 		let b = Temporal::new(Constant::from(-194.), SEC);
 		assert_eq!(
-			Vec::from_iter(crate::pred::WhenEq::when_eq(a, b)
+			Vec::from_iter(a.when_eq(&b)
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[

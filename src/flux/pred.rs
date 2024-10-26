@@ -654,25 +654,31 @@ where
 }
 
 /// [`crate::Temporal::when_eq`] predictive comparison.
-pub trait WhenEq<B> {
+pub trait WhenEq<B: Flux>: Flux {
 	type Pred: Prediction;
-	fn when_eq(self, poly: Temporal<B>) -> Self::Pred;
+	fn when_eq(
+		a_poly: Temporal<Self::Kind>,
+		b_poly: Temporal<B::Kind>,
+	) -> Self::Pred;
 	// ??? Add `diff_poly` method, make `When` a sub-trait, elide the returned
 	// `DiffTimeFilterMap` type, and provide `when(_eq)` by default.
 }
 
-impl<A, B> WhenEq<B> for Temporal<A>
+impl<A, B> WhenEq<B> for A
 where
-	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
-	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<A as ops::Sub<B>>::Output>,
-		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
+		PredEq<<A::Kind as ops::Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
 	>;
-	fn when_eq(self, b_poly: Temporal<B>) -> Self::Pred {
-		let a_poly = self;
+	fn when_eq(
+		a_poly: Temporal<A::Kind>,
+		b_poly: Temporal<B::Kind>,
+	) -> Self::Pred
+	{
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
 			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })

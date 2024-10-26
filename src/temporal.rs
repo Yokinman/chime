@@ -109,31 +109,28 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Times when this is equal to another flux.
-	pub fn when_eq<U>(&self, other: &Temporal<U>)
-		-> <Temporal<T::Kind> as WhenEq<U::Kind>>::Pred
+	pub fn when_eq<U>(&self, other: &Temporal<U>) -> T::Pred
 	where
+		T: WhenEq<U>,
 		U: Flux,
-		Temporal<T::Kind>: WhenEq<U::Kind>
 	{
-		let time = self.basis_time();
-		WhenEq::when_eq(self.poly(time), other.poly(time))
+		T::when_eq(self.poly(self.time), other.poly(self.time))
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
 	pub fn when_constant<U>(&self, cmp: Ordering, other: U) -> T::Pred
 	where
 		T: When<Constant<KindLinear<T>>>,
-		U: LinearIso<KindLinear<T::Kind>>,
+		U: LinearIso<KindLinear<T>>,
 	{
 		self.when(cmp, &Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
 	
 	/// Times when this is equal to a constant.
-	pub fn when_eq_constant<U>(&self, other: U)
-		-> <Temporal<T::Kind> as WhenEq<Constant<KindLinear<T::Kind>>>>::Pred
+	pub fn when_eq_constant<U>(&self, other: U) -> T::Pred
 	where
-		U: LinearIso<KindLinear<T::Kind>>,
-		Temporal<T::Kind>: WhenEq<Constant<KindLinear<T::Kind>>>
+		T: WhenEq<Constant<KindLinear<T>>>,
+		U: LinearIso<KindLinear<T>>,
 	{
 		self.when_eq(&Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
@@ -201,13 +198,12 @@ impl<T: Flux> Temporal<T> {
 		&self,
 		index: usize,
 		other: &Temporal<U>,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<U::Kind>>::Pred
+	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<U>>,
 		U: Flux,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<U::Kind>,
 	{
-		WhenEq::when_eq(
+		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
 			self.poly(self.time).index(index),
 			other.poly(self.time),
 		)
@@ -274,11 +270,10 @@ impl<T: Flux> Temporal<T> {
 		&self,
 		index: usize,
 		other: C,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>,
 		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
 	{
 		self.when_index_eq(
 			index,
