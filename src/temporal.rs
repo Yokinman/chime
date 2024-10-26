@@ -100,14 +100,12 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Ranges when this is above/below/equal to another flux.
-	pub fn when<U>(&self, cmp: Ordering, other: &Temporal<U>)
-		-> <Temporal<T::Kind> as When<U::Kind>>::Pred
+	pub fn when<U>(&self, cmp: Ordering, other: &Temporal<U>) -> T::Pred
 	where
+		T: When<U>,
 		U: Flux,
-		Temporal<T::Kind>: When<U::Kind>
 	{
-		let time = self.basis_time();
-		When::when(self.poly(time), cmp, other.poly(time))
+		T::when(self.poly(self.time), cmp, other.poly(self.time))
 	}
 	
 	/// Times when this is equal to another flux.
@@ -122,11 +120,10 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
-	pub fn when_constant<U>(&self, cmp: Ordering, other: U)
-		-> <Temporal<T::Kind> as When<Constant<KindLinear<T::Kind>>>>::Pred
+	pub fn when_constant<U>(&self, cmp: Ordering, other: U) -> T::Pred
 	where
+		T: When<Constant<KindLinear<T>>>,
 		U: LinearIso<KindLinear<T::Kind>>,
-		Temporal<T::Kind>: When<Constant<KindLinear<T::Kind>>>
 	{
 		self.when(cmp, &Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
 	}
@@ -187,13 +184,12 @@ impl<T: Flux> Temporal<T> {
 		index: usize,
 		cmp: Ordering,
 		other: &Temporal<U>,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<U::Kind>>::Pred
+	) -> <<T::Kind as Vector<SIZE>>::Output as When<U>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + When<U>>,
 		U: Flux,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<U::Kind>,
 	{
-		When::when(
+		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
 			self.poly(self.time).index(index),
 			cmp,
 			other.poly(self.time),
@@ -261,11 +257,10 @@ impl<T: Flux> Temporal<T> {
 		index: usize,
 		cmp: Ordering,
 		other: C,
-	) -> <Temporal<<T::Kind as Vector<SIZE>>::Output> as When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
 	where
-		T: Flux<Kind: Vector<SIZE, Output: FluxKind>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>,
 		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
-		Temporal<<T::Kind as Vector<SIZE>>::Output>: When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>
 	{
 		self.when_index(
 			index,

@@ -622,26 +622,34 @@ where
 }
 
 /// [`crate::Temporal::when`] predictive comparison.
-pub trait When<B> {
+pub trait When<B: Flux>: Flux {
 	type Pred: Prediction;
-	fn when(self, order: Ordering, poly: Temporal<B>) -> Self::Pred;
+	fn when(
+		a_poly: Temporal<Self::Kind>,
+		cmp: Ordering,
+		b_poly: Temporal<B::Kind>,
+	) -> Self::Pred;
 }
 
-impl<A, B> When<B> for Temporal<A>
+impl<A, B> When<B> for A
 where
-	A: FluxKind + ops::Sub<B, Output: Roots + PartialEq>,
-	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A as ops::Sub<B>>::Output>,
-		DiffTimeFilterMap<A, B, <A as ops::Sub<B>>::Output>,
+		Pred<<A::Kind as ops::Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
 	>;
-	fn when(self, order: Ordering, b_poly: Temporal<B>) -> Self::Pred {
-		let a_poly = self;
+	fn when(
+		a_poly: Temporal<A::Kind>,
+		cmp: Ordering,
+		b_poly: Temporal<B::Kind>,
+	) -> Self::Pred
+	{
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
-			.when_sign(order, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
+			.when_sign(cmp, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
 	}
 }
 
