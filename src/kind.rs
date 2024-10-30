@@ -19,6 +19,11 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	
 	fn add_basis(self, value: Self::Basis) -> Self;
 	
+	fn sub_basis(self, value: Self::Basis) -> Self {
+		self.add_basis(Basis::from_inner(value.into_inner()
+			.mul_scalar(Scalar::from(-1.))))
+	}
+	
 	fn deriv(self) -> Self;
 	
 	fn eval(&self, time: Scalar) -> Self::Basis;
