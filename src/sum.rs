@@ -1,7 +1,7 @@
 //! Summation over time.
 
 use std::cmp::Ordering;
-use std::ops::{Add, Index, IndexMut, Mul};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
 
 /// Summation over time.
@@ -377,6 +377,18 @@ macro_rules! impl_deg_add {
 	};
 }
 impl_deg_order!(1);
+
+impl<K, T, const N: usize> Sub<K> for Sum<T, N>
+where
+	K: FluxKind + Mul<Scalar, Output = K>,
+	T: Basis,
+	Self: Add<K>,
+{
+	type Output = <Self as Add<K>>::Output;
+	fn sub(self, rhs: K) -> Self::Output {
+		self + (rhs * Scalar::from(-1.))
+	}
+}
 
 impl Roots for Sum<f64, 0> {
 	type Output = [f64; 0];
