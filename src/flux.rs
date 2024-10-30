@@ -606,6 +606,17 @@ mod _constant_impls {
 		}
 	}
 	
+	impl<A, B> std::ops::Sub<B> for Constant<A>
+	where
+		A: Basis,
+		B: FluxKind<Basis = A>,
+	{
+		type Output = B;
+		fn sub(self, rhs: B) -> Self::Output {
+			rhs.sub_basis(self.0)
+		}
+	}
+	
 	impl<T> IntoIterator for Constant<T>
 	where
 		T: IntoIterator,
