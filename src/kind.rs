@@ -107,27 +107,27 @@ impl<K: FluxKind> FluxAccum<K> {
 
 impl<A, B> Add<Change<B>> for FluxAccum<A>
 where
-	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
+	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 {
-	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn add(self, rhs: Change<B>) -> Self::Output {
 		let Change { rate, unit } = rhs;
 		let time_scale = unit.as_secs_f64().recip();
-		FluxAccum(self.0.add((rate.to_kind() * Scalar::from(time_scale)).integ()))
+		FluxAccum(self.0 + (rate.to_kind() * Scalar::from(time_scale)).integ())
 	}
 }
 
 impl<A, B> Sub<Change<B>> for FluxAccum<A>
 where
-	A: FluxKind + ops::Add<<B::Kind as FluxIntegral>::Integ>,
+	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 {
-	type Output = FluxAccum<<A as ops::Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
 		let Change { rate, unit } = rhs;
 		let time_scale = unit.as_secs_f64().recip() * -1.;
-		FluxAccum(self.0.add((rate.to_kind() * Scalar::from(time_scale)).integ()))
+		FluxAccum(self.0 + (rate.to_kind() * Scalar::from(time_scale)).integ())
 	}
 }
 
@@ -159,24 +159,6 @@ pub mod ops {
 	use std::ops;
 	use super::{FluxKind, KindLinear};
 	use crate::linear::{Basis, Scalar};
-	
-	/// Adding two kinds of change.
-	pub trait Add<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Basis: Basis<Inner = KindLinear<K>>>;
-		fn add(self, kind: K) -> <Self as Add<K>>::Output;
-	}
-	
-	impl<A, B> Add<B> for A
-	where
-		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-		<A as ops::Add<B>>::Output: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-	{
-		type Output = <A as ops::Add<B>>::Output;
-		fn add(self, kind: B) -> <A as ops::Add<B>>::Output {
-			self + kind
-		}
-	}
 	
 	/// Differentiating two kinds of change.
 	pub trait Sub<K: FluxKind = Self>: FluxKind {

@@ -390,11 +390,12 @@ impl<K: FluxKind> From<K> for Temporal<K> {
 	}
 }
 
-impl<A: FluxKind, B: FluxKind> Add<Temporal<B>> for Temporal<A>
+impl<A, B> Add<Temporal<B>> for Temporal<A>
 where
-	A: kind_ops::Add<B>
+	A: Add<B>,
+	B: ToMomentMut,
 {
-	type Output = Temporal<<A as kind_ops::Add<B>>::Output>;
+	type Output = Temporal<<A as Add<B>>::Output>;
 	fn add(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
 			inner: self.inner.add(rhs.at_time(self.time).inner),
