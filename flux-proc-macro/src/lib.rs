@@ -382,63 +382,133 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	flux_value_impl.into()
 }
 
-#[proc_macro_derive(Flux, attributes(flux))]
+static BASIS_HELP: &'static str = "\
+	\nhelp: mark a single field as the basis by placing `#[basis]` above it\
+";
+
+static CHANGE_HELP: &'static str = "\
+	\nhelp: `#[change(op)]` is used to mark fields that apply an operation over time:\
+	\n        `add_per(u)` - Add per unit of `chime::time::Time` (fields of type `impl Flux`)\
+	\n        `sub_per(u)` - Subtract per unit of `chime::time::Time` (fields of type `impl Flux`)\
+	\n        `add`        - Add directly (fields of type `impl FluxKind` or `Change<impl Flux>`)\
+	\n        `sub`        - Subtract directly (fields of type `impl FluxKind` or `Change<impl Flux>`)\
+";
+
+#[proc_macro_derive(Flux, attributes(basis, change))]
 pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let item: syn::ItemStruct = match syn::parse(item_tokens) {
 		Ok(item) => item,
 		Err(e) => panic!("{}", e),
 	};
 	
+	let chime: syn::Path = syn::parse_quote!{chime};
+	
 	let type_name = item.ident.clone();
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
-	let mut basis_ident: Option<syn::Ident> = None;
-	let mut change_closure: Option<syn::ExprClosure> = None;
+	let mut basis: Option<(syn::Member, syn::Type)> = None;
+	let mut change_expr: syn::Expr = syn::parse_quote!{kind};
+	let mut kind_type: syn::Type = syn::parse_quote!{#chime::Constant<Self::Basis>};
 	
-	 // Find `flux` Helper Attribute:
-	for field in item.fields.iter() {
+	 // Find Helper Attributes:
+	for (field_index, field) in item.fields.iter().enumerate() {
+		let field_member = field.ident.clone()
+			.map(Into::<syn::Member>::into)
+			.unwrap_or_else(|| field_index.into());
+		
+		let field_type = &field.ty;
+		
 		for attr in field.attrs.iter() {
-			if attr.meta.path().is_ident("flux") {
-				if basis_ident.is_some() {
-					panic!("found multiple `flux` helper attributes");
+			if attr.meta.path().is_ident("basis") {
+				if basis.is_some() {
+					panic!("multiple fields declared as basis{}", BASIS_HELP);
 				}
-				
-				basis_ident = Some(field.ident.clone()
-					.expect("basis identifier should exist"));
-				
+				basis = Some((field_member.clone(), field_type.clone()));
+			}
+			if attr.meta.path().is_ident("change") {
 				let syn::Meta::List(meta_list) = &attr.meta
-					else { panic!("flux must contain a closure argument") };
+					else { panic!("expected argument list for `{}`{}",
+						attr.to_token_stream(), CHANGE_HELP) };
 				
-				change_closure = syn::parse(meta_list.tokens.to_owned().into()).ok();
+				match meta_list.parse_args::<syn::Expr>() {
+					Ok(syn::Expr::Path(syn::ExprPath { path, .. })) => {
+						let op: syn::BinOp;
+						let op_trait: syn::Path;
+						
+						 // Get Operation:
+						if path.is_ident("add") {
+							op = syn::parse_quote!{+};
+							op_trait = syn::parse_quote!{::std::ops::Add};
+						} else if path.is_ident("sub") {
+							op = syn::parse_quote!{-};
+							op_trait = syn::parse_quote!{::std::ops::Sub};
+						} else {
+							panic!("invalid change operation, `{}`{}",
+								path.to_token_stream(), CHANGE_HELP);
+						}
+						
+						change_expr = syn::parse_quote!{(#change_expr)
+							#op self.#field_member.as_ref()};
+						kind_type = syn::parse_quote!{<#kind_type
+							as #op_trait::<#field_type>>::Output};
+					},
+					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
+						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func
+							else { panic!("invalid change operation, `{}`{}",
+								func.to_token_stream(), CHANGE_HELP) };
+						
+						let op: syn::BinOp;
+						let op_trait: syn::Path;
+						
+						 // Get Operation:
+						if path.is_ident("add_per") {
+							op = syn::parse_quote!{+};
+							op_trait = syn::parse_quote!{::std::ops::Add};
+						} else if path.is_ident("sub_per") {
+							op = syn::parse_quote!{-};
+							op_trait = syn::parse_quote!{::std::ops::Sub};
+						} else {
+							panic!("invalid change operation, `{}`{}",
+								path.to_token_stream(), CHANGE_HELP)
+						}
+						
+						 // Get Unit:
+						if args.len() != 1 {
+							panic!("expected one argument for `{}`{}",
+								meta_list.tokens, CHANGE_HELP);
+						}
+						let unit = args.first().unwrap();
+						
+						change_expr = syn::parse_quote!{#change_expr
+							#op #chime::Per::per(&self.#field_member, #unit)};
+						kind_type = syn::parse_quote!{<#kind_type
+							as #op_trait::<#chime::Change<#field_type>>>::Output};
+					},
+					Ok(meta) => panic!("invalid change operation, `{}`{}",
+						meta.to_token_stream(), CHANGE_HELP),
+					Err(e) => panic!("{}{}", e, CHANGE_HELP),
+				}
 			}
 		}
 	}
 	
-	let chime: syn::Path = syn::parse_quote!{chime};
+	let (basis_member, basis_type) = basis.unwrap_or_else(|| panic!(
+		"no basis declared{}",
+		BASIS_HELP
+	));
 	
-	let basis_ident = basis_ident
-		.expect("flux helper attribute should mark a field");
-	
-	let change_closure = change_closure
-		.expect("flux helper attribute should mark a field");
-	
-	let kind_type = match &change_closure.output {
-		syn::ReturnType::Default => syn::parse_quote!{impl #chime::kind::FluxKind},
-		syn::ReturnType::Type(_, t) => (**t).clone(),
-	};
-	
-	let flux_impl = quote::quote!{
+	let trait_impl = quote::quote!{
 		impl #impl_params #chime::Flux for #type_name #type_params #impl_clause {
-			type Basis = <Self::Kind as #chime::Flux>::Basis;
+			type Basis = #basis_type;
 			type Kind = #kind_type;
 			fn basis(&self) -> Self::Basis {
-				self.#basis_ident
+				self.#basis_member
 			}
-			fn change(&self, kind_: Self::Kind) -> Self::Kind {
-				(#change_closure)(kind_)
+			fn change(&self, kind: Self::Kind) -> Self::Kind {
+				#change_expr
 			}
 		}
 	};
 	
-	flux_impl.into()
+	trait_impl.into()
 }

@@ -677,18 +677,26 @@ mod tests {
 	
 	use crate as chime;
 	
-	#[derive(Clone, Debug, Default, Flux)]
+	#[derive(Clone, Debug, Default)]
 	struct Pos {
-		#[flux(|mut x| -> Sum<f64, 4> {
-			x = x + (&self.spd).per(SEC);
-			for spd in &self.misc {
-				x = x + spd.per(SEC);
-			}
-			x
-		})]
 		value: f64,
 		spd: Spd,
 		misc: Vec<Spd>,
+	}
+	
+	impl Flux for Pos {
+		type Basis = f64;
+		type Kind = Sum<f64, 4>;
+		fn basis(&self) -> Self::Basis {
+			self.value
+		}
+		fn change(&self, mut kind: Self::Kind) -> Self::Kind {
+			kind = kind + (&self.spd).per(SEC);
+			for spd in &self.misc {
+				kind = kind + spd.per(SEC);
+			}
+			kind
+		}
 	}
 	
 	impl ToMoment for Pos {
@@ -710,17 +718,33 @@ mod tests {
 		}
 	}
 	
-	#[flux(
-		kind = Sum<f64, 3>,
-		value = value,
-		change = |c| c - fric.per(SEC) + accel.per(SEC),
-		crate = crate,
-	)]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux)]
 	struct Spd {
+		#[basis]
 		value: f64,
+		#[change(sub_per(SEC))]
 		fric: Fric,
+		#[change(add_per(SEC))]
 		accel: Accel,
+	}
+	
+	impl ToMoment for Spd {
+		type Moment<'a> = Self;
+		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+			Self {
+				value: self.to_kind().eval(time),
+				fric: self.fric.to_moment(time),
+				accel: self.accel.to_moment(time),
+			}
+		}
+	}
+	
+	impl ToMomentMut for Spd {
+		type MomentMut<'a> = &'a mut Self;
+		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+			*self = self.to_moment(time);
+			self
+		}
 	}
 	
 	#[flux(
