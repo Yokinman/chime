@@ -675,8 +675,9 @@ mod tests {
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
+	use crate as chime;
+	
 	#[derive(Clone, Debug, Default, Flux)]
-	#[flux_crate = "crate"]
 	struct Pos {
 		#[flux(|mut x| -> Sum<f64, 4> {
 			x = x + (&self.spd).per(SEC);

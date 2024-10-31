@@ -382,7 +382,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 	flux_value_impl.into()
 }
 
-#[proc_macro_derive(Flux, attributes(flux, flux_crate))]
+#[proc_macro_derive(Flux, attributes(flux))]
 pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let item: syn::ItemStruct = match syn::parse(item_tokens) {
 		Ok(item) => item,
@@ -392,32 +392,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let type_name = item.ident.clone();
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
-	let mut chime: Option<syn::Path> = None;
 	let mut basis_ident: Option<syn::Ident> = None;
 	let mut change_closure: Option<syn::ExprClosure> = None;
-	
-	 // Find `flux_crate` Helper Attribute:
-	for attr in item.attrs {
-		if attr.meta.path().is_ident("flux_crate") {
-			if chime.is_some() {
-				panic!("found multiple `flux_crate` helper attributes");
-			}
-			
-			const PANIC_MSG: &'static str = "expected `#[flux_crate = \"path\"]`";
-			
-			let syn::Meta::NameValue(meta_nameval) = &attr.meta
-				else { panic!("{}", PANIC_MSG) };
-			
-			let syn::Expr::Lit(path) = &meta_nameval.value
-				else { panic!("{}", PANIC_MSG) };
-			
-			let syn::Lit::Str(path) = &path.lit
-				else { panic!("{}", PANIC_MSG)};
-			
-			chime = Some(syn::parse_str(path.value().as_str())
-				.expect(PANIC_MSG));
-		}
-	}
 	
 	 // Find `flux` Helper Attribute:
 	for field in item.fields.iter() {
@@ -438,7 +414,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 		}
 	}
 	
-	let chime = chime.unwrap_or(syn::parse_quote!{::chime});
+	let chime: syn::Path = syn::parse_quote!{chime};
 	
 	let basis_ident = basis_ident
 		.expect("flux helper attribute should mark a field");
