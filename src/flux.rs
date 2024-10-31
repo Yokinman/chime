@@ -434,11 +434,11 @@ pub trait Flux {
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
 	///   
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind>;
+	fn change(&self, kind: Self::Kind) -> Self::Kind;
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		self.change(FluxAccum(Constant(self.basis()))).0
+		self.change(Self::Kind::with_basis(self.basis()))
 	}
 	
 	/// Temporary convenience for constructing a [`Temporal<Self>`].
@@ -501,7 +501,7 @@ pub struct ConstantIter<T>(T);
 mod _constant_impls {
 	use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 	use crate::{Change, Flux, ToMoment, ToMomentMut};
-	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxIntegral, FluxKind};
+	use crate::kind::{FluxAccum, FluxIntegral, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use super::{Constant, ConstantIter};
 	
@@ -530,8 +530,8 @@ mod _constant_impls {
 		fn basis(&self) -> Self::Basis {
 			self.0.clone()
 		}
-		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-			accum
+		fn change(&self, kind: Self::Kind) -> Self::Kind {
+			kind
 		}
 	}
 	
@@ -694,12 +694,12 @@ mod tests {
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
-		fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-			let mut accum = accum + (&self.spd).per(SEC);
+		fn change(&self, mut kind: Self::Kind) -> Self::Kind {
+			kind = kind + (&self.spd).per(SEC);
 			for spd in &self.misc {
-				accum = accum + spd.per(SEC);
+				kind = kind + spd.per(SEC);
 			}
-			accum
+			kind
 		}
 	}
 	

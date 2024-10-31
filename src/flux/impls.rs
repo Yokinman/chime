@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::vec::Vec;
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{EmptyFluxAccum, FluxAccum};
 use crate::linear::{BasisArray, Scalar};
 
 impl<'t, T> Flux for &'t T
@@ -16,8 +15,8 @@ where
 	fn basis(&self) -> Self::Basis {
 		T::basis(self)
 	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		T::change(self, accum)
+	fn change(&self, kind: Self::Kind) -> Self::Kind {
+		T::change(self, kind)
 	}
 }
 
@@ -40,8 +39,8 @@ where
 	fn basis(&self) -> Self::Basis {
 		T::basis(self)
 	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		T::change(self, accum)
+	fn change(&self, kind: Self::Kind) -> Self::Kind {
+		T::change(self, kind)
 	}
 }
 
@@ -71,11 +70,10 @@ impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
 	fn basis(&self) -> Self::Basis {
 		BasisArray(self.each_ref().map(T::basis))
 	}
-	fn change(&self, accum: EmptyFluxAccum<Self::Kind>) -> FluxAccum<Self::Kind> {
-		let mut accums = accum.0.into_iter();
-		let poly = self.each_ref()
-			.map(|x| x.change(FluxAccum(accums.next().unwrap())).0);
-		FluxAccum(poly)
+	fn change(&self, kind: Self::Kind) -> Self::Kind {
+		let mut kind_iter = kind.into_iter();
+		self.each_ref()
+			.map(|x| x.change(kind_iter.next().unwrap()))
 	}
 }
 

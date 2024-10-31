@@ -253,7 +253,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			
 			let mut value_block: syn::Block = syn::parse_quote!{{#value_expr}};
 			let mut change_block: syn::Block = syn::parse_quote!{{
-				#crate_path::kind::FluxAccum::into((#change_expr)(accum))
+				(#change_expr)(kind)
 			}};
 			
 			 // Convenient Identifiers:
@@ -357,8 +357,7 @@ pub fn flux(arg_stream: TokenStream, item_stream: TokenStream) -> TokenStream {
 			fn basis(&self) -> Self::Basis
 			#value_block
 			
-			fn change(&self, accum: #flux::kind::EmptyFluxAccum<Self::Kind>)
-				-> #flux::kind::FluxAccum<Self::Kind>
+			fn change(&self, kind: Self::Kind) -> Self::Kind
 			#change_block
 		}
 		
