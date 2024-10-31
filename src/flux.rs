@@ -609,11 +609,11 @@ mod _constant_impls {
 	impl<A, B> std::ops::Sub<B> for Constant<A>
 	where
 		A: Basis,
-		B: FluxKind<Basis = A>,
+		B: FluxKind<Basis = A> + Mul<Scalar, Output = B>,
 	{
 		type Output = B;
 		fn sub(self, rhs: B) -> Self::Output {
-			rhs.sub_basis(self.0)
+			(rhs * Scalar::from(-1.)).add_basis(self.0)
 		}
 	}
 	
