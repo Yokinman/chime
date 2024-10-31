@@ -11,7 +11,7 @@ use crate::{
 
 use self::time::Time;
 
-pub use chime_flux_proc_macro::flux;
+pub use chime_flux_proc_macro::{flux, Flux};
 
 pub use crate::temporal::Temporal;
 
@@ -675,32 +675,19 @@ mod tests {
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
-	// #[flux(
-	// 	kind = Sum<f64, 4>,
-	// 	value = value,
-	// 	change = |c| c + spd.per(SEC) + misc.per(SEC),
-	// 	crate = crate,
-	// )]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux)]
+	#[flux_crate = "crate"]
 	struct Pos {
+		#[flux(|mut x| -> Sum<f64, 4> {
+			x = x + (&self.spd).per(SEC);
+			for spd in &self.misc {
+				x = x + spd.per(SEC);
+			}
+			x
+		})]
 		value: f64,
 		spd: Spd,
 		misc: Vec<Spd>,
-	}
-	
-	impl Flux for Pos {
-		type Basis = f64;
-		type Kind = Sum<f64, 4>;
-		fn basis(&self) -> Self::Basis {
-			self.value
-		}
-		fn change(&self, mut kind: Self::Kind) -> Self::Kind {
-			kind = kind + (&self.spd).per(SEC);
-			for spd in &self.misc {
-				kind = kind + spd.per(SEC);
-			}
-			kind
-		}
 	}
 	
 	impl ToMoment for Pos {
