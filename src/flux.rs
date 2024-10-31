@@ -499,9 +499,9 @@ pub struct Constant<T>(pub T);
 pub struct ConstantIter<T>(T);
 
 mod _constant_impls {
-	use std::ops::{Deref, DerefMut, Mul};
-	use crate::{Flux, ToMoment, ToMomentMut};
-	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxKind};
+	use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+	use crate::{Change, Flux, ToMoment, ToMomentMut};
+	use crate::kind::{EmptyFluxAccum, FluxAccum, FluxIntegral, FluxKind};
 	use crate::linear::{Basis, Linear, Scalar, Vector};
 	use super::{Constant, ConstantIter};
 	
@@ -595,7 +595,7 @@ mod _constant_impls {
 		}
 	}
 	
-	impl<A, B> std::ops::Add<B> for Constant<A>
+	impl<A, B> Add<B> for Constant<A>
 	where
 		A: Basis,
 		B: FluxKind<Basis = A>,
@@ -606,7 +606,7 @@ mod _constant_impls {
 		}
 	}
 	
-	impl<A, B> std::ops::Sub<B> for Constant<A>
+	impl<A, B> Sub<B> for Constant<A>
 	where
 		A: Basis,
 		B: FluxKind<Basis = A> + Mul<Scalar, Output = B>,
@@ -614,6 +614,30 @@ mod _constant_impls {
 		type Output = B;
 		fn sub(self, rhs: B) -> Self::Output {
 			(rhs * Scalar::from(-1.)).add_basis(self.0)
+		}
+	}
+	
+	impl<T, B> Add<Change<B>> for Constant<T>
+	where
+		T: Basis,
+		B: Flux<Kind: FluxIntegral>,
+		Self: Add<<B::Kind as FluxIntegral>::Integ>,
+	{
+		type Output = <Self as Add<<B::Kind as FluxIntegral>::Integ>>::Output;
+		fn add(self, rhs: Change<B>) -> Self::Output {
+			(FluxAccum(self) + rhs).0
+		}
+	}
+	
+	impl<T, B> Sub<Change<B>> for Constant<T>
+	where
+		T: Basis,
+		B: Flux<Kind: FluxIntegral>,
+		Self: Sub<<B::Kind as FluxIntegral>::Integ>,
+	{
+		type Output = <Self as Sub<<B::Kind as FluxIntegral>::Integ>>::Output;
+		fn sub(self, rhs: Change<B>) -> Self::Output {
+			(FluxAccum(self) - rhs).0
 		}
 	}
 	
