@@ -125,14 +125,14 @@ where
 
 impl<A, B> Sub<Change<B>> for FluxAccum<A>
 where
-	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
+	A: FluxKind + Sub<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 {
-	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
+	type Output = FluxAccum<<A as Sub<<B::Kind as FluxIntegral>::Integ>>::Output>;
 	fn sub(self, rhs: Change<B>) -> Self::Output {
 		let Change { rate, unit } = rhs;
-		let time_scale = unit.as_secs_f64().recip() * -1.;
-		FluxAccum(self.0 + (rate.to_kind() * Scalar::from(time_scale)).integ())
+		let time_scale = unit.as_secs_f64().recip();
+		FluxAccum(self.0 - (rate.to_kind() * Scalar::from(time_scale)).integ())
 	}
 }
 
