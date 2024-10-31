@@ -715,11 +715,11 @@ mod tests {
 	fn sub() {
 		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
 		let b = Sum(7.1, [5.9, 3.1]);
-		assert_eq!(ops::Sub::sub(a, b), Sum(
+		assert_eq!(a - b, Sum(
 			-5.6,
 			[-3.4000000000000004, 0.10000000000000009, 4.5, 5.7]
 		));
-		assert_eq!(ops::Sub::sub(b, a), Sum(
+		assert_eq!(b - a, Sum(
 			5.6,
 			[3.4000000000000004, -0.10000000000000009, -4.5, -5.7]
 		));

@@ -163,29 +163,7 @@ pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
 pub mod ops {
 	use std::ops;
 	use super::{FluxKind, KindLinear};
-	use crate::linear::{Basis, Scalar};
-	
-	/// Differentiating two kinds of change.
-	pub trait Sub<K: FluxKind = Self>: FluxKind {
-		type Output: FluxKind<Basis: Basis<Inner = KindLinear<K>>>;
-		fn sub(self, kind: K) -> <Self as Sub<K>>::Output;
-	}
-	
-	impl<A, B> Sub<B> for A
-	where
-		A: FluxKind + ops::Add<B>,
-		B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>
-			+ ops::Mul<Scalar, Output=B>,
-		<A as ops::Add<B>>::Output: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-	{
-		type Output = <A as ops::Add<B>>::Output;
-		fn sub(self, kind: B) -> <A as ops::Add<B>>::Output {
-			// ??? This could pass through to `ops::Sub` directly, but then
-			// stuff like [`sum::Sum`] would need a whole extra set of macro
-			// implementations. For now, this will just reuse `ops::Add`.
-			self + (kind * Scalar::from(-1.))
-		}
-	}
+	use crate::linear::Basis;
 	
 	/// Squaring a kind of change.
 	pub trait Sqr: FluxKind {

@@ -1,7 +1,7 @@
 //! ...
 
 use std::cmp::Ordering;
-use std::ops::Add;
+use std::ops::{Add, Sub};
 
 use crate::linear::{Linear, Basis, Scalar, Vector};
 use crate::{Flux, time};
@@ -633,13 +633,14 @@ pub trait When<B: Flux>: Flux {
 
 impl<A, B> When<B> for A
 where
-	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
+		+ FluxKind<Basis: Basis<Inner = KindLinear<A>>>>>,
 	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A::Kind as ops::Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
+		Pred<<A::Kind as Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as Sub<B::Kind>>::Output>,
 	>;
 	fn when(
 		a_poly: Temporal<A::Kind>,
@@ -666,13 +667,14 @@ pub trait WhenEq<B: Flux>: Flux {
 
 impl<A, B> WhenEq<B> for A
 where
-	A: Flux<Kind: ops::Sub<B::Kind, Output: Roots + PartialEq>>,
+	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
+		+ FluxKind<Basis: Basis<Inner = KindLinear<A>>>>>,
 	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<A::Kind as ops::Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as ops::Sub<B::Kind>>::Output>,
+		PredEq<<A::Kind as Sub<B::Kind>>::Output>,
+		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as Sub<B::Kind>>::Output>,
 	>;
 	fn when_eq(
 		a_poly: Temporal<A::Kind>,
@@ -701,27 +703,28 @@ where
 	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
+	<A::Kind as Vector<SIZE>>::Output: Sub<
 		<B::Kind as Vector<SIZE>>::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
-			+ ops::Sub<
+			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
+			+ Sub<
 				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
+				Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
-			+ PartialEq,
+			+ PartialEq
+			+ FluxKind<Basis: Basis<Inner = KindLinear<D>>>
 		>,
 	>,
 	KindLinear<D>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		Pred<<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis(
@@ -764,27 +767,28 @@ where
 	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: ops::Sub<
+	<A::Kind as Vector<SIZE>>::Output: Sub<
 		<B::Kind as Vector<SIZE>>::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
-			+ ops::Sub<
+			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
+			+ Sub<
 				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
+				Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
 			>
 			+ Roots
-			+ PartialEq,
+			+ PartialEq
+			+ FluxKind<Basis: Basis<Inner = KindLinear<D>>>
 		>,
 	>,
 	KindLinear<D>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		PredEq<<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as ops::Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis_eq(

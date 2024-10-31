@@ -404,11 +404,12 @@ where
 	}
 }
 
-impl<A: FluxKind, B: FluxKind> Sub<Temporal<B>> for Temporal<A>
+impl<A, B> Sub<Temporal<B>> for Temporal<A>
 where
-	A: kind_ops::Sub<B>
+	A: Sub<B>,
+	B: ToMomentMut,
 {
-	type Output = Temporal<<A as kind_ops::Sub<B>>::Output>;
+	type Output = Temporal<<A as Sub<B>>::Output>;
 	fn sub(self, rhs: Temporal<B>) -> Self::Output {
 		Temporal {
 			inner: self.inner.sub(rhs.at_time(self.time).inner),
