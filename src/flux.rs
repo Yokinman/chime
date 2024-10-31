@@ -11,7 +11,7 @@ use crate::{
 
 use self::time::Time;
 
-pub use chime_flux_proc_macro::{flux, Flux};
+pub use chime_flux_proc_macro::{flux, Flux, ToMoment};
 
 pub use crate::temporal::Temporal;
 
@@ -677,8 +677,9 @@ mod tests {
 	
 	use crate as chime;
 	
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, ToMoment)]
 	struct Pos {
+		#[basis]
 		value: f64,
 		spd: Spd,
 		misc: Vec<Spd>,
@@ -699,17 +700,6 @@ mod tests {
 		}
 	}
 	
-	impl ToMoment for Pos {
-		type Moment<'a> = Self;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-			Self {
-				value: self.to_kind().eval(time),
-				spd: self.spd.to_moment(time),
-				misc: self.misc.to_moment(time),
-			}
-		}
-	}
-	
 	impl ToMomentMut for Pos {
 		type MomentMut<'a> = &'a mut Self;
 		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
@@ -718,7 +708,7 @@ mod tests {
 		}
 	}
 	
-	#[derive(Clone, Debug, Default, Flux)]
+	#[derive(Clone, Debug, Default, Flux, ToMoment)]
 	struct Spd {
 		#[basis]
 		value: f64,
@@ -726,17 +716,6 @@ mod tests {
 		fric: Fric,
 		#[change(add_per(SEC))]
 		accel: Accel,
-	}
-	
-	impl ToMoment for Spd {
-		type Moment<'a> = Self;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-			Self {
-				value: self.to_kind().eval(time),
-				fric: self.fric.to_moment(time),
-				accel: self.accel.to_moment(time),
-			}
-		}
 	}
 	
 	impl ToMomentMut for Spd {

@@ -512,3 +512,66 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	
 	trait_impl.into()
 }
+
+#[proc_macro_derive(ToMoment, attributes(basis))]
+pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
+	let item: syn::ItemStruct = match syn::parse(item_tokens) {
+		Ok(item) => item,
+		Err(e) => panic!("{}", e),
+	};
+	
+	let chime: syn::Path = syn::parse_quote!{chime};
+	
+	let type_name = item.ident.clone();
+	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
+	
+	let mut fields = syn::punctuated::Punctuated::new();
+	
+	 // Build Struct Literal:
+	for (field_index, field) in item.fields.iter().enumerate() {
+		let member = field.ident.clone()
+			.map(Into::<syn::Member>::into)
+			.unwrap_or_else(|| field_index.into());
+		
+		let mut expr = syn::parse_quote!{
+			#chime::ToMoment::to_moment(&self.#member, time)
+		};
+		
+		 // Helper Attributes:
+		for attr in field.attrs.iter() {
+			if attr.meta.path().is_ident("basis") {
+				expr = syn::parse_quote!{
+					#chime::kind::FluxKind::eval(&#chime::Flux::to_kind(&self), time)
+				};
+			}
+		}
+		
+		fields.push(syn::FieldValue {
+			attrs: vec![],
+			member,
+			colon_token: Some(Default::default()),
+			expr,
+		});
+	}
+	
+	let moment_struct = syn::ExprStruct {
+        attrs: vec![],
+        qself: None,
+        path: syn::parse_quote!{Self},
+        brace_token: Default::default(),
+        fields,
+        dot2_token: None,
+        rest: None,
+	};
+	
+	let trait_impl = quote::quote!{
+		impl #impl_params #chime::ToMoment for #type_name #type_params #impl_clause {
+			type Moment<'a_> = Self; // !!! Replace marked type params later
+			fn to_moment(&self, time: #chime::linear::Scalar) -> Self::Moment<'_> {
+				#moment_struct
+			}
+		}
+	};
+	
+	trait_impl.into()
+}
