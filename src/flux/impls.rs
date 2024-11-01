@@ -6,6 +6,24 @@ use std::vec::Vec;
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::linear::{BasisArray, Scalar};
 
+macro_rules! impl_to_moment {
+	({$($t:ty),*}) => {
+		$(impl_to_moment!($t);)*
+	};
+    ($t:ty) => {
+		impl ToMoment for $t {
+			type Moment<'a> = Self;
+			fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
+				*self
+			}
+		}
+    };
+}
+
+impl_to_moment!({u8, u16, u32, u64, u128, usize});
+impl_to_moment!({i8, i16, i32, i64, i128, isize});
+impl_to_moment!({f32, f64});
+
 impl<'t, T> Flux for &'t T
 where
 	T: Flux,
