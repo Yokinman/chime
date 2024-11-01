@@ -94,8 +94,7 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
-	fn change(&self, _kind: Self::Kind) -> Self::Kind {
-		// !!! Should add `self.1` to `kind.1`.
+	fn change(&self, _basis: Constant<Self::Basis>) -> Self::Kind {
 		self.clone()
 	}
 }

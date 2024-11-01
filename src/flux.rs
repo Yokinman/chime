@@ -434,11 +434,11 @@ pub trait Flux {
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
 	///   
-	fn change(&self, kind: Self::Kind) -> Self::Kind;
+	fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind;
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		self.change(Self::Kind::with_basis(self.basis()))
+		self.change(Constant(self.basis()))
 	}
 	
 	/// Temporary convenience for constructing a [`Temporal<Self>`].
@@ -530,8 +530,8 @@ mod _constant_impls {
 		fn basis(&self) -> Self::Basis {
 			self.0.clone()
 		}
-		fn change(&self, kind: Self::Kind) -> Self::Kind {
-			kind
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			basis
 		}
 	}
 	
@@ -691,8 +691,8 @@ mod tests {
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
-		fn change(&self, mut kind: Self::Kind) -> Self::Kind {
-			kind = kind + (&self.spd).per(SEC);
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			let mut kind = basis + (&self.spd).per(SEC);
 			for spd in &self.misc {
 				kind = kind + spd.per(SEC);
 			}

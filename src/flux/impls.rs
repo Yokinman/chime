@@ -40,6 +40,7 @@ impl_to_moment!(glam::{
 });
 
 mod _reference_impls {
+	use crate::Constant;
 	use super::*;
 	
 	impl<'t, T> Flux for &'t T
@@ -51,8 +52,8 @@ mod _reference_impls {
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
-		fn change(&self, kind: Self::Kind) -> Self::Kind {
-			T::change(self, kind)
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			T::change(self, basis)
 		}
 	}
 	
@@ -75,8 +76,8 @@ mod _reference_impls {
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
-		fn change(&self, kind: Self::Kind) -> Self::Kind {
-			T::change(self, kind)
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			T::change(self, basis)
 		}
 	}
 	
@@ -193,6 +194,7 @@ mod _range_impls {
 }
 
 mod _array_impls {
+	use crate::Constant;
 	use super::*;
 	
 	impl<T: Flux, const N: usize> Flux for [T; N] {
@@ -201,10 +203,10 @@ mod _array_impls {
 		fn basis(&self) -> Self::Basis {
 			BasisArray(self.each_ref().map(T::basis))
 		}
-		fn change(&self, kind: Self::Kind) -> Self::Kind {
-			let mut kind_iter = kind.into_iter();
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			let mut basis_iter = basis.into_iter();
 			self.each_ref()
-				.map(|x| x.change(kind_iter.next().unwrap()))
+				.map(|x| x.change(basis_iter.next().unwrap()))
 		}
 	}
 	
