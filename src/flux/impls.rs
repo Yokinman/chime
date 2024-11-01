@@ -114,6 +114,19 @@ where
 	}
 }
 
+impl<T, E> ToMoment for Result<T, E>
+where
+	T: ToMoment,
+	E: ToMoment,
+{
+	type Moment<'a> = Result<T::Moment<'a>, E::Moment<'a>> where Self: 'a;
+	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		self.as_ref()
+			.map(|x| x.to_moment(time))
+			.map_err(|x| x.to_moment(time))
+	}
+}
+
 mod _range_impls {
 	use super::*;
 	
