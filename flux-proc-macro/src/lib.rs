@@ -13,6 +13,8 @@ static CHANGE_HELP: &'static str = "\
 	\n        `sub`        - Subtract directly (fields of type `impl FluxKind` or `Change<impl Flux>`)\
 ";
 
+static MOMENT_HELP: &'static str = "";
+
 #[proc_macro_derive(Flux, attributes(basis, change))]
 pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let item: syn::ItemStruct = match syn::parse(item_tokens) {
@@ -43,6 +45,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 					panic!("multiple fields declared as basis{}", BASIS_HELP);
 				}
 				basis = Some((field_member.clone(), field_type.clone()));
+				continue
 			}
 			if attr.meta.path().is_ident("change") {
 				let syn::Meta::List(meta_list) = &attr.meta
@@ -107,6 +110,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						meta.to_token_stream(), CHANGE_HELP),
 					Err(e) => panic!("{}{}", e, CHANGE_HELP),
 				}
+				continue
 			}
 		}
 	}
@@ -132,7 +136,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	trait_impl.into()
 }
 
-#[proc_macro_derive(ToMoment, attributes(basis))]
+#[proc_macro_derive(ToMoment, attributes(moment, basis))]
 pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 	let item: syn::ItemStruct = match syn::parse(item_tokens) {
 		Ok(item) => item,
@@ -162,6 +166,24 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 				expr = syn::parse_quote!{
 					#chime::kind::FluxKind::eval(&#chime::Flux::to_kind(&self), time)
 				};
+				continue
+			}
+			if attr.meta.path().is_ident("moment") {
+				let syn::Meta::List(meta_list) = &attr.meta
+					else { panic!("expected argument list for `{}`{}",
+						attr.to_token_stream(), MOMENT_HELP) };
+				
+				let Ok(arg_ident) = meta_list.parse_args::<syn::Ident>()
+					else { panic!("expected `moment(ignore)`, got `{}`{}",
+						attr.to_token_stream(), MOMENT_HELP) };
+				
+				if arg_ident != "ignore" {
+					panic!("expected `moment(ignore)`, got `{}`{}",
+						attr.to_token_stream(), MOMENT_HELP)
+				}
+				
+				expr = syn::parse_quote!{self.#member.clone()};
+				continue
 			}
 		}
 		
