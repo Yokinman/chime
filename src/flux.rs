@@ -11,7 +11,7 @@ use crate::{
 
 use self::time::Time;
 
-pub use chime_flux_proc_macro::{flux, Flux, ToMoment, ToMomentMut};
+pub use chime_flux_proc_macro::{Flux, ToMoment, ToMomentMut};
 
 pub use crate::temporal::Temporal;
 
@@ -710,47 +710,31 @@ mod tests {
 		accel: Accel,
 	}
 	
-	#[flux(
-		kind = Sum<f64, 0>,
-		value = value,
-		crate = crate,
-	)]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux, ToMoment, ToMomentMut)]
 	struct Fric {
+		#[basis]
 		value: f64,
 	}
 	
-	#[flux(
-		kind = Sum<f64, 2>,
-		value = value,
-		change = |c| c + jerk.per(SEC),
-		crate = crate,
-	)]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux, ToMoment, ToMomentMut)]
 	struct Accel {
+		#[basis]
 		value: f64,
+		#[change(add_per(SEC))]
 		jerk: Jerk,
 	}
 	
-	#[flux(
-		kind = Sum<f64, 1>,
-		value = value,
-		change = |c| c + snap.per(SEC),
-		crate = crate,
-	)]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux, ToMoment, ToMomentMut)]
 	struct Jerk {
+		#[basis]
 		value: f64,
+		#[change(add_per(SEC))]
 		snap: Snap,
 	}
 	
-	#[flux(
-		kind = Constant<f64>,
-		value = value,
-		crate = crate,
-	)]
-	#[derive(Clone, Debug, Default)]
+	#[derive(Clone, Debug, Default, Flux, ToMoment, ToMomentMut)]
 	struct Snap {
+		#[basis]
 		value: f64,
 	}
 	
@@ -964,40 +948,25 @@ mod tests {
 	
 	#[test]
 	fn distance() {
-		#[derive(PartialOrd, PartialEq, Copy, Clone)]
-		#[flux(
-			kind = Sum<Iso<f64, i64>, 2>,
-			value = value,
-			change = |c| c + spd.per(time::MINUTE),
-			crate = crate,
-		)]
-		#[derive(Debug)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone, Debug, Flux, ToMoment, ToMomentMut)]
 		struct Pos {
+			#[basis]
 			value: Iso<f64, i64>,
+			#[change(add_per(time::MINUTE))]
 			spd: Spd,
 		}
 		
-		#[derive(PartialOrd, PartialEq, Copy, Clone)]
-		#[flux(
-			kind = Sum<Iso<f64, i64>, 1>,
-			value = value,
-			change = |c| c + acc.per(SEC),
-			crate = crate,
-		)]
-		#[derive(Debug)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone, Debug, Flux, ToMoment, ToMomentMut)]
 		struct Spd {
+			#[basis]
 			value: Iso<f64, i64>,
+			#[change(add_per(SEC))]
 			acc: Acc,
 		}
 		
-		#[derive(PartialOrd, PartialEq, Copy, Clone)]
-		#[flux(
-			kind = Constant<Iso<f64, i64>>,
-			value = value,
-			crate = crate,
-		)]
-		#[derive(Debug)]
+		#[derive(PartialOrd, PartialEq, Copy, Clone, Debug, Flux, ToMoment, ToMomentMut)]
 		struct Acc {
+			#[basis]
 			value: Iso<f64, i64>,
 		}
 		

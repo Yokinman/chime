@@ -930,25 +930,19 @@ mod tests {
 	#[cfg(feature = "glam")]
 	#[test]
 	fn vec() {
-		#[flux(
-			kind = Sum<Iso<glam::DVec2, glam::IVec2>, 1>,
-			value = value,
-			change = |c| c + spd.per(SEC),
-			crate = crate,
-		)]
-		#[derive(PartialEq)]
+		use crate as chime;
+		
+		#[derive(PartialEq, Flux, ToMoment, ToMomentMut)]
 		struct Pos {
+			#[basis]
 			value: Iso<glam::DVec2, glam::IVec2>,
+			#[change(add_per(SEC))]
 			spd: Spd,
 		}
 		
-		#[flux(
-			kind = Constant<Iso<glam::DVec2, glam::IVec2>>,
-			value = value,
-			crate = crate,
-		)]
-		#[derive(PartialEq)]
+		#[derive(PartialEq, Flux, ToMoment, ToMomentMut)]
 		struct Spd {
+			#[basis]
 			value: Iso<glam::DVec2, glam::IVec2>
 		}
 		
