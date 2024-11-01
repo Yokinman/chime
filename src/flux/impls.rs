@@ -1,8 +1,5 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
-use std::collections::HashMap;
-use std::vec::Vec;
-
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::linear::{BasisArray, Scalar};
 
@@ -198,9 +195,9 @@ mod _range_impls {
 mod _array_impls {
 	use super::*;
 	
-	impl<T: Flux, const SIZE: usize> Flux for [T; SIZE] {
-		type Basis = BasisArray<T::Basis, SIZE>;
-		type Kind = [T::Kind; SIZE];
+	impl<T: Flux, const N: usize> Flux for [T; N] {
+		type Basis = BasisArray<T::Basis, N>;
+		type Kind = [T::Kind; N];
 		fn basis(&self) -> Self::Basis {
 			BasisArray(self.each_ref().map(T::basis))
 		}
@@ -211,15 +208,15 @@ mod _array_impls {
 		}
 	}
 	
-	impl<T: ToMoment, const SIZE: usize> ToMoment for [T; SIZE] {
-		type Moment<'a> = [T::Moment<'a>; SIZE] where Self: 'a;
+	impl<T: ToMoment, const N: usize> ToMoment for [T; N] {
+		type Moment<'a> = [T::Moment<'a>; N] where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			self.each_ref().map(|x| x.to_moment(time))
 		}
 	}
 	
-	impl<T: ToMomentMut, const SIZE: usize> ToMomentMut for [T; SIZE] {
-		type MomentMut<'a> = [T::MomentMut<'a>; SIZE] where Self: 'a;
+	impl<T: ToMomentMut, const N: usize> ToMomentMut for [T; N] {
+		type MomentMut<'a> = [T::MomentMut<'a>; N] where Self: 'a;
 		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
 			self.each_mut().map(|x| x.to_moment_mut(time))
 		}
@@ -227,6 +224,7 @@ mod _array_impls {
 }
 
 mod _vec_impls {
+	use std::vec::Vec;
 	use super::*;
 	
 	impl<T: ToMoment> ToMoment for Vec<T> {
@@ -249,6 +247,7 @@ mod _vec_impls {
 }
 
 mod _hashmap_impls {
+	use std::collections::HashMap;
 	use super::*;
 	
 	impl<K, V> ToMoment for HashMap<K, V>
