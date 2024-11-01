@@ -575,3 +575,28 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 	
 	trait_impl.into()
 }
+
+#[proc_macro_derive(ToMomentMut)]
+pub fn derive_to_moment_mut(item_tokens: TokenStream) -> TokenStream {
+	let item: syn::ItemStruct = match syn::parse(item_tokens) {
+		Ok(item) => item,
+		Err(e) => panic!("{}", e),
+	};
+	
+	let chime: syn::Path = syn::parse_quote!{chime};
+	
+	let type_name = item.ident.clone();
+	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
+	
+	let trait_impl = quote::quote!{
+		impl #impl_params #chime::ToMomentMut for #type_name #type_params #impl_clause {
+			type MomentMut<'a_> = &'a_ mut Self;
+			fn to_moment_mut(&mut self, time: #chime::linear::Scalar) -> Self::MomentMut<'_> {
+				*self = #chime::ToMoment::to_moment(&self, time);
+				self
+			}
+		}
+	};
+	
+	trait_impl.into()
+}
