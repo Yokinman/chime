@@ -6,9 +6,10 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::linear::{Scalar, Vector, LinearIso};
 use crate::time::Time;
-use crate::{Constant, Flux, Moment, MomentMut, ToMoment, ToMomentMut};
+use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
+use crate::kind::constant::Constant;
 
 /// A [`FluxKind`] paired with a basis time.
 /// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.

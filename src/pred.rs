@@ -825,7 +825,7 @@ fn consistent_sign_pred() {
 		poly.when_dis(
 			&Temporal::new([Sum::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
-			&Temporal::new(crate::Constant::from(1.), time),
+			&Temporal::new(1., time),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (

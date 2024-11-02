@@ -1,6 +1,6 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
-use crate::{Constant, Flux, ToMoment, ToMomentMut};
+use crate::{Flux, ToMoment, ToMomentMut};
 use crate::linear::Scalar;
 
 macro_rules! impl_ {
@@ -29,7 +29,7 @@ macro_rules! impl_ {
 	 // Impl Cases:
     (@impl Flux) => {
 		type Basis = Self;
-		type Kind = Constant<Self>;
+		type Kind = crate::kind::constant::Constant<Self>;
 		fn basis(&self) -> Self::Basis {
 			*self
 		}

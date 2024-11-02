@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*, exp::*};
+use crate::kind::constant::Constant;
 
 /// Summation over time.
 /// 

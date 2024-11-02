@@ -19,7 +19,6 @@ pub use chime_flux_proc_macro::{Flux, ToMoment, ToMomentMut};
 #[cfg(feature = "bevy")]
 pub use chime_flux_proc_macro::{TemporalComponent, TemporalResource};
 
-pub use kind::constant::Constant;
 pub use temporal::Temporal;
 
 /// Context for a `bevy_time::Time`.
@@ -420,10 +419,10 @@ pub trait Flux {
 	///   These describe integration over time, for example:
 	///   
 	///   ```text
-	///   accum + Constant(2.).per(time::SEC) -> FluxAccum<Sum<f64, 1>>
+	///   accum + 2_f64.per(time::SEC) -> FluxAccum<Sum<f64, 1>>
 	///   // equivalent to `b+2t` where `b` is [`Self::basis`] and `t` is time.
 	///   
-	///   accum + Sum(1., [2., 3.]).per(time::SEC) -> FluxAccum<Sum<f64, 3>>
+	///   accum + Sum(1_f64, [2., 3.]).per(time::SEC) -> FluxAccum<Sum<f64, 3>>
 	///   // b + int_0^t (1 + 2x + 3x^2) dt -> b + t + t^2 + t^3
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
