@@ -749,7 +749,7 @@ mod tests {
 	}
 	
 	fn position() -> Temporal<Pos> {
-		let pos = Pos {
+		let mut pos = Temporal::from(Pos {
 			value: 32.0, 
 			spd: Spd {
 				value: -4.4075 / 3.0,
@@ -763,8 +763,7 @@ mod tests {
 				},
 			},
 			misc: Vec::new(),
-		};
-		let mut pos = pos.to_flux_value(Time::ZERO);
+		});
 		*pos = pos.to_moment(10*SEC);
 		pos.time = 10*SEC;
 		pos
@@ -894,13 +893,13 @@ mod tests {
 	#[test]
 	fn when() {
 		let pos = position();
-		let acc = Accel {
+		let acc = Temporal::from(Accel {
 			value: 0.3,
 			jerk: Jerk {
 				value: 0.4,
 				snap: Snap { value: -0.01 },
 			},
-		}.to_flux_value(Time::ZERO);
+		});
 		
 		assert_time_ranges!(pos.when(Ordering::Greater, &acc), [
 			(Time::ZERO, Time::from_secs_f64(4.56)),
@@ -973,17 +972,16 @@ mod tests {
 			value: Iso<f64, i64>,
 		}
 		
-		let a_pos = [
+		let a_pos = Temporal::from([
 			Pos { value: Iso::new(3), spd: Spd { value: Iso::new(300), acc: Acc { value: Iso::new(-240) } } },
 			Pos { value: Iso::new(-4), spd: Spd { value: Iso::new(120), acc: Acc { value: Iso::new(1080) } } }
-		].to_flux_value(Time::ZERO);
-		let b_pos = [
+		]);
+		let b_pos = Temporal::from([
 			Pos { value: Iso::new(8), spd: Spd { value: Iso::new(330), acc: Acc { value: Iso::new(-300) } } },
 			Pos { value: Iso::new(4), spd: Spd { value: Iso::new(600), acc: Acc { value: Iso::new(720) } } }
-		].to_flux_value(Time::ZERO);
+		]);
 		
-		let dis = Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } }
-			.to_flux_value(Time::ZERO);
+		let dis = Temporal::from(Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } });
 		
 		assert_time_ranges!(
 			a_pos.when_dis(&b_pos, Ordering::Less, &dis),
@@ -994,7 +992,7 @@ mod tests {
 			]
 		);
 		
-		let b_pos = b_pos.to_moment(Time::ZERO).to_flux_value(SEC);
+		let b_pos = Temporal::new(b_pos.to_moment(Time::ZERO), SEC);
 		assert_time_ranges!(
 			a_pos.when_dis_eq_constant(&b_pos, 2),
 			[

@@ -945,19 +945,19 @@ mod tests {
 			value: Iso<glam::DVec2, glam::IVec2>
 		}
 		
-		let a_pos = Pos {
+		let a_pos = Temporal::from(Pos {
 			value: glam::IVec2::new(10, 10).into(),
 			spd: Spd {
 				value: glam::IVec2::new(6, 4).into()
 			}
-		}.to_flux_value(Time::default());
+		});
 		
-		let b_pos = Pos {
+		let b_pos = Temporal::from(Pos {
 			value: glam::IVec2::new(14, 18).into(),
 			spd: Spd {
 				value: glam::IVec2::new(4, 0).into()
 			}
-		}.to_flux_value(Time::default());
+		});
 		
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
