@@ -9,6 +9,7 @@ use crate::time::Time;
 use crate::{Change, Flux, ToMomentMut};
 
 pub mod constant;
+pub mod sum;
 
 /// An abstract description of change over time.
 /// 

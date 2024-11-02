@@ -497,7 +497,7 @@ mod tests {
 	use std::ops::Deref;
 	use super::*;
 	use super::time::{SEC, TimeRanges};
-	use crate::sum::Sum;
+	use crate::kind::sum::Sum;
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	

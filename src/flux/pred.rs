@@ -815,7 +815,7 @@ where
 
 #[test]
 fn consistent_sign_pred() {
-	use crate::sum::Sum;
+	use crate::kind::sum::Sum;
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
 		let poly = Temporal::new([
