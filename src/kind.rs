@@ -8,6 +8,8 @@ use crate::linear::{Linear, Basis, BasisArray, Scalar};
 use crate::time::Time;
 use crate::{Change, Flux, ToMomentMut};
 
+pub mod constant;
+
 /// An abstract description of change over time.
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
