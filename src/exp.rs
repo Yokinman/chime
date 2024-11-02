@@ -3,6 +3,7 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
+use crate::{Constant, Flux};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -92,5 +93,19 @@ impl LinearIso<Exp<f64>> for u64 {
 	}
 	fn from_linear(value: Exp<f64>) -> u64 {
 		value.0.exp().round() as u64
+	}
+}
+
+impl<T> Flux for Exp<T>
+where
+	T: Linear
+{
+	type Basis = Self;
+	type Kind = Constant<Exp<T>>;
+	fn basis(&self) -> Self::Basis {
+		self.clone()
+	}
+	fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+		basis
 	}
 }

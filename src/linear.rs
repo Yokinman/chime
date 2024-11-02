@@ -1,6 +1,7 @@
 //! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
+use crate::Flux;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -205,7 +206,7 @@ mod _linear_impls {
 }
 
 /// A [`Linear`] type packaged with extra information (e.g. [`Iso`]).
-pub trait Basis: Clone + Debug + 'static {
+pub trait Basis: Flux<Basis=Self> + Clone + Debug + 'static {
 	type Inner: Linear;
 	
 	fn from_inner(inner: Self::Inner) -> Self;
@@ -568,7 +569,8 @@ pub struct Iso<A, B>(Option<A>, B);
 mod _iso_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use super::Iso;
+	use crate::kind::constant::Constant;
+	use super::{Iso, Linear, LinearIso};
 	
 	impl<A, B> From<B> for Iso<A, B> {
 		fn from(value: B) -> Self {
@@ -613,6 +615,21 @@ mod _iso_impls {
 	{
 		fn partial_cmp(&self, other: &Iso<X, Y>) -> Option<Ordering> {
 			self.1.partial_cmp(&other.1)
+		}
+	}
+	
+	impl<A, B> crate::Flux for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Basis = Self;
+		type Kind = Constant<Self>;
+		fn basis(&self) -> Self::Basis {
+			self.clone()
+		}
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			basis
 		}
 	}
 }
