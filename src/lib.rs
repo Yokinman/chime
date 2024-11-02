@@ -1,19 +1,26 @@
 //! Utilities for describing how a type changes over time.
 
-use crate::{
-	linear::*,
-	kind::*,
-};
+pub mod kind;
+pub mod temporal;
+pub mod time;
+pub mod linear;
+pub mod pred;
+pub mod exp;
 
-use crate::time::Time;
+mod impls;
+
+use linear::*;
+use kind::*;
+
+use time::Time;
 
 pub use chime_flux_proc_macro::{Flux, ToMoment, ToMomentMut};
 
 #[cfg(feature = "bevy")]
 pub use chime_flux_proc_macro::{TemporalComponent, TemporalResource};
 
-pub use crate::kind::constant::Constant;
-pub use crate::temporal::Temporal;
+pub use kind::constant::Constant;
+pub use temporal::Temporal;
 
 /// Context for a `bevy_time::Time`.
 #[derive(Default)]
