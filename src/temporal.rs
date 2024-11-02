@@ -380,8 +380,8 @@ impl<T: ToMomentMut> Temporal<T> {
 	}
 }
 
-impl<K: FluxKind> From<K> for Temporal<K> {
-	fn from(value: K) -> Self {
+impl<T> From<T> for Temporal<T> {
+	fn from(value: T) -> Self {
 		Self::new(value, Time::ZERO)
 	}
 }
