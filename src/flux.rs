@@ -11,7 +11,10 @@ use crate::{
 
 use self::time::Time;
 
-pub use chime_flux_proc_macro::{Flux, TemporalComponent, TemporalResource, ToMoment, ToMomentMut};
+pub use chime_flux_proc_macro::{Flux, ToMoment, ToMomentMut};
+
+#[cfg(feature = "bevy")]
+pub use chime_flux_proc_macro::{TemporalComponent, TemporalResource};
 
 pub use crate::kind::constant::Constant;
 pub use crate::temporal::Temporal;
