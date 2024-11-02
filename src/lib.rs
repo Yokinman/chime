@@ -2,6 +2,7 @@
 
 pub mod kind;
 pub mod temporal;
+pub mod time;
 pub mod linear;
 pub mod exp;
 

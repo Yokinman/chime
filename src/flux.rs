@@ -1,6 +1,5 @@
 //! Utilities for describing how a type changes over time.
 
-pub mod time;
 pub mod pred;
 
 use crate::{
@@ -8,7 +7,7 @@ use crate::{
 	kind::*,
 };
 
-use self::time::Time;
+use crate::time::Time;
 
 pub use chime_flux_proc_macro::{Flux, ToMoment, ToMomentMut};
 
@@ -483,7 +482,8 @@ pub trait ToMomentMut: ToMoment {
 mod tests {
 	use std::ops::Deref;
 	use super::*;
-	use super::time::{SEC, TimeRanges};
+	use crate::time;
+	use crate::time::{SEC, TimeRanges};
 	use crate::kind::sum::Sum;
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
