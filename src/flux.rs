@@ -16,9 +16,6 @@ pub use chime_flux_proc_macro::{Flux, TemporalComponent, TemporalResource, ToMom
 pub use crate::kind::constant::Constant;
 pub use crate::temporal::Temporal;
 
-#[cfg(feature = "bevy")]
-pub use crate::temporal::{TemporalComponent, TemporalResource};
-
 /// Context for a `bevy_time::Time`.
 #[derive(Default)]
 pub struct Chime;
