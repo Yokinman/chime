@@ -229,25 +229,12 @@ pub trait Basis: Flux<Basis=Self> + Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, Basis};
+	use super::{Iso, Linear, LinearIso, Basis, Simple};
 	
-	impl Basis for f32 {
-		type Inner = Self;
-		fn from_inner(inner: Self::Inner) -> Self {
-			inner
-		}
-		fn into_inner(self) -> Self::Inner {
-			self
-		}
-		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			f(&self)
-		}
-		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			inner
-		}
-	}
-	
-	impl Basis for f64 {
+	impl<T> Basis for T
+	where
+		T: Linear + Simple,
+	{
 		type Inner = Self;
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
@@ -504,21 +491,6 @@ mod glam_stuff {
 			        value
 			    }
 			}
-			impl Basis for $vec {
-				type Inner = Self;
-				fn from_inner(inner: Self::Inner) -> Self {
-					inner
-				}
-				fn into_inner(self) -> Self::Inner {
-					self
-				}
-				fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-					f(&self)
-				}
-				fn inner_id(inner: Self::Inner) -> Self::Inner {
-					inner
-				}
-			}
 		};
 	}
 	impl_linear_for_vec!(
@@ -644,3 +616,15 @@ mod _iso_impls {
 		}
 	}
 }
+
+/// Types that represent a specific concept.
+/// 
+/// This trait is generally implemented for non-generic types, or generic types
+/// that are bounded by specific traits.
+/// 
+/// This generally excludes types with unbounded generic parameters, such as:
+/// `Option<T>`, `[T; N]`, `(T,U,..)`, etc.
+/// 
+/// Used to support blanket impls with exceptions for generic types, allowing
+/// for special case impls.
+pub trait Simple {}

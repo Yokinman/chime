@@ -37,21 +37,7 @@ impl<T: Linear> Linear for Exp<T> {
 	}
 }
 
-impl<T: Linear> Basis for Exp<T> {
-	type Inner = Self;
-	fn from_inner(inner: Self::Inner) -> Self {
-		inner
-	}
-	fn into_inner(self) -> Self::Inner {
-		self
-	}
-	fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-		f(&self)
-	}
-	fn inner_id(inner: Self::Inner) -> Self::Inner {
-		inner
-	}
-}
+impl<T: Linear> Simple for Exp<T> {}
 
 impl<T: Linear> Default for Exp<T> {
 	fn default() -> Self {

@@ -1,7 +1,7 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::linear::Scalar;
+use crate::linear::{Simple, Scalar};
 
 macro_rules! impl_ {
     ($trait_:ident for $type_:ty) => {
@@ -27,7 +27,8 @@ macro_rules! impl_ {
     };
 	
 	 // Impl Cases:
-    (@impl Flux) => {
+    (@impl Simple) => {};
+	(@impl Flux) => {
 		type Basis = Self;
 		type Kind = crate::kind::constant::Constant<Self>;
 		fn basis(&self) -> Self::Basis {
@@ -51,22 +52,22 @@ macro_rules! impl_ {
     };
 }
 
-impl_!({ToMoment, ToMomentMut} for bool);
-impl_!({ToMoment, ToMomentMut} for char);
-impl_!({Flux, ToMoment, ToMomentMut} for {f32, f64});
-impl_!({ToMoment, ToMomentMut} for {i8, i16, i32, i64, i128, isize});
-impl_!({ToMoment, ToMomentMut} for {u8, u16, u32, u64, u128, usize});
+impl_!({Simple, ToMoment, ToMomentMut} for bool);
+impl_!({Simple, ToMoment, ToMomentMut} for char);
+impl_!({Simple, Flux, ToMoment, ToMomentMut} for {f32, f64});
+impl_!({Simple, ToMoment, ToMomentMut} for {i8, i16, i32, i64, i128, isize});
+impl_!({Simple, ToMoment, ToMomentMut} for {u8, u16, u32, u64, u128, usize});
 
-impl_!({ToMoment, ToMomentMut} for std::time::Duration);
+impl_!({Simple, ToMoment, ToMomentMut} for std::time::Duration);
 
 #[cfg(feature = "glam")]
-impl_!({Flux, ToMoment, ToMomentMut} for glam::{
+impl_!({Simple, Flux, ToMoment, ToMomentMut} for glam::{
 	Vec2, Vec3, Vec4,
 	DVec2, DVec3, DVec4,
 });
 
 #[cfg(feature = "glam")]
-impl_!({ToMoment, ToMomentMut} for glam::{
+impl_!({Simple, ToMoment, ToMomentMut} for glam::{
 	IVec2, IVec3, IVec4,
 	UVec2, UVec3, UVec4,
 });
