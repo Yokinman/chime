@@ -102,7 +102,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						let unit = args.first().unwrap();
 						
 						change_expr = syn::parse_quote!{#change_expr
-							#op #chime::Per::per(&self.#field_member, #unit)};
+							#op #chime::Flux::per(&self.#field_member, #unit)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<#chime::Change<#field_type>>>::Output};
 					},

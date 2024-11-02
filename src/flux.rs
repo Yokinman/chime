@@ -347,20 +347,6 @@ mod bevy_moment {
 #[cfg(feature = "bevy")]
 pub use bevy_moment::{ResMoment, ResMomentMut};
 
-/// Used to construct a [`Change`] for convenient change-over-time operations.
-/// 
-/// `1 + 2.per(time_unit::SEC)` 
-pub trait Per: Sized {
-	fn per(self, unit: Time) -> Change<Self> {
-		Change {
-			rate: self,
-			unit
-		}
-	}
-}
-
-impl<T> Per for T {}
-
 /// A description of a change over time for use with arithmetic operators.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Change<T> {
@@ -445,12 +431,14 @@ pub trait Flux {
 		self.change(Constant(self.basis()))
 	}
 	
-	/// Temporary convenience for constructing a [`Temporal<Self>`].
-	fn to_flux_value(self, time: Time) -> Temporal<Self>
-	where
-		Self: Sized
-	{
-		Temporal::new(self, time)
+	/// Used to construct a [`Change`] for convenient change-over-time operations.
+	/// 
+	/// `1 + 2.per(time_unit::SEC)` 
+	fn per(self, unit: Time) -> Change<Self> where Self: Sized {
+		Change {
+			rate: self,
+			unit
+		}
 	}
 }
 
