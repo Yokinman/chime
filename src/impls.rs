@@ -1,7 +1,7 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
 use crate::{Constant, Flux, ToMoment, ToMomentMut};
-use crate::linear::{BasisArray, Scalar};
+use crate::linear::Scalar;
 
 macro_rules! impl_ {
     ($trait_:ident for $type_:ty) => {
@@ -230,10 +230,10 @@ mod _array_impls {
 	use super::*;
 	
 	impl<T: Flux, const N: usize> Flux for [T; N] {
-		type Basis = BasisArray<T::Basis, N>;
+		type Basis = [T::Basis; N];
 		type Kind = [T::Kind; N];
 		fn basis(&self) -> Self::Basis {
-			BasisArray(self.each_ref().map(T::basis))
+			self.each_ref().map(T::basis)
 		}
 		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
 			let mut basis_iter = basis.into_iter();

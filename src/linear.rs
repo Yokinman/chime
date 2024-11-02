@@ -228,7 +228,7 @@ pub trait Basis: Clone + Debug + 'static {
 }
 
 mod _linear_plus_impls {
-	use super::{Iso, Linear, LinearIso, Basis, BasisArray};
+	use super::{Iso, Linear, LinearIso, Basis};
 	
 	impl Basis for f32 {
 		type Inner = Self;
@@ -304,25 +304,6 @@ mod _linear_plus_impls {
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			B::linear_id(inner)
-		}
-	}
-	
-	impl<T, const SIZE: usize> Basis for BasisArray<T, SIZE>
-	where
-		T: Basis,
-	{
-		type Inner = [T::Inner; SIZE];
-		fn from_inner(inner: Self::Inner) -> Self {
-			Self(inner.map(T::from_inner))
-		}
-		fn into_inner(self) -> Self::Inner {
-			self.0.map(T::into_inner)
-		}
-		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			f(&self.clone().into_inner())
-		}
-		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			inner.map(T::inner_id)
 		}
 	}
 }
@@ -632,35 +613,6 @@ mod _iso_impls {
 	{
 		fn partial_cmp(&self, other: &Iso<X, Y>) -> Option<Ordering> {
 			self.1.partial_cmp(&other.1)
-		}
-	}
-}
-
-/// ...
-#[derive(Clone, Debug, PartialOrd, PartialEq)]
-pub struct BasisArray<T, const N: usize>(pub(crate) [T; N]);
-
-/// ... [`<BasisArray as IntoIterator>::IntoIter`]
-pub struct BasisArrayIter<T, const N: usize>(std::array::IntoIter<T, N>);
-
-mod _linear_plus_array_impls {
-	use super::{BasisArray, BasisArrayIter};
-	
-	impl<T, const N: usize> IntoIterator for BasisArray<T, N> {
-		type Item = T;
-		type IntoIter = BasisArrayIter<T, N>;
-		fn into_iter(self) -> Self::IntoIter {
-			BasisArrayIter(self.0.into_iter())
-		}
-	}
-	
-	impl<T, const N: usize> Iterator for BasisArrayIter<T, N> {
-		type Item = T;
-		fn next(&mut self) -> Option<Self::Item> {
-			self.0.next()
-		}
-		fn size_hint(&self) -> (usize, Option<usize>) {
-			self.0.size_hint()
 		}
 	}
 }

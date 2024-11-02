@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
 
-use crate::linear::{Linear, Basis, BasisArray, Scalar};
+use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
 use crate::{Change, Flux, ToMomentMut};
 
@@ -128,7 +128,7 @@ where
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(value: Self::Basis) -> Self {
-		value.0.map(T::with_basis)
+		value.map(T::with_basis)
 	}
 	fn add_basis(self, value: Self::Basis) -> Self {
 		let mut values = value.into_iter();
@@ -138,7 +138,7 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 		self.map(T::deriv)
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
-		BasisArray(self.each_ref().map(|x| T::eval(x, time)))
+		self.each_ref().map(|x| T::eval(x, time))
 	}
 }
 
