@@ -96,7 +96,7 @@ mod _scalar_impls {
 /// 
 /// This basically just represents floating-point numbers and vector types.
 /// For vectors, operations are applied per component in parallel.
-pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
+pub trait Linear: Basis<Inner=Self> + Clone + Debug + LinearIso<Self> + 'static {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
@@ -115,7 +115,7 @@ pub trait Linear: Clone + Debug + LinearIso<Self> + 'static {
 	where
 		Self: PartialEq
 	{
-		self.eq(&Self::zero())
+		self.eq(&<Self as Linear>::zero())
 	}
 }
 
@@ -199,7 +199,7 @@ mod _linear_impls {
 			self.each_ref().map(T::sign)
 		}
 		fn zero() -> Self {
-			std::array::from_fn(|_| T::zero())
+			std::array::from_fn(|_| Linear::zero())
 		}
 	}
 }
@@ -230,13 +230,8 @@ pub trait Basis: Clone + Debug + 'static {
 mod _linear_plus_impls {
 	use super::{Iso, Linear, LinearIso, Basis, BasisArray};
 	
-	impl<T> Basis for T
-	where
-		T: Linear,
-	{
-		// !!! Replace this with manual impls so types like `BasisArray` don't
-		// have to exist?
-		type Inner = T;
+	impl Basis for f32 {
+		type Inner = Self;
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
 		}
@@ -248,6 +243,41 @@ mod _linear_plus_impls {
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner
+		}
+	}
+	
+	impl Basis for f64 {
+		type Inner = Self;
+		fn from_inner(inner: Self::Inner) -> Self {
+			inner
+		}
+		fn into_inner(self) -> Self::Inner {
+			self
+		}
+		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+			f(&self)
+		}
+		fn inner_id(inner: Self::Inner) -> Self::Inner {
+			inner
+		}
+	}
+	
+	impl<T, const N: usize> Basis for [T; N]
+	where
+		T: Basis,
+	{
+		type Inner = [T::Inner; N];
+		fn from_inner(inner: Self::Inner) -> Self {
+			inner.map(T::from_inner)
+		}
+		fn into_inner(self) -> Self::Inner {
+			self.map(T::into_inner)
+		}
+		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+			f(&self.clone().into_inner())
+		}
+		fn inner_id(inner: Self::Inner) -> Self::Inner {
+			inner.map(T::inner_id)
 		}
 	}
 	
@@ -491,6 +521,21 @@ mod glam_stuff {
 				fn from_linear(value: $vec) -> Self {
 			        value
 			    }
+			}
+			impl Basis for $vec {
+				type Inner = Self;
+				fn from_inner(inner: Self::Inner) -> Self {
+					inner
+				}
+				fn into_inner(self) -> Self::Inner {
+					self
+				}
+				fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
+					f(&self)
+				}
+				fn inner_id(inner: Self::Inner) -> Self::Inner {
+					inner
+				}
 			}
 		};
 	}
