@@ -6,7 +6,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::linear::{Linear, Basis, BasisArray, Scalar};
 use crate::time::Time;
-use crate::{Change, Constant, Flux, ToMomentMut};
+use crate::{Change, Flux, ToMomentMut};
 
 /// An abstract description of change over time.
 /// 
@@ -87,9 +87,6 @@ pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 	fn integ(self) -> Self::Integ;
 }
 
-/// Shortcut for [`Flux::change`] parameter.
-pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as Flux>::Basis>>;
-
 /// Constructs a [`FluxKind`] polynomial by accumulating [`Change`]s.
 /// 
 /// ```text
@@ -97,18 +94,7 @@ pub type EmptyFluxAccum<T> = FluxAccum<Constant<<T as Flux>::Basis>>;
 /// let x = x + Constant(2.).per(chime::time::SEC);
 /// let sum: Sum<f64, 1> = x.poly;
 /// ```
-pub struct FluxAccum<K>(pub K);
-
-impl<K: FluxKind> FluxAccum<K> {
-	/// Workaround for the overlapping impl `From<T> for U`.
-	pub fn into<T>(self) -> FluxAccum<T>
-	where
-		T: FluxKind,
-		K: Into<T>,
-	{
-		FluxAccum(self.0.into())
-	}
-}
+pub(crate) struct FluxAccum<K>(pub K);
 
 impl<A, B> Add<Change<B>> for FluxAccum<A>
 where
