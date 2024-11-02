@@ -570,7 +570,7 @@ mod _iso_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
 	use crate::kind::constant::Constant;
-	use super::{Iso, Linear, LinearIso};
+	use super::{Iso, Linear, LinearIso, Scalar};
 	
 	impl<A, B> From<B> for Iso<A, B> {
 		fn from(value: B) -> Self {
@@ -630,6 +630,17 @@ mod _iso_impls {
 		}
 		fn change(&self, basis: Self::Basis) -> Self::Kind {
 			basis.into()
+		}
+	}
+	
+	impl<A, B> crate::ToMoment for Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		type Moment<'a> = Self;
+		fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
+			self.clone()
 		}
 	}
 }
