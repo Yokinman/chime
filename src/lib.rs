@@ -6,5 +6,6 @@ pub mod linear;
 pub mod exp;
 
 mod flux;
+mod impls;
 
 pub use flux::*;

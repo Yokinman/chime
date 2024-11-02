@@ -2,7 +2,6 @@
 
 pub mod time;
 pub mod pred;
-mod impls;
 
 use crate::{
 	linear::*,
