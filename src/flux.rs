@@ -1,7 +1,5 @@
 //! Utilities for describing how a type changes over time.
 
-pub mod pred;
-
 use crate::{
 	linear::*,
 	kind::*,
