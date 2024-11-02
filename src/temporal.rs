@@ -13,10 +13,6 @@ use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 /// A [`FluxKind`] paired with a basis time.
 /// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(
-	bevy_ecs::component::Component,
-	bevy_ecs::system::Resource,
-))]
 pub struct Temporal<T> {
 	pub(crate) inner: T,
 	pub(crate) time: Time,
@@ -469,3 +465,44 @@ where
 		self.iter.size_hint()
 	}
 }
+
+#[cfg(feature = "bevy")]
+mod bevy_items {
+	use bevy_ecs::component::{Component, ComponentHooks, StorageType};
+	use bevy_ecs::system::Resource;
+	use super::Temporal;
+	
+	/// Implemented by `T` to blanket impl [`Component`] for `Temporal<T>`.
+	pub trait TemporalComponent: Send + Sync + 'static {}
+	
+	impl<T> Component for Temporal<T>
+	where
+		T: TemporalComponent
+	{
+		const STORAGE_TYPE: StorageType = StorageType::Table;
+		
+		fn register_component_hooks(hooks: &mut ComponentHooks) {
+			hooks.on_add(|mut world, entity, _| {
+				let time = world.get_resource::<bevy_time::Time<crate::Chime>>()
+					.expect("`Time<Chime>` must exist in world")
+					.elapsed();
+				
+				let mut temporal = world.get_mut::<Self>(entity)
+					.expect("temporal entity should exist");
+				
+				temporal.time = time;
+			});
+		}
+	}
+	
+	/// Implemented by `T` to blanket impl [`Resource`] for `Temporal<T>`.
+	pub trait TemporalResource: Send + Sync + 'static {}
+	
+	impl<T> Resource for Temporal<T>
+	where
+		T: TemporalResource
+	{}
+}
+
+#[cfg(feature = "bevy")]
+pub use bevy_items::*;

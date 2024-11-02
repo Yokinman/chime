@@ -241,3 +241,53 @@ pub fn derive_to_moment_mut(item_tokens: TokenStream) -> TokenStream {
 	
 	trait_impl.into()
 }
+
+#[proc_macro_derive(TemporalComponent)]
+pub fn temporal_component_derive(item_tokens: TokenStream) -> TokenStream {
+	let mut item: syn::DeriveInput = match syn::parse(item_tokens) {
+		Ok(item) => item,
+		Err(e) => panic!("{}", e),
+	};
+	
+	let chime: syn::Path = syn::parse_quote!{chime};
+	
+    item.generics
+        .make_where_clause()
+        .predicates
+        .push(syn::parse_quote!{Self: Send + Sync + 'static});
+	
+	let type_name = item.ident.clone();
+	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
+	
+	let trait_impl = quote::quote!{
+		impl #impl_params #chime::TemporalComponent for #type_name #type_params #impl_clause {
+		}
+	};
+	
+	trait_impl.into()
+}
+
+#[proc_macro_derive(TemporalResource)]
+pub fn temporal_resource_derive(item_tokens: TokenStream) -> TokenStream {
+	let mut item: syn::DeriveInput = match syn::parse(item_tokens) {
+		Ok(item) => item,
+		Err(e) => panic!("{}", e),
+	};
+	
+	let chime: syn::Path = syn::parse_quote!{chime};
+	
+    item.generics
+        .make_where_clause()
+        .predicates
+        .push(syn::parse_quote!{Self: Send + Sync + 'static});
+	
+	let type_name = item.ident.clone();
+	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
+	
+	let trait_impl = quote::quote!{
+		impl #impl_params #chime::TemporalResource for #type_name #type_params #impl_clause {
+		}
+	};
+	
+	trait_impl.into()
+}
