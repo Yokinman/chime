@@ -260,7 +260,7 @@ pub fn temporal_component_derive(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let trait_impl = quote::quote!{
-		impl #impl_params #chime::TemporalComponent for #type_name #type_params #impl_clause {
+		impl #impl_params #chime::temporal::TemporalComponent for #type_name #type_params #impl_clause {
 		}
 	};
 	
@@ -285,7 +285,7 @@ pub fn temporal_resource_derive(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let trait_impl = quote::quote!{
-		impl #impl_params #chime::TemporalResource for #type_name #type_params #impl_clause {
+		impl #impl_params #chime::temporal::TemporalResource for #type_name #type_params #impl_clause {
 		}
 	};
 	
