@@ -123,7 +123,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> QueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		Temporal<M>: Component + Clone,
+		Temporal<M>: Component,
 	{
 		type ReadOnly = Self;
 	}
@@ -132,14 +132,14 @@ mod bevy_moment {
 	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
 	where
 		M: ToMoment,
-		Temporal<M>: Component + Clone,
+		Temporal<M>: Component,
 	{}
 	
 	/// SAFETY: access of `Moment<T>` is a subset of `MomentMut<T>`.
 	unsafe impl<'b, M> QueryData for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		Temporal<M>: Component + Clone,
+		Temporal<M>: Component,
 	{
 		type ReadOnly = Moment<'b, M>;
 	}
@@ -151,7 +151,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for Moment<'b, M>
 	where
 		M: ToMoment,
-		Temporal<M>: Component + Clone,
+		Temporal<M>: Component,
 	{
 		type Item<'a> = Moment<'a, M>;
 		type Fetch<'a> = (Time, <Ref<'b, M> as WorldQuery>::Fetch<'a>);
@@ -211,7 +211,7 @@ mod bevy_moment {
 	unsafe impl<'b, M> WorldQuery for MomentMut<'b, M>
 	where
 		M: ToMomentMut,
-		Temporal<M>: Component + Clone,
+		Temporal<M>: Component,
 	{
 		type Item<'a> = MomentMut<'a, M>;
 		type Fetch<'a> = (Time, <Mut<'b, M> as WorldQuery>::Fetch<'a>);
@@ -298,7 +298,7 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMoment<'w, M>
 	where
 		M: ToMoment,
-		Temporal<M>: Resource + Clone,
+		Temporal<M>: Resource,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <Res<'w, Temporal<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMoment<'world, M>;
@@ -323,7 +323,7 @@ mod bevy_moment {
 	unsafe impl<'w, M> SystemParam for ResMomentMut<'w, M>
 	where
 		M: ToMomentMut,
-		Temporal<M>: Resource + Clone,
+		Temporal<M>: Resource,
 	{
 		type State = (<Res<'w, ChimeTime> as SystemParam>::State, <ResMut<'w, Temporal<M>> as SystemParam>::State);
 		type Item<'world, 'state> = ResMomentMut<'world, M>;
