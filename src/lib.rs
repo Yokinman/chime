@@ -23,6 +23,7 @@ pub use kind::constant::Constant;
 pub use temporal::Temporal;
 
 /// Context for a `bevy_time::Time`.
+#[cfg_attr(not(feature = "bevy"), doc(hidden))]
 #[derive(Default)]
 pub struct Chime;
 
