@@ -33,8 +33,8 @@ macro_rules! impl_ {
 		fn basis(&self) -> Self::Basis {
 			*self
 		}
-		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
-			basis
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			basis.into()
 		}
     };
     (@impl ToMoment) => {
@@ -72,7 +72,6 @@ impl_!({ToMoment, ToMomentMut} for glam::{
 });
 
 mod _reference_impls {
-	use crate::Constant;
 	use super::*;
 	
 	impl<'t, T> Flux for &'t T
@@ -84,7 +83,7 @@ mod _reference_impls {
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
-		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
 			T::change(self, basis)
 		}
 	}
@@ -108,7 +107,7 @@ mod _reference_impls {
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
-		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
 			T::change(self, basis)
 		}
 	}
@@ -226,7 +225,6 @@ mod _range_impls {
 }
 
 mod _array_impls {
-	use crate::Constant;
 	use super::*;
 	
 	impl<T: Flux, const N: usize> Flux for [T; N] {
@@ -235,7 +233,7 @@ mod _array_impls {
 		fn basis(&self) -> Self::Basis {
 			self.each_ref().map(T::basis)
 		}
-		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
 			let mut basis_iter = basis.into_iter();
 			self.each_ref()
 				.map(|x| x.change(basis_iter.next().unwrap()))

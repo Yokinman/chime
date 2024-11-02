@@ -628,8 +628,8 @@ mod _iso_impls {
 		fn basis(&self) -> Self::Basis {
 			self.clone()
 		}
-		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
-			basis
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			basis.into()
 		}
 	}
 }
