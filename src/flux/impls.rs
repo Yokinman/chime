@@ -1,40 +1,72 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
-use crate::{Flux, ToMoment, ToMomentMut};
+use crate::{Constant, Flux, ToMoment, ToMomentMut};
 use crate::linear::{BasisArray, Scalar};
 
-macro_rules! impl_to_moment {
-	($($p:ident::)* {$($t:ident),* $(,)?}) => {
-		impl_to_moment!(@pack_path ($($p::)*): {$($t),*});
+macro_rules! impl_ {
+    ($trait_:ident for $type_:ty) => {
+		impl $trait_ for $type_ {
+			impl_!(@impl $trait_);
+		}
+    };
+	
+	 // Split Type Path Tree:
+    ($trait_:tt for $($p:ident::)* {$($t:ident),* $(,)?}) => {
+		impl_!(@type_split $trait_ ($($p::)*): {$($t),*});
+    };
+	(@type_split $trait_:tt $p:tt: {$($t:ident),*}) => {
+		$(impl_!(@type_join $trait_ $p: $t);)*
 	};
-	(@pack_path $p:tt: {$($t:ident),*}) => {
-		$(impl_to_moment!(@unpack_path $p: $t);)*
+	(@type_join $trait_:tt ($($p:ident::)*): $t:ident) => {
+		impl_!($trait_ for $($p::)* $t);
 	};
-	(@unpack_path ($($p:ident::)*): $t:ident) => {
-		impl_to_moment!($($p::)* $t);
-	};
-    ($t:ty) => {
-		impl ToMoment for $t {
-			type Moment<'a> = Self;
-			fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
-				*self
-			}
+	
+	 // Split Trait Path Tree:
+    ({$($trait_:ident),* $(,)?} for $type_:ty) => {
+	    $(impl_!($trait_ for $type_);)*
+    };
+	
+	 // Impl Cases:
+    (@impl Flux) => {
+		type Basis = Self;
+		type Kind = Constant<Self>;
+		fn basis(&self) -> Self::Basis {
+			*self
+		}
+		fn change(&self, basis: Constant<Self::Basis>) -> Self::Kind {
+			basis
+		}
+    };
+    (@impl ToMoment) => {
+		type Moment<'a> = Self;
+		fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
+			*self
+		}
+    };
+    (@impl ToMomentMut) => {
+		type MomentMut<'a> = &'a mut Self;
+		fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
+			self
 		}
     };
 }
 
-impl_to_moment!(bool);
-impl_to_moment!(char);
-impl_to_moment!({f32, f64});
-impl_to_moment!({i8, i16, i32, i64, i128, isize});
-impl_to_moment!({u8, u16, u32, u64, u128, usize});
+impl_!({ToMoment, ToMomentMut} for bool);
+impl_!({ToMoment, ToMomentMut} for char);
+impl_!({Flux, ToMoment, ToMomentMut} for {f32, f64});
+impl_!({ToMoment, ToMomentMut} for {i8, i16, i32, i64, i128, isize});
+impl_!({ToMoment, ToMomentMut} for {u8, u16, u32, u64, u128, usize});
 
-impl_to_moment!(std::time::Duration);
+impl_!({ToMoment, ToMomentMut} for std::time::Duration);
 
 #[cfg(feature = "glam")]
-impl_to_moment!(glam::{
-	 Vec2,  Vec3,  Vec4,
+impl_!({Flux, ToMoment, ToMomentMut} for glam::{
+	Vec2, Vec3, Vec4,
 	DVec2, DVec3, DVec4,
+});
+
+#[cfg(feature = "glam")]
+impl_!({ToMoment, ToMomentMut} for glam::{
 	IVec2, IVec3, IVec4,
 	UVec2, UVec3, UVec4,
 });
@@ -128,7 +160,7 @@ where
 mod _range_impls {
 	use super::*;
 	
-	impl_to_moment!(std::ops::RangeFull);
+	impl_!(ToMoment for std::ops::RangeFull);
 	
 	impl<T> ToMoment for std::ops::Range<T>
 	where
