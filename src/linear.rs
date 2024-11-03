@@ -314,22 +314,16 @@ pub trait LinearIso<T: Linear>: Sized + Clone + Debug + 'static {
 }
 
 mod _linear_iso_impls {
-	use super::{Linear, LinearIso};
+	use super::{Linear, LinearIso, Simple};
 	
-	impl LinearIso<f64> for f64 {
-		fn into_linear(value: Self) -> f64 {
+	impl<T> LinearIso<T> for T
+	where
+		T: Linear + Simple
+	{
+		fn into_linear(value: Self) -> T {
 			value
 		}
-		fn from_linear(value: f64) -> Self {
-			value
-		}
-	}
-	
-	impl LinearIso<f32> for f32 {
-		fn into_linear(value: Self) -> f32 {
-			value
-		}
-		fn from_linear(value: f32) -> Self {
+		fn from_linear(value: T) -> Self {
 			value
 		}
 	}
@@ -481,14 +475,6 @@ mod glam_stuff {
 				fn zero() -> Self {
 					Self::ZERO
 				}
-			}
-			impl LinearIso<$vec> for $vec {
-				fn into_linear(value: Self) -> $vec {
-			        value
-			    }
-				fn from_linear(value: $vec) -> Self {
-			        value
-			    }
 			}
 		};
 	}
