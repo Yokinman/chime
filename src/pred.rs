@@ -480,7 +480,8 @@ where
 }
 
 /// For defining `dyn Prediction` types with an unspecified `TimeRanges` type.
-pub trait DynPrediction {
+trait DynPrediction {
+	#[allow(clippy::wrong_self_convention)]
 	fn into_ranges(&mut self, time: Time) -> time::DynTimeRanges;
 }
 
