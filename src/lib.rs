@@ -823,14 +823,14 @@ mod tests {
 		
 		let b_pos = Temporal::new(b_pos.to_moment(Time::ZERO), SEC);
 		assert_time_ranges!(
-			a_pos.when_dis_eq_constant(&b_pos, 2),
+			a_pos.when_dis_eq_constant(&b_pos, 2.into()),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
 			]
 		);
 		assert_time_ranges!(
-			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2),
+			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2.into()),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))

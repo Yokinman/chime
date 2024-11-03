@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-use crate::linear::{Scalar, Vector, LinearIso};
+use crate::linear::{Scalar, Vector, LinearIso, Basis};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
@@ -115,21 +115,19 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
-	pub fn when_constant<U>(&self, cmp: Ordering, other: U) -> T::Pred
+	pub fn when_constant(&self, cmp: Ordering, other: T::Basis) -> T::Pred
 	where
-		T: When<Constant<KindLinear<T>>>,
-		U: LinearIso<KindLinear<T>>,
+		T: When<Constant<<T as Flux>::Basis>>,
 	{
-		self.when(cmp, &Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
+		self.when(cmp, &Temporal::from(Constant::from(other)))
 	}
 	
 	/// Times when this is equal to a constant.
-	pub fn when_eq_constant<U>(&self, other: U) -> T::Pred
+	pub fn when_eq_constant(&self, other: T::Basis) -> T::Pred
 	where
-		T: WhenEq<Constant<KindLinear<T>>>,
-		U: LinearIso<KindLinear<T>>,
+		T: WhenEq<Constant<<T as Flux>::Basis>>,
 	{
-		self.when_eq(&Temporal::new(Constant::from(U::into_linear(other)), Time::ZERO))
+		self.when_eq(&Temporal::from(Constant::from(other)))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
@@ -171,41 +169,32 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
-	pub fn when_dis_constant<U, C, const SIZE: usize>(
+	pub fn when_dis_constant<U, const SIZE: usize>(
 		&self,
 		other: &Temporal<U>,
 		cmp: Ordering,
-		dis: C,
+		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> T::Pred
 	where
 		T::Kind: Vector<SIZE, Output: FluxKind>,
-		T: WhenDis<SIZE, U, Constant<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>>,
+		T: WhenDis<SIZE, U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>>,
 		U: Flux,
-		C: LinearIso<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>,
 	{
-		self.when_dis(
-			other,
-			cmp,
-			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
-		)
+		self.when_dis(other, cmp, &Temporal::from(Constant(dis)))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
-	pub fn when_dis_eq_constant<U, C, const SIZE: usize>(
+	pub fn when_dis_eq_constant<U, const SIZE: usize>(
 		&self,
 		other: &Temporal<U>,
-		dis: C,
+		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> T::Pred
 	where
 		T::Kind: Vector<SIZE, Output: FluxKind>,
-		T: WhenDisEq<SIZE, U, Constant<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>>,
+		T: WhenDisEq<SIZE, U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>>,
 		U: Flux,
-		C: LinearIso<KindLinear<<<T as Flux>::Kind as Vector<SIZE>>::Output>>,
 	{
-		self.when_dis_eq(
-			other,
-			&Temporal::new(Constant::from(C::into_linear(dis)), Time::ZERO),
-		)
+		self.when_dis_eq(other, &Temporal::from(Constant(dis)))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
@@ -243,37 +232,28 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
-	pub fn when_index_constant<C, const SIZE: usize>(
+	pub fn when_index_constant<const SIZE: usize>(
 		&self,
 		index: usize,
 		cmp: Ordering,
-		other: C,
-	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+		other: <T::Kind as Flux>::Basis,
+	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<<T::Kind as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<<T::Kind as Flux>::Basis>>>,
 	{
-		self.when_index(
-			index,
-			cmp,
-			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
-		)
+		self.when_index(index, cmp, &Temporal::from(Constant(other)))
 	}
 	
 	/// Times when a component is equal to a constant.
-	pub fn when_index_eq_constant<C, const SIZE: usize>(
+	pub fn when_index_eq_constant<const SIZE: usize>(
 		&self,
 		index: usize,
-		other: C,
-	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>::Pred
+		other: <T::Kind as Flux>::Basis,
+	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<<T::Kind as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<KindLinear<<T::Kind as Vector<SIZE>>::Output>>>>,
-		C: LinearIso<KindLinear<<T::Kind as Vector<SIZE>>::Output>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<<T::Kind as Flux>::Basis>>>,
 	{
-		self.when_index_eq(
-			index,
-			&Temporal::new(Constant::from(C::into_linear(other)), Time::ZERO),
-		)
+		self.when_index_eq(index, &Temporal::from(Constant(other)))
 	}
 	
 	// !!!
