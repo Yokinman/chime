@@ -75,20 +75,6 @@ impl_!({Simple, ToMoment, ToMomentMut} for glam::{
 mod _reference_impls {
 	use super::*;
 	
-	impl<'t, T> Flux for &'t T
-	where
-		T: Flux,
-	{
-		type Basis = T::Basis;
-		type Kind = T::Kind;
-		fn basis(&self) -> Self::Basis {
-			T::basis(self)
-		}
-		fn change(&self, basis: Self::Basis) -> Self::Kind {
-			T::change(self, basis)
-		}
-	}
-	
 	impl<'t, T> ToMoment for &'t T
 	where
 		T: ToMoment,
@@ -96,20 +82,6 @@ mod _reference_impls {
 		type Moment<'a> = T::Moment<'a> where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			T::to_moment(self, time)
-		}
-	}
-	
-	impl<'t, T> Flux for &'t mut T
-	where
-		T: Flux,
-	{
-		type Basis = T::Basis;
-		type Kind = T::Kind;
-		fn basis(&self) -> Self::Basis {
-			T::basis(self)
-		}
-		fn change(&self, basis: Self::Basis) -> Self::Kind {
-			T::change(self, basis)
 		}
 	}
 	
