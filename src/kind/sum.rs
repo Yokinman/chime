@@ -15,9 +15,9 @@ use crate::kind::constant::Constant;
 #[repr(C)]
 pub struct Sum<T, const DEGREE: usize>(T, [T; DEGREE]);
 
-impl<T: Basis, const D: usize> Sum<T, D> {
-	pub fn new(value: T, coeffs: [T; D]) -> Self {
-		Self(value, coeffs)
+impl<T, const D: usize> Sum<T, D> {
+	pub fn new(basis: T, terms: [T; D]) -> Self {
+		Self(basis, terms)
 	}
 	
 	pub fn iter(&self) -> impl Iterator<Item = &T> {
