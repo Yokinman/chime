@@ -9,7 +9,7 @@ use crate::linear::*;
 /// 
 /// `map(inv_map(A) + inv_map(B)) <=> Exp(A * B)`
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
-pub struct Exp<T: Linear>(pub T);
+pub struct Exp<T>(pub T);
 
 impl<T: Linear> Linear for Exp<T> {
 	fn add(self, other: Self) -> Self {
@@ -37,7 +37,7 @@ impl<T: Linear> Linear for Exp<T> {
 	}
 }
 
-impl<T: Linear> Simple for Exp<T> {}
+impl<T> Simple for Exp<T> {}
 
 impl<T: Linear> Default for Exp<T> {
 	fn default() -> Self {
@@ -45,7 +45,7 @@ impl<T: Linear> Default for Exp<T> {
 	}
 }
 
-impl<T: Linear> From<T> for Exp<T> {
+impl<T> From<T> for Exp<T> {
 	fn from(value: T) -> Exp<T> {
 		Exp(value)
 	}
