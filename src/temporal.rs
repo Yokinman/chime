@@ -89,20 +89,17 @@ impl<T: Flux> Temporal<T> {
 		}
 	}
 	
-	/// A polynomial description of this flux at the given time.
-	pub fn poly(&self, time: Time) -> Temporal<T::Kind> {
-		let mut inner = self.inner.to_kind();
-		let _ = inner.to_moment_mut(self.secs(time));
-		Temporal { inner, time }
-	}
-	
 	/// Ranges when this is above/below/equal to another flux.
 	pub fn when<U>(&self, cmp: Ordering, other: &Temporal<U>) -> T::Pred
 	where
 		T: When<U>,
 		U: Flux,
 	{
-		T::when(self.poly(self.time), cmp, other.poly(self.time))
+		T::when(
+			self.to_kind().at_time(self.time),
+			cmp,
+			other.to_kind().at_time(self.time),
+		)
 	}
 	
 	/// Times when this is equal to another flux.
@@ -111,7 +108,10 @@ impl<T: Flux> Temporal<T> {
 		T: WhenEq<U>,
 		U: Flux,
 	{
-		T::when_eq(self.poly(self.time), other.poly(self.time))
+		T::when_eq(
+			self.to_kind().at_time(self.time),
+			other.to_kind().at_time(self.time),
+		)
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
@@ -143,10 +143,10 @@ impl<T: Flux> Temporal<T> {
 		D: Flux,
 	{
 		T::when_dis(
-			self.poly(self.time),
-			other.poly(self.time),
+			self.to_kind().at_time(self.time),
+			other.to_kind().at_time(self.time),
 			cmp,
-			dis.poly(self.time),
+			dis.to_kind().at_time(self.time),
 		)
 	}
 	
@@ -162,9 +162,9 @@ impl<T: Flux> Temporal<T> {
 		D: Flux,
 	{
 		T::when_dis_eq(
-			self.poly(self.time),
-			other.poly(self.time),
-			dis.poly(self.time),
+			self.to_kind().at_time(self.time),
+			other.to_kind().at_time(self.time),
+			dis.to_kind().at_time(self.time),
 		)
 	}
 	
@@ -209,9 +209,9 @@ impl<T: Flux> Temporal<T> {
 		U: Flux,
 	{
 		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
-			self.poly(self.time).index(index),
+			self.to_kind().index(index).at_time(self.time),
 			cmp,
-			other.poly(self.time),
+			other.to_kind().at_time(self.time),
 		)
 	}
 	
@@ -226,8 +226,8 @@ impl<T: Flux> Temporal<T> {
 		U: Flux,
 	{
 		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
-			self.poly(self.time).index(index),
-			other.poly(self.time),
+			self.to_kind().index(index).at_time(self.time),
+			other.to_kind().at_time(self.time),
 		)
 	}
 	

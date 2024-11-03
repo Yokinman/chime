@@ -682,7 +682,7 @@ mod tests {
 	fn poly() {
 		let mut pos = position();
 		assert_poly!(
-			pos.poly(10*SEC),
+			pos.to_kind(),
 			Temporal::new(Sum::new(-63.15, [
 				-11.9775,
 				0.270416666666666,
@@ -693,7 +693,7 @@ mod tests {
 		for _ in 0..2 {
 			pos.moment_mut(20*SEC);
 			assert_poly!(
-				pos.poly(pos.basis_time()),
+				pos.to_kind(),
 				Temporal::new(Sum::new(-112.55, [
 					 6.0141666666666666666,
 					 1.4454166666666666666,
@@ -704,7 +704,7 @@ mod tests {
 		}
 		pos.moment_mut(0*SEC);
 		assert_poly!(
-			pos.poly(pos.basis_time()),
+			pos.to_kind(),
 			Temporal::new(Sum::new(32., [
 				-1.4691666666666666666,
 				-1.4045833333333333333,
