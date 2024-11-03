@@ -236,10 +236,10 @@ impl<T: Flux> Temporal<T> {
 		&self,
 		index: usize,
 		cmp: Ordering,
-		other: <T::Kind as Flux>::Basis,
-	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<<T::Kind as Flux>::Basis>>>::Pred
+		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
+	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<<T::Kind as Flux>::Basis>>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
 	{
 		self.when_index(index, cmp, &Temporal::from(Constant(other)))
 	}
@@ -248,10 +248,10 @@ impl<T: Flux> Temporal<T> {
 	pub fn when_index_eq_constant<const SIZE: usize>(
 		&self,
 		index: usize,
-		other: <T::Kind as Flux>::Basis,
-	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<<T::Kind as Flux>::Basis>>>::Pred
+		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
+	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<<T::Kind as Flux>::Basis>>>,
+		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
 	{
 		self.when_index_eq(index, &Temporal::from(Constant(other)))
 	}
