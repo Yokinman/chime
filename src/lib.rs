@@ -437,7 +437,7 @@ pub trait Flux {
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(self, unit: Time) -> Change<Self> where Self: Sized {
+	fn per(&self, unit: Time) -> Change<&Self> {
 		Change {
 			rate: self,
 			unit
