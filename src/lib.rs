@@ -361,15 +361,6 @@ mod _change_impls {
 	use crate::kind::FluxIntegral;
 	use crate::linear::{Basis, Scalar};
 	use super::{Change, Flux, ToMoment, ToMomentMut};
-
-	impl<T> Change<T> {
-		pub fn as_ref(&self) -> Change<&T> {
-			Change {
-				rate: &self.rate,
-				unit: self.unit,
-			}
-		}
-	}
 	
 	impl<T> Flux for Change<T>
 	where
