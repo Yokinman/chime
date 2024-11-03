@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-use crate::linear::{Scalar, Vector, LinearIso, Basis};
+use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
