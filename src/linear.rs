@@ -526,7 +526,7 @@ pub struct Iso<A, B>(Option<A>, B);
 mod _iso_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use super::{Iso, Linear, LinearIso, Scalar, Simple};
+	use super::{Basis, Iso, Linear, LinearIso, Scalar, Simple};
 	
 	impl<A, B> Simple for Iso<A, B> {}
 	
@@ -573,6 +573,17 @@ mod _iso_impls {
 	{
 		fn partial_cmp(&self, other: &Iso<X, Y>) -> Option<Ordering> {
 			self.1.partial_cmp(&other.1)
+		}
+	}
+	
+	impl<A, B> std::ops::Mul for Iso<A, B>
+	where
+		A: Linear + std::ops::Mul<Output = A>,
+		B: LinearIso<A>,
+	{
+		type Output = Self;
+		fn mul(self, rhs: Self) -> Self::Output {
+			Self::from_inner(self.into_inner() * rhs.into_inner())
 		}
 	}
 	
