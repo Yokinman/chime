@@ -334,7 +334,7 @@ macro_rules! impl_deg_order {
 						x
 					}
 				));
-				Sum(T::from_inner(a_value.into_inner()*b_value.into_inner()), terms)
+				Sum(T::from_inner(a_value * b_value), terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
@@ -697,8 +697,9 @@ where
 	}
 }
 
-impl<T: Linear, const D: usize> Roots for Sum<Exp<T>, D>
+impl<T, const D: usize> Roots for Sum<Exp<T>, D>
 where
+	T: Linear + Basis,
 	Sum<T, D>: FluxKind<Basis=T> + Roots
 {
 	type Output = <Sum<T, D> as Roots>::Output;
