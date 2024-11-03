@@ -1,7 +1,6 @@
 //! Utilities for working with vector-like values.
 
 use std::fmt::Debug;
-use crate::Flux;
 
 /// A scalar value, used for multiplication with any [`Linear`] value.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -206,7 +205,7 @@ mod _linear_impls {
 }
 
 /// A [`Linear`] type packaged with extra information (e.g. [`Iso`]).
-pub trait Basis: Flux<Basis=Self> + Clone + Debug + 'static {
+pub trait Basis: Clone + Debug + 'static {
 	type Inner: Linear;
 	
 	fn from_inner(inner: Self::Inner) -> Self;

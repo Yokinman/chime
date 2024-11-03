@@ -80,17 +80,3 @@ impl LinearIso<Exp<f64>> for u64 {
 		value.0.exp().round() as u64
 	}
 }
-
-impl<T> crate::Flux for Exp<T>
-where
-	T: Linear
-{
-	type Basis = Self;
-	type Kind = crate::kind::constant::Constant<Exp<T>>;
-	fn basis(&self) -> Self::Basis {
-		self.clone()
-	}
-	fn change(&self, basis: Self::Basis) -> Self::Kind {
-		basis.into()
-	}
-}

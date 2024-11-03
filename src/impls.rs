@@ -54,14 +54,14 @@ macro_rules! impl_ {
 
 impl_!({Simple, ToMoment, ToMomentMut} for bool);
 impl_!({Simple, ToMoment, ToMomentMut} for char);
-impl_!({Simple, Flux, ToMoment, ToMomentMut} for {f32, f64});
+impl_!({Simple, ToMoment, ToMomentMut} for {f32, f64});
 impl_!({Simple, ToMoment, ToMomentMut} for {i8, i16, i32, i64, i128, isize});
 impl_!({Simple, ToMoment, ToMomentMut} for {u8, u16, u32, u64, u128, usize});
 
 impl_!({Simple, ToMoment, ToMomentMut} for std::time::Duration);
 
 #[cfg(feature = "glam")]
-impl_!({Simple, Flux, ToMoment, ToMomentMut} for glam::{
+impl_!({Simple, ToMoment, ToMomentMut} for glam::{
 	Vec2, Vec3, Vec4,
 	DVec2, DVec3, DVec4,
 });
