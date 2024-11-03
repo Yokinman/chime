@@ -526,8 +526,9 @@ pub struct Iso<A, B>(Option<A>, B);
 mod _iso_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use crate::kind::constant::Constant;
-	use super::{Iso, Linear, LinearIso, Scalar};
+	use super::{Iso, Linear, LinearIso, Scalar, Simple};
+	
+	impl<A, B> Simple for Iso<A, B> {}
 	
 	impl<A, B> From<B> for Iso<A, B> {
 		fn from(value: B) -> Self {
@@ -572,21 +573,6 @@ mod _iso_impls {
 	{
 		fn partial_cmp(&self, other: &Iso<X, Y>) -> Option<Ordering> {
 			self.1.partial_cmp(&other.1)
-		}
-	}
-	
-	impl<A, B> crate::Flux for Iso<A, B>
-	where
-		A: Linear,
-		B: LinearIso<A>,
-	{
-		type Basis = Self;
-		type Kind = Constant<Self>;
-		fn basis(&self) -> Self::Basis {
-			self.clone()
-		}
-		fn change(&self, basis: Self::Basis) -> Self::Kind {
-			basis.into()
 		}
 	}
 	
