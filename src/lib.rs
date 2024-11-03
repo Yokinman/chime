@@ -437,11 +437,11 @@ pub trait Flux {
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> Change<&Self> {
-		Change {
-			rate: self,
-			unit
-		}
+	fn per(&self, unit: Time) -> <Self::Kind as FluxIntegral>::Integ
+	where
+		Self::Kind: FluxIntegral,
+	{
+		(self.to_kind() * Scalar::from(unit.as_secs_f64().recip())).integ()
 	}
 }
 
