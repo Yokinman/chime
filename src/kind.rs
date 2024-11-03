@@ -2,11 +2,11 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Sub};
+use std::ops::Mul;
 
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
-use crate::{Change, Flux, ToMomentMut};
+use crate::{Flux, ToMomentMut};
 
 pub mod constant;
 pub mod sum;
@@ -88,41 +88,6 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 	type Integ: FluxKind<Basis = Self::Basis>;
 	fn integ(self) -> Self::Integ;
-}
-
-/// Constructs a [`FluxKind`] polynomial by accumulating [`Change`]s.
-/// 
-/// ```text
-/// let x = FluxAccum::<Constant<f64>>::default();
-/// let x = x + Constant(2.).per(chime::time::SEC);
-/// let sum: Sum<f64, 1> = x.poly;
-/// ```
-pub(crate) struct FluxAccum<K>(pub K);
-
-impl<A, B> Add<Change<&B>> for FluxAccum<A>
-where
-	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
-	B: Flux<Kind: FluxIntegral>,
-{
-	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
-	fn add(self, rhs: Change<&B>) -> Self::Output {
-		let Change { rate, unit } = rhs;
-		let time_scale = unit.as_secs_f64().recip();
-		FluxAccum(self.0 + (rate.to_kind() * Scalar::from(time_scale)).integ())
-	}
-}
-
-impl<A, B> Sub<Change<&B>> for FluxAccum<A>
-where
-	A: FluxKind + Sub<<B::Kind as FluxIntegral>::Integ>,
-	B: Flux<Kind: FluxIntegral>,
-{
-	type Output = FluxAccum<<A as Sub<<B::Kind as FluxIntegral>::Integ>>::Output>;
-	fn sub(self, rhs: Change<&B>) -> Self::Output {
-		let Change { rate, unit } = rhs;
-		let time_scale = unit.as_secs_f64().recip();
-		FluxAccum(self.0 - (rate.to_kind() * Scalar::from(time_scale)).integ())
-	}
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
