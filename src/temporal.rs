@@ -54,9 +54,9 @@ impl<T> Temporal<T> {
 		Self { inner, time }
 	}
 	
-	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Temporal<&'_ U> {
+	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Temporal<TemporalRef<U>> {
 		Temporal {
-			inner: f(&self.inner),
+			inner: TemporalRef(f(&self.inner)),
 			time: self.time,
 		}
 	}
@@ -444,6 +444,39 @@ where
 	}
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.iter.size_hint()
+	}
+}
+
+/// ...
+pub struct TemporalRef<'a, T>(&'a T);
+
+mod _temporal_ref_impls {
+	use crate::{Flux, ToMoment};
+	use crate::linear::Scalar;
+	use super::TemporalRef;
+	
+	impl<T> Flux for TemporalRef<'_, T>
+	where
+		T: Flux
+	{
+		type Basis = T::Basis;
+		type Kind = T::Kind;
+		fn basis(&self) -> Self::Basis {
+			T::basis(self.0)
+		}
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			T::change(self.0, basis)
+		}
+	}
+	
+	impl<T> ToMoment for TemporalRef<'_, T>
+	where
+		T: ToMoment
+	{
+		type Moment<'a> = T::Moment<'a> where Self: 'a;
+		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+			T::to_moment(self.0, time)
+		}
 	}
 }
 
