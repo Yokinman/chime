@@ -1,8 +1,8 @@
 //! ...
 
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
-use crate::{Change, Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxAccum, FluxIntegral, FluxKind};
+use crate::{Flux, ToMoment, ToMomentMut};
+use crate::kind::FluxKind;
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// No change over time.
@@ -124,30 +124,6 @@ where
 	type Output = B;
 	fn sub(self, rhs: B) -> Self::Output {
 		(rhs * Scalar::from(-1.)).add_basis(self.0)
-	}
-}
-
-impl<T, B> Add<Change<&B>> for Constant<T>
-where
-	T: Basis,
-	B: Flux<Kind: FluxIntegral>,
-	Self: Add<<B::Kind as FluxIntegral>::Integ>,
-{
-	type Output = <Self as Add<<B::Kind as FluxIntegral>::Integ>>::Output;
-	fn add(self, rhs: Change<&B>) -> Self::Output {
-		(FluxAccum(self) + rhs).0
-	}
-}
-
-impl<T, B> Sub<Change<&B>> for Constant<T>
-where
-	T: Basis,
-	B: Flux<Kind: FluxIntegral>,
-	Self: Sub<<B::Kind as FluxIntegral>::Integ>,
-{
-	type Output = <Self as Sub<<B::Kind as FluxIntegral>::Integ>>::Output;
-	fn sub(self, rhs: Change<&B>) -> Self::Output {
-		(FluxAccum(self) - rhs).0
 	}
 }
 
