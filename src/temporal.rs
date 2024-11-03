@@ -138,7 +138,7 @@ impl<T: Flux> Temporal<T> {
 		dis: &Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDis<SIZE, U, D>,
+		T: WhenDis<U, D, SIZE>,
 		U: Flux,
 		D: Flux,
 	{
@@ -157,7 +157,7 @@ impl<T: Flux> Temporal<T> {
 		dis: &Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDisEq<SIZE, U, D>,
+		T: WhenDisEq<U, D, SIZE>,
 		U: Flux,
 		D: Flux,
 	{
@@ -177,7 +177,7 @@ impl<T: Flux> Temporal<T> {
 	) -> T::Pred
 	where
 		T::Kind: Vector<SIZE, Output: FluxKind>,
-		T: WhenDis<SIZE, U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>>,
+		T: WhenDis<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
 		U: Flux,
 	{
 		self.when_dis(other, cmp, &Temporal::from(Constant(dis)))
@@ -191,7 +191,7 @@ impl<T: Flux> Temporal<T> {
 	) -> T::Pred
 	where
 		T::Kind: Vector<SIZE, Output: FluxKind>,
-		T: WhenDisEq<SIZE, U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>>,
+		T: WhenDisEq<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
 		U: Flux,
 	{
 		self.when_dis_eq(other, &Temporal::from(Constant(dis)))

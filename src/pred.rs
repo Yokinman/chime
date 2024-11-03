@@ -681,7 +681,7 @@ where
 }
 
 /// [`crate::FluxVector::when_dis`] predictive distance comparison.
-pub trait WhenDis<const SIZE: usize, B: Flux, D: Flux>: Flux {
+pub trait WhenDis<B: Flux, D: Flux, const SIZE: usize>: Flux {
 	type Pred: Prediction;
 	fn when_dis(
 		a_poly: Temporal<Self::Kind>,
@@ -691,7 +691,7 @@ pub trait WhenDis<const SIZE: usize, B: Flux, D: Flux>: Flux {
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDis<SIZE, B, D> for A
+impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
 	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
@@ -746,7 +746,7 @@ where
 }
 
 /// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<const SIZE: usize, B: Flux, D: Flux>: Flux {
+pub trait WhenDisEq<B: Flux, D: Flux, const SIZE: usize>: Flux {
 	type Pred: Prediction;
 	fn when_dis_eq(
 		a_pos: Temporal<Self::Kind>,
@@ -755,7 +755,7 @@ pub trait WhenDisEq<const SIZE: usize, B: Flux, D: Flux>: Flux {
 	) -> Self::Pred;
 }
 
-impl<const SIZE: usize, A, B, D> WhenDisEq<SIZE, B, D> for A
+impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
 	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
 	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
