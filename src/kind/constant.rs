@@ -127,26 +127,26 @@ where
 	}
 }
 
-impl<T, B> Add<Change<B>> for Constant<T>
+impl<T, B> Add<Change<&B>> for Constant<T>
 where
 	T: Basis,
 	B: Flux<Kind: FluxIntegral>,
 	Self: Add<<B::Kind as FluxIntegral>::Integ>,
 {
 	type Output = <Self as Add<<B::Kind as FluxIntegral>::Integ>>::Output;
-	fn add(self, rhs: Change<B>) -> Self::Output {
+	fn add(self, rhs: Change<&B>) -> Self::Output {
 		(FluxAccum(self) + rhs).0
 	}
 }
 
-impl<T, B> Sub<Change<B>> for Constant<T>
+impl<T, B> Sub<Change<&B>> for Constant<T>
 where
 	T: Basis,
 	B: Flux<Kind: FluxIntegral>,
 	Self: Sub<<B::Kind as FluxIntegral>::Integ>,
 {
 	type Output = <Self as Sub<<B::Kind as FluxIntegral>::Integ>>::Output;
-	fn sub(self, rhs: Change<B>) -> Self::Output {
+	fn sub(self, rhs: Change<&B>) -> Self::Output {
 		(FluxAccum(self) - rhs).0
 	}
 }

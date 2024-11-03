@@ -99,26 +99,26 @@ pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 /// ```
 pub(crate) struct FluxAccum<K>(pub K);
 
-impl<A, B> Add<Change<B>> for FluxAccum<A>
+impl<A, B> Add<Change<&B>> for FluxAccum<A>
 where
 	A: FluxKind + Add<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 {
 	type Output = FluxAccum<<A as Add<<B::Kind as FluxIntegral>::Integ>>::Output>;
-	fn add(self, rhs: Change<B>) -> Self::Output {
+	fn add(self, rhs: Change<&B>) -> Self::Output {
 		let Change { rate, unit } = rhs;
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum(self.0 + (rate.to_kind() * Scalar::from(time_scale)).integ())
 	}
 }
 
-impl<A, B> Sub<Change<B>> for FluxAccum<A>
+impl<A, B> Sub<Change<&B>> for FluxAccum<A>
 where
 	A: FluxKind + Sub<<B::Kind as FluxIntegral>::Integ>,
 	B: Flux<Kind: FluxIntegral>,
 {
 	type Output = FluxAccum<<A as Sub<<B::Kind as FluxIntegral>::Integ>>::Output>;
-	fn sub(self, rhs: Change<B>) -> Self::Output {
+	fn sub(self, rhs: Change<&B>) -> Self::Output {
 		let Change { rate, unit } = rhs;
 		let time_scale = unit.as_secs_f64().recip();
 		FluxAccum(self.0 - (rate.to_kind() * Scalar::from(time_scale)).integ())

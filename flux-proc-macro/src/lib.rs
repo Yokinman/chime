@@ -104,7 +104,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						change_expr = syn::parse_quote!{#change_expr
 							#op #chime::Flux::per(&self.#field_member, #unit)};
 						kind_type = syn::parse_quote!{<#kind_type
-							as #op_trait::<#chime::Change<#field_type>>>::Output};
+							as #op_trait::<#chime::Change<&'static #field_type>>>::Output};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
 						meta.to_token_stream(), CHANGE_HELP),
