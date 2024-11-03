@@ -70,7 +70,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						}
 						
 						change_expr = syn::parse_quote!{(#change_expr)
-							#op self.#field_member.as_ref()};
+							#op #chime::Flux::to_kind(&self.#field_member)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
 					},

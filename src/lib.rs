@@ -358,8 +358,9 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::linear::Scalar;
-	use super::{Change, ToMoment, ToMomentMut};
+	use crate::kind::FluxIntegral;
+	use crate::linear::{Basis, Scalar};
+	use super::{Change, Flux, ToMoment, ToMomentMut};
 
 	impl<T> Change<T> {
 		pub fn as_ref(&self) -> Change<&T> {
@@ -367,6 +368,20 @@ mod _change_impls {
 				rate: &self.rate,
 				unit: self.unit,
 			}
+		}
+	}
+	
+	impl<T> Flux for Change<T>
+	where
+		T: Flux<Kind: FluxIntegral>,
+	{
+		type Basis = T::Basis;
+		type Kind = <T::Kind as FluxIntegral>::Integ;
+		fn basis(&self) -> Self::Basis {
+			Basis::zero()
+		}
+		fn change(&self, _basis: Self::Basis) -> Self::Kind {
+			self.rate.per(self.unit)
 		}
 	}
 	
