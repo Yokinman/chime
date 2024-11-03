@@ -242,7 +242,7 @@ mod _linear_plus_impls {
 			self
 		}
 		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			f(&self)
+			f(self)
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner

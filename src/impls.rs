@@ -295,6 +295,7 @@ mod _tuple_impls {
 				#[allow(unused_variables)]
 				fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 					let ($($t,)*) = self;
+					#[allow(clippy::unused_unit)]
 					($($t.to_moment(time),)*)
 				}
 			}
