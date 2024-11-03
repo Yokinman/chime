@@ -443,6 +443,12 @@ pub trait Flux {
 	///   ```
 	///   
 	fn change(&self, basis: Self::Basis) -> Self::Kind;
+	// ??? Add `FluxKind::Deriv` and make ths return `Self::Kind::Deriv`. Apply
+	// to basis automatically in `Self::to_kind`.
+	// Problems:
+	// - Can't do a blanket `impl FluxKind for Sum<T, D>`.
+	// - Supporting operations that aren't just `basis + change` might be weird.
+	//   e.g. `basis * change` or some kind of `min(basis + change, limit)`.
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
