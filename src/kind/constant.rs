@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::FluxKind;
+use crate::kind::{FluxKind, FromChange};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// No change over time.
@@ -74,6 +74,12 @@ impl<T: Basis> FluxKind for Constant<T> {
 	}
 	fn eval(&self, _time: Scalar) -> Self::Basis {
 		self.0.clone()
+	}
+}
+
+impl<T: Basis> FromChange<Constant<T>> for Constant<T> {
+	fn from_change(basis: T, _change: Constant<T>) -> Self {
+		Constant(basis)
 	}
 }
 
