@@ -35,7 +35,10 @@ impl<T, const D: usize> Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> From<T> for Sum<T, D> {
+impl<T: Basis, const D: usize> From<T> for Sum<T, D>
+where
+	Self: Flux<Basis=T, Kind=Self>
+{
 	fn from(value: T) -> Self {
 		Self::with_basis(value)
 	}
@@ -89,7 +92,7 @@ impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> Flux for Sum<T, D> {
+impl<T: Basis> Flux for Sum<T, 0> {
 	type Basis = T;
 	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
@@ -100,7 +103,21 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> ToMoment for Sum<T, D> {
+impl<T: Basis> Flux for Sum<T, 1> {
+	type Basis = T;
+	type Kind = Self;
+	fn basis(&self) -> Self::Basis {
+		self.0.clone()
+	}
+	fn change(&self, _basis: Self::Basis) -> Self::Kind {
+		self.clone()
+	}
+}
+
+impl<T: Basis, const D: usize> ToMoment for Sum<T, D>
+where
+	Self: Flux<Basis=T, Kind=Self>
+{
 	type Moment<'a> = Self;
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 		let mut sum = self.clone();
@@ -109,7 +126,10 @@ impl<T: Basis, const D: usize> ToMoment for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
+impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D>
+where
+	Self: Flux<Basis=T, Kind=Self>
+{
 	type MomentMut<'a> = &'a mut Self;
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
 		if time == Scalar::from(0.) {
@@ -126,7 +146,10 @@ impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
+impl<T: Basis, const D: usize> FluxKind for Sum<T, D>
+where
+	Self: Flux<Basis=T, Kind=Self>
+{
 	const DEGREE: usize = D;
 	
 	fn with_basis(value: Self::Basis) -> Self {
@@ -227,6 +250,16 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
+		impl<T: Basis> Flux for Sum<T, { $($num +)+ 1 }> {
+			type Basis = T;
+			type Kind = Self;
+			fn basis(&self) -> Self::Basis {
+				self.0.clone()
+			}
+			fn change(&self, _basis: Self::Basis) -> Self::Kind {
+				self.clone()
+			}
+		}
 		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self) -> Self::Integ {
@@ -616,6 +649,7 @@ where
 	A: Linear,
 	B: LinearIso<A>,
 	Sum<A, D>: Roots,
+	Self: Flux<Basis=Iso<A, B>, Kind=Self>,
 {
 	type Output = <Sum<A, D> as Roots>::Output;
 	fn roots(self) -> <Self as Roots>::Output {
@@ -632,6 +666,7 @@ impl<const D: usize> Roots for Sum<glam::DVec2, D>
 where
 	Sum<f64, D>: FluxKind<Basis=f64> + Roots,
 	<Sum<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
+	Self: Flux<Basis=glam::DVec2, Kind=Self>,
 {
 	type Output = [f64; D];
 	fn roots(self) -> <Self as Roots>::Output {
@@ -676,7 +711,8 @@ where
 impl<T, const D: usize> Roots for Sum<Exp<T>, D>
 where
 	T: Linear + Basis,
-	Sum<T, D>: FluxKind<Basis=T> + Roots
+	Sum<T, D>: FluxKind<Basis=T> + Roots,
+	Self: Flux<Basis=Exp<T>, Kind=Self>,
 {
 	type Output = <Sum<T, D> as Roots>::Output;
 	fn roots(self) -> <Self as Roots>::Output {
