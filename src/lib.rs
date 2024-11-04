@@ -364,9 +364,10 @@ mod _change_impls {
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Kind: FluxIntegral>,
+		T: Flux<Kind: FluxIntegral<Integ: Flux<Change = T::Kind>>>,
 	{
 		type Basis = T::Basis;
+		type Change = T::Kind;
 		type Kind = <T::Kind as FluxIntegral>::Integ;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
@@ -409,8 +410,11 @@ pub trait Flux {
 	/// ...
 	type Basis: Basis;
 	
+	/// ...
+	type Change: FluxKind;
+	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
-	type Kind: FluxKind<Basis = Self::Basis>;
+	type Kind: FluxKind<Basis = Self::Basis, Change = Self::Change>;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> Self::Basis;
@@ -462,6 +466,7 @@ where
 	T: Basis + Simple
 {
 	type Basis = Self;
+	type Change = constant::Constant<Self>; // !!! Should be nothing
 	type Kind = constant::Constant<Self>;
 	fn basis(&self) -> Self::Basis {
 		self.clone()
@@ -531,6 +536,7 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Basis = f64;
+		type Change = Sum<f64, 3>;
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> Self::Basis {
 			self.value

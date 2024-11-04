@@ -36,6 +36,7 @@ impl<T: Basis> From<T> for Constant<T> {
 
 impl<T: Basis> Flux for Constant<T> {
 	type Basis = T;
+	type Change = Self; // !!! Should be nothing
 	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
