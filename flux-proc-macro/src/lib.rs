@@ -28,7 +28,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
-	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::to_kind(&basis)};
+	let mut change_expr: syn::Expr = syn::parse_quote!{<#chime::kind::constant::Constant<Self::Basis> as #chime::kind::FluxKind>::zero()};
 	let mut kind_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Constant<Self::Basis>};
 	
 	 // Find Helper Attributes:
@@ -128,8 +128,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 			fn basis(&self) -> Self::Basis {
 				self.#basis_member
 			}
-			fn change(&self, basis: Self::Basis) -> Self::Kind {
-				#change_expr
+			fn change(&self) -> Self::Change {
+				(#change_expr).into()
 			}
 		}
 	};
