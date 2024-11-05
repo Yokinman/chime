@@ -67,7 +67,7 @@ where
 		// Covers the range of equality, but stops where the trend reverses.
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
-		let diff_rate = diff_poly.clone().deriv();
+		let diff_rate = diff_poly.change();
 		let sign = diff_rate.eval(time).into_inner().sign();
 		
 		loop {
@@ -155,7 +155,7 @@ where
 		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
-		let diff_rate = diff_poly.clone().deriv();
+		let diff_rate = diff_poly.change();
 		let sign = diff_rate.eval(time).into_inner().sign();
 		
 		 // Rounding Buffer:

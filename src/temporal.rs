@@ -81,6 +81,14 @@ impl<T: Flux> Temporal<T> {
 		self.time
 	}
 	
+	/// ...
+	pub fn change(&self) -> Temporal<T::Change> {
+		Temporal {
+			inner: self.inner.change(),
+			time: self.time,
+		}
+	}
+	
 	/// Conversion into a standard representation.
 	pub fn to_kind(&self) -> Temporal<T::Kind> {
 		Temporal {

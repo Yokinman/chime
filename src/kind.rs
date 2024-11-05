@@ -39,33 +39,20 @@ pub trait FluxKind: Flux<Kind=Self> + FromChange<Self::Change> + ToMomentMut + C
 	where
 		<Self::Basis as Basis>::Inner: PartialOrd
 	{
-		// !!! Alternative: Translate polynomial using `to_time` and then check
-		// leading terms in order. Unknown which is more precise/faster.
+		// !!! Alternative: Translate polynomial using `to_moment_mut` and then
+		// check leading terms in order. Unknown which is more precise/faster.
 		
-		use std::borrow::Cow;
-		
-		let mut deriv = Cow::Borrowed(self);
-		
-		for degree in 0..=Self::DEGREE {
-			let order = deriv.eval(time)
-				.into_inner()
-				.partial_cmp(&Linear::zero());
+		let order = self.eval(time)
+			.into_inner()
+			.partial_cmp(&Linear::zero());
 			
-			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
-				return if degree % 2 == 0 {
-					order
-				} else {
-					order.map(Ordering::reverse)
-				}
-			}
-			
-			deriv = match deriv {
-				Cow::Borrowed(x) => Cow::Owned(x.clone().deriv()),
-				Cow::Owned(x) => Cow::Owned(x.deriv()),
-			};
+		if order != Some(Ordering::Equal) || Self::DEGREE == 0 {
+			return order
 		}
 		
-		None
+		self.change()
+			.initial_order(time)
+			.map(Ordering::reverse)
 	}
 	
 	fn zero() -> Self {
