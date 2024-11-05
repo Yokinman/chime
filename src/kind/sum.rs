@@ -176,18 +176,6 @@ where
 		self
 	}
 	
-	fn deriv(mut self) -> Self {
-		std::mem::swap(&mut self.0, &mut self.1[0]);
-		self.1.rotate_left(1);
-		self.1[D-1] = T::zero();
-		let mut d = 1.;
-		self.1 = self.1.map(|x| {
-			d += 1.;
-			T::from_inner(x.into_inner().mul_scalar(Scalar::from(d)))
-		});
-		self
-	}
-	
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		if time == Scalar::from(0.) {
 			return self.0.clone()

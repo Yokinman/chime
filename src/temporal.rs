@@ -284,11 +284,6 @@ impl<K: FluxKind> Temporal<K> {
 		self.inner.initial_order(self.secs(time))
 	}
 	
-	pub fn deriv(mut self) -> Self {
-		self.inner = self.inner.deriv();
-		self
-	}
-	
 	pub fn integ(self) -> Temporal<K::Integ>
 	where
 		K: FluxIntegral,

@@ -27,8 +27,6 @@ pub trait FluxKind: Flux<Kind=Self> + FromChange<Self::Change> + ToMomentMut + C
 			.mul_scalar(Scalar::from(-1.))))
 	}
 	
-	fn deriv(self) -> Self;
-	
 	fn eval(&self, time: Scalar) -> Self::Basis;
 	
 	/// The order at or immediately preceding the value at a time.
@@ -85,9 +83,6 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	fn add_basis(self, value: Self::Basis) -> Self {
 		let mut values = value.into_iter();
 		self.map(|x| x.add_basis(values.next().unwrap()))
-	}
-	fn deriv(self) -> Self {
-		self.map(T::deriv)
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))

@@ -69,9 +69,6 @@ impl<T: Basis> FluxKind for Constant<T> {
 		self.0 = T::from_inner(self.0.into_inner().add(value.into_inner()));
 		self
 	}
-	fn deriv(self) -> Self {
-		Self::zero()
-	}
 	fn eval(&self, _time: Scalar) -> Self::Basis {
 		self.0.clone()
 	}
