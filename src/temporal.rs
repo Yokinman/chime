@@ -284,11 +284,11 @@ impl<K: FluxKind> Temporal<K> {
 		self.inner.initial_order(self.secs(time))
 	}
 	
-	pub fn integ(self) -> Temporal<K::Integ>
+	pub fn integ(self, basis: K::Basis) -> Temporal<K::Integ>
 	where
 		K: FluxIntegral,
 	{
-		Temporal::new(self.inner.integ(), self.time)
+		Temporal::new(self.inner.integ(basis), self.time)
 	}
 	
 	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
