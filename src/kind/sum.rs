@@ -112,12 +112,6 @@ impl<T: Basis> FluxIntegral<Blank> for Sum<T, 0> {
 	}
 }
 
-impl<T: Basis> FromChange<Constant<T>> for Sum<T, 0> {
-	fn from_change(basis: T, _change: Constant<T>) -> Self {
-		Sum(basis, [])
-	}
-}
-
 impl<T: Basis> Flux for Sum<T, 1> {
 	type Basis = T;
 	type Change = Sum<T, 0>;
@@ -194,18 +188,6 @@ where
 			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
 		}
 		Basis::from_inner(value.mul_scalar(time).add(self.0.clone().into_inner()))
-	}
-}
-
-impl<T: Basis> FromChange<Constant<T>> for Sum<T, 1> {
-	fn from_change(basis: T, change: Constant<T>) -> Self {
-		Sum(basis, [change.0])
-	}
-}
-
-impl<T: Basis> FromChange<Sum<T, 0>> for Sum<T, 1> {
-	fn from_change(basis: T, change: Sum<T, 0>) -> Self {
-		Sum(basis, [change.0])
 	}
 }
 
@@ -289,11 +271,6 @@ macro_rules! impl_deg_order {
 						.into_inner()
 						.mul_scalar(Scalar::from((i + 2) as f64))))
 				)
-			}
-		}
-		impl<T: Basis> FromChange<Sum<T, { $($num +)+ 0 }>> for Sum<T, { $($num +)+ 0 + 1 }> {
-			fn from_change(basis: T, change: Sum<T, { $($num +)+ 0 }>) -> Self {
-				change.integ(basis)
 			}
 		}
 		impl<T: Basis> FluxIntegral<Integral> for Sum<T, { $($num +)+ 0 }> {
