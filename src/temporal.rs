@@ -7,7 +7,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
+use crate::kind::{FluxIntegral, FluxKind, Integral, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::kind::constant::Constant;
 
@@ -286,7 +286,7 @@ impl<K: FluxKind> Temporal<K> {
 	
 	pub fn integ(self, basis: K::Basis) -> Temporal<K::Integ>
 	where
-		K: FluxIntegral,
+		K: FluxIntegral<Integral>,
 	{
 		Temporal::new(self.inner.integ(basis), self.time)
 	}
