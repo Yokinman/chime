@@ -364,11 +364,13 @@ mod _change_impls {
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Kind: FluxIntegral<Integral, Integ: Flux<Change = T::Kind>>>,
+		T: Flux<Kind: FluxIntegral<Integral, Integ: Flux<Change = T::Kind>>
+			+ std::ops::Mul<Scalar, Output=T::Kind>>,
 	{
 		type Basis = T::Basis;
 		type Change = T::Kind;
 		type Kind = <T::Kind as FluxIntegral<Integral>>::Integ;
+		type Param = Integral;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
 		}
@@ -411,10 +413,13 @@ pub trait Flux {
 	type Basis: Basis;
 	
 	/// ...
-	type Change: FluxKind<Basis = Self::Basis>;
+	type Change: FluxKind<Basis = Self::Basis> + FluxIntegral<Self::Param, Integ = Self::Kind>;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind<Basis = Self::Basis, Change = Self::Change>;
+	
+	/// ...
+	type Param;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> Self::Basis;
@@ -441,7 +446,7 @@ pub trait Flux {
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		Self::Kind::from_change(self.basis(), self.change())
+		self.change().integ(self.basis())
 	}
 	
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
@@ -460,8 +465,9 @@ where
 	T: Basis + Simple
 {
 	type Basis = Self;
-	type Change = constant::Constant<Self>; // !!! Should be nothing
+	type Change = constant::Constant<Self>;
 	type Kind = constant::Constant<Self>;
+	type Param = Blank;
 	fn basis(&self) -> Self::Basis {
 		self.clone()
 	}
@@ -532,6 +538,7 @@ mod tests {
 		type Basis = f64;
 		type Change = Sum<f64, 3>;
 		type Kind = Sum<f64, 4>;
+		type Param = Integral;
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}

@@ -31,6 +31,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let mut change_expr: syn::Expr = syn::parse_quote!{<#chime::kind::constant::Constant<Self::Basis> as #chime::kind::FluxKind>::zero()};
 	let mut kind_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Constant<Self::Basis>};
 	
+	let mut param_is_integral = false;
+	
 	 // Find Helper Attributes:
 	for (field_index, field) in item.fields.iter().enumerate() {
 		let field_member = field.ident.clone()
@@ -73,6 +75,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							#op #chime::Flux::to_kind(&self.#field_member)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
+						
+						param_is_integral = true;
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
 						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func
@@ -105,6 +109,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							#op #chime::Flux::per(&self.#field_member, #unit)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<<<#field_type as #chime::Flux>::Kind as #chime::kind::FluxIntegral<#chime::kind::Integral>>::Integ>>::Output};
+						
+						param_is_integral = true;
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
 						meta.to_token_stream(), CHANGE_HELP),
@@ -120,11 +126,18 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 		BASIS_HELP
 	));
 	
+	let param_type: syn::Type = if param_is_integral {
+		syn::parse_quote!{#chime::kind::Integral}
+	} else {
+		syn::parse_quote!{#chime::kind::Blank}
+	};
+	
 	let trait_impl = quote::quote!{
 		impl #impl_params #chime::Flux for #type_name #type_params #impl_clause {
 			type Basis = #basis_type;
 			type Change = <Self::Kind as #chime::Flux>::Change;
 			type Kind = #kind_type;
+			type Param = #param_type;
 			fn basis(&self) -> Self::Basis {
 				self.#basis_member
 			}
