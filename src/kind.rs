@@ -69,9 +69,9 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 /// e.g. `Sum<T, 1>::Integ == Sum<T, 2>`, `Cos<T>::Integ == Sin<T>`.
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
-pub trait FluxIntegral<T>: FluxKind {
-	type Integ: FluxKind<Basis = Self::Basis>;
-	fn integ(self, basis: Self::Basis) -> Self::Integ;
+pub trait FluxIntegral<T> {
+	type Integ: FluxKind;
+	fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ;
 }
 
 /// ...
