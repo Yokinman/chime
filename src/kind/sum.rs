@@ -107,7 +107,7 @@ impl<T: Basis> Flux for Sum<T, 0> {
 
 impl<T: Basis> FluxIntegral<Blank> for Sum<T, 0> {
 	type Integ = Sum<T, 0>;
-	fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		Sum(basis, [])
 	}
 }
@@ -232,7 +232,7 @@ where
 
 impl<T: Basis> FluxIntegral<Integral> for Constant<T> {
 	type Integ = Sum<T, 1>;
-	fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		let Constant(value) = self;
 		Sum::new(basis, [value])
 	}
@@ -240,7 +240,7 @@ impl<T: Basis> FluxIntegral<Integral> for Constant<T> {
 
 impl<T: Basis> FluxIntegral<Integral> for Sum<T, 0> {
 	type Integ = Sum<T, 1>;
-	fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		let Sum(value, _) = self;
 		Sum(basis, [value])
 	}
@@ -275,7 +275,7 @@ macro_rules! impl_deg_order {
 		}
 		impl<T: Basis> FluxIntegral<Integral> for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
-			fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+			fn integ(self, basis: Self::Basis) -> Self::Integ {
 				debug_assert_eq!(
 					std::mem::size_of::<Self>(),
 					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),

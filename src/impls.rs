@@ -219,7 +219,7 @@ mod _array_impls {
 		T: FluxIntegral<K>
 	{
 		type Integ = [T::Integ; N];
-		fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+		fn integ(self, basis: Self::Basis) -> Self::Integ {
 			let mut basis_iter = basis.into_iter();
 			self.map(|x| x.integ(basis_iter.next().unwrap()))
 		}

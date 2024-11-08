@@ -364,8 +364,7 @@ mod _change_impls {
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Kind: FluxIntegral<Integral, Integ:
-			Flux<Basis = T::Basis, Change = T::Kind>>
+		T: Flux<Kind: FluxIntegral<Integral, Integ: Flux<Change = T::Kind>>
 			+ std::ops::Mul<Scalar, Output=T::Kind>>,
 	{
 		type Basis = T::Basis;

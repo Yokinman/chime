@@ -77,7 +77,7 @@ impl<T: Basis> FluxKind for Constant<T> {
 
 impl<T: Basis> FluxIntegral<Blank> for Constant<T> {
 	type Integ = Constant<T>;
-	fn integ(self, basis: <Self::Integ as Flux>::Basis) -> Self::Integ {
+	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		Constant(basis)
 	}
 }
