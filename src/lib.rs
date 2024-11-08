@@ -358,17 +358,17 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::kind::{FluxIntegral, Integral};
+	use crate::kind::FluxIntegral;
 	use crate::linear::{Basis, Scalar};
 	use super::{Change, Flux, ToMoment, ToMomentMut};
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Kind: FluxIntegral<Integral, Integ: Flux<Change = T::Kind>>>,
+		T: Flux<Kind: FluxIntegral<Integ: Flux<Change = T::Kind>>>,
 	{
 		type Basis = T::Basis;
 		type Change = T::Kind;
-		type Kind = <T::Kind as FluxIntegral<Integral>>::Integ;
+		type Kind = <T::Kind as FluxIntegral>::Integ;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
 		}

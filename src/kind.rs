@@ -70,16 +70,10 @@ pub trait FluxKind: Flux<Kind=Self> + FromChange<Self::Change> + ToMomentMut + C
 /// e.g. `Sum<T, 1>::Integ == Sum<T, 2>`, `Cos<T>::Integ == Sin<T>`.
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
-pub trait FluxIntegral<T>: FluxKind + Mul<Scalar, Output=Self> {
+pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 	type Integ: FluxKind<Basis = Self::Basis>;
 	fn integ(self, basis: Self::Basis) -> Self::Integ;
 }
-
-/// ...
-pub struct Blank;
-
-/// ...
-pub struct Integral;
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;

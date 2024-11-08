@@ -239,7 +239,7 @@ where
 	}
 }
 
-impl<T: Basis> FluxIntegral<Integral> for Constant<T> {
+impl<T: Basis> FluxIntegral for Constant<T> {
 	type Integ = Sum<T, 1>;
 	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		let Constant(value) = self;
@@ -247,7 +247,7 @@ impl<T: Basis> FluxIntegral<Integral> for Constant<T> {
 	}
 }
 
-impl<T: Basis> FluxIntegral<Integral> for Sum<T, 0> {
+impl<T: Basis> FluxIntegral for Sum<T, 0> {
 	type Integ = Sum<T, 1>;
 	fn integ(self, basis: Self::Basis) -> Self::Integ {
 		let Sum(value, _) = self;
@@ -286,7 +286,7 @@ macro_rules! impl_deg_order {
 				change.integ(basis)
 			}
 		}
-		impl<T: Basis> FluxIntegral<Integral> for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self, basis: Self::Basis) -> Self::Integ {
 				debug_assert_eq!(
