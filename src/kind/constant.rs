@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{Blank, FluxIntegral, FluxKind};
+use crate::kind::{Blank, FluxIntegral, FluxKind, FromChange};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// No change over time.
@@ -78,6 +78,12 @@ impl<T: Basis> FluxKind for Constant<T> {
 impl<T: Basis> FluxIntegral<Blank> for Constant<T> {
 	type Integ = Constant<T>;
 	fn integ(self, basis: Self::Basis) -> Self::Integ {
+		Constant(basis)
+	}
+}
+
+impl<T: Basis> FromChange<Constant<T>> for Constant<T> {
+	fn from_change(basis: T, _change: Constant<T>) -> Self {
 		Constant(basis)
 	}
 }

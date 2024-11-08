@@ -94,8 +94,24 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 }
 
+impl<F, T, const N: usize> FromChange<[T; N]> for [F; N]
+where
+	F: FromChange<T>,
+	T: FluxKind,
+{
+	fn from_change(basis: [T::Basis; N], change: [T; N]) -> Self {
+		let mut change_iter = change.into_iter();
+		basis.map(|x| F::from_change(x, change_iter.next().unwrap()))
+	}
+}
+
 /// Shortcut for the inner [`Linear`] type of a [`FluxKind`].
 pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
+
+/// ...
+pub trait FromChange<T: FluxKind> {
+	fn from_change(basis: <T as Flux>::Basis, change: T) -> Self;
+}
 
 /// Combining [`FluxKind`] types.
 /// 
