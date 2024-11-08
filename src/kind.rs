@@ -2,6 +2,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::ops::Mul;
 
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
@@ -14,7 +15,7 @@ pub mod sum;
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
+pub trait FluxKind: Flux<Kind=Self> + FromChange<Self::Change> + ToMomentMut + Clone + Debug + 'static {
 	const DEGREE: usize;
 	
 	fn with_basis(value: Self::Basis) -> Self;
@@ -69,7 +70,7 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 /// e.g. `Sum<T, 1>::Integ == Sum<T, 2>`, `Cos<T>::Integ == Sin<T>`.
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
-pub trait FluxIntegral<T>: FluxKind {
+pub trait FluxIntegral<T>: FluxKind + Mul<Scalar, Output=Self> {
 	type Integ: FluxKind<Basis = Self::Basis>;
 	fn integ(self, basis: Self::Basis) -> Self::Integ;
 }

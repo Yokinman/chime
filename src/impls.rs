@@ -198,30 +198,17 @@ mod _range_impls {
 }
 
 mod _array_impls {
-	use crate::kind::FluxIntegral;
 	use super::*;
 	
 	impl<T: Flux, const N: usize> Flux for [T; N] {
 		type Basis = [T::Basis; N];
 		type Change = [T::Change; N];
 		type Kind = [T::Kind; N];
-		type Param = T::Param;
 		fn basis(&self) -> Self::Basis {
 			self.each_ref().map(T::basis)
 		}
 		fn change(&self) -> Self::Change {
 			self.each_ref().map(T::change)
-		}
-	}
-	
-	impl<K, T, const N: usize> FluxIntegral<K> for [T; N]
-	where
-		T: FluxIntegral<K>
-	{
-		type Integ = [T::Integ; N];
-		fn integ(self, basis: Self::Basis) -> Self::Integ {
-			let mut basis_iter = basis.into_iter();
-			self.map(|x| x.integ(basis_iter.next().unwrap()))
 		}
 	}
 	

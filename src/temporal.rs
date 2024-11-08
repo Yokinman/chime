@@ -465,7 +465,6 @@ mod _temporal_ref_impls {
 		type Basis = T::Basis;
 		type Change = T::Change;
 		type Kind = T::Kind;
-		type Param = T::Param;
 		fn basis(&self) -> Self::Basis {
 			T::basis(self.0)
 		}

@@ -94,21 +94,13 @@ impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 
 impl<T: Basis> Flux for Sum<T, 0> {
 	type Basis = T;
-	type Change = Sum<T, 0>;
+	type Change = Constant<T>; // !!! Should be nothing
 	type Kind = Self;
-	type Param = Blank;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
 	fn change(&self) -> Self::Change {
-		Sum::zero()
-	}
-}
-
-impl<T: Basis> FluxIntegral<Blank> for Sum<T, 0> {
-	type Integ = Sum<T, 0>;
-	fn integ(self, basis: Self::Basis) -> Self::Integ {
-		Sum(basis, [])
+		Constant::zero()
 	}
 }
 
@@ -122,7 +114,6 @@ impl<T: Basis> Flux for Sum<T, 1> {
 	type Basis = T;
 	type Change = Sum<T, 0>;
 	type Kind = Self;
-	type Param = Integral;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
@@ -133,7 +124,7 @@ impl<T: Basis> Flux for Sum<T, 1> {
 
 impl<T: Basis, const D: usize> ToMoment for Sum<T, D>
 where
-	Self: Flux<Basis=T, Kind=Self>
+	Self: Flux<Basis=T, Kind=Self> + FromChange<<Self as Flux>::Change>
 {
 	type Moment<'a> = Self;
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
@@ -145,7 +136,7 @@ where
 
 impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D>
 where
-	Self: Flux<Basis=T, Kind=Self>
+	Self: Flux<Basis=T, Kind=Self> + FromChange<<Self as Flux>::Change>
 {
 	type MomentMut<'a> = &'a mut Self;
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
@@ -172,7 +163,7 @@ where
 
 impl<T: Basis, const D: usize> FluxKind for Sum<T, D>
 where
-	Self: Flux<Basis=T, Kind=Self>
+	Self: Flux<Basis=T, Kind=Self> + FromChange<<Self as Flux>::Change>
 {
 	const DEGREE: usize = D;
 	
@@ -278,7 +269,6 @@ macro_rules! impl_deg_order {
 			type Basis = T;
 			type Change = Sum<T, { $($num +)+ 0 }>;
 			type Kind = Self;
-			type Param = Integral;
 			fn basis(&self) -> Self::Basis {
 				self.0.clone()
 			}
