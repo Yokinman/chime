@@ -241,17 +241,17 @@ where
 
 impl<T: Basis> FluxIntegral for Constant<T> {
 	type Integ = Sum<T, 1>;
-	fn integ(self, basis: Self::Basis) -> Self::Integ {
+	fn integ(self) -> Self::Integ {
 		let Constant(value) = self;
-		Sum::new(basis, [value])
+		Sum::new(T::zero(), [value])
 	}
 }
 
 impl<T: Basis> FluxIntegral for Sum<T, 0> {
 	type Integ = Sum<T, 1>;
-	fn integ(self, basis: Self::Basis) -> Self::Integ {
+	fn integ(self) -> Self::Integ {
 		let Sum(value, _) = self;
-		Sum(basis, [value])
+		Sum(T::zero(), [value])
 	}
 }
 
@@ -283,12 +283,14 @@ macro_rules! impl_deg_order {
 		}
 		impl<T: Basis> FromChange<Sum<T, { $($num +)+ 0 }>> for Sum<T, { $($num +)+ 0 + 1 }> {
 			fn from_change(basis: T, change: Sum<T, { $($num +)+ 0 }>) -> Self {
-				change.integ(basis)
+				let mut sum = change.integ();
+				sum.0 = basis;
+				sum
 			}
 		}
 		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
-			fn integ(self, basis: Self::Basis) -> Self::Integ {
+			fn integ(self) -> Self::Integ {
 				debug_assert_eq!(
 					std::mem::size_of::<Self>(),
 					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),
@@ -303,7 +305,7 @@ macro_rules! impl_deg_order {
 					i += 1.;
 					T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / i)))
 				});
-				Sum(basis, terms)
+				Sum(T::zero(), terms)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>

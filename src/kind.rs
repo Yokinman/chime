@@ -72,7 +72,7 @@ pub trait FluxKind: Flux<Kind=Self> + FromChange<Self::Change> + ToMomentMut + C
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
 	type Integ: FluxKind<Basis = Self::Basis>;
-	fn integ(self, basis: Self::Basis) -> Self::Integ;
+	fn integ(self) -> Self::Integ;
 }
 
 impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
