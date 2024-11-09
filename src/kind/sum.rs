@@ -146,16 +146,9 @@ where
 		let mut deriv = self.clone();
 		self.0 = deriv.eval(time);
 		for degree in 1..D {
-			std::mem::swap(&mut deriv.0, &mut deriv.1[0]);
-			deriv.1.rotate_left(1);
-			deriv.1[D-1] = T::zero();
-			let mut d = 1.;
-			deriv.1 = deriv.1.map(|x| {
-				d += 1.;
-				T::from_inner(x.into_inner().mul_scalar(Scalar::from(d)))
-			});
-			deriv = deriv * Scalar::from(1. / (degree as f64));
+			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
 			self.1[degree-1] = deriv.eval(time);
+			// !!! This could be made more accurate with manual deriv/eval code.
 		}
 		self
 	}
