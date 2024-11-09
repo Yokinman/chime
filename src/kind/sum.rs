@@ -94,7 +94,6 @@ impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 
 impl<T: Basis> Flux for Sum<T, 0> {
 	type Basis = T;
-	type Change = Constant<T>; // !!! Should be nothing
 	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
@@ -106,7 +105,6 @@ impl<T: Basis> Flux for Sum<T, 0> {
 
 impl<T: Basis> Flux for Sum<T, 1> {
 	type Basis = T;
-	type Change = Sum<T, 0>;
 	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
@@ -254,7 +252,6 @@ macro_rules! impl_deg_order {
 	($($num:tt)+) => {
 		impl<T: Basis> Flux for Sum<T, { $($num +)+ 1 }> {
 			type Basis = T;
-			type Change = Sum<T, { $($num +)+ 0 }>;
 			type Kind = Self;
 			fn basis(&self) -> Self::Basis {
 				self.0.clone()

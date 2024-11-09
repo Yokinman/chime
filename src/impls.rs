@@ -202,7 +202,6 @@ mod _array_impls {
 	
 	impl<T: Flux, const N: usize> Flux for [T; N] {
 		type Basis = [T::Basis; N];
-		type Change = [T::Change; N];
 		type Kind = [T::Kind; N];
 		fn basis(&self) -> Self::Basis {
 			self.each_ref().map(T::basis)

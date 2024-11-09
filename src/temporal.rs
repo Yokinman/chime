@@ -460,7 +460,6 @@ mod _temporal_ref_impls {
 		T: Flux
 	{
 		type Basis = T::Basis;
-		type Change = T::Change;
 		type Kind = T::Kind;
 		fn basis(&self) -> Self::Basis {
 			T::basis(self.0)
