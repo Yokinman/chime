@@ -99,8 +99,8 @@ impl<T: Basis> Flux for Sum<T, 0> {
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
-	fn change(&self) -> Self::Change {
-		Constant::zero()
+	fn change(&self, _basis: Self::Basis) -> Self::Kind {
+		self.clone()
 	}
 }
 
@@ -117,8 +117,8 @@ impl<T: Basis> Flux for Sum<T, 1> {
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
-	fn change(&self) -> Self::Change {
-		Sum(self.1[0].clone(), [])
+	fn change(&self, _basis: Self::Basis) -> Self::Kind {
+		self.clone()
 	}
 }
 
@@ -277,13 +277,8 @@ macro_rules! impl_deg_order {
 			fn basis(&self) -> Self::Basis {
 				self.0.clone()
 			}
-			fn change(&self) -> Self::Change {
-				Sum(
-					self.1[0].clone(),
-					std::array::from_fn(|i| T::from_inner(self.1[i + 1].clone()
-						.into_inner()
-						.mul_scalar(Scalar::from((i + 2) as f64))))
-				)
+			fn change(&self, _basis: Self::Basis) -> Self::Kind {
+				self.clone()
 			}
 		}
 		impl<T: Basis> FromChange<Sum<T, { $($num +)+ 0 }>> for Sum<T, { $($num +)+ 0 + 1 }> {

@@ -41,8 +41,8 @@ impl<T: Basis> Flux for Constant<T> {
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
-	fn change(&self) -> Self::Change {
-		Constant::zero()
+	fn change(&self, basis: Self::Basis) -> Self::Kind {
+		basis.into()
 	}
 }
 

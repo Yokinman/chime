@@ -372,7 +372,7 @@ mod _change_impls {
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
 		}
-		fn change(&self) -> Self::Change {
+		fn change(&self, _basis: Self::Basis) -> Self::Kind {
 			self.rate.per(self.unit)
 		}
 	}
@@ -411,7 +411,7 @@ pub trait Flux {
 	type Basis: Basis;
 	
 	/// ...
-	type Change: FluxKind<Basis = Self::Basis>;
+	type Change: FluxKind;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind<Basis = Self::Basis, Change = Self::Change>;
@@ -437,21 +437,27 @@ pub trait Flux {
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
 	///   
-	fn change(&self) -> Self::Change;
+	fn change(&self, basis: Self::Basis) -> Self::Kind;
+	// ??? Add `FluxKind::Deriv` and make ths return `Self::Kind::Deriv`. Apply
+	// to basis automatically in `Self::to_kind`.
+	// Problems:
+	// - Can't do a blanket `impl FluxKind for Sum<T, D>`.
+	// - Supporting operations that aren't just `basis + change` might be weird.
+	//   e.g. `basis * change` or some kind of `min(basis + change, limit)`.
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		Self::Kind::from_change(self.basis(), self.change())
+		self.change(self.basis())
 	}
 	
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> Self::Kind
+	fn per(&self, unit: Time) -> <Self::Kind as FluxIntegral>::Integ
 	where
-		Self::Kind: std::ops::Mul<Scalar, Output=Self::Kind>,
+		Self::Kind: FluxIntegral,
 	{
-		self.to_kind() * Scalar::from(unit.as_secs_f64().recip())
+		(self.to_kind() * Scalar::from(unit.as_secs_f64().recip())).integ()
 	}
 }
 
@@ -465,8 +471,8 @@ where
 	fn basis(&self) -> Self::Basis {
 		self.clone()
 	}
-	fn change(&self) -> Self::Change {
-		constant::Constant::zero()
+	fn change(&self, basis: Self::Basis) -> Self::Kind {
+		basis.into()
 	}
 }
 
@@ -535,12 +541,12 @@ mod tests {
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
-		fn change(&self) -> Self::Change {
-			let mut change = self.spd.per(SEC);
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			let mut kind = basis.to_kind() + (&self.spd).per(SEC);
 			for spd in &self.misc {
-				change = change + spd.per(SEC);
+				kind = kind + spd.per(SEC);
 			}
-			change
+			kind
 		}
 	}
 	

@@ -207,8 +207,10 @@ mod _array_impls {
 		fn basis(&self) -> Self::Basis {
 			self.each_ref().map(T::basis)
 		}
-		fn change(&self) -> Self::Change {
-			self.each_ref().map(T::change)
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			let mut basis_iter = basis.into_iter();
+			self.each_ref()
+				.map(|x| x.change(basis_iter.next().unwrap()))
 		}
 	}
 	

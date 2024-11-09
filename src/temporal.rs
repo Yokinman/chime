@@ -465,8 +465,8 @@ mod _temporal_ref_impls {
 		fn basis(&self) -> Self::Basis {
 			T::basis(self.0)
 		}
-		fn change(&self) -> Self::Change {
-			T::change(self.0)
+		fn change(&self, basis: Self::Basis) -> Self::Kind {
+			T::change(self.0, basis)
 		}
 	}
 	
