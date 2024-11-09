@@ -434,12 +434,22 @@ pub trait Flux {
 	///   ```
 	///   
 	fn change(&self, basis: Self::Basis) -> Self::Kind;
-	// ??? Add `FluxKind::Deriv` and make ths return `Self::Kind::Deriv`. Apply
-	// to basis automatically in `Self::to_kind`.
+	// ??? Add `Flux::Change` and make this return `Self::Change`. Apply to
+	// basis automatically in `Self::to_kind`.
 	// Problems:
-	// - Can't do a blanket `impl FluxKind for Sum<T, D>`.
+	// - `change` wouldn't be the same as derivatives, which are inherently
+	//   integration-based and wouldn't support simple `Prod<T, D>`-style change
+	//   in a simple/painless way.
+	// - If this isn't a derivative, what's the point of having it this way?
+	//   The utility of accessing the change? Just for the elegance/simplicity?
+	//   I'll have to see if it all seems necessary later.
+	// - Essentially requires a new `FluxKind` for constants with zero change.
+	//   (`Nil<impl FluxKind>`)
+	// - Wouldn't be able to use `Constant<T>` as a direct change, although it
+	//   could be converted by impls like `From<Constant<T>> for Sum<T, 0>`.
 	// - Supporting operations that aren't just `basis + change` might be weird.
-	//   e.g. `basis * change` or some kind of `min(basis + change, limit)`.
+	//   (e.g. `basis * change` or some kind of `min(basis + change, limit)`).
+	// - Can't do a blanket `impl Flux for Sum<T, D>`.
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
