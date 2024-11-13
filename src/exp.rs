@@ -18,6 +18,15 @@ impl<T: Linear> Linear for Exp<T> {
 	fn sub(self, other: Self) -> Self {
 		Self(self.0.sub(other.0))
 	}
+	fn mul(self, other: Self) -> Self {
+		Self(self.0.mul(other.0))
+	}
+	fn div(self, other: Self) -> Self {
+		Self(self.0.div(other.0))
+	}
+	fn pow(self, other: Self) -> Self {
+		Self(self.0.pow(other.0))
+	}
 	fn mul_scalar(self, scalar: Scalar) -> Self {
 		Self(self.0.mul_scalar(scalar))
 	}
@@ -31,6 +40,9 @@ impl<T: Linear> Linear for Exp<T> {
 	}
 	fn sign(&self) -> Self {
 		Exp(self.0.sign())
+	}
+	fn from_f64(n: f64) -> Self {
+		Exp(T::from_f64(n))
 	}
 	fn zero() -> Self {
 		Self(<T as Linear>::zero())

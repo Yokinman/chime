@@ -101,6 +101,12 @@ pub trait Linear: Clone + Debug + 'static {
 	
 	fn sub(self, other: Self) -> Self;
 	
+	fn mul(self, other: Self) -> Self;
+	
+	fn div(self, other: Self) -> Self;
+	
+	fn pow(self, other: Self) -> Self;
+	
 	fn mul_scalar(self, scalar: Scalar) -> Self;
 	
 	fn sqr(self) -> Self;
@@ -108,6 +114,8 @@ pub trait Linear: Clone + Debug + 'static {
 	fn sqrt(self) -> Self;
 	
 	fn sign(&self) -> Self;
+	
+	fn from_f64(n: f64) -> Self;
 	
 	fn zero() -> Self;
 	
@@ -129,6 +137,15 @@ mod _linear_impls {
 		fn sub(self, other: Self) -> Self {
 			self - other
 		}
+		fn mul(self, other: Self) -> Self {
+			self * other
+		}
+		fn div(self, other: Self) -> Self {
+			self / other
+		}
+		fn pow(self, other: Self) -> Self {
+			self.powf(other)
+		}
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
@@ -142,6 +159,9 @@ mod _linear_impls {
 			// What if sign is 0
 			self.signum()
 		}
+		fn from_f64(n: f64) -> Self {
+			n
+		}
 		fn zero() -> Self {
 			0.
 		}
@@ -154,6 +174,15 @@ mod _linear_impls {
 		fn sub(self, other: Self) -> Self {
 			self - other
 		}
+		fn mul(self, other: Self) -> Self {
+			self * other
+		}
+		fn div(self, other: Self) -> Self {
+			self / other
+		}
+		fn pow(self, other: Self) -> Self {
+			self.powf(other)
+		}
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
@@ -165,6 +194,9 @@ mod _linear_impls {
 		}
 		fn sign(&self) -> Self {
 			self.signum()
+		}
+		fn from_f64(n: f64) -> Self {
+			n as f32
 		}
 		fn zero() -> Self {
 			0.
@@ -186,6 +218,27 @@ mod _linear_impls {
 				x.sub(iter.next().unwrap_unchecked())
 			})
 		}
+		fn mul(self, other: Self) -> Self {
+			let mut iter = other.into_iter();
+			self.map(|x| unsafe {
+				// SAFETY: `self` is the same length as `other`.
+				x.mul(iter.next().unwrap_unchecked())
+			})
+		}
+		fn div(self, other: Self) -> Self {
+			let mut iter = other.into_iter();
+			self.map(|x| unsafe {
+				// SAFETY: `self` is the same length as `other`.
+				x.div(iter.next().unwrap_unchecked())
+			})
+		}
+		fn pow(self, other: Self) -> Self {
+			let mut iter = other.into_iter();
+			self.map(|x| unsafe {
+				// SAFETY: `self` is the same length as `other`.
+				x.pow(iter.next().unwrap_unchecked())
+			})
+		}
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self.map(|x| x.mul_scalar(scalar))
 		}
@@ -197,6 +250,9 @@ mod _linear_impls {
 		}
 		fn sign(&self) -> Self {
 			self.each_ref().map(T::sign)
+		}
+		fn from_f64(n: f64) -> Self {
+			std::array::from_fn(|_| T::from_f64(n))
 		}
 		fn zero() -> Self {
 			std::array::from_fn(|_| Linear::zero())
@@ -460,6 +516,18 @@ mod glam_stuff {
 				fn sub(self, other: Self) -> Self {
 					self - other
 				}
+				fn mul(self, other: Self) -> Self {
+					self * other
+				}
+				fn div(self, other: Self) -> Self {
+					self / other
+				}
+				fn pow(mut self, other: Self) -> Self {
+					for i in 0..$size {
+						self[i] = self[i].powf(other[i]);
+					}
+					self
+				}
 				fn mul_scalar(self, scalar: Scalar) -> Self {
 					self * scalar
 				}
@@ -471,6 +539,9 @@ mod glam_stuff {
 				}
 				fn sign(&self) -> Self {
 					self.signum()
+				}
+				fn from_f64(n: f64) -> Self {
+					Self::splat(n as $value)
 				}
 				fn zero() -> Self {
 					Self::ZERO
