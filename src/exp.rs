@@ -30,6 +30,9 @@ impl<T: Linear> Linear for Exp<T> {
 	fn mul_scalar(self, scalar: Scalar) -> Self {
 		Self(self.0.mul_scalar(scalar))
 	}
+	fn pow_scalar(self, scalar: Scalar) -> Self {
+		Self(self.0.pow_scalar(scalar))
+	}
 	fn sqr(mut self) -> Self {
 		self.0 = self.0.sqr();
 		self

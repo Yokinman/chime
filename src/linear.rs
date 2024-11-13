@@ -121,6 +121,8 @@ pub trait Linear: Clone + Debug + 'static {
 	
 	fn mul_scalar(self, scalar: Scalar) -> Self;
 	
+	fn pow_scalar(self, scalar: Scalar) -> Self;
+	
 	fn sqr(self) -> Self;
 	
 	fn sqrt(self) -> Self;
@@ -161,6 +163,9 @@ mod _linear_impls {
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
 		}
+		fn pow_scalar(self, scalar: Scalar) -> Self {
+			self.powf(scalar.into())
+		}
 		fn sqr(self) -> Self {
 			self * self
 		}
@@ -197,6 +202,9 @@ mod _linear_impls {
 		}
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self * scalar
+		}
+		fn pow_scalar(self, scalar: Scalar) -> Self {
+			self.powf(scalar.into())
 		}
 		fn sqr(self) -> Self {
 			self * self
@@ -253,6 +261,9 @@ mod _linear_impls {
 		}
 		fn mul_scalar(self, scalar: Scalar) -> Self {
 			self.map(|x| x.mul_scalar(scalar))
+		}
+		fn pow_scalar(self, scalar: Scalar) -> Self {
+			self.map(|x| x.pow_scalar(scalar))
 		}
 		fn sqr(self) -> Self {
 			self.map(T::sqr)
@@ -542,6 +553,9 @@ mod glam_stuff {
 				}
 				fn mul_scalar(self, scalar: Scalar) -> Self {
 					self * scalar
+				}
+				fn pow_scalar(self, scalar: Scalar) -> Self {
+					self.powf(scalar.into())
 				}
 				fn sqr(self) -> Self {
 					self.powf(2.)
