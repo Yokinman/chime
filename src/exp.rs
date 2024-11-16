@@ -90,6 +90,27 @@ impl LinearIso<Exp<f64>> for u64 {
 	}
 }
 
+impl<T> FluxChange for Exp<T>
+where
+	T: FluxChange
+{
+	type Basis = T::Basis;
+	type Poly = Exp<T::Poly>;
+	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+		Exp(self.0.into_poly(basis))
+	}
+}
+
+impl<T> FluxChangeUp for Exp<T>
+where
+	T: FluxChangeUp
+{
+	type Up = Exp<T::Up>;
+	fn up(self, basis: Self::Basis) -> Self::Up {
+		Exp(self.0.up(basis))
+	}
+}
+
 impl<T> FluxKind for Exp<T>
 where
 	T: FluxKind
