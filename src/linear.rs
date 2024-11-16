@@ -123,6 +123,10 @@ pub trait Linear: Clone + Debug + 'static {
 	
 	fn pow_scalar(self, scalar: Scalar) -> Self;
 	
+	fn exp(self) -> Self;
+	
+	fn ln(self) -> Self;
+	
 	fn sqr(self) -> Self;
 	
 	fn sqrt(self) -> Self;
@@ -166,6 +170,12 @@ mod _linear_impls {
 		fn pow_scalar(self, scalar: Scalar) -> Self {
 			self.powf(scalar.into())
 		}
+		fn exp(self) -> Self {
+			f64::exp(self)
+		}
+		fn ln(self) -> Self {
+			f64::ln(self)
+		}
 		fn sqr(self) -> Self {
 			self * self
 		}
@@ -205,6 +215,12 @@ mod _linear_impls {
 		}
 		fn pow_scalar(self, scalar: Scalar) -> Self {
 			self.powf(scalar.into())
+		}
+		fn exp(self) -> Self {
+			f32::exp(self)
+		}
+		fn ln(self) -> Self {
+			f32::ln(self)
 		}
 		fn sqr(self) -> Self {
 			self * self
@@ -264,6 +280,12 @@ mod _linear_impls {
 		}
 		fn pow_scalar(self, scalar: Scalar) -> Self {
 			self.map(|x| x.pow_scalar(scalar))
+		}
+		fn exp(self) -> Self {
+			self.map(T::exp)
+		}
+		fn ln(self) -> Self {
+			self.map(T::ln)
 		}
 		fn sqr(self) -> Self {
 			self.map(T::sqr)
@@ -556,6 +578,15 @@ mod glam_stuff {
 				}
 				fn pow_scalar(self, scalar: Scalar) -> Self {
 					self.powf(scalar.into())
+				}
+				fn exp(self) -> Self {
+					<$vec>::exp(self)
+				}
+				fn ln(mut self) -> Self {
+					for i in 0..$size {
+						self[i] = self[i].ln();
+					}
+					self
 				}
 				fn sqr(self) -> Self {
 					self.powf(2.)
