@@ -5,6 +5,37 @@ use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use crate::{*, kind::*, linear::*};
 use crate::kind::constant::Constant;
 
+/// ...
+pub struct SumChange<T, const DEGREE: usize>([T; DEGREE]);
+
+impl<T, const D: usize> FluxChange for SumChange<T, D>
+where
+	T: Basis
+{
+	type Basis = T;
+	type Poly = Sum<T, D>;
+	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+		let mut i = 0.;
+		let mut n = 1.;
+		let terms = self.0.map(|term| {
+			i += 1.;
+			n *= i;
+			T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / n)))
+		});
+		Sum::new(basis, terms)
+	}
+}
+
+impl<T> FluxChangeUp for SumChange<T, 0>
+where
+	T: Basis
+{
+	type Up = SumChange<T, 1>;
+	fn up(self, basis: Self::Basis) -> Self::Up {
+		SumChange([basis])
+	}
+}
+
 /// Summation over time.
 /// 
 /// - `Sum<0>`: `a`
@@ -227,6 +258,21 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
+		impl<T: Basis> FluxChangeUp for SumChange<T, { $($num +)+ 0 }> {
+			type Up = SumChange<T, { $($num +)+ 1 }>;
+			fn up(self, basis: Self::Basis) -> Self::Up {
+				SumChange(unsafe {
+					// SAFETY: This seems to work. Maybe I'll validate this
+					// later, lol.
+					let mut terms = std::mem::MaybeUninit::uninit();
+					let ptr = terms.as_mut_ptr() as *mut T;
+					ptr.write(basis);
+					let ptr = ptr.add({ $($num +)+ 0 }) as *mut [T; { $($num +)+ 0 }];
+					ptr.write(self.0);
+					terms.assume_init()
+				})
+			}
+		}
 		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
 			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self) -> Self::Integ {
