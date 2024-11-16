@@ -367,6 +367,7 @@ mod _change_impls {
 		T: Flux<Kind: FluxIntegral>,
 	{
 		type Basis = T::Basis;
+		type Change = T::Change;
 		type Kind = <T::Kind as FluxIntegral>::Integ;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
@@ -408,6 +409,9 @@ mod _change_impls {
 pub trait Flux {
 	/// ...
 	type Basis: Basis;
+	
+	/// ...
+	type Change: FluxChange;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind<Basis = Self::Basis>;
@@ -472,6 +476,7 @@ where
 	T: Basis + Simple
 {
 	type Basis = Self;
+	type Change = constant::Nil<Self>;
 	type Kind = constant::Constant<Self>;
 	fn basis(&self) -> Self::Basis {
 		self.clone()
@@ -525,7 +530,7 @@ mod tests {
 	use super::*;
 	use crate::time;
 	use crate::time::{SEC, TimeRanges};
-	use crate::kind::sum::Sum;
+	use crate::kind::sum::{Sum, SumChange};
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
@@ -541,6 +546,7 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Basis = f64;
+		type Change = SumChange<f64, 4>;
 		type Kind = Sum<f64, 4>;
 		fn basis(&self) -> Self::Basis {
 			self.value

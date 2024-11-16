@@ -123,6 +123,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let trait_impl = quote::quote!{
 		impl #impl_params #chime::Flux for #type_name #type_params #impl_clause {
 			type Basis = #basis_type;
+			type Change = #chime::kind::constant::Nil::<#basis_type>;
 			type Kind = #kind_type;
 			fn basis(&self) -> Self::Basis {
 				self.#basis_member

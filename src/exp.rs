@@ -4,7 +4,7 @@
 //! summation over time to multiplication over time.
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::FluxKind;
+use crate::kind::{FluxChange, FluxChangeUp, FluxKind};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -135,6 +135,7 @@ where
 	T: Flux
 {
 	type Basis = T::Basis;
+	type Change = Exp<T::Change>;
 	type Kind = Exp<T::Kind>;
 	fn basis(&self) -> Self::Basis {
 		self.0.basis()
