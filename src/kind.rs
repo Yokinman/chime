@@ -18,10 +18,41 @@ pub trait FluxChange {
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
 }
 
+mod _flux_change_impls {
+	use super::FluxChange;
+	
+	impl<T, const N: usize> FluxChange for [T; N]
+	where
+		T: FluxChange
+	{
+		type Basis = [T::Basis; N];
+		type Poly = [T::Poly; N];
+		fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+			let mut basis_iter = basis.into_iter();
+			self.map(|x| x.into_poly(basis_iter.next().unwrap()))
+		}
+	}
+}
+
 /// ...
 pub trait FluxChangeUp: FluxChange {
 	type Up: FluxChange<Basis = Self::Basis>;
 	fn up(self, basis: Self::Basis) -> Self::Up;
+}
+
+mod _flux_change_up_impls {
+	use super::FluxChangeUp;
+	
+	impl<T, const N: usize> FluxChangeUp for [T; N]
+	where
+		T: FluxChangeUp
+	{
+		type Up = [T::Up; N];
+		fn up(self, basis: Self::Basis) -> Self::Up {
+			let mut basis_iter = basis.into_iter();
+			self.map(|x| x.up(basis_iter.next().unwrap()))
+		}
+	}
 }
 
 /// An abstract description of change over time.
