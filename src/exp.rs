@@ -3,6 +3,8 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
+use crate::{Flux, ToMoment, ToMomentMut};
+use crate::kind::FluxKind;
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -58,8 +60,6 @@ impl<T: Linear> Linear for Exp<T> {
 	}
 }
 
-impl<T> Simple for Exp<T> {}
-
 impl<T: Linear> Default for Exp<T> {
 	fn default() -> Self {
 		Self(<T as Linear>::zero())
@@ -87,5 +87,58 @@ impl LinearIso<Exp<f64>> for u64 {
 	}
 	fn from_linear(value: Exp<f64>) -> u64 {
 		value.0.exp().round() as u64
+	}
+}
+
+impl<T> FluxKind for Exp<T>
+where
+	T: FluxKind
+{
+	const DEGREE: usize = T::DEGREE;
+	fn with_basis(basis: Self::Basis) -> Self {
+		Self(T::with_basis(Basis::from_inner(basis.into_inner().ln())))
+	}
+	fn add_basis(self, basis: Self::Basis) -> Self {
+		Self(self.0.add_basis(Basis::from_inner(basis.into_inner().ln())))
+	}
+	fn deriv(self) -> Self {
+		Self(self.0.deriv())
+	}
+	fn eval(&self, time: Scalar) -> Self::Basis {
+		Basis::from_inner(self.0.eval(time).into_inner().exp())
+	}
+}
+
+impl<T> Flux for Exp<T>
+where
+	T: Flux
+{
+	type Basis = T::Basis;
+	type Kind = Exp<T::Kind>;
+	fn basis(&self) -> Self::Basis {
+		self.0.basis()
+	}
+	fn change(&self, basis: Self::Basis) -> Self::Kind {
+		Exp(self.0.change(basis))
+	}
+}
+
+impl<T> ToMoment for Exp<T>
+where
+	T: ToMoment
+{
+	type Moment<'a> = Exp<T::Moment<'a>> where Self: 'a;
+	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		Exp(self.0.to_moment(time))
+	}
+}
+
+impl<T> ToMomentMut for Exp<T>
+where
+	T: ToMomentMut
+{
+	type MomentMut<'a> = Exp<T::MomentMut<'a>> where Self: 'a;
+	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		Exp(self.0.to_moment_mut(time))
 	}
 }

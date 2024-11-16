@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
-use crate::{*, kind::*, linear::*, exp::*};
+use crate::{*, kind::*, linear::*};
 use crate::kind::constant::Constant;
 
 /// Summation over time.
@@ -670,22 +670,6 @@ where
 		}
 		
 		root_list
-	}
-}
-
-impl<T, const D: usize> Roots for Sum<Exp<T>, D>
-where
-	T: Linear + Basis,
-	Sum<T, D>: FluxKind<Basis=T> + Roots
-{
-	type Output = <Sum<T, D> as Roots>::Output;
-	fn roots(self) -> <Self as Roots>::Output {
-		let mut b_poly = Sum::zero();
-		let mut iter = self.into_iter();
-		for item in b_poly.iter_mut() {
-			*item = iter.next().unwrap().0;
-		}
-		b_poly.roots()
 	}
 }
 
