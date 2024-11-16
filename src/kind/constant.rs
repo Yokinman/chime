@@ -2,8 +2,28 @@
 
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::FluxKind;
+use crate::kind::{FluxChange, FluxKind};
 use crate::linear::{Basis, Linear, Scalar, Vector};
+
+/// ...
+pub struct Nil<T>(std::marker::PhantomData<T>);
+
+impl<T> Default for Nil<T> {
+	fn default() -> Self {
+		Self(std::marker::PhantomData)
+	}
+}
+
+impl<T> FluxChange for Nil<T>
+where
+	T: Basis
+{
+	type Basis = T;
+	type Poly = Constant<T>;
+	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+		Constant(basis)
+	}
+}
 
 /// No change over time.
 /// 
