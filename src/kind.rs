@@ -11,6 +11,19 @@ use crate::{Flux, ToMomentMut};
 pub mod constant;
 pub mod sum;
 
+/// ...
+pub trait FluxChange {
+	type Basis: Basis;
+	type Poly: FluxKind<Basis = Self::Basis>;
+	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
+}
+
+/// ...
+pub trait FluxChangeUp: FluxChange {
+	type Up: FluxChange<Basis = Self::Basis>;
+	fn up(self, basis: Self::Basis) -> Self::Up;
+}
+
 /// An abstract description of change over time.
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
