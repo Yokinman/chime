@@ -808,15 +808,15 @@ where
 
 #[test]
 fn consistent_sign_pred() {
-	use crate::kind::sum::Sum;
+	use crate::kind::sum::SumPoly;
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
 		let poly = Temporal::new([
-			Sum::new(-2., [5., -2.]),
-			Sum::zero()
+			SumPoly::new(-2., [5., -2.]),
+			SumPoly::zero()
 		], time);
 		poly.when_dis(
-			&Temporal::new([Sum::<f64, 2>::zero(); 2], time),
+			&Temporal::new([SumPoly::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
 			&Temporal::new(1., time),
 		).into_ranges(Time::ZERO)

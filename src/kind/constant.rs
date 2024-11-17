@@ -62,7 +62,7 @@ where
 /// No change over time.
 /// 
 /// Equivalent "constant" flux kinds should implement both `Into<Constant<T>>`
-/// and `From<Constant<T>>` (e.g. `Sum<T, 0>`).
+/// and `From<Constant<T>>` (e.g. `SumPoly<T, 0>`).
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Constant<T>(pub T);
 

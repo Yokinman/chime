@@ -413,7 +413,7 @@ pub trait Flux {
 	/// ...
 	type Change: FluxChange<Basis = Self::Basis, Poly = Self::Kind>;
 	
-	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
+	/// The kind of change (e.g. `Constant<T>`, `SumPoly<T, D>`, etc.).
 	type Kind: FluxKind<Basis = Self::Basis>;
 	
 	/// The starting point of this type's change over time.
@@ -429,10 +429,10 @@ pub trait Flux {
 	///   These describe integration over time, for example:
 	///   
 	///   ```text
-	///   accum + 2_f64.per(time::SEC) -> FluxAccum<Sum<f64, 1>>
+	///   accum + 2_f64.per(time::SEC) -> FluxAccum<SumPoly<f64, 1>>
 	///   // equivalent to `b+2t` where `b` is [`Self::basis`] and `t` is time.
 	///   
-	///   accum + Sum(1_f64, [2., 3.]).per(time::SEC) -> FluxAccum<Sum<f64, 3>>
+	///   accum + SumPoly(1_f64, [2., 3.]).per(time::SEC) -> FluxAccum<SumPoly<f64, 3>>
 	///   // b + int_0^t (1 + 2x + 3x^2) dt -> b + t + t^2 + t^3
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
@@ -514,7 +514,7 @@ mod tests {
 	use super::*;
 	use crate::time;
 	use crate::time::{SEC, TimeRanges};
-	use crate::kind::sum::{Sum, SumChange};
+	use crate::kind::sum::{SumPoly, SumChange};
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
@@ -531,7 +531,7 @@ mod tests {
 	impl Flux for Pos {
 		type Basis = f64;
 		type Change = SumChange<f64, 4>;
-		type Kind = Sum<f64, 4>;
+		type Kind = SumPoly<f64, 4>;
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
@@ -695,7 +695,7 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.to_kind(),
-			Temporal::new(Sum::new(-63.15, [
+			Temporal::new(SumPoly::new(-63.15, [
 				-11.9775,
 				0.270416666666666,
 				0.0475,
@@ -706,7 +706,7 @@ mod tests {
 			pos.moment_mut(20*SEC);
 			assert_poly!(
 				pos.to_kind(),
-				Temporal::new(Sum::new(-112.55, [
+				Temporal::new(SumPoly::new(-112.55, [
 					 6.0141666666666666666,
 					 1.4454166666666666666,
 					 0.0308333333333333333,
@@ -717,7 +717,7 @@ mod tests {
 		pos.moment_mut(0*SEC);
 		assert_poly!(
 			pos.to_kind(),
-			Temporal::new(Sum::new(32., [
+			Temporal::new(SumPoly::new(32., [
 				-1.4691666666666666666,
 				-1.4045833333333333333,
 				 0.0641666666666666666,
@@ -726,8 +726,8 @@ mod tests {
 		);
 		
 		assert_poly!(
-			Temporal::new(Sum::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).at_time(320*time::MILLISEC),
-			Temporal::new(Sum::new(-29.341750272_f64, [26.2289216, -3.13568, -1.616, 0.3]), 320*time::MILLISEC)
+			Temporal::new(SumPoly::new(-0.8_f64, [-2.7, 3.4, 2.8, 0.3]), 4000*time::MILLISEC).at_time(320*time::MILLISEC),
+			Temporal::new(SumPoly::new(-29.341750272_f64, [26.2289216, -3.13568, -1.616, 0.3]), 320*time::MILLISEC)
 		);
 	}
 	

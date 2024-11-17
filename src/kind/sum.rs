@@ -14,7 +14,7 @@ where
 	T: Basis
 {
 	type Basis = T;
-	type Poly = Sum<T, D>;
+	type Poly = SumPoly<T, D>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		let mut i = 0.;
 		let mut n = 1.;
@@ -23,7 +23,7 @@ where
 			n *= i;
 			T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / n)))
 		});
-		Sum::new(basis, terms)
+		SumPoly::new(basis, terms)
 	}
 }
 
@@ -49,15 +49,15 @@ where
 
 /// Summation over time.
 /// 
-/// - `Sum<0>`: `a`
-/// - `Sum<1>`: `a + bx`
-/// - `Sum<2>`: `a + bx + cx^2`
+/// - `SumPoly<0>`: `a`
+/// - `SumPoly<1>`: `a + bx`
+/// - `SumPoly<2>`: `a + bx + cx^2`
 /// - etc.
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct Sum<T, const DEGREE: usize>(T, [T; DEGREE]);
+pub struct SumPoly<T, const DEGREE: usize>(T, [T; DEGREE]);
 
-impl<T, const D: usize> Sum<T, D> {
+impl<T, const D: usize> SumPoly<T, D> {
 	pub fn new(basis: T, terms: [T; D]) -> Self {
 		Self(basis, terms)
 	}
@@ -77,13 +77,13 @@ impl<T, const D: usize> Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> From<T> for Sum<T, D> {
+impl<T: Basis, const D: usize> From<T> for SumPoly<T, D> {
 	fn from(value: T) -> Self {
 		Self::with_basis(value)
 	}
 }
 
-impl<T, const DEG: usize> Index<usize> for Sum<T, DEG> {
+impl<T, const DEG: usize> Index<usize> for SumPoly<T, DEG> {
 	type Output = T;
 	fn index(&self, index: usize) -> &Self::Output {
 		if index == 0 {
@@ -94,7 +94,7 @@ impl<T, const DEG: usize> Index<usize> for Sum<T, DEG> {
 	}
 }
 
-impl<T, const D: usize> IndexMut<usize> for Sum<T, D> {
+impl<T, const D: usize> IndexMut<usize> for SumPoly<T, D> {
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
 		if index == 0 {
 			&mut self.0
@@ -104,7 +104,7 @@ impl<T, const D: usize> IndexMut<usize> for Sum<T, D> {
 	}
 }
 
-impl<T, const D: usize> PartialEq for Sum<T, D>
+impl<T, const D: usize> PartialEq for SumPoly<T, D>
 where
 	T: Basis,
 	T::Inner: PartialEq,
@@ -122,7 +122,7 @@ where
 	}
 }
 
-impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
+impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
@@ -138,7 +138,7 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumChange<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> Flux for Sum<T, D> {
+impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 	type Basis = T;
 	type Change = SumChange<T, D>;
 	type Kind = Self;
@@ -157,7 +157,7 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> ToMoment for Sum<T, D> {
+impl<T: Basis, const D: usize> ToMoment for SumPoly<T, D> {
 	type Moment<'a> = Self;
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 		let mut sum = self.clone();
@@ -166,7 +166,7 @@ impl<T: Basis, const D: usize> ToMoment for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
+impl<T: Basis, const D: usize> ToMomentMut for SumPoly<T, D> {
 	type MomentMut<'a> = &'a mut Self;
 	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
 		if time == Scalar::from(0.) {
@@ -183,7 +183,7 @@ impl<T: Basis, const D: usize> ToMomentMut for Sum<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
+impl<T: Basis, const D: usize> FluxKind for SumPoly<T, D> {
 	const DEGREE: usize = D;
 	
 	fn with_basis(value: Self::Basis) -> Self {
@@ -219,13 +219,13 @@ impl<T: Basis, const D: usize> FluxKind for Sum<T, D> {
 	}
 }
 
-impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for Sum<T, DEGREE>
+impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for SumPoly<T, DEGREE>
 where
 	T: Vector<SIZE>
 {
-	type Output = Sum<T::Output, DEGREE>;
+	type Output = SumPoly<T::Output, DEGREE>;
 	fn index(&self, index: usize) -> Self::Output {
-		Sum(
+		SumPoly(
 			self.0.index(index),
 			std::array::from_fn(|i| self.1[i].index(index))
 		)
@@ -233,19 +233,19 @@ where
 }
 
 #[allow(clippy::from_over_into)]
-impl<T: Basis> Into<Constant<T>> for Sum<T, 0> {
+impl<T: Basis> Into<Constant<T>> for SumPoly<T, 0> {
 	fn into(self) -> Constant<T> {
 		Constant::from(self.0)
 	}
 }
 
-impl<T: Basis> From<Constant<T>> for Sum<T, 0> {
+impl<T: Basis> From<Constant<T>> for SumPoly<T, 0> {
 	fn from(Constant(value): Constant<T>) -> Self {
 		Self::from(value)
 	}
 }
 
-impl<A, B, const D: usize> Add<B> for Sum<A, D>
+impl<A, B, const D: usize> Add<B> for SumPoly<A, D>
 where
 	A: Basis,
 	B: FluxKind + Into<Constant<B::Basis>>,
@@ -259,18 +259,18 @@ where
 }
 
 impl<T: Basis> FluxIntegral for Constant<T> {
-	type Integ = Sum<T, 1>;
+	type Integ = SumPoly<T, 1>;
 	fn integ(self) -> Self::Integ {
 		let Constant(value) = self;
-		Sum::new(T::zero(), [value])
+		SumPoly::new(T::zero(), [value])
 	}
 }
 
-impl<T: Basis> FluxIntegral for Sum<T, 0> {
-	type Integ = Sum<T, 1>;
+impl<T: Basis> FluxIntegral for SumPoly<T, 0> {
+	type Integ = SumPoly<T, 1>;
 	fn integ(self) -> Self::Integ {
-		let Sum(value, _) = self;
-		Sum(T::zero(), [value])
+		let SumPoly(value, _) = self;
+		SumPoly(T::zero(), [value])
 	}
 }
 
@@ -299,8 +299,8 @@ macro_rules! impl_deg_order {
 				})
 			}
 		}
-		impl<T: Basis> FluxIntegral for Sum<T, { $($num +)+ 0 }> {
-			type Integ = Sum<T, { $($num +)+ 0 + 1 }>;
+		impl<T: Basis> FluxIntegral for SumPoly<T, { $($num +)+ 0 }> {
+			type Integ = SumPoly<T, { $($num +)+ 0 + 1 }>;
 			fn integ(self) -> Self::Integ {
 				debug_assert_eq!(
 					std::mem::size_of::<Self>(),
@@ -316,7 +316,7 @@ macro_rules! impl_deg_order {
 					i += 1.;
 					T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / i)))
 				});
-				Sum(T::zero(), terms)
+				SumPoly(T::zero(), terms)
 			}
 		}
 		impl<A, B> Add<SumChange<B, { $($num +)+ 0 }>> for SumChange<A, 0>
@@ -345,29 +345,29 @@ macro_rules! impl_deg_order {
 				}))
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
+		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, 0>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
-				Sum::new(
+			type Output = SumPoly<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
+				SumPoly::new(
 					A::from_inner(rhs.0.into_inner()),
 					rhs.1.map(|x| A::from_inner(Basis::into_inner(x))),
 				)
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
+		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, { $($num +)+ 0 }>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+			type Output = SumPoly<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
-				Sum(
+				SumPoly(
 					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
 					std::array::from_fn(|_| unsafe {
 						// SAFETY: Sizes of all input & output arrays are equal.
@@ -377,17 +377,17 @@ macro_rules! impl_deg_order {
 				)
 			}
 		}
-		impl<T> Mul for Sum<T, { $($num +)+ 0 }> // Squaring
+		impl<T> Mul for SumPoly<T, { $($num +)+ 0 }> // Squaring
 		where
 			T: Basis,
 			T::Inner: Mul<Output = T::Inner>,
 		{
-			type Output = Sum<T, { 2 * ($($num +)+ 0) }>;
+			type Output = SumPoly<T, { 2 * ($($num +)+ 0) }>;
 			#[allow(clippy::suspicious_arithmetic_impl)]
 			fn mul(self, rhs: Self) -> Self::Output {
 				const SIZE: usize = $($num +)+ 0;
-				let Sum(a_value, a_terms) = self;
-				let Sum(b_value, b_terms) = rhs;
+				let SumPoly(a_value, a_terms) = self;
+				let SumPoly(b_value, b_terms) = rhs;
 				let a_value = a_value.into_inner();
 				let b_value = b_value.into_inner();
 				let a_terms = a_terms.map(T::into_inner);
@@ -408,7 +408,7 @@ macro_rules! impl_deg_order {
 						x
 					}
 				));
-				Sum(T::from_inner(a_value * b_value), terms)
+				SumPoly(T::from_inner(a_value * b_value), terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
@@ -466,16 +466,16 @@ macro_rules! impl_deg_add {
 				}))
 			}
 		}
-		impl<A, B> Add<Sum<B, $a>> for Sum<A, { $($num +)+ 0 }>
+		impl<A, B> Add<SumPoly<B, $a>> for SumPoly<A, { $($num +)+ 0 }>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, $a>) -> Self::Output {
+			type Output = SumPoly<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<B, $a>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
-				Sum(
+				SumPoly(
 					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `a` is the same size as the output array, and
@@ -490,16 +490,16 @@ macro_rules! impl_deg_add {
 				)
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
+		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, $a>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+			type Output = SumPoly<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
-				Sum::new(
+				SumPoly::new(
 					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `b` is the same size as the output array, and
@@ -531,7 +531,7 @@ where
 	}
 }
 
-impl<K, T, const N: usize> Sub<K> for Sum<T, N>
+impl<K, T, const N: usize> Sub<K> for SumPoly<T, N>
 where
 	K: FluxKind + Mul<Scalar, Output = K>,
 	T: Basis,
@@ -543,25 +543,25 @@ where
 	}
 }
 
-impl Roots for Sum<f64, 0> {
+impl Roots for SumPoly<f64, 0> {
 	type Output = [f64; 0];
 	fn roots(self) -> <Self as Roots>::Output {
 		[]
 	}
 }
 
-impl Roots for Sum<f64, 1> {
+impl Roots for SumPoly<f64, 1> {
 	type Output = [f64; 1];
 	fn roots(self) -> <Self as Roots>::Output {
-		let Sum(a, [b]) = self;
+		let SumPoly(a, [b]) = self;
 		[-a / b]
 	}
 }
 
-impl Roots for Sum<f64, 2> {
+impl Roots for SumPoly<f64, 2> {
 	type Output = [f64; 2];
 	fn roots(self) -> <Self as Roots>::Output {
-		let Sum(a, [b, c]) = self;
+		let SumPoly(a, [b, c]) = self;
 		let mut n = -b / c;
 		
 		 // Precision Breakdown (Discriminant Quotient):
@@ -581,10 +581,10 @@ impl Roots for Sum<f64, 2> {
 	}
 }
 
-impl Roots for Sum<f64, 3> {
+impl Roots for SumPoly<f64, 3> {
 	type Output = [f64; 3];
 	fn roots(self) -> <Self as Roots>::Output {
-		let Sum(a, [b, c, d]) = self;
+		let SumPoly(a, [b, c, d]) = self;
 		
 		 // Weak Constant:
 		let x = -a / b;
@@ -592,7 +592,7 @@ impl Roots for Sum<f64, 3> {
 			((x   * c) / b).abs() < 1e-5 && // ??? Adjust as needed
 			((x*x * d) / b).abs() < 1e-16
 		) {
-			let [y, z] = Sum(b, [c, d]).roots();
+			let [y, z] = SumPoly(b, [c, d]).roots();
 			return if x.is_nan() {
 				[y, y, z]
 			} else {
@@ -607,7 +607,7 @@ impl Roots for Sum<f64, 3> {
 			(b / (n   * c)).abs() < 1e-9 && // ??? Adjust as needed
 			(a / (n*n * c)).abs() < 1e-13
 		) {
-			let [x, y] = Sum(a, [b, c]).roots();
+			let [x, y] = SumPoly(a, [b, c]).roots();
 			return [x, y, n]
 		}
 		
@@ -659,7 +659,7 @@ impl Roots for Sum<f64, 3> {
 		
 		 // General Cubic:
 		n /= 3.;
-		let depressed_cubic = Sum(
+		let depressed_cubic = SumPoly(
 			n.mul_add(n.mul_add(c * (2./3.), b), a),
 			[
 				n.mul_add(c, b),
@@ -672,10 +672,10 @@ impl Roots for Sum<f64, 3> {
 	}
 }
 
-impl Roots for Sum<f64, 4> {
+impl Roots for SumPoly<f64, 4> {
 	type Output = [f64; 4];
 	fn roots(self) -> <Self as Roots>::Output {
-		let Sum(a, [b, c, d, e]) = self;
+		let SumPoly(a, [b, c, d, e]) = self;
 		
 		 // Weak Constant:
 		let x = -a / b;
@@ -684,7 +684,7 @@ impl Roots for Sum<f64, 4> {
 			((x*x   * d) / b).abs() < 1e-12 &&
 			((x*x*x * e) / b).abs() < 1e-20
 		) {
-			let [y, z, w] = Sum(b, [c, d, e]).roots();
+			let [y, z, w] = SumPoly(b, [c, d, e]).roots();
 			return if x.is_nan() {
 				[y, y, z, w]
 			} else {
@@ -700,7 +700,7 @@ impl Roots for Sum<f64, 4> {
 			(b / (n*n   * d)).abs() < 1e-10 &&
 			(a / (n*n*n * d)).abs() < 1e-15
 		) {
-			let [x, y, z] = Sum(a, [b, c, d]).roots();
+			let [x, y, z] = SumPoly(a, [b, c, d]).roots();
 			return [x, y, z, n]
 		}
 		
@@ -713,7 +713,7 @@ impl Roots for Sum<f64, 4> {
 				}
 				
 				 // Biquadratic:
-				let [x, y] = Sum(a, [c, e]).roots();
+				let [x, y] = SumPoly(a, [c, e]).roots();
 				let (x, y) = (x.sqrt(), y.sqrt());
 				return [-x, x, -y, y];
 			}
@@ -722,7 +722,7 @@ impl Roots for Sum<f64, 4> {
 			let p = a / e;
 			let q = b / (2. * e);
 			let r = c / (2. * e);
-			let resolvent_cubic = Sum(
+			let resolvent_cubic = SumPoly(
 				-(q * q) / 2.,
 				[
 					r.mul_add(r, -p),
@@ -742,14 +742,14 @@ impl Roots for Sum<f64, 4> {
 				m -= y; // Newton-Raphson step
 			}
 			let sqrt_2m = (2. * m).sqrt();
-			let [x, y] = Sum( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
-			let [z, w] = Sum(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]).roots();
+			let [x, y] = SumPoly( (q / sqrt_2m) + r + m, [-sqrt_2m, 1.]).roots();
+			let [z, w] = SumPoly(-(q / sqrt_2m) + r + m, [ sqrt_2m, 1.]).roots();
 			return [x, y, z, w]
 		}
 		
 		 // General Quartic:
 		n /= 4.;
-		let depressed_quartic = Sum(
+		let depressed_quartic = SumPoly(
 			n.mul_add(n.mul_add(n.mul_add(d * (3./4.), c), b), a),
 			[
 				n.mul_add(n.mul_add(d, c) * 2., b),
@@ -763,35 +763,35 @@ impl Roots for Sum<f64, 4> {
 	}
 }
 
-impl<A, B, const D: usize> Roots for Sum<Iso<A, B>, D>
+impl<A, B, const D: usize> Roots for SumPoly<Iso<A, B>, D>
 where
 	A: Linear,
 	B: LinearIso<A>,
-	Sum<A, D>: Roots,
+	SumPoly<A, D>: Roots,
 {
-	type Output = <Sum<A, D> as Roots>::Output;
+	type Output = <SumPoly<A, D> as Roots>::Output;
 	fn roots(self) -> <Self as Roots>::Output {
-		let sum = Sum::<A, D>::new(
+		let sum = SumPoly::<A, D>::new(
 			self.0.into_inner(),
 			self.1.map(|x| x.into_inner())
 		);
-		<Sum<A, D> as Roots>::roots(sum)
+		<SumPoly<A, D> as Roots>::roots(sum)
 	}
 }
 
 #[cfg(feature = "glam")]
-impl<const D: usize> Roots for Sum<glam::DVec2, D>
+impl<const D: usize> Roots for SumPoly<glam::DVec2, D>
 where
-	Sum<f64, D>: FluxKind<Basis=f64> + Roots,
-	<Sum<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
+	SumPoly<f64, D>: FluxKind<Basis=f64> + Roots,
+	<SumPoly<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
 {
 	type Output = [f64; D];
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut root_list = [f64::NAN; D];
 		let mut root_count = 0;
 		
-		let mut x_poly = Sum::zero();
-		let mut y_poly = Sum::zero();
+		let mut x_poly = SumPoly::zero();
+		let mut y_poly = SumPoly::zero();
 		for (index, coeff) in self.into_iter().enumerate() {
 			x_poly[index] = coeff.x;
 			y_poly[index] = coeff.y;
@@ -843,21 +843,21 @@ mod tests {
 	
 	#[test]
 	fn add() {
-		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
-		let b = Sum(7.1, [5.9, 3.1]);
-		assert_eq!(a + b, Sum(8.6, [8.4, 6.300000000000001, 4.5, 5.7]));
-		assert_eq!(b + a, Sum(8.6, [8.4, 6.300000000000001, 4.5, 5.7]));
+		let a = SumPoly(1.5, [2.5, 3.2, 4.5, 5.7]);
+		let b = SumPoly(7.1, [5.9, 3.1]);
+		assert_eq!(a + b, SumPoly(8.6, [8.4, 6.300000000000001, 4.5, 5.7]));
+		assert_eq!(b + a, SumPoly(8.6, [8.4, 6.300000000000001, 4.5, 5.7]));
 	}
 	
 	#[test]
 	fn sub() {
-		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
-		let b = Sum(7.1, [5.9, 3.1]);
-		assert_eq!(a - b, Sum(
+		let a = SumPoly(1.5, [2.5, 3.2, 4.5, 5.7]);
+		let b = SumPoly(7.1, [5.9, 3.1]);
+		assert_eq!(a - b, SumPoly(
 			-5.6,
 			[-3.4000000000000004, 0.10000000000000009, 4.5, 5.7]
 		));
-		assert_eq!(b - a, Sum(
+		assert_eq!(b - a, SumPoly(
 			5.6,
 			[3.4000000000000004, -0.10000000000000009, -4.5, -5.7]
 		));
@@ -865,10 +865,10 @@ mod tests {
 	
 	#[test]
 	fn scalar_mul() {
-		let a = Sum(1.5, [2.5, 3.2, 4.5, 5.7]);
-		let b = Sum(7.1, [5.9, 3.1]);
-		assert_eq!(a * Scalar::from(1.5), Sum(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
-		assert_eq!(b * Scalar::from(1.5), Sum(10.649999999999999, [8.850000000000001, 4.65]));
+		let a = SumPoly(1.5, [2.5, 3.2, 4.5, 5.7]);
+		let b = SumPoly(7.1, [5.9, 3.1]);
+		assert_eq!(a * Scalar::from(1.5), SumPoly(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
+		assert_eq!(b * Scalar::from(1.5), SumPoly(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
 	fn assert_roots<K: FluxKind>(p: K, expected_roots: &[f64])
@@ -899,32 +899,32 @@ mod tests {
 	
 	#[test]
 	fn constant() {
-		assert_roots(Sum(2., []), &[]);
-		assert_roots(Sum(0., []), &[]);
+		assert_roots(SumPoly(2., []), &[]);
+		assert_roots(SumPoly(0., []), &[]);
 	}
 	
 	#[test]
 	fn linear() {
-		assert_roots(Sum(20., [-4.]), &[5.]);
-		assert_roots(Sum(20., [4.]), &[-5.]);
-		assert_roots(Sum(-0., [4./3.]), &[0.]);
+		assert_roots(SumPoly(20., [-4.]), &[5.]);
+		assert_roots(SumPoly(20., [4.]), &[-5.]);
+		assert_roots(SumPoly(-0., [4./3.]), &[0.]);
 	}
 	
 	#[test]
 	fn quadratic() {
-		assert_roots(Sum(20., [4., 7.]), &[]);
+		assert_roots(SumPoly(20., [4., 7.]), &[]);
 		assert_roots(
-			Sum(20., [4., -7.]),
+			SumPoly(20., [4., -7.]),
 			&[-10./7., 2.]
 		);
-		let r = real_roots(Temporal::from(Sum(-40./3., [-2./3., 17./100.])))
+		let r = real_roots(Temporal::from(SumPoly(-40./3., [-2./3., 17./100.])))
 			.into_iter().collect::<Vec<_>>();
 		assert_roots(
-			Sum(40./3., [2./3., -17./100.]),
+			SumPoly(40./3., [2./3., -17./100.]),
 			r.as_slice()
 		);
 		assert_roots(
-			Sum(0., [4./6., -17./100.]),
+			SumPoly(0., [4./6., -17./100.]),
 			&[0., 200./51.]
 		);
 	}
@@ -932,11 +932,11 @@ mod tests {
 	#[test]
 	fn cubic() {
 		assert_roots(
-			Sum(6., [-2077.5, -17000./77., 6712./70.]),
+			SumPoly(6., [-2077.5, -17000./77., 6712./70.]),
 			&[-3.64550618348, 0.00288720188, 5.94514363216]
 		);
 		assert_roots(
-			Sum(-3.6350710512584225e-33, [
+			SumPoly(-3.6350710512584225e-33, [
 				0.10240000000000019,
 				-0.5455003017809628,
 				1.
@@ -944,15 +944,15 @@ mod tests {
 			&[3.54987407349455e-32]
 		);
 		assert_eq!(
-			real_roots(Temporal::from(Sum(
+			real_roots(Temporal::from(SumPoly(
 				-236263115684.8131,
 				[-9476965815.566229, -95034754.784949, 1.0]
 			))).count(),
 			3
 		);
 		
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> Sum<f64, 3> {
-			Sum(a, [
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64) -> SumPoly<f64, 3> {
+			SumPoly(a, [
 				b/s + c/(2.*s*s) + (2.*d)/(2.*3.*s*s*s),
 				c/(2.*s*s) + (2.*d)/(2.*3.*s*s*s) + d/(2.*3.*s*s*s),
 				d/(2.*3.*s*s*s),
@@ -982,8 +982,8 @@ mod tests {
 	
 	#[test]
 	fn quartic() {
-		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> Sum<f64, 4> {
-			Sum(a, [
+		fn sum_poly(s: f64, a: f64, b: f64, c: f64, d: f64, e: f64) -> SumPoly<f64, 4> {
+			SumPoly(a, [
 				b/s + c/(2.*s*s) + (2.*d)/(2.*3.*s*s*s) + (2.*3.*e)/(2.*3.*4.*s*s*s*s),
 				c/(2.*s*s) + d/(2.*3.*s*s*s) + (2.*d)/(2.*3.*s*s*s) + (3.*e)/(2.*3.*4.*s*s*s*s) + (2.*3.*e)/(2.*3.*4.*s*s*s*s) + (2.*e)/(2.*3.*4.*s*s*s*s),
 				d/(2.*3.*s*s*s) + e/(2.*3.*4.*s*s*s*s) + (2.*e)/(2.*3.*4.*s*s*s*s) + (3.*e)/(2.*3.*4.*s*s*s*s),
@@ -1001,7 +1001,7 @@ mod tests {
 		);
 		let t = 1000000000.*60.*60.;
 		assert_roots(
-			Sum(
+			SumPoly(
 				7500.,
 				[0., -1000./(t*t), 0., 27./(t*t*t*t)]
 			),
@@ -1013,7 +1013,7 @@ mod tests {
 			]
 		);
 		assert_roots(
-			Sum(
+			SumPoly(
 				4.906800313619897e-6,
 				[
 					15145.164260286278,
@@ -1030,12 +1030,12 @@ mod tests {
 			]
 		);
 		assert_roots(
-			Sum(-35.99999999999999, [8.046918796812349e-6, 2999.99988981303, -54772.25541522836, 250000.0]),
+			SumPoly(-35.99999999999999, [8.046918796812349e-6, 2999.99988981303, -54772.25541522836, 250000.0]),
 			&[-0.067702232, 0.177246743]
 		);
-		assert_eq!(Temporal::new(Sum(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*NANOSEC).eval(1209618450*NANOSEC), -181.99999999999994);
+		assert_eq!(Temporal::new(SumPoly(-181.99999999999994, [-7.289202428347473e-6, -500.0]), 1209618449*NANOSEC).eval(1209618450*NANOSEC), -181.99999999999994);
 		assert_roots(
-			Sum(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
+			SumPoly(9.094947017729282e-13, [-1.7967326421342023e-5, -8983.663173028655, 997.5710159206409, 250000.0]),
 			&[-0.191570016, -1.11113e-8, 9.11132e-9, 0.187579734]
 		);
 	}
@@ -1088,7 +1088,7 @@ mod tests {
 		// https://www.desmos.com/calculator/1z97cqlopx
 		
 		 // Basic Check:
-		let a = Temporal::new(Sum::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
+		let a = Temporal::new(SumPoly::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
 		let b = Temporal::new(Constant::from(-194.), SEC);
 		assert_eq!(
 			Vec::from_iter(a.when_eq(&b)
@@ -1102,8 +1102,8 @@ mod tests {
 		
 		 // Distance Check:
 		let a = Temporal::new([
-			Sum::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]),
-			Sum::new(-182.00000057575835, [-7.537214753878195e-7, -500.])
+			SumPoly::new(0.0036784761334161292, [1.1687626970174242e-7, 0.]),
+			SumPoly::new(-182.00000057575835, [-7.537214753878195e-7, -500.])
 		], SEC);
 		let b = Temporal::new([
 			Constant::from(-3.8808053943969956e-5),

@@ -126,7 +126,7 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 
 /// A [`FluxKind`] that can be integrated into a higher degree of change.
 /// 
-/// e.g. `Sum<T, 1>::Integ == Sum<T, 2>`, `Cos<T>::Integ == Sin<T>`.
+/// e.g. `SumPoly<T, 1>::Integ == SumPoly<T, 2>`, `Cos<T>::Integ == Sin<T>`.
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
 pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
