@@ -358,21 +358,21 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::kind::FluxIntegral;
+	use crate::kind::{FluxChange, FluxChangeUp, FluxIntegral};
 	use crate::linear::{Basis, Scalar};
 	use super::{Change, Flux, ToMoment, ToMomentMut};
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Kind: FluxIntegral>,
+		T: Flux<Change: FluxChangeUp<Up: FluxChange<Poly = <T::Kind as FluxIntegral>::Integ> + std::ops::Mul<Scalar, Output = <T::Change as FluxChangeUp>::Up>>, Kind: FluxIntegral>,
 	{
 		type Basis = T::Basis;
-		type Change = T::Change;
+		type Change = <T::Change as FluxChangeUp>::Up;
 		type Kind = <T::Kind as FluxIntegral>::Integ;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
 		}
-		fn change(&self, _basis: Self::Basis) -> Self::Kind {
+		fn change(&self) -> Self::Change {
 			self.rate.per(self.unit)
 		}
 	}
@@ -411,7 +411,7 @@ pub trait Flux {
 	type Basis: Basis;
 	
 	/// ...
-	type Change: FluxChange;
+	type Change: FluxChange<Basis = Self::Basis, Poly = Self::Kind>;
 	
 	/// The kind of change (e.g. `Constant<T>`, `Sum<T, D>`, etc.).
 	type Kind: FluxKind<Basis = Self::Basis>;
@@ -437,7 +437,7 @@ pub trait Flux {
 	///   // https://www.desmos.com/calculator/gwvvkwuhy1
 	///   ```
 	///   
-	fn change(&self, basis: Self::Basis) -> Self::Kind;
+	fn change(&self) -> Self::Change;
 	// ??? Add `Flux::Change` and make this return `Self::Change`. Apply to
 	// basis automatically in `Self::to_kind`.
 	// Problems:
@@ -457,17 +457,17 @@ pub trait Flux {
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		self.change(self.basis())
+		self.change().into_poly(self.basis())
 	}
 	
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> <Self::Kind as FluxIntegral>::Integ
+	fn per(&self, unit: Time) -> <Self::Change as FluxChangeUp>::Up
 	where
-		Self::Kind: FluxIntegral,
+		Self::Change: FluxChangeUp<Up: std::ops::Mul<Scalar, Output = <Self::Change as FluxChangeUp>::Up>>,
 	{
-		(self.to_kind() * Scalar::from(unit.as_secs_f64().recip())).integ()
+		self.change().up(self.basis()) * Scalar::from(unit.as_secs_f64().recip())
 	}
 }
 
@@ -481,8 +481,8 @@ where
 	fn basis(&self) -> Self::Basis {
 		self.clone()
 	}
-	fn change(&self, basis: Self::Basis) -> Self::Kind {
-		basis.into()
+	fn change(&self) -> Self::Change {
+		constant::Nil::default()
 	}
 }
 
@@ -551,8 +551,8 @@ mod tests {
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
-		fn change(&self, basis: Self::Basis) -> Self::Kind {
-			let mut kind = basis.to_kind() + (&self.spd).per(SEC);
+		fn change(&self) -> Self::Change {
+			let mut kind = self.spd.per(SEC);
 			for spd in &self.misc {
 				kind = kind + spd.per(SEC);
 			}

@@ -140,8 +140,8 @@ where
 	fn basis(&self) -> Self::Basis {
 		self.0.basis()
 	}
-	fn change(&self, basis: Self::Basis) -> Self::Kind {
-		Exp(self.0.change(basis))
+	fn change(&self) -> Self::Change {
+		Exp(self.0.change())
 	}
 }
 

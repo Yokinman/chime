@@ -28,7 +28,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
-	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::to_kind(&basis)};
+	let mut change_expr: syn::Expr = syn::parse_quote!{<#chime::kind::constant::Nil<Self::Basis> as std::default::Default>::default()};
+	let mut change_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Nil<Self::Basis>};
 	let mut kind_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Constant<Self::Basis>};
 	
 	 // Find Helper Attributes:
@@ -73,6 +74,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							#op #chime::Flux::to_kind(&self.#field_member)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
+						change_type = syn::parse_quote!{<#change_type
+							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
 						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func
@@ -105,6 +108,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							#op #chime::Flux::per(&self.#field_member, #unit)};
 						kind_type = syn::parse_quote!{<#kind_type
 							as #op_trait::<<<#field_type as #chime::Flux>::Kind as #chime::kind::FluxIntegral>::Integ>>::Output};
+						change_type = syn::parse_quote!{<#change_type
+							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp>::Up>>::Output};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
 						meta.to_token_stream(), CHANGE_HELP),
@@ -123,13 +128,13 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let trait_impl = quote::quote!{
 		impl #impl_params #chime::Flux for #type_name #type_params #impl_clause {
 			type Basis = #basis_type;
-			type Change = #chime::kind::constant::Nil::<#basis_type>;
+			type Change = #change_type;
 			type Kind = #kind_type;
 			fn basis(&self) -> Self::Basis {
 				self.#basis_member
 			}
-			fn change(&self, basis: Self::Basis) -> Self::Kind {
-				#change_expr
+			fn change(&self) -> Self::Change {
+				std::convert::Into::<Self::Change>::into(#change_expr)
 			}
 		}
 	};

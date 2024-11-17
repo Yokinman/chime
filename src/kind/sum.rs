@@ -6,7 +6,8 @@ use crate::{*, kind::*, linear::*};
 use crate::kind::constant::Constant;
 
 /// ...
-pub struct SumChange<T, const DEGREE: usize>([T; DEGREE]);
+#[derive(Debug)]
+pub struct SumChange<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
 
 impl<T, const D: usize> FluxChange for SumChange<T, D>
 where
@@ -144,8 +145,15 @@ impl<T: Basis, const D: usize> Flux for Sum<T, D> {
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
-	fn change(&self, _basis: Self::Basis) -> Self::Kind {
-		self.clone()
+	fn change(&self) -> Self::Change {
+		let mut i = 0.;
+		let mut n = 1.;
+		let terms = self.1.clone().map(|term| {
+			i += 1.;
+			n *= i;
+			T::from_inner(term.into_inner().mul_scalar(Scalar::from(n)))
+		});
+		SumChange(terms)
 	}
 }
 
