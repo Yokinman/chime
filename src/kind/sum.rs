@@ -285,7 +285,7 @@ macro_rules! impl_deg_order {
 					let mut terms = std::mem::MaybeUninit::uninit();
 					let ptr = terms.as_mut_ptr() as *mut T;
 					ptr.write(basis);
-					let ptr = ptr.add({ $($num +)+ 0 }) as *mut [T; { $($num +)+ 0 }];
+					let ptr = ptr.add(1) as *mut [T; { $($num +)+ 0 }];
 					ptr.write(self.0);
 					terms.assume_init()
 				})
