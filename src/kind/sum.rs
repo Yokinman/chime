@@ -258,22 +258,6 @@ where
 	}
 }
 
-impl<T: Basis> FluxIntegral for Constant<T> {
-	type Integ = SumPoly<T, 1>;
-	fn integ(self) -> Self::Integ {
-		let Constant(value) = self;
-		SumPoly::new(T::zero(), [value])
-	}
-}
-
-impl<T: Basis> FluxIntegral for SumPoly<T, 0> {
-	type Integ = SumPoly<T, 1>;
-	fn integ(self) -> Self::Integ {
-		let SumPoly(value, _) = self;
-		SumPoly(T::zero(), [value])
-	}
-}
-
 /// Degree sequential ordering.
 macro_rules! impl_deg_order {
 	(1  1  $($num:tt)*) => { impl_deg_order!(2  $($num)*); };
@@ -297,26 +281,6 @@ macro_rules! impl_deg_order {
 					ptr.write(self.0);
 					terms.assume_init()
 				})
-			}
-		}
-		impl<T: Basis> FluxIntegral for SumPoly<T, { $($num +)+ 0 }> {
-			type Integ = SumPoly<T, { $($num +)+ 0 + 1 }>;
-			fn integ(self) -> Self::Integ {
-				debug_assert_eq!(
-					std::mem::size_of::<Self>(),
-					std::mem::size_of::<[T; { $($num +)+ 0 + 1 }]>(),
-				);
-				let mut terms = unsafe {
-					// SAFETY: I don't know if the memory layout of arrays
-					// is guaranteed, but it's simple & fast. Sorry boss.
-					std::mem::transmute_copy::<Self, [T; { $($num +)+ 0 + 1 }]>(&self)
-				};
-				let mut i = 0.;
-				terms = terms.map(|term| {
-					i += 1.;
-					T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / i)))
-				});
-				SumPoly(T::zero(), terms)
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>

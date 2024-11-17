@@ -7,7 +7,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{FluxIntegral, Poly, KindLinear, ops as kind_ops, Roots};
+use crate::kind::{Poly, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::kind::constant::Constant;
 
@@ -279,13 +279,6 @@ impl<K: Poly> Temporal<K> {
 	pub fn deriv(mut self) -> Self {
 		self.inner = self.inner.deriv();
 		self
-	}
-	
-	pub fn integ(self) -> Temporal<K::Integ>
-	where
-		K: FluxIntegral,
-	{
-		Temporal::new(self.inner.integ(), self.time)
 	}
 	
 	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>

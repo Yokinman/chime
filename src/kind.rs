@@ -124,16 +124,6 @@ pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	}
 }
 
-/// A [`Poly`] that can be integrated into a higher degree of change.
-/// 
-/// e.g. `SumPoly<T, 1>::Integ == SumPoly<T, 2>`, `Cos<T>::Integ == Sin<T>`.
-/// 
-/// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
-pub trait FluxIntegral: Poly + Mul<Scalar, Output=Self> {
-	type Integ: Poly<Basis = Self::Basis>;
-	fn integ(self) -> Self::Integ;
-}
-
 impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(value: Self::Basis) -> Self {
