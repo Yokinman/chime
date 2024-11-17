@@ -27,7 +27,7 @@ where
 	}
 }
 
-impl<T> FluxChangeUp for Sum<T, 0>
+impl<T> FluxChangeUp<'+'> for Sum<T, 0>
 where
 	T: Basis
 {
@@ -268,7 +268,7 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: Basis> FluxChangeUp for Sum<T, { $($num +)+ 0 }> {
+		impl<T: Basis> FluxChangeUp<'+'> for Sum<T, { $($num +)+ 0 }> {
 			type Up = Sum<T, { $($num +)+ 1 }>;
 			fn up(self, basis: Self::Basis) -> Self::Up {
 				Sum(unsafe {

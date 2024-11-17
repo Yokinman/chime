@@ -35,7 +35,7 @@ mod _flux_change_impls {
 }
 
 /// ...
-pub trait FluxChangeUp: FluxChange {
+pub trait FluxChangeUp<const OP: char>: FluxChange {
 	type Up: FluxChange<Basis = Self::Basis>;
 	fn up(self, basis: Self::Basis) -> Self::Up;
 }
@@ -43,9 +43,9 @@ pub trait FluxChangeUp: FluxChange {
 mod _flux_change_up_impls {
 	use super::FluxChangeUp;
 	
-	impl<T, const N: usize> FluxChangeUp for [T; N]
+	impl<T, const N: usize, const OP: char> FluxChangeUp<OP> for [T; N]
 	where
-		T: FluxChangeUp
+		T: FluxChangeUp<OP>
 	{
 		type Up = [T::Up; N];
 		fn up(self, basis: Self::Basis) -> Self::Up {

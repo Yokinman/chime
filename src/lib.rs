@@ -364,11 +364,11 @@ mod _change_impls {
 	
 	impl<T> Flux for Change<T>
 	where
-		T: Flux<Change: FluxChangeUp<Up: FluxChange + std::ops::Mul<Scalar, Output = <T::Change as FluxChangeUp>::Up>>>,
+		T: Flux<Change: FluxChangeUp<'+', Up: FluxChange + std::ops::Mul<Scalar, Output = <T::Change as FluxChangeUp<'+'>>::Up>>>,
 	{
 		type Basis = T::Basis;
-		type Change = <T::Change as FluxChangeUp>::Up;
-		type Kind = <<T::Change as FluxChangeUp>::Up as FluxChange>::Poly;
+		type Change = <T::Change as FluxChangeUp<'+'>>::Up;
+		type Kind = <<T::Change as FluxChangeUp<'+'>>::Up as FluxChange>::Poly;
 		fn basis(&self) -> Self::Basis {
 			Basis::zero()
 		}
@@ -447,9 +447,9 @@ pub trait Flux {
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> <Self::Change as FluxChangeUp>::Up
+	fn per<const OP: char>(&self, unit: Time) -> <Self::Change as FluxChangeUp<OP>>::Up
 	where
-		Self::Change: FluxChangeUp<Up: std::ops::Mul<Scalar, Output = <Self::Change as FluxChangeUp>::Up>>,
+		Self::Change: FluxChangeUp<OP, Up: std::ops::Mul<Scalar, Output = <Self::Change as FluxChangeUp<OP>>::Up>>,
 	{
 		self.change().up(self.basis()) * Scalar::from(unit.as_secs_f64().recip())
 	}

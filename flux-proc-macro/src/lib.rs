@@ -80,14 +80,17 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 								func.to_token_stream(), CHANGE_HELP) };
 						
 						let op: syn::BinOp;
+						let op_char: syn::LitChar;
 						let op_trait: syn::Path;
 						
 						 // Get Operation:
 						if path.is_ident("add_per") {
 							op = syn::parse_quote!{+};
+							op_char = syn::parse_quote!{'+'};
 							op_trait = syn::parse_quote!{::std::ops::Add};
 						} else if path.is_ident("sub_per") {
 							op = syn::parse_quote!{-};
+							op_char = syn::parse_quote!{'+'};
 							op_trait = syn::parse_quote!{::std::ops::Sub};
 						} else {
 							panic!("invalid change operation, `{}`{}",
@@ -104,7 +107,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						change_expr = syn::parse_quote!{#change_expr
 							#op #chime::Flux::per(&self.#field_member, #unit)};
 						change_type = syn::parse_quote!{<#change_type
-							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp>::Up>>::Output};
+							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp<#op_char>>::Up>>::Output};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
 						meta.to_token_stream(), CHANGE_HELP),

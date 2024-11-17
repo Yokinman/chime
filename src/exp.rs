@@ -101,9 +101,9 @@ where
 	}
 }
 
-impl<T> FluxChangeUp for Exp<T>
+impl<T, const OP: char> FluxChangeUp<OP> for Exp<T>
 where
-	T: FluxChangeUp
+	T: FluxChangeUp<OP>
 {
 	type Up = Exp<T::Up>;
 	fn up(self, basis: Self::Basis) -> Self::Up {

@@ -25,9 +25,7 @@ where
 	}
 }
 
-// !!! Temporary impl until I figure out how to structure the `change` system
-// for using constants across multiple contexts.
-impl<T> FluxChangeUp for Nil<T>
+impl<T> FluxChangeUp<'+'> for Nil<T>
 where
 	T: Basis
 {
