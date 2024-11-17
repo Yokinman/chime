@@ -514,7 +514,7 @@ mod tests {
 	use super::*;
 	use crate::time;
 	use crate::time::{SEC, TimeRanges};
-	use crate::kind::sum::{SumPoly, SumChange};
+	use crate::kind::sum::{SumPoly, Sum};
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
@@ -530,7 +530,7 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Basis = f64;
-		type Change = SumChange<f64, 4>;
+		type Change = Sum<f64, 4>;
 		type Kind = SumPoly<f64, 4>;
 		fn basis(&self) -> Self::Basis {
 			self.value

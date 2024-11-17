@@ -7,9 +7,9 @@ use crate::kind::constant::Constant;
 
 /// ...
 #[derive(Debug)]
-pub struct SumChange<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
+pub struct Sum<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
 
-impl<T, const D: usize> FluxChange for SumChange<T, D>
+impl<T, const D: usize> FluxChange for Sum<T, D>
 where
 	T: Basis
 {
@@ -27,17 +27,17 @@ where
 	}
 }
 
-impl<T> FluxChangeUp for SumChange<T, 0>
+impl<T> FluxChangeUp for Sum<T, 0>
 where
 	T: Basis
 {
-	type Up = SumChange<T, 1>;
+	type Up = Sum<T, 1>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		SumChange([basis])
+		Sum([basis])
 	}
 }
 
-impl<T, const D: usize> Neg for SumChange<T, D>
+impl<T, const D: usize> Neg for Sum<T, D>
 where
 	T: Basis
 {
@@ -131,7 +131,7 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> Mul<Scalar> for SumChange<T, D> {
+impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
 		Self(self.0.map(|x| T::from_inner(x.into_inner().mul_scalar(rhs))))
@@ -140,7 +140,7 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumChange<T, D> {
 
 impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 	type Basis = T;
-	type Change = SumChange<T, D>;
+	type Change = Sum<T, D>;
 	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
@@ -153,7 +153,7 @@ impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 			n *= i;
 			T::from_inner(term.into_inner().mul_scalar(Scalar::from(n)))
 		});
-		SumChange(terms)
+		Sum(terms)
 	}
 }
 
@@ -284,10 +284,10 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T: Basis> FluxChangeUp for SumChange<T, { $($num +)+ 0 }> {
-			type Up = SumChange<T, { $($num +)+ 1 }>;
+		impl<T: Basis> FluxChangeUp for Sum<T, { $($num +)+ 0 }> {
+			type Up = Sum<T, { $($num +)+ 1 }>;
 			fn up(self, basis: Self::Basis) -> Self::Up {
-				SumChange(unsafe {
+				Sum(unsafe {
 					// SAFETY: This seems to work. Maybe I'll validate this
 					// later, lol.
 					let mut terms = std::mem::MaybeUninit::uninit();
@@ -319,26 +319,26 @@ macro_rules! impl_deg_order {
 				SumPoly(T::zero(), terms)
 			}
 		}
-		impl<A, B> Add<SumChange<B, { $($num +)+ 0 }>> for SumChange<A, 0>
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = SumChange<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumChange<B, { $($num +)+ 0 }>) -> Self::Output {
-				SumChange(rhs.0.map(|x| A::from_inner(Basis::into_inner(x))))
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+				Sum(rhs.0.map(|x| A::from_inner(Basis::into_inner(x))))
 			}
 		}
-		impl<A, B> Add<SumChange<B, { $($num +)+ 0 }>> for SumChange<A, { $($num +)+ 0 }>
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = SumChange<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumChange<B, { $($num +)+ 0 }>) -> Self::Output {
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
-				SumChange(std::array::from_fn(|_| unsafe {
+				Sum(std::array::from_fn(|_| unsafe {
 					// SAFETY: Sizes of all input & output arrays are equal.
 					A::from_inner(a.next().unwrap_unchecked().into_inner()
 						.add(b.next().unwrap_unchecked().into_inner()))
@@ -424,16 +424,16 @@ macro_rules! impl_deg_add {
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
 	($a:tt, 8) => {/* break */};
 	($a:tt, $($num:tt)+) => {
-		impl<A, B> Add<SumChange<B, $a>> for SumChange<A, { $($num +)+ 0 }>
+		impl<A, B> Add<Sum<B, $a>> for Sum<A, { $($num +)+ 0 }>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = SumChange<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumChange<B, $a>) -> Self::Output {
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, $a>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
-				SumChange(std::array::from_fn(|i| unsafe {
+				Sum(std::array::from_fn(|i| unsafe {
 					// SAFETY: `a` is the same size as the output array, and
 					// `b` is the size of `$a` (bad naming).
 					if i < $a {
@@ -445,16 +445,16 @@ macro_rules! impl_deg_add {
 				}))
 			}
 		}
-		impl<A, B> Add<SumChange<B, { $($num +)+ 0 }>> for SumChange<A, $a>
+		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
 		where
 			A: Basis,
 			B: Basis<Inner = A::Inner>,
 		{
-			type Output = SumChange<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumChange<B, { $($num +)+ 0 }>) -> Self::Output {
+			type Output = Sum<A, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
-				SumChange(std::array::from_fn(|i| unsafe {
+				Sum(std::array::from_fn(|i| unsafe {
 					// SAFETY: `b` is the same size as the output array, and
 					// `a` is the size of `$a`.
 					if i < $a {
@@ -519,7 +519,7 @@ macro_rules! impl_deg_add {
 }
 impl_deg_order!(1);
 
-impl<K, T, const N: usize> Sub<K> for SumChange<T, N>
+impl<K, T, const N: usize> Sub<K> for Sum<T, N>
 where
 	K: FluxChange + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
 	T: Basis,

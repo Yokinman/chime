@@ -31,9 +31,9 @@ impl<T> FluxChangeUp for Nil<T>
 where
 	T: Basis
 {
-	type Up = crate::kind::sum::SumChange<T, 1>;
+	type Up = crate::kind::sum::Sum<T, 1>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		crate::kind::sum::SumChange([basis])
+		crate::kind::sum::Sum([basis])
 	}
 }
 
