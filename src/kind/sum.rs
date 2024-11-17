@@ -183,7 +183,7 @@ impl<T: Basis, const D: usize> ToMomentMut for SumPoly<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> FluxKind for SumPoly<T, D> {
+impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	const DEGREE: usize = D;
 	
 	fn with_basis(value: Self::Basis) -> Self {
@@ -248,7 +248,7 @@ impl<T: Basis> From<Constant<T>> for SumPoly<T, 0> {
 impl<A, B, const D: usize> Add<B> for SumPoly<A, D>
 where
 	A: Basis,
-	B: FluxKind + Into<Constant<B::Basis>>,
+	B: Poly + Into<Constant<B::Basis>>,
 	B::Basis: Basis<Inner = A::Inner>,
 {
 	type Output = Self;
@@ -533,7 +533,7 @@ where
 
 impl<K, T, const N: usize> Sub<K> for SumPoly<T, N>
 where
-	K: FluxKind + Mul<Scalar, Output = K>,
+	K: Poly + Mul<Scalar, Output = K>,
 	T: Basis,
 	Self: Add<K>,
 {
@@ -782,7 +782,7 @@ where
 #[cfg(feature = "glam")]
 impl<const D: usize> Roots for SumPoly<glam::DVec2, D>
 where
-	SumPoly<f64, D>: FluxKind<Basis=f64> + Roots,
+	SumPoly<f64, D>: Poly<Basis=f64> + Roots,
 	<SumPoly<f64, D> as Roots>::Output: IntoIterator<Item=f64>,
 {
 	type Output = [f64; D];
@@ -871,7 +871,7 @@ mod tests {
 		assert_eq!(b * Scalar::from(1.5), SumPoly(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
-	fn assert_roots<K: FluxKind>(p: K, expected_roots: &[f64])
+	fn assert_roots<K: Poly>(p: K, expected_roots: &[f64])
 	where
 		K: Roots,
 		<K as Roots>::Output: IntoIterator<Item=f64>,

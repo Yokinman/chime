@@ -14,7 +14,7 @@ pub mod sum;
 /// ...
 pub trait FluxChange {
 	type Basis: Basis;
-	type Poly: FluxKind<Basis = Self::Basis>;
+	type Poly: Poly<Basis = Self::Basis>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
 }
 
@@ -59,7 +59,7 @@ mod _flux_change_up_impls {
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
+pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	const DEGREE: usize;
 	
 	fn with_basis(value: Self::Basis) -> Self;
@@ -77,7 +77,7 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	
 	/// The order at or immediately preceding the value at a time.
 	/// 
-	/// This should be the first non-zero [`FluxKind::eval`] value of this kind
+	/// This should be the first non-zero [`Poly::eval`] value of this kind
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
@@ -124,17 +124,17 @@ pub trait FluxKind: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	}
 }
 
-/// A [`FluxKind`] that can be integrated into a higher degree of change.
+/// A [`Poly`] that can be integrated into a higher degree of change.
 /// 
 /// e.g. `SumPoly<T, 1>::Integ == SumPoly<T, 2>`, `Cos<T>::Integ == Sin<T>`.
 /// 
 /// Used for the `std::ops::{Add, Sub}` impls of [`FluxAccum`].
-pub trait FluxIntegral: FluxKind + Mul<Scalar, Output=Self> {
-	type Integ: FluxKind<Basis = Self::Basis>;
+pub trait FluxIntegral: Poly + Mul<Scalar, Output=Self> {
+	type Integ: Poly<Basis = Self::Basis>;
 	fn integ(self) -> Self::Integ;
 }
 
-impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
+impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(value: Self::Basis) -> Self {
 		value.map(T::with_basis)
@@ -151,28 +151,28 @@ impl<T: FluxKind, const SIZE: usize> FluxKind for [T; SIZE] {
 	}
 }
 
-/// Shortcut for the inner [`Linear`] type of a [`FluxKind`].
+/// Shortcut for the inner [`Linear`] type of a [`Poly`].
 pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
 
-/// Combining [`FluxKind`] types.
+/// Combining [`Poly`] types.
 /// 
 /// Primarily this serves as a way to put two kinds of change-over-time into
 /// the same space, for combination or comparison purposes.
 pub mod ops {
 	use std::ops;
-	use super::{FluxKind, KindLinear};
+	use super::{Poly, KindLinear};
 	use crate::linear::Basis;
 	
 	/// Squaring a kind of change.
-	pub trait Sqr: FluxKind {
-		type Output: FluxKind<Basis: Basis<Inner = KindLinear<Self>>>;
+	pub trait Sqr: Poly {
+		type Output: Poly<Basis: Basis<Inner = KindLinear<Self>>>;
 		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
-	impl<K: FluxKind> Sqr for K
+	impl<K: Poly> Sqr for K
 	where
 		K: ops::Mul,
-		<K as ops::Mul>::Output: FluxKind<Basis: Basis<Inner = KindLinear<K>>>,
+		<K as ops::Mul>::Output: Poly<Basis: Basis<Inner = KindLinear<K>>>,
 	{
 		type Output = <K as ops::Mul>::Output;
 		fn sqr(self) -> <Self as Sqr>::Output {
@@ -181,11 +181,11 @@ pub mod ops {
 	}
 }
 
-/// Roots of a [`FluxKind`] polynomial.
+/// Roots of a [`Poly`] polynomial.
 /// 
 /// For discontinuous change-over-time, roots should also include any moments
 /// where the polynomial discontinuously "teleports" across 0.
-pub trait Roots: FluxKind {
+pub trait Roots: Poly {
 	type Output: IntoTimes;
 	fn roots(self) -> <Self as Roots>::Output;
 }

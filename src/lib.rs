@@ -401,7 +401,7 @@ mod _change_impls {
 /// Types with a description of change over time.
 /// 
 /// Used to facilitate interoperation between types (by way of conversion into
-/// a standard representation: [`FluxKind`]).
+/// a standard representation: [`Poly`]).
 /// 
 /// This is similar to [`ToMoment`] in that both describe change over time, but
 /// specific to abstracting the timeline. User types will often implement all of
@@ -414,7 +414,7 @@ pub trait Flux {
 	type Change: FluxChange<Basis = Self::Basis, Poly = Self::Kind>;
 	
 	/// The kind of change (e.g. `Constant<T>`, `SumPoly<T, D>`, etc.).
-	type Kind: FluxKind<Basis = Self::Basis>;
+	type Kind: Poly<Basis = Self::Basis>;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> Self::Basis;

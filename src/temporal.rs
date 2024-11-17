@@ -7,11 +7,11 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{FluxIntegral, FluxKind, KindLinear, ops as kind_ops, Roots};
+use crate::kind::{FluxIntegral, Poly, KindLinear, ops as kind_ops, Roots};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::kind::constant::Constant;
 
-/// A [`FluxKind`] paired with a basis time.
+/// A [`Poly`] paired with a basis time.
 /// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Temporal<T> {
@@ -176,7 +176,7 @@ impl<T: Flux> Temporal<T> {
 		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> T::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind>,
+		T::Kind: Vector<SIZE, Output: Poly>,
 		T: WhenDis<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
 		U: Flux,
 	{
@@ -190,7 +190,7 @@ impl<T: Flux> Temporal<T> {
 		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> T::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind>,
+		T::Kind: Vector<SIZE, Output: Poly>,
 		T: WhenDisEq<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
 		U: Flux,
 	{
@@ -205,7 +205,7 @@ impl<T: Flux> Temporal<T> {
 		other: &Temporal<U>,
 	) -> <<T::Kind as Vector<SIZE>>::Output as When<U>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + When<U>>,
+		T::Kind: Vector<SIZE, Output: Poly + When<U>>,
 		U: Flux,
 	{
 		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
@@ -222,7 +222,7 @@ impl<T: Flux> Temporal<T> {
 		other: &Temporal<U>,
 	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<U>>,
+		T::Kind: Vector<SIZE, Output: Poly + WhenEq<U>>,
 		U: Flux,
 	{
 		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
@@ -239,7 +239,7 @@ impl<T: Flux> Temporal<T> {
 		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
+		T::Kind: Vector<SIZE, Output: Poly + When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
 	{
 		self.when_index(index, cmp, &Temporal::from(Constant(other)))
 	}
@@ -251,7 +251,7 @@ impl<T: Flux> Temporal<T> {
 		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
 	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: FluxKind + WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
+		T::Kind: Vector<SIZE, Output: Poly + WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
 	{
 		self.when_index_eq(index, &Temporal::from(Constant(other)))
 	}
@@ -264,7 +264,7 @@ impl<T: Flux> Temporal<T> {
 	//   which the roots may be and iterate through it.
 }
 
-impl<K: FluxKind> Temporal<K> {
+impl<K: Poly> Temporal<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
 		self.inner.eval(self.secs(time))
 	}
@@ -421,7 +421,7 @@ where
 
 impl<K> IntoIterator for Temporal<K>
 where
-	K: IntoIterator<Item: FluxKind>,
+	K: IntoIterator<Item: Poly>,
 {
 	type Item = Temporal<K::Item>;
 	type IntoIter = TemporalIter<K::IntoIter>;
@@ -435,7 +435,7 @@ where
 
 impl<T> Iterator for TemporalIter<T>
 where
-	T: Iterator<Item: FluxKind>,
+	T: Iterator<Item: Poly>,
 {
 	type Item = Temporal<T::Item>;
 	fn next(&mut self) -> Option<Self::Item> {

@@ -489,7 +489,7 @@ pub trait Vector<const SIZE: usize> {
 	// !!! I want to add a lifetime parameter to `Self::Output` so that I can
 	// return values by reference when desired. However, this will also require
 	// refactoring systems to account for bounds like: `Temporal<&T>: Flux`,
-	// `SumPoly<&T, D>: FluxKind`, etc.
+	// `SumPoly<&T, D>: Poly`, etc.
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for [T; SIZE]

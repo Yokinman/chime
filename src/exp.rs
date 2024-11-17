@@ -4,7 +4,7 @@
 //! summation over time to multiplication over time.
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxChangeUp, FluxKind};
+use crate::kind::{FluxChange, FluxChangeUp, Poly};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -111,9 +111,9 @@ where
 	}
 }
 
-impl<T> FluxKind for Exp<T>
+impl<T> Poly for Exp<T>
 where
-	T: FluxKind
+	T: Poly
 {
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(basis: Self::Basis) -> Self {

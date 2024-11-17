@@ -9,8 +9,8 @@ static CHANGE_HELP: &'static str = "\
 	\nhelp: `#[change(op)]` is used to mark fields that apply an operation over time:\
 	\n        `add_per(u)` - Add per unit of `chime::time::Time` (fields of type `impl Flux`)\
 	\n        `sub_per(u)` - Subtract per unit of `chime::time::Time` (fields of type `impl Flux`)\
-	\n        `add`        - Add directly (fields of type `impl FluxKind` or `Change<impl Flux>`)\
-	\n        `sub`        - Subtract directly (fields of type `impl FluxKind` or `Change<impl Flux>`)\
+	\n        `add`        - Add directly (fields of type `impl Poly` or `Change<impl Flux>`)\
+	\n        `sub`        - Subtract directly (fields of type `impl Poly` or `Change<impl Flux>`)\
 ";
 
 static MOMENT_HELP: &'static str = "";
@@ -170,7 +170,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 		for attr in field.attrs.iter() {
 			if attr.meta.path().is_ident("basis") {
 				expr = syn::parse_quote!{
-					#chime::kind::FluxKind::eval(&#chime::Flux::to_kind(self), time)
+					#chime::kind::Poly::eval(&#chime::Flux::to_kind(self), time)
 				};
 				continue
 			}

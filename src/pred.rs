@@ -58,9 +58,9 @@ where
 
 impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
-	A: FluxKind,
-	B: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
-	D: FluxKind<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Poly,
+	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
+	D: Poly<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
@@ -139,14 +139,14 @@ where
 impl<const SIZE: usize, A, B, D, E, F> TimeFilterMap
 	for DisTimeFilterMap<SIZE, A, B, D, E, F>
 where
-	A: Vector<SIZE, Output: FluxKind> + Clone,
-	B: Vector<SIZE, Output: FluxKind> + Clone,
-	D: FluxKind,
+	A: Vector<SIZE, Output: Poly> + Clone,
+	B: Vector<SIZE, Output: Poly> + Clone,
+	D: Poly,
 	KindLinear<D>: PartialEq,
-	A::Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
-	B::Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
-	E: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
-	F: FluxKind<Basis: Basis<Inner = KindLinear<D>>>,
+	A::Output: Poly<Basis: Basis<Inner = KindLinear<D>>>,
+	B::Output: Poly<Basis: Basis<Inner = KindLinear<D>>>,
+	E: Poly<Basis: Basis<Inner = KindLinear<D>>>,
+	F: Poly<Basis: Basis<Inner = KindLinear<D>>>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -627,7 +627,7 @@ pub trait When<B: Flux>: Flux {
 impl<A, B> When<B> for A
 where
 	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
-		+ FluxKind<Basis: Basis<Inner = KindLinear<A>>>>>,
+		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>>,
 	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialOrd,
 {
@@ -661,7 +661,7 @@ pub trait WhenEq<B: Flux>: Flux {
 impl<A, B> WhenEq<B> for A
 where
 	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
-		+ FluxKind<Basis: Basis<Inner = KindLinear<A>>>>>,
+		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>>,
 	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
@@ -693,8 +693,8 @@ pub trait WhenDis<B: Flux, D: Flux, const SIZE: usize>: Flux {
 
 impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
-	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	A: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
+	B: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
 	D: Flux<Kind: ops::Sqr>,
 	<A::Kind as Vector<SIZE>>::Output: Sub<
 		<B::Kind as Vector<SIZE>>::Output,
@@ -706,7 +706,7 @@ where
 			>
 			+ Roots
 			+ PartialEq
-			+ FluxKind<Basis: Basis<Inner = KindLinear<D>>>
+			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
 		>,
 	>,
 	KindLinear<D>: PartialOrd,
@@ -757,8 +757,8 @@ pub trait WhenDisEq<B: Flux, D: Flux, const SIZE: usize>: Flux {
 
 impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
-	A: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: FluxKind<Basis: Basis<Inner = KindLinear<D>>>>>,
+	A: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
+	B: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
 	D: Flux<Kind: ops::Sqr>,
 	<A::Kind as Vector<SIZE>>::Output: Sub<
 		<B::Kind as Vector<SIZE>>::Output,
@@ -770,7 +770,7 @@ where
 			>
 			+ Roots
 			+ PartialEq
-			+ FluxKind<Basis: Basis<Inner = KindLinear<D>>>
+			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
 		>,
 	>,
 	KindLinear<D>: PartialEq,

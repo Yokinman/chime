@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Deref, DerefMut, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxChangeUp, FluxKind};
+use crate::kind::{FluxChange, FluxChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// ...
@@ -114,7 +114,7 @@ impl<T: Basis> ToMomentMut for Constant<T> {
 	}
 }
 
-impl<T: Basis> FluxKind for Constant<T> {
+impl<T: Basis> Poly for Constant<T> {
 	const DEGREE: usize = 0;
 	fn with_basis(value: Self::Basis) -> Self {
 		Constant(value)
@@ -163,7 +163,7 @@ where
 impl<A, B> Add<B> for Constant<A>
 where
 	A: Basis,
-	B: FluxKind<Basis = A>,
+	B: Poly<Basis = A>,
 {
 	type Output = B;
 	fn add(self, rhs: B) -> Self::Output {
@@ -174,7 +174,7 @@ where
 impl<A, B> Sub<B> for Constant<A>
 where
 	A: Basis,
-	B: FluxKind<Basis = A> + Mul<Scalar, Output = B>,
+	B: Poly<Basis = A> + Mul<Scalar, Output = B>,
 {
 	type Output = B;
 	fn sub(self, rhs: B) -> Self::Output {
