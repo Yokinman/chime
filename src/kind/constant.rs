@@ -1,8 +1,8 @@
 //! ...
 
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxKind};
+use crate::kind::{FluxChange, FluxChangeUp, FluxKind};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// ...
@@ -22,6 +22,40 @@ where
 	type Poly = Constant<T>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		Constant(basis)
+	}
+}
+
+// !!! Temporary impl until I figure out how to structure the `change` system
+// for using constants across multiple contexts.
+impl<T> FluxChangeUp for Nil<T>
+where
+	T: Basis
+{
+	type Up = crate::kind::sum::SumChange<T, 1>;
+	fn up(self, basis: Self::Basis) -> Self::Up {
+		crate::kind::sum::SumChange([basis])
+	}
+}
+
+impl<T, U> Add<U> for Nil<T>
+where
+	T: Basis,
+	U: FluxChange<Basis: Basis<Inner = T::Inner>>,
+{
+	type Output = U;
+	fn add(self, rhs: U) -> Self::Output {
+		rhs
+	}
+}
+
+impl<T, U> Sub<U> for Nil<T>
+where
+	T: Basis,
+	U: FluxChange<Basis: Basis<Inner = T::Inner>> + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
+{
+	type Output = <U as Neg>::Output;
+	fn sub(self, rhs: U) -> Self::Output {
+		-rhs
 	}
 }
 
