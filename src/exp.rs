@@ -3,6 +3,7 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
+use std::ops::Mul;
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::kind::{FluxChange, FluxChangeUp, Poly};
 use crate::linear::*;
@@ -101,13 +102,23 @@ where
 	}
 }
 
-impl<T, const OP: char> FluxChangeUp<OP> for Exp<T>
+impl<T> FluxChangeUp<'*'> for Exp<T>
 where
-	T: FluxChangeUp<OP>
+	T: FluxChangeUp<'+'>
 {
 	type Up = Exp<T::Up>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(self.0.up(basis))
+		Exp(FluxChangeUp::<'+'>::up(self.0, basis))
+	}
+}
+
+impl<T> Mul<Scalar> for Exp<T>
+where
+	T: Mul<Scalar>
+{
+	type Output = Exp<T::Output>;
+	fn mul(self, rhs: Scalar) -> Self::Output {
+		Exp(self.0 * rhs)
 	}
 }
 

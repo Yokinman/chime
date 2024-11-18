@@ -64,6 +64,12 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						} else if path.is_ident("sub") {
 							op = syn::parse_quote!{-};
 							op_trait = syn::parse_quote!{::std::ops::Sub};
+						} else if path.is_ident("mul") {
+							op = syn::parse_quote!{*};
+							op_trait = syn::parse_quote!{::std::ops::Mul};
+						} else if path.is_ident("div") {
+							op = syn::parse_quote!{/};
+							op_trait = syn::parse_quote!{::std::ops::Div};
 						} else {
 							panic!("invalid change operation, `{}`{}",
 								path.to_token_stream(), CHANGE_HELP);
@@ -92,6 +98,14 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							op = syn::parse_quote!{-};
 							op_char = syn::parse_quote!{'+'};
 							op_trait = syn::parse_quote!{::std::ops::Sub};
+						} else if path.is_ident("mul_per") {
+							op = syn::parse_quote!{*};
+							op_char = syn::parse_quote!{'*'};
+							op_trait = syn::parse_quote!{::std::ops::Mul};
+						} else if path.is_ident("div_per") {
+							op = syn::parse_quote!{/};
+							op_char = syn::parse_quote!{'*'};
+							op_trait = syn::parse_quote!{::std::ops::Div};
 						} else {
 							panic!("invalid change operation, `{}`{}",
 								path.to_token_stream(), CHANGE_HELP)
@@ -105,7 +119,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						let unit = args.first().unwrap();
 						
 						change_expr = syn::parse_quote!{#change_expr
-							#op #chime::Flux::per(&self.#field_member, #unit)};
+							#op #chime::Flux::per::<#op_char>(&self.#field_member, #unit)};
 						change_type = syn::parse_quote!{<#change_type
 							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp<#op_char>>::Up>>::Output};
 					},

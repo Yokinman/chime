@@ -10,6 +10,8 @@ use crate::{Flux, ToMomentMut};
 
 pub mod constant;
 pub mod sum;
+pub mod prod;
+pub mod sumprod;
 
 /// ...
 pub trait FluxChange {

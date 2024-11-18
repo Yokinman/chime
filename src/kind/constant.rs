@@ -1,7 +1,8 @@
 //! ...
 
-use std::ops::{Add, Deref, DerefMut, Mul, Neg, Sub};
+use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
+use crate::exp::Exp;
 use crate::kind::{FluxChange, FluxChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
@@ -35,6 +36,16 @@ where
 	}
 }
 
+impl<T> FluxChangeUp<'*'> for Nil<T>
+where
+	T: Basis
+{
+	type Up = Exp<crate::kind::sum::Sum<T, 1>>;
+	fn up(self, basis: Self::Basis) -> Self::Up {
+		Exp(crate::kind::sum::Sum([basis]))
+	}
+}
+
 impl<T, U> Add<U> for Nil<T>
 where
 	T: Basis,
@@ -54,6 +65,28 @@ where
 	type Output = <U as Neg>::Output;
 	fn sub(self, rhs: U) -> Self::Output {
 		-rhs
+	}
+}
+
+impl<T, U> Mul<Exp<U>> for Nil<T>
+where
+	T: Basis,
+	U: FluxChange<Basis: Basis<Inner = T::Inner>>,
+{
+	type Output = Exp<U>;
+	fn mul(self, rhs: Exp<U>) -> Self::Output {
+		rhs
+	}
+}
+
+impl<T, U> Div<Exp<U>> for Nil<T>
+where
+	T: Basis,
+	U: FluxChange<Basis: Basis<Inner = T::Inner>> + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
+{
+	type Output = Exp<<U as Neg>::Output>;
+	fn div(self, rhs: Exp<U>) -> Self::Output {
+		Exp(-rhs.0)
 	}
 }
 
