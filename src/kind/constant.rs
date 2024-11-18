@@ -45,7 +45,7 @@ where
 {
 	type Up = Exp<crate::kind::sum::Sum<T, 1>>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(crate::kind::sum::Sum([basis]))
+		Exp(crate::kind::sum::Sum([T::from_inner(basis.into_inner().ln())]))
 	}
 }
 

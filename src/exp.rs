@@ -97,7 +97,7 @@ where
 	type Basis = T::Basis;
 	type Poly = Exp<T::Poly>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
-		Exp(self.0.into_poly(basis))
+		Exp(self.0.into_poly(Basis::from_inner(basis.into_inner().ln())))
 	}
 	fn scale(self, scalar: Scalar) -> Self {
 		Exp(self.0.scale(scalar))
@@ -110,7 +110,7 @@ where
 {
 	type Up = Exp<T::Up>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(FluxChangeUp::<'+'>::up(self.0, basis))
+		Exp(FluxChangeUp::<'+'>::up(self.0, Basis::from_inner(basis.into_inner().ln())))
 	}
 }
 
