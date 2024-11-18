@@ -2,11 +2,11 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::Mul;
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
-use crate::{Flux, ToMomentMut};
+use crate::{Change, Flux, ToMomentMut};
 
 pub mod constant;
 pub mod sum;
@@ -54,6 +54,76 @@ mod _flux_change_up_impls {
 			let mut basis_iter = basis.into_iter();
 			self.map(|x| x.up(basis_iter.next().unwrap()))
 		}
+	}
+}
+
+/// ...
+#[derive(Default)]
+pub struct ChangeAccum<T>(T);
+
+impl<T> ChangeAccum<T> {
+	pub fn into_change(self) -> T {
+		self.0
+	}
+}
+
+impl<A, B> Add<Change<B>> for ChangeAccum<A>
+where
+	A: FluxChange + Add<<B::Change as FluxChangeUp<'+'>>::Up>,
+	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'+',
+		Up: Mul<Scalar, Output = <B::Change as FluxChangeUp<'+'>>::Up>
+	>>,
+{
+	type Output = ChangeAccum<A::Output>;
+	fn add(self, rhs: Change<B>) -> Self::Output {
+		let change = rhs.rate.change().up(rhs.rate.basis())
+			* Scalar::from(rhs.unit.as_secs_f64().recip());
+		ChangeAccum(self.0 + change)
+	}
+}
+
+impl<A, B> Sub<Change<B>> for ChangeAccum<A>
+where
+	A: FluxChange + Sub<<B::Change as FluxChangeUp<'+'>>::Up>,
+	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'+',
+		Up: Mul<Scalar, Output = <B::Change as FluxChangeUp<'+'>>::Up>
+	>>,
+{
+	type Output = ChangeAccum<A::Output>;
+	fn sub(self, rhs: Change<B>) -> Self::Output {
+		let change = rhs.rate.change().up(rhs.rate.basis())
+			* Scalar::from(rhs.unit.as_secs_f64().recip());
+		ChangeAccum(self.0 - change)
+	}
+}
+
+impl<A, B> Mul<Change<B>> for ChangeAccum<A>
+where
+	A: FluxChange + Mul<<B::Change as FluxChangeUp<'*'>>::Up>,
+	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'*',
+		Up: Mul<Scalar, Output = <B::Change as FluxChangeUp<'*'>>::Up>
+	>>,
+{
+	type Output = ChangeAccum<A::Output>;
+	fn mul(self, rhs: Change<B>) -> Self::Output {
+		let change = rhs.rate.change().up(rhs.rate.basis())
+			* Scalar::from(rhs.unit.as_secs_f64().recip());
+		ChangeAccum(self.0 * change)
+	}
+}
+
+impl<A, B> Div<Change<B>> for ChangeAccum<A>
+where
+	A: FluxChange + Div<<B::Change as FluxChangeUp<'*'>>::Up>,
+	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'*',
+		Up: Mul<Scalar, Output = <B::Change as FluxChangeUp<'*'>>::Up>
+	>>,
+{
+	type Output = ChangeAccum<A::Output>;
+	fn div(self, rhs: Change<B>) -> Self::Output {
+		let change = rhs.rate.change().up(rhs.rate.basis())
+			* Scalar::from(rhs.unit.as_secs_f64().recip());
+		ChangeAccum(self.0 / change)
 	}
 }
 
