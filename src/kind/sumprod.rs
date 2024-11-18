@@ -122,20 +122,31 @@ where
 
 #[cfg(test)]
 mod tests {
+	use crate as chime;
+	use crate::Flux;
 	use crate::linear::Scalar;
 	use crate::kind::Poly;
-	use super::SumProdPoly;
+	
+	#[derive(Flux)]
+	struct Test {
+		#[basis]
+		value: f64,
+		#[change(add_per(chime::time::SEC))]
+		add: f64,
+		#[change(mul_per(chime::time::SEC))]
+		mul: f64,
+	}
 	
 	#[test]
 	fn sumprod() {
-		let a = SumProdPoly { basis: 1., add_term: 4., mul_term: 0.5 };
+		let a = Test { value: 1., add: 4., mul: 0.5 }.to_kind();
 		assert_eq!(a.eval(Scalar::from(0.)), 1.);
 		assert_eq!(a.eval(Scalar::from(1.)), 2.5);
 		assert_eq!(a.eval(Scalar::from(2.)), 3.25);
 		assert_eq!(a.eval(Scalar::from(3.)), 3.625);
 		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), 4.);
 		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), f64::NEG_INFINITY);
-		let a = SumProdPoly { basis: 1., add_term: 4., mul_term: 2. };
+		let a = Test { value: 1., add: 4., mul: 2. }.to_kind();
 		assert_eq!(a.eval(Scalar::from(0.)), 1.);
 		assert_eq!(a.eval(Scalar::from(1.)), 10.);
 		assert_eq!(a.eval(Scalar::from(2.)), 28.);

@@ -69,17 +69,16 @@ where
 mod _test {
 	use crate as chime;
 	use crate::Flux;
-	use crate::exp::Exp;
 	use crate::kind::{FluxChange, Poly};
 	use crate::linear::Scalar;
 	use super::SumPoly;
 	
-	#[derive(chime::Flux)]
+	#[derive(Flux)]
 	pub struct Test {
 		#[basis]
 		value: f64,
 		#[change(mul_per(crate::time::SEC))]
-		something: f64,
+		mul: f64,
 	}
 	
 	#[test]
@@ -88,7 +87,7 @@ mod _test {
 		assert_eq!(a.eval(Scalar::from(0.)), 5.);
 		assert_eq!(a.eval(Scalar::from(1.)), 6.5);
 		assert_eq!(a.eval(Scalar::from(2.)), 8.);
-		let b = Exp(SumPoly::new(1_f64.ln(), [2_f64.ln()]));
+		let b = Test { value: 1., mul: 2. }.to_kind();
 		assert_eq!(b.eval(Scalar::from(0.)), 1.);
 		assert_eq!(b.eval(Scalar::from(1.)), 2.);
 		assert_eq!(b.eval(Scalar::from(2.)), 4.);
