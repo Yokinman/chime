@@ -28,7 +28,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
-	let mut change_expr: syn::Expr = syn::parse_quote!{<#chime::kind::constant::Nil<Self::Basis> as std::default::Default>::default()};
+	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self)};
 	let mut change_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Nil<Self::Basis>};
 	
 	 // Find Helper Attributes:
@@ -76,7 +76,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						}
 						
 						change_expr = syn::parse_quote!{(#change_expr)
-							#op #chime::Flux::to_kind(&self.#field_member)};
+							#op self.#field_member};
 						change_type = syn::parse_quote!{<#change_type
 							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
 					},
@@ -119,7 +119,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						let unit = args.first().unwrap();
 						
 						change_expr = syn::parse_quote!{#change_expr
-							#op #chime::Flux::per::<#op_char>(&self.#field_member, #unit)};
+							#op #chime::Flux::per(&self.#field_member, #unit)};
 						change_type = syn::parse_quote!{<#change_type
 							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp<#op_char>>::Up>>::Output};
 					},
@@ -146,7 +146,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 				self.#basis_member
 			}
 			fn change(&self) -> Self::Change {
-				std::convert::Into::<Self::Change>::into(#change_expr)
+				#chime::kind::ChangeAccum::<Self::Change>::into_change(#change_expr)
 			}
 		}
 	};

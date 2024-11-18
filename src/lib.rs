@@ -358,22 +358,18 @@ pub struct Change<T> {
 }
 
 mod _change_impls {
-	use crate::kind::{FluxChange, FluxChangeUp};
-	use crate::linear::{Basis, Scalar};
+	use crate::linear::Scalar;
 	use super::{Change, Flux, ToMoment, ToMomentMut};
 	
-	impl<T> Flux for Change<T>
-	where
-		T: Flux<Change: FluxChangeUp<'+', Up: FluxChange + std::ops::Mul<Scalar, Output = <T::Change as FluxChangeUp<'+'>>::Up>>>,
-	{
+	impl<T: Flux> Flux for Change<T> {
 		type Basis = T::Basis;
-		type Change = <T::Change as FluxChangeUp<'+'>>::Up;
-		type Kind = <<T::Change as FluxChangeUp<'+'>>::Up as FluxChange>::Poly;
+		type Change = T::Change;
+		type Kind = T::Kind;
 		fn basis(&self) -> Self::Basis {
-			Basis::zero()
+			self.rate.basis()
 		}
 		fn change(&self) -> Self::Change {
-			self.rate.per(self.unit)
+			self.rate.change()
 		}
 	}
 	
@@ -444,14 +440,19 @@ pub trait Flux {
 		self.change().into_poly(self.basis())
 	}
 	
+	/// ...
+	fn accum(&self) -> ChangeAccum<constant::Nil<Self::Basis>> {
+		ChangeAccum::default()
+	}
+	
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per<const OP: char>(&self, unit: Time) -> <Self::Change as FluxChangeUp<OP>>::Up
-	where
-		Self::Change: FluxChangeUp<OP, Up: std::ops::Mul<Scalar, Output = <Self::Change as FluxChangeUp<OP>>::Up>>,
-	{
-		self.change().up(self.basis()) * Scalar::from(unit.as_secs_f64().recip())
+	fn per(&self, unit: Time) -> Change<temporal::TemporalRef<'_, Self>> {
+		Change {
+			rate: temporal::TemporalRef(self),
+			unit,
+		}
 	}
 }
 
@@ -536,11 +537,11 @@ mod tests {
 			self.value
 		}
 		fn change(&self) -> Self::Change {
-			let mut kind = self.spd.per(SEC);
+			let mut accum = self.accum() + self.spd.per(SEC);
 			for spd in &self.misc {
-				kind = kind + spd.per(SEC);
+				accum = accum + spd.per(SEC);
 			}
-			kind
+			accum.into_change()
 		}
 	}
 	

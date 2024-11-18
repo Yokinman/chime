@@ -441,7 +441,7 @@ where
 }
 
 /// ...
-pub struct TemporalRef<'a, T>(&'a T);
+pub struct TemporalRef<'a, T: ?Sized>(pub(crate) &'a T);
 
 mod _temporal_ref_impls {
 	use crate::{Flux, ToMoment};
