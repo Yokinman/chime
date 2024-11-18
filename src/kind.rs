@@ -18,9 +18,11 @@ pub trait FluxChange {
 	type Basis: Basis;
 	type Poly: Poly<Basis = Self::Basis>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
+	fn scale(self, scalar: Scalar) -> Self;
 }
 
 mod _flux_change_impls {
+	use crate::linear::Scalar;
 	use super::FluxChange;
 	
 	impl<T, const N: usize> FluxChange for [T; N]
@@ -32,6 +34,9 @@ mod _flux_change_impls {
 		fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 			let mut basis_iter = basis.into_iter();
 			self.map(|x| x.into_poly(basis_iter.next().unwrap()))
+		}
+		fn scale(self, scalar: Scalar) -> Self {
+			self.map(|x| x.scale(scalar))
 		}
 	}
 }

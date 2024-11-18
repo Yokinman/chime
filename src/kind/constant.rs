@@ -24,6 +24,9 @@ where
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		Constant(basis)
 	}
+	fn scale(self, _scalar: Scalar) -> Self {
+		self
+	}
 }
 
 impl<T> FluxChangeUp<'+'> for Nil<T>

@@ -26,6 +26,12 @@ impl<T: Basis> FluxChange for SumProd<T> {
 			mul_term: self.mul_term,
 		}
 	}
+	fn scale(self, scalar: Scalar) -> Self {
+		Self {
+			add_term: T::from_inner(self.add_term.into_inner().mul_scalar(scalar)),
+			mul_term: T::from_inner(self.mul_term.into_inner().pow_scalar(scalar)),
+		}
+	}
 }
 
 /// ...

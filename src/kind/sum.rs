@@ -25,6 +25,9 @@ where
 		});
 		SumPoly::new(basis, terms)
 	}
+	fn scale(self, scalar: Scalar) -> Self {
+		Self(self.0.map(|x| T::from_inner(x.into_inner().mul_scalar(scalar))))
+	}
 }
 
 impl<T> FluxChangeUp<'+'> for Sum<T, 0>

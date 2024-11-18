@@ -100,6 +100,9 @@ where
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		Exp(self.0.into_poly(basis))
 	}
+	fn scale(self, scalar: Scalar) -> Self {
+		Exp(self.0.scale(scalar))
+	}
 }
 
 impl<T> FluxChangeUp<'*'> for Exp<T>
