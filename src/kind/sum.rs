@@ -134,13 +134,6 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> Mul<Scalar> for Sum<T, D> {
-	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		Self(self.0.map(|x| T::from_inner(x.into_inner().mul_scalar(rhs))))
-	}
-}
-
 impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 	type Basis = T;
 	type Change = Sum<T, D>;
