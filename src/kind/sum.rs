@@ -21,12 +21,12 @@ where
 		let terms = self.0.map(|term| {
 			i += 1.;
 			n *= i;
-			T::from_inner(term.into_inner().mul_scalar(Scalar::from(1. / n)))
+			term.map(|x| x.mul_scalar(Scalar::from(1. / n)))
 		});
 		SumPoly::new(basis, terms)
 	}
 	fn scale(self, scalar: Scalar) -> Self {
-		Self(self.0.map(|x| T::from_inner(x.into_inner().mul_scalar(scalar))))
+		Self(self.0.map(|term| term.map(|x| x.mul_scalar(scalar))))
 	}
 }
 
@@ -46,7 +46,7 @@ where
 {
 	type Output = Self;
 	fn neg(self) -> Self::Output {
-		Self(self.0.map(|x| T::from_inner(x.into_inner().mul_scalar(Scalar::from(-1.)))))
+		Self(self.0.map(|term| term.map(|x| x.mul_scalar(Scalar::from(-1.)))))
 	}
 }
 
@@ -128,8 +128,8 @@ where
 impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
-		self.1 = self.1.map(|x| T::from_inner(x.into_inner().mul_scalar(rhs)));
+		self.0 = self.0.map(|x| x.mul_scalar(rhs));
+		self.1 = self.1.map(|term| term.map(|x| x.mul_scalar(rhs)));
 		self
 	}
 }
@@ -147,7 +147,7 @@ impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 		let terms = self.1.clone().map(|term| {
 			i += 1.;
 			n *= i;
-			T::from_inner(term.into_inner().mul_scalar(Scalar::from(n)))
+			term.map(|x| x.mul_scalar(Scalar::from(n)))
 		});
 		Sum(terms)
 	}
@@ -187,7 +187,7 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	}
 	
 	fn add_basis(mut self, value: Self::Basis) -> Self {
-		self.0 = T::from_inner(self.0.into_inner().add(value.into_inner()));
+		self.0 = self.0.map(|x| x.add(value.into_inner()));
 		self
 	}
 	
@@ -196,9 +196,9 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		self.1.rotate_left(1);
 		self.1[D-1] = T::zero();
 		let mut d = 1.;
-		self.1 = self.1.map(|x| {
+		self.1 = self.1.map(|term| {
 			d += 1.;
-			T::from_inner(x.into_inner().mul_scalar(Scalar::from(d)))
+			term.map(|x| x.mul_scalar(Scalar::from(d)))
 		});
 		self
 	}
@@ -211,7 +211,7 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		for degree in 1..=D {
 			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
 		}
-		Basis::from_inner(value.mul_scalar(time).add(self.0.clone().into_inner()))
+		self.0.clone().map(|x| x.add(value.mul_scalar(time)))
 	}
 }
 
@@ -249,7 +249,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = A::from_inner(self.0.into_inner().add(rhs.basis().into_inner()));
+		self.0 = self.0.map(|x| x.add(rhs.basis().into_inner()));
 		self
 	}
 }
@@ -286,7 +286,7 @@ macro_rules! impl_deg_order {
 		{
 			type Output = Sum<A, { $($num +)+ 0 }>;
 			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
-				Sum(rhs.0.map(|x| A::from_inner(Basis::into_inner(x))))
+				Sum(rhs.0.map(|x| A::from_inner(x.into_inner())))
 			}
 		}
 		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
@@ -300,8 +300,8 @@ macro_rules! impl_deg_order {
 				let mut b = rhs.0.into_iter();
 				Sum(std::array::from_fn(|_| unsafe {
 					// SAFETY: Sizes of all input & output arrays are equal.
-					A::from_inner(a.next().unwrap_unchecked().into_inner()
-						.add(b.next().unwrap_unchecked().into_inner()))
+					a.next().unwrap_unchecked()
+						.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 				}))
 			}
 		}
@@ -314,7 +314,7 @@ macro_rules! impl_deg_order {
 			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
 				SumPoly::new(
 					A::from_inner(rhs.0.into_inner()),
-					rhs.1.map(|x| A::from_inner(Basis::into_inner(x))),
+					rhs.1.map(|x| A::from_inner(x.into_inner())),
 				)
 			}
 		}
@@ -328,11 +328,11 @@ macro_rules! impl_deg_order {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
+					self.0.map(|x| x.add(rhs.0.into_inner())),
 					std::array::from_fn(|_| unsafe {
 						// SAFETY: Sizes of all input & output arrays are equal.
-						A::from_inner(a.next().unwrap_unchecked().into_inner()
-							.add(b.next().unwrap_unchecked().into_inner()))
+						a.next().unwrap_unchecked()
+							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 					}),
 				)
 			}
@@ -397,8 +397,8 @@ macro_rules! impl_deg_add {
 					// SAFETY: `a` is the same size as the output array, and
 					// `b` is the size of `$a` (bad naming).
 					if i < $a {
-						A::from_inner(a.next().unwrap_unchecked().into_inner()
-							.add(b.next().unwrap_unchecked().into_inner()))
+						a.next().unwrap_unchecked()
+							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 					} else {
 						a.next().unwrap_unchecked()
 					}
@@ -418,8 +418,8 @@ macro_rules! impl_deg_add {
 					// SAFETY: `b` is the same size as the output array, and
 					// `a` is the size of `$a`.
 					if i < $a {
-						A::from_inner(a.next().unwrap_unchecked().into_inner()
-							.add(b.next().unwrap_unchecked().into_inner()))
+						a.next().unwrap_unchecked()
+							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 					} else {
 						A::from_inner(b.next().unwrap_unchecked().into_inner())
 					}
@@ -436,13 +436,13 @@ macro_rules! impl_deg_add {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
+					self.0.map(|x| x.add(rhs.0.into_inner())),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `a` is the same size as the output array, and
 						// `b` is the size of `$a` (bad naming).
 						if i < $a {
-							A::from_inner(a.next().unwrap_unchecked().into_inner()
-								.add(b.next().unwrap_unchecked().into_inner()))
+							a.next().unwrap_unchecked()
+								.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 						} else {
 							a.next().unwrap_unchecked()
 						}
@@ -460,13 +460,13 @@ macro_rules! impl_deg_add {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly::new(
-					A::from_inner(self.0.into_inner().add(rhs.0.into_inner())),
+					self.0.map(|x| x.add(rhs.0.into_inner())),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `b` is the same size as the output array, and
 						// `a` is the size of `$a`.
 						if i < $a {
-							A::from_inner(a.next().unwrap_unchecked().into_inner()
-								.add(b.next().unwrap_unchecked().into_inner()))
+							a.next().unwrap_unchecked()
+								.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
 						} else {
 							A::from_inner(b.next().unwrap_unchecked().into_inner())
 						}

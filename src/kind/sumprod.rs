@@ -28,8 +28,8 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	}
 	fn scale(self, scalar: Scalar) -> Self {
 		Self {
-			add_term: T::from_inner(self.add_term.into_inner().mul_scalar(scalar)),
-			mul_term: T::from_inner(self.mul_term.into_inner().pow_scalar(scalar)),
+			add_term: self.add_term.map(|x| x.mul_scalar(scalar)),
+			mul_term: self.mul_term.map(|x| x.pow_scalar(scalar)),
 		}
 	}
 }
@@ -73,12 +73,12 @@ where
 		}
 	}
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.basis = T::from_inner(self.basis.into_inner().add(basis.into_inner()));
+		self.basis = self.basis.map(|x| x.add(basis.into_inner()));
 		self
 	}
 	fn deriv(self) -> Self {
 		// let m = self.mul_term.clone().into_inner().ln() / ???;
-		// self.basis = T::from_inner(self.basis.into_inner().mul(m.clone()));
+		// self.basis = self.basis.map(|x| x.mul(m.clone()));
 		// self.add_term = T::zero();
 		// self
 		todo!()
@@ -90,7 +90,7 @@ where
 		// }
 		let a = self.add_term.clone().into_inner()
 			.mul(m.clone().div(m.clone().sub(Linear::from_f64(1.))));
-		Basis::from_inner(self.basis.clone().into_inner()
+		self.basis.clone().map(|x| x
 			.add(a.clone())
 			.mul(m.pow_scalar(time))
 			.sub(a))

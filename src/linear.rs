@@ -715,7 +715,7 @@ mod _iso_impls {
 	{
 		type Output = Self;
 		fn mul(self, rhs: Self) -> Self::Output {
-			Self::from_inner(self.into_inner() * rhs.into_inner())
+			self.map(|x| x * rhs.into_inner())
 		}
 	}
 	

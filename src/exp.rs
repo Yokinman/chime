@@ -97,7 +97,7 @@ where
 	type Basis = T::Basis;
 	type Poly = Exp<T::Poly>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
-		Exp(self.0.into_poly(Basis::from_inner(basis.into_inner().ln())))
+		Exp(self.0.into_poly(basis.map(Linear::ln)))
 	}
 	fn scale(self, scalar: Scalar) -> Self {
 		Exp(self.0.scale(scalar))
@@ -110,7 +110,7 @@ where
 {
 	type Up = Exp<T::Up>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(FluxChangeUp::<'+'>::up(self.0, Basis::from_inner(basis.into_inner().ln())))
+		Exp(FluxChangeUp::<'+'>::up(self.0, basis.map(Linear::ln)))
 	}
 }
 
@@ -120,16 +120,16 @@ where
 {
 	const DEGREE: usize = T::DEGREE;
 	fn with_basis(basis: Self::Basis) -> Self {
-		Self(T::with_basis(Basis::from_inner(basis.into_inner().ln())))
+		Self(T::with_basis(basis.map(Linear::ln)))
 	}
 	fn add_basis(self, basis: Self::Basis) -> Self {
-		Self(self.0.add_basis(Basis::from_inner(basis.into_inner().ln())))
+		Self(self.0.add_basis(basis.map(Linear::ln)))
 	}
 	fn deriv(self) -> Self {
 		Self(self.0.deriv())
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
-		Basis::from_inner(self.0.eval(time).into_inner().exp())
+		self.0.eval(time).map(Linear::exp)
 	}
 }
 

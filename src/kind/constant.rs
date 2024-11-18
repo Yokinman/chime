@@ -45,7 +45,7 @@ where
 {
 	type Up = Exp<crate::kind::sum::Sum<T, 1>>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(crate::kind::sum::Sum([T::from_inner(basis.into_inner().ln())]))
+		Exp(crate::kind::sum::Sum([basis.map(Linear::ln)]))
 	}
 }
 
@@ -154,7 +154,7 @@ impl<T: Basis> Poly for Constant<T> {
 		Constant(value)
 	}
 	fn add_basis(mut self, value: Self::Basis) -> Self {
-		self.0 = T::from_inner(self.0.into_inner().add(value.into_inner()));
+		self.0 = self.0.map(|x| x.add(value.into_inner()));
 		self
 	}
 	fn deriv(self) -> Self {
@@ -178,7 +178,7 @@ where
 impl<T: Basis> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = T::from_inner(self.0.into_inner().mul_scalar(rhs));
+		self.0 = self.0.map(|x| x.mul_scalar(rhs));
 		self
 	}
 }

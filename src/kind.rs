@@ -140,8 +140,7 @@ pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	fn add_basis(self, value: Self::Basis) -> Self;
 	
 	fn sub_basis(self, value: Self::Basis) -> Self {
-		self.add_basis(Basis::from_inner(value.into_inner()
-			.mul_scalar(Scalar::from(-1.))))
+		self.add_basis(value.map(|x| x.mul_scalar(Scalar::from(-1.))))
 	}
 	
 	fn deriv(self) -> Self;
