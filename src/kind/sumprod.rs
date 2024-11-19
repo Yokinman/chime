@@ -1,7 +1,9 @@
 //! ... https://www.desmos.com/calculator/ko5owr56jx
 
+use std::ops::{Add, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, Poly};
+use crate::kind::{FluxChange, Poly, Roots};
+use crate::kind::constant::Constant;
 use crate::linear::{Basis, Linear, Scalar};
 
 /// ...
@@ -38,7 +40,7 @@ impl<T: Basis> FluxChange for SumProd<T> {
 
 /// ...
 /// `b + a*(m^x - 1)`
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct SumProdPoly<T> {
 	pub(crate) basis: T,
 	pub(crate) add_term: T,
@@ -119,13 +121,43 @@ where
 	}
 }
 
+impl<T> Add<Constant<T>> for SumProdPoly<T>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn add(mut self, rhs: Constant<T>) -> Self::Output {
+		self.basis = self.basis.map(|x| x.add(rhs.basis().into_inner()));
+		self
+	}
+}
+
+impl<T> Sub<Constant<T>> for SumProdPoly<T>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn sub(mut self, rhs: Constant<T>) -> Self::Output {
+		self.basis = self.basis.map(|x| x.sub(rhs.basis().into_inner()));
+		self
+	}
+}
+
+impl Roots for SumProdPoly<f64> {
+	type Output = [f64; 1];
+	fn roots(self) -> <Self as Roots>::Output {
+		// !!! if add_term == inf && mul_term == 1 { return [-self.basis / self.add_term] }
+		[(1. - (self.basis / self.add_term)).log(self.mul_term)] 
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate as chime;
 	use crate::Flux;
 	use crate::linear::Scalar;
-	use crate::kind::Poly;
-	
+	use crate::kind::{Poly, Roots};
+
 	#[derive(Flux)]
 	struct Test {
 		#[basis]
@@ -152,5 +184,10 @@ mod tests {
 		assert_eq!(a.eval(Scalar::from(3.)), 64.);
 		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), f64::INFINITY);
 		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), -8.);
+		
+		assert_eq!(
+			(a - chime::kind::constant::Constant(5.)).roots(),
+			[0.5305147166987798],
+		);
 	}
 }
