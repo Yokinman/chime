@@ -20,11 +20,13 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<T>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
-		SumProdPoly {
-			basis,
-			add_term: self.add_term,
-			mul_term: self.mul_term,
-		}
+		let mul_term = self.mul_term;
+		let add_term = self.add_term.map(|x| x
+			.mul(mul_term.clone().into_inner())
+			.div(mul_term.clone().into_inner().sub(Linear::from_f64(1.)))
+			.add(basis.clone().into_inner())
+		);
+		SumProdPoly { basis, add_term, mul_term }
 	}
 	fn scale(self, scalar: Scalar) -> Self {
 		Self {
@@ -35,6 +37,7 @@ impl<T: Basis> FluxChange for SumProd<T> {
 }
 
 /// ...
+/// `b + a*(m^x - 1)`
 #[derive(Copy, Clone, Debug)]
 pub struct SumProdPoly<T> {
 	pub(crate) basis: T,
@@ -53,10 +56,13 @@ where
 		self.basis.clone()
 	}
 	fn change(&self) -> Self::Change {
-		SumProd {
-			add_term: self.add_term.clone(),
-			mul_term: self.mul_term.clone(),
-		}
+		// let mul_term = self.clone().mul_term;
+		// let add_term = self.clone().add_term.map(|x| x
+		// 	.mul(mul_term.clone().into_inner().sub(Linear::from_f64(1.)))
+		// 	.div(mul_term.clone().into_inner())
+		// );
+		// SumProd { add_term, mul_term }
+		todo!()
 	}
 }
 
@@ -76,24 +82,17 @@ where
 		self.basis = self.basis.map(|x| x.add(basis.into_inner()));
 		self
 	}
-	fn deriv(self) -> Self {
-		// let m = self.mul_term.clone().into_inner().ln() / ???;
-		// self.basis = self.basis.map(|x| x.mul(m.clone()));
-		// self.add_term = T::zero();
-		// self
-		todo!()
+	fn deriv(mut self) -> Self {
+		self.add_term = self.add_term.map(|x| x.mul(self.mul_term.clone().into_inner().ln()));
+		self.basis = self.add_term.clone();
+		self
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
-		let m = self.mul_term.clone().into_inner();
-		// if m == Linear::from_f64(1.) {
-		// 	return a + bx
-		// }
-		let a = self.add_term.clone().into_inner()
-			.mul(m.clone().div(m.clone().sub(Linear::from_f64(1.))));
+		// !!! if add_term == inf && mul_term == 1 { return basis + add_term*x }
 		self.basis.clone().map(|x| x
-			.add(a.clone())
-			.mul(m.pow_scalar(time))
-			.sub(a))
+			.add(self.add_term.clone().into_inner()
+				.mul(self.mul_term.clone().into_inner().pow_scalar(time)
+					.sub(T::Inner::from_f64(1.)))))
 	}
 }
 
