@@ -450,7 +450,7 @@ mod _temporal_ref_impls {
 	
 	impl<T> Flux for TemporalRef<'_, T>
 	where
-		T: Flux
+		T: Flux + ?Sized
 	{
 		type Basis = T::Basis;
 		type Change = T::Change;
@@ -465,7 +465,7 @@ mod _temporal_ref_impls {
 	
 	impl<T> ToMoment for TemporalRef<'_, T>
 	where
-		T: ToMoment
+		T: ToMoment + ?Sized
 	{
 		type Moment<'a> = T::Moment<'a> where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
