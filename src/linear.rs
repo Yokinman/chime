@@ -318,6 +318,8 @@ pub trait Basis: Clone + Debug + 'static {
 	
 	fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R;
 	
+	// !!! Can probably get rid of this method with some clever particular usage
+	// of `Basis::map`. TBD
 	fn inner_id(inner: Self::Inner) -> Self::Inner;
 	
 	fn inner_eq(&self, other: &Self) -> bool
