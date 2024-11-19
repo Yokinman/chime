@@ -3,7 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::exp::Exp;
-use crate::kind::{FluxChange, FluxChangeUp, Poly};
+use crate::kind::{FluxChange, FluxChangeUp, IntoPoly, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// ...
@@ -162,6 +162,12 @@ impl<T: Basis> Poly for Constant<T> {
 	}
 	fn eval(&self, _time: Scalar) -> Self::Basis {
 		self.0.clone()
+	}
+}
+
+impl<T: Basis> IntoPoly<Self> for Constant<T> {
+	fn into_poly(self) -> Self {
+		self
 	}
 }
 

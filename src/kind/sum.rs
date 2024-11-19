@@ -215,6 +215,12 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	}
 }
 
+impl<T: Basis, const D: usize> IntoPoly<Self> for SumPoly<T, D> {
+	fn into_poly(self) -> Self {
+		self
+	}
+}
+
 impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for SumPoly<T, DEGREE>
 where
 	T: Vector<SIZE>

@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, Poly, Roots};
+use crate::kind::{FluxChange, IntoPoly, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::linear::{Basis, Linear, Scalar};
 
@@ -95,6 +95,12 @@ where
 			.add(self.add_term.clone().into_inner()
 				.mul(self.mul_term.clone().into_inner().pow_scalar(time)
 					.sub(T::Inner::from_f64(1.)))))
+	}
+}
+
+impl<T: Basis> IntoPoly<Self> for SumProdPoly<T> {
+	fn into_poly(self) -> Self {
+		self
 	}
 }
 

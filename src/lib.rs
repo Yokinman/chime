@@ -437,7 +437,7 @@ pub trait Flux {
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		self.change().into_poly(self.basis())
+		self.into_poly()
 	}
 	
 	/// ...

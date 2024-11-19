@@ -4,7 +4,7 @@
 //! summation over time to multiplication over time.
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxChangeUp, Poly};
+use crate::kind::{FluxChange, FluxChangeUp, IntoPoly, Poly};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -130,6 +130,12 @@ where
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		self.0.eval(time).map(Linear::exp)
+	}
+}
+
+impl<T: Poly> IntoPoly<Self> for Exp<T> {
+	fn into_poly(self) -> Self {
+		self
 	}
 }
 
