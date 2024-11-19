@@ -236,13 +236,12 @@ mod _into_poly_impls {
 		}
 	}
 	
-	impl<T, U, const N: usize> IntoPoly<[U; N]> for [T; N]
+	impl<T> IntoPoly<Self> for T
 	where
-		T: IntoPoly<U>,
-		U: Poly,
+		T: Poly
 	{
-		fn into_poly(self) -> [U; N] {
-			self.map(T::into_poly)
+		fn into_poly(self) -> Self {
+			self
 		}
 	}
 }
