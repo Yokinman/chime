@@ -437,7 +437,7 @@ pub trait Flux {
 	
 	/// Conversion into a standard representation.
 	fn to_kind(&self) -> Self::Kind {
-		self.into_poly()
+		temporal::TemporalRef(self).into_poly()
 	}
 	
 	/// ...

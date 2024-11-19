@@ -224,9 +224,10 @@ pub trait IntoPoly<T: Poly> {
 mod _into_poly_impls {
 	use crate::Flux;
 	use crate::kind::{FluxChange, Poly};
+	use crate::temporal::TemporalRef;
 	use super::IntoPoly;
 	
-	impl<T> IntoPoly<T::Kind> for &T
+	impl<T> IntoPoly<T::Kind> for TemporalRef<'_, T>
 	where
 		T: Flux + ?Sized
 	{
