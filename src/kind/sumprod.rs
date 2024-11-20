@@ -1,7 +1,7 @@
 //! ... https://www.desmos.com/calculator/ko5owr56jx
 
 use std::ops::{Add, Sub};
-use crate::{Flux, ToMoment, ToMomentMut};
+use crate::{ToMoment, ToMomentMut};
 use crate::kind::{FluxChange, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::linear::{Basis, Linear, Scalar};
@@ -20,7 +20,7 @@ pub struct SumProd<T> {
 
 impl<T: Basis> FluxChange for SumProd<T> {
 	type Basis = T;
-	type Poly = SumProdPoly<T>;
+	type Poly = SumProdPoly<Constant<T>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		let mul_term = self.mul_term;
 		let add_term = self.add_term.map(|x| x
@@ -28,6 +28,7 @@ impl<T: Basis> FluxChange for SumProd<T> {
 			.div(mul_term.clone().into_inner().sub(Linear::from_f64(1.)))
 			.add(basis.clone().into_inner())
 		);
+		let basis = Constant(basis);
 		SumProdPoly { basis, add_term, mul_term }
 	}
 	fn scale(self, scalar: Scalar) -> Self {
@@ -41,68 +42,41 @@ impl<T: Basis> FluxChange for SumProd<T> {
 /// ...
 /// `b + a*(m^x - 1)`
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
-pub struct SumProdPoly<T> {
+pub struct SumProdPoly<T: Poly> {
 	pub(crate) basis: T,
-	pub(crate) add_term: T,
-	pub(crate) mul_term: T,
+	pub(crate) add_term: T::Basis,
+	pub(crate) mul_term: T::Basis,
 }
 
-impl<T> Flux for SumProdPoly<T>
-where
-	T: Basis
-{
-	type Basis = T;
-	type Change = SumProd<T>;
-	type Kind = Self;
-	fn basis(&self) -> Self::Basis {
-		self.basis.clone()
-	}
-	fn change(&self) -> Self::Change {
-		// let mul_term = self.clone().mul_term;
-		// let add_term = self.clone().add_term.map(|x| x
-		// 	.mul(mul_term.clone().into_inner().sub(Linear::from_f64(1.)))
-		// 	.div(mul_term.clone().into_inner())
-		// );
-		// SumProd { add_term, mul_term }
-		todo!()
-	}
-}
-
-impl<T> Poly for SumProdPoly<T>
-where
-	T: Basis
-{
+impl<T: Poly> Poly for SumProdPoly<T> {
 	const DEGREE: usize = usize::MAX;
-	type Basis = T;
+	type Basis = T::Basis;
 	fn with_basis(basis: Self::Basis) -> Self {
 		Self {
-			basis,
-			add_term: T::zero(),
-			mul_term: T::zero(),
+			basis: T::with_basis(basis),
+			add_term: Basis::zero(),
+			mul_term: Basis::zero(),
 		}
 	}
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.basis = self.basis.map(|x| x.add(basis.into_inner()));
+		self.basis = self.basis.add_basis(basis);
 		self
 	}
 	fn deriv(mut self) -> Self {
 		self.add_term = self.add_term.map(|x| x.mul(self.mul_term.clone().into_inner().ln()));
-		self.basis = self.add_term.clone();
+		self.basis = self.basis.deriv().add_basis(self.add_term.clone());
 		self
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		// !!! if add_term == inf && mul_term == 1 { return basis + add_term*x }
-		self.basis.clone().map(|x| x
+		self.basis.eval(time).map(|x| x
 			.add(self.add_term.clone().into_inner()
 				.mul(self.mul_term.clone().into_inner().pow_scalar(time)
-					.sub(T::Inner::from_f64(1.)))))
+					.sub(<T::Basis as Basis>::Inner::from_f64(1.)))))
 	}
 }
 
-impl<T> ToMoment for SumProdPoly<T>
-where
-	T: Basis
-{
+impl<T: Poly> ToMoment for SumProdPoly<T> {
 	type Moment<'a> = Self where Self: 'a;
 	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 		let mut x = self.clone();
@@ -111,44 +85,42 @@ where
 	}
 }
 
-impl<T> ToMomentMut for SumProdPoly<T>
-where
-	T: Basis
-{
+impl<T: Poly> ToMomentMut for SumProdPoly<T> {
 	type MomentMut<'a> = &'a mut Self where Self: 'a;
-	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
-		self.basis = self.eval(time);
-		self
+	fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
+		// self.basis = self.eval(time);
+		// self
+		todo!()
 	}
 }
 
-impl<T> Add<Constant<T>> for SumProdPoly<T>
+impl<T> Add<Constant<T::Basis>> for SumProdPoly<T>
 where
-	T: Basis
+	T: Poly + Add<Constant<T::Basis>, Output = T>
 {
 	type Output = Self;
-	fn add(mut self, rhs: Constant<T>) -> Self::Output {
-		self.basis = self.basis.map(|x| x.add(rhs.basis().into_inner()));
+	fn add(mut self, rhs: Constant<T::Basis>) -> Self::Output {
+		self.basis = self.basis + rhs;
 		self
 	}
 }
 
-impl<T> Sub<Constant<T>> for SumProdPoly<T>
+impl<T> Sub<Constant<T::Basis>> for SumProdPoly<T>
 where
-	T: Basis
+	T: Poly + Sub<Constant<T::Basis>, Output = T>
 {
 	type Output = Self;
-	fn sub(mut self, rhs: Constant<T>) -> Self::Output {
-		self.basis = self.basis.map(|x| x.sub(rhs.basis().into_inner()));
+	fn sub(mut self, rhs: Constant<T::Basis>) -> Self::Output {
+		self.basis = self.basis - rhs;
 		self
 	}
 }
 
-impl Roots for SumProdPoly<f64> {
+impl Roots for SumProdPoly<Constant<f64>> {
 	type Output = [f64; 1];
 	fn roots(self) -> <Self as Roots>::Output {
 		// !!! if add_term == inf && mul_term == 1 { return [-self.basis / self.add_term] }
-		[(1. - (self.basis / self.add_term)).log(self.mul_term)] 
+		[(1. - (self.basis.0 / self.add_term)).log(self.mul_term)] 
 	}
 }
 
