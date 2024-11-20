@@ -87,7 +87,7 @@ mod _test {
 		assert_eq!(a.eval(Scalar::from(0.)), 5.);
 		assert_eq!(a.eval(Scalar::from(1.)), 6.5);
 		assert_eq!(a.eval(Scalar::from(2.)), 8.);
-		let b = Test { value: 1., mul: 2. }.to_kind();
+		let b = Test { value: 1., mul: 2. }.to_poly();
 		assert_eq!(b.eval(Scalar::from(0.)), 1.);
 		assert_eq!(b.eval(Scalar::from(1.)), 2.);
 		assert_eq!(b.eval(Scalar::from(2.)), 4.);

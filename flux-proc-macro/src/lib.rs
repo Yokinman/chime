@@ -182,7 +182,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 		for attr in field.attrs.iter() {
 			if attr.meta.path().is_ident("basis") {
 				expr = syn::parse_quote!{
-					#chime::kind::Poly::eval(&#chime::Flux::to_kind(self), time)
+					#chime::kind::Poly::eval(&#chime::Flux::to_poly(self), time)
 				};
 				continue
 			}

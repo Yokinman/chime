@@ -170,14 +170,14 @@ mod tests {
 	
 	#[test]
 	fn sumprod() {
-		let a = Test { value: 1., add: 4., mul: 0.5 }.to_kind();
+		let a = Test { value: 1., add: 4., mul: 0.5 }.to_poly();
 		assert_eq!(a.eval(Scalar::from(0.)), 1.);
 		assert_eq!(a.eval(Scalar::from(1.)), 2.5);
 		assert_eq!(a.eval(Scalar::from(2.)), 3.25);
 		assert_eq!(a.eval(Scalar::from(3.)), 3.625);
 		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), 4.);
 		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), f64::NEG_INFINITY);
-		let a = Test { value: 1., add: 4., mul: 2. }.to_kind();
+		let a = Test { value: 1., add: 4., mul: 2. }.to_poly();
 		assert_eq!(a.eval(Scalar::from(0.)), 1.);
 		assert_eq!(a.eval(Scalar::from(1.)), 10.);
 		assert_eq!(a.eval(Scalar::from(2.)), 28.);
