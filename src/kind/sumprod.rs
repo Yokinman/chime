@@ -2,8 +2,9 @@
 
 use std::ops::{Add, Sub};
 use crate::{ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, Poly, Roots};
+use crate::kind::{FluxChange, FluxChangeUp, Poly, Roots};
 use crate::kind::constant::Constant;
+use crate::kind::sum::SumPoly;
 use crate::linear::{Basis, Linear, Scalar};
 
 /// ...
@@ -36,6 +37,46 @@ impl<T: Basis> FluxChange for SumProd<T> {
 			add_term: self.add_term.map(|x| x.mul_scalar(scalar)),
 			mul_term: self.mul_term.map(|x| x.pow_scalar(scalar)),
 		}
+	}
+}
+
+impl<T: Basis> FluxChangeUp<'+'> for SumProd<T> {
+	type Up = SumProd2<T>;
+	fn up(self, basis: Self::Basis) -> Self::Up {
+		SumProd2 {
+			basis,
+			change: self,
+		}
+	}
+}
+
+/// ...
+pub struct SumProd2<T> {
+	basis: T,
+	change: SumProd<T>,
+}
+
+impl<T: Basis> FluxChange for SumProd2<T> {
+	type Basis = T;
+	type Poly = SumProdPoly<SumPoly<T, 1>>;
+	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+		let mul_term = self.change.mul_term.into_inner();
+		let factor = mul_term.clone()
+			.div(mul_term.clone().sub(T::Inner::from_f64(1.)));
+		let sum_term = self.change.add_term.into_inner()
+			.mul(factor.clone())
+			.mul_scalar(Scalar::from(-1.));
+		let add_term = self.basis.map(|x| x.sub(sum_term.clone()).mul(factor));
+		SumProdPoly {
+			basis: SumPoly::new(basis, [T::from_inner(sum_term)]),
+			add_term,
+			mul_term: T::from_inner(mul_term),
+		}
+	}
+	fn scale(mut self, scalar: Scalar) -> Self {
+		self.basis = self.basis.map(|x| x.mul_scalar(scalar));
+		self.change = self.change.scale(scalar);
+		self
 	}
 }
 
@@ -141,6 +182,14 @@ mod tests {
 		mul: f64,
 	}
 	
+	#[derive(Flux)]
+	struct Test2 {
+		#[basis]
+		value: f64,
+		#[change(add_per(chime::time::SEC))]
+		add: Test,
+	}
+	
 	#[test]
 	fn sumprod() {
 		let a = Test { value: 1., add: 4., mul: 0.5 }.to_poly();
@@ -162,5 +211,16 @@ mod tests {
 			(a - chime::kind::constant::Constant(5.)).roots(),
 			[0.5305147166987798],
 		);
+		
+		let b = Test2 {
+			value: 1.,
+			add: Test { value: 1., add: 4., mul: 2. }
+		}.to_poly();
+		assert_eq!(b.eval(Scalar::from(0.)), 1.);
+		assert_eq!(b.eval(Scalar::from(1.)), 11.);
+		assert_eq!(b.eval(Scalar::from(2.)), 39.);
+		assert_eq!(b.eval(Scalar::from(3.)), 103.);
+		assert_eq!(b.eval(Scalar::from(-1.)), 0.);
+		assert_eq!(b.eval(Scalar::from(-2.)), 3.5);
 	}
 }
