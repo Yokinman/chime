@@ -182,6 +182,8 @@ impl<T: Basis, const D: usize> ToMomentMut for SumPoly<T, D> {
 impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	const DEGREE: usize = D;
 	
+	type Basis = T;
+	
 	fn with_basis(value: Self::Basis) -> Self {
 		Self(value, std::array::from_fn(|_| T::zero()))
 	}
@@ -249,7 +251,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = self.0.map(|x| x.add(rhs.basis().into_inner()));
+		self.0 = self.0.map(|x| x.add(rhs.into().0.into_inner()));
 		self
 	}
 }

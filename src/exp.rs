@@ -119,6 +119,7 @@ where
 	T: Poly
 {
 	const DEGREE: usize = T::DEGREE;
+	type Basis = T::Basis;
 	fn with_basis(basis: Self::Basis) -> Self {
 		Self(T::with_basis(basis.map(Linear::ln)))
 	}

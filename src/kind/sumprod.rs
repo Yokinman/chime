@@ -73,6 +73,7 @@ where
 	T: Basis
 {
 	const DEGREE: usize = usize::MAX;
+	type Basis = T;
 	fn with_basis(basis: Self::Basis) -> Self {
 		Self {
 			basis,

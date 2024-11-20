@@ -114,7 +114,7 @@ impl<T: Poly> Temporal<T> {
 	/// Ranges when this is above/below/equal to a constant.
 	pub fn when_constant(self, cmp: Ordering, other: T::Basis) -> T::Pred
 	where
-		T: When<Constant<<T as Flux>::Basis>>,
+		T: When<Constant<<T as Poly>::Basis>>,
 	{
 		self.when(cmp, Temporal::from(Constant::from(other)))
 	}
@@ -122,7 +122,7 @@ impl<T: Poly> Temporal<T> {
 	/// Times when this is equal to a constant.
 	pub fn when_eq_constant(self, other: T::Basis) -> T::Pred
 	where
-		T: WhenEq<Constant<<T as Flux>::Basis>>,
+		T: WhenEq<Constant<<T as Poly>::Basis>>,
 	{
 		self.when_eq(Temporal::from(Constant::from(other)))
 	}
@@ -163,11 +163,11 @@ impl<T: Poly> Temporal<T> {
 		self,
 		other: Temporal<U>,
 		cmp: Ordering,
-		dis: <T::Output as Flux>::Basis,
+		dis: <T::Output as Poly>::Basis,
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDis<U, Constant<<T::Output as Flux>::Basis>, SIZE>,
+			+ WhenDis<U, Constant<<T::Output as Poly>::Basis>, SIZE>,
 		U: Poly,
 	{
 		self.when_dis(other, cmp, Temporal::from(Constant(dis)))
@@ -177,11 +177,11 @@ impl<T: Poly> Temporal<T> {
 	pub fn when_dis_eq_constant<U, const SIZE: usize>(
 		self,
 		other: Temporal<U>,
-		dis: <T::Output as Flux>::Basis,
+		dis: <T::Output as Poly>::Basis,
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDisEq<U, Constant<<T::Output as Flux>::Basis>, SIZE>,
+			+ WhenDisEq<U, Constant<<T::Output as Poly>::Basis>, SIZE>,
 		U: Poly,
 	{
 		self.when_dis_eq(other, Temporal::from(Constant(dis)))
@@ -221,10 +221,10 @@ impl<T: Poly> Temporal<T> {
 		self,
 		index: usize,
 		cmp: Ordering,
-		other: <T::Output as Flux>::Basis,
-	) -> <T::Output as When<Constant<<T::Output as Flux>::Basis>>>::Pred
+		other: <T::Output as Poly>::Basis,
+	) -> <T::Output as When<Constant<<T::Output as Poly>::Basis>>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + When<Constant<<T::Output as Flux>::Basis>>>,
+		T: Vector<SIZE, Output: Poly + When<Constant<<T::Output as Poly>::Basis>>>,
 	{
 		self.when_index(index, cmp, Temporal::from(Constant(other)))
 	}
@@ -233,10 +233,10 @@ impl<T: Poly> Temporal<T> {
 	pub fn when_index_eq_constant<const SIZE: usize>(
 		self,
 		index: usize,
-		other: <T::Output as Flux>::Basis,
-	) -> <T::Output as WhenEq<Constant<<T::Output as Flux>::Basis>>>::Pred
+		other: <T::Output as Poly>::Basis,
+	) -> <T::Output as WhenEq<Constant<<T::Output as Poly>::Basis>>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + WhenEq<Constant<<T::Output as Flux>::Basis>>>,
+		T: Vector<SIZE, Output: Poly + WhenEq<Constant<<T::Output as Poly>::Basis>>>,
 	{
 		self.when_index_eq(index, Temporal::from(Constant(other)))
 	}

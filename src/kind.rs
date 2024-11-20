@@ -132,8 +132,10 @@ where
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
+pub trait Poly: ToMomentMut + Clone + Debug + 'static {
 	const DEGREE: usize;
+	
+	type Basis: Basis;
 	
 	fn with_basis(value: Self::Basis) -> Self;
 	
@@ -198,6 +200,7 @@ pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 
 impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
+	type Basis = [T::Basis; SIZE];
 	fn with_basis(value: Self::Basis) -> Self {
 		value.map(T::with_basis)
 	}
@@ -214,7 +217,7 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 }
 
 /// Shortcut for the inner [`Linear`] type of a [`Poly`].
-pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
+pub(crate) type KindLinear<T> = <<T as Poly>::Basis as Basis>::Inner;
 
 /// Combining [`Poly`] types.
 /// 

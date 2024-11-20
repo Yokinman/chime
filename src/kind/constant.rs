@@ -150,6 +150,7 @@ impl<T: Basis> ToMomentMut for Constant<T> {
 
 impl<T: Basis> Poly for Constant<T> {
 	const DEGREE: usize = 0;
+	type Basis = T;
 	fn with_basis(value: Self::Basis) -> Self {
 		Constant(value)
 	}
