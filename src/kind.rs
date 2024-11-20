@@ -132,7 +132,7 @@ where
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait Poly: IntoPoly<Self> + Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
+pub trait Poly: Flux<Kind=Self> + ToMomentMut + Clone + Debug + 'static {
 	const DEGREE: usize;
 	
 	fn with_basis(value: Self::Basis) -> Self;
@@ -215,36 +215,6 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 
 /// Shortcut for the inner [`Linear`] type of a [`Poly`].
 pub(crate) type KindLinear<T> = <<T as Flux>::Basis as Basis>::Inner;
-
-/// ...
-pub trait IntoPoly<T: Poly> {
-	fn into_poly(self) -> T;
-}
-
-mod _into_poly_impls {
-	use crate::Flux;
-	use crate::kind::{FluxChange, Poly};
-	use crate::temporal::TemporalRef;
-	use super::IntoPoly;
-	
-	impl<T> IntoPoly<T::Kind> for TemporalRef<'_, T>
-	where
-		T: Flux + ?Sized
-	{
-		fn into_poly(self) -> T::Kind {
-			self.change().into_poly(self.basis())
-		}
-	}
-	
-	impl<T> IntoPoly<Self> for T
-	where
-		T: Poly
-	{
-		fn into_poly(self) -> Self {
-			self
-		}
-	}
-}
 
 /// Combining [`Poly`] types.
 /// 
