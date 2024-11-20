@@ -1036,7 +1036,7 @@ mod tests {
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
 		assert_eq!(
-			Vec::from_iter(a_pos.to_kind().when_eq(b_pos.to_kind())
+			Vec::from_iter(a_pos.to_poly().when_eq(b_pos.to_poly())
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[(2*SEC - 83333333*NANOSEC, 2*SEC + 83333333*NANOSEC)]

@@ -811,7 +811,7 @@ fn consistent_sign_pred() {
 		poly.when_dis(
 			Temporal::new([SumPoly::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
-			Temporal::new(1., time).to_kind(),
+			Temporal::new(1., time).to_poly(),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (

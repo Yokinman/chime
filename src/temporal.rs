@@ -82,7 +82,7 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Conversion into a standard representation.
-	pub fn to_kind(&self) -> Temporal<T::Kind> {
+	pub fn to_poly(&self) -> Temporal<T::Kind> {
 		Temporal {
 			inner: self.inner.to_kind(),
 			time: self.time,
