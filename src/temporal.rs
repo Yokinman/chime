@@ -88,172 +88,157 @@ impl<T: Flux> Temporal<T> {
 			time: self.time,
 		}
 	}
-	
+}
+
+impl<T: Poly> Temporal<T> {
 	/// Ranges when this is above/below/equal to another flux.
-	pub fn when<U>(&self, cmp: Ordering, other: &Temporal<U>) -> T::Pred
+	pub fn when<U>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
 	where
 		T: When<U>,
-		U: Flux,
+		U: Poly,
 	{
-		T::when(
-			self.to_kind().at_time(self.time),
-			cmp,
-			other.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		T::when(self, cmp, other.at_time(time))
 	}
 	
 	/// Times when this is equal to another flux.
-	pub fn when_eq<U>(&self, other: &Temporal<U>) -> T::Pred
+	pub fn when_eq<U>(self, other: Temporal<U>) -> T::Pred
 	where
 		T: WhenEq<U>,
-		U: Flux,
+		U: Poly,
 	{
-		T::when_eq(
-			self.to_kind().at_time(self.time),
-			other.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		T::when_eq(self, other.at_time(time))
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
-	pub fn when_constant(&self, cmp: Ordering, other: T::Basis) -> T::Pred
+	pub fn when_constant(self, cmp: Ordering, other: T::Basis) -> T::Pred
 	where
 		T: When<Constant<<T as Flux>::Basis>>,
 	{
-		self.when(cmp, &Temporal::from(Constant::from(other)))
+		self.when(cmp, Temporal::from(Constant::from(other)))
 	}
 	
 	/// Times when this is equal to a constant.
-	pub fn when_eq_constant(&self, other: T::Basis) -> T::Pred
+	pub fn when_eq_constant(self, other: T::Basis) -> T::Pred
 	where
 		T: WhenEq<Constant<<T as Flux>::Basis>>,
 	{
-		self.when_eq(&Temporal::from(Constant::from(other)))
+		self.when_eq(Temporal::from(Constant::from(other)))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
 	pub fn when_dis<U, D, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
+		self,
+		other: Temporal<U>,
 		cmp: Ordering,
-		dis: &Temporal<D>,
+		dis: Temporal<D>,
 	) -> T::Pred
 	where
 		T: WhenDis<U, D, SIZE>,
-		U: Flux,
-		D: Flux,
+		U: Poly,
+		D: Poly,
 	{
-		T::when_dis(
-			self.to_kind().at_time(self.time),
-			other.to_kind().at_time(self.time),
-			cmp,
-			dis.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		T::when_dis(self, other.at_time(time), cmp, dis.at_time(time))
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
 	pub fn when_dis_eq<U, D, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		dis: &Temporal<D>,
+		self,
+		other: Temporal<U>,
+		dis: Temporal<D>,
 	) -> T::Pred
 	where
 		T: WhenDisEq<U, D, SIZE>,
-		U: Flux,
-		D: Flux,
+		U: Poly,
+		D: Poly,
 	{
-		T::when_dis_eq(
-			self.to_kind().at_time(self.time),
-			other.to_kind().at_time(self.time),
-			dis.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		T::when_dis_eq(self, other.at_time(time), dis.at_time(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
 	pub fn when_dis_constant<U, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
+		self,
+		other: Temporal<U>,
 		cmp: Ordering,
-		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
+		dis: <T::Output as Flux>::Basis,
 	) -> T::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly>,
-		T: WhenDis<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
-		U: Flux,
+		T: Vector<SIZE, Output: Poly>
+			+ WhenDis<U, Constant<<T::Output as Flux>::Basis>, SIZE>,
+		U: Poly,
 	{
-		self.when_dis(other, cmp, &Temporal::from(Constant(dis)))
+		self.when_dis(other, cmp, Temporal::from(Constant(dis)))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
 	pub fn when_dis_eq_constant<U, const SIZE: usize>(
-		&self,
-		other: &Temporal<U>,
-		dis: <<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis,
+		self,
+		other: Temporal<U>,
+		dis: <T::Output as Flux>::Basis,
 	) -> T::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly>,
-		T: WhenDisEq<U, Constant<<<<T as Flux>::Kind as Vector<SIZE>>::Output as Flux>::Basis>, SIZE>,
-		U: Flux,
+		T: Vector<SIZE, Output: Poly>
+			+ WhenDisEq<U, Constant<<T::Output as Flux>::Basis>, SIZE>,
+		U: Poly,
 	{
-		self.when_dis_eq(other, &Temporal::from(Constant(dis)))
+		self.when_dis_eq(other, Temporal::from(Constant(dis)))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
 	pub fn when_index<U, const SIZE: usize>(
-		&self,
+		self,
 		index: usize,
 		cmp: Ordering,
-		other: &Temporal<U>,
-	) -> <<T::Kind as Vector<SIZE>>::Output as When<U>>::Pred
+		other: Temporal<U>,
+	) -> <T::Output as When<U>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly + When<U>>,
-		U: Flux,
+		T: Vector<SIZE, Output: Poly + When<U>>,
+		U: Poly,
 	{
-		<<T::Kind as Vector<SIZE>>::Output as When<U>>::when(
-			self.to_kind().index(index).at_time(self.time),
-			cmp,
-			other.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		<T::Output as When<U>>::when(self.index(index), cmp, other.at_time(time))
 	}
 	
 	/// Times when a component is equal to another flux.
 	pub fn when_index_eq<U, const SIZE: usize>(
-		&self,
+		self,
 		index: usize,
-		other: &Temporal<U>,
-	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::Pred
+		other: Temporal<U>,
+	) -> <T::Output as WhenEq<U>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly + WhenEq<U>>,
-		U: Flux,
+		T: Vector<SIZE, Output: Poly + WhenEq<U>>,
+		U: Poly,
 	{
-		<<T::Kind as Vector<SIZE>>::Output as WhenEq<U>>::when_eq(
-			self.to_kind().index(index).at_time(self.time),
-			other.to_kind().at_time(self.time),
-		)
+		let time = self.time;
+		<T::Output as WhenEq<U>>::when_eq(self.index(index), other.at_time(time))
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
 	pub fn when_index_constant<const SIZE: usize>(
-		&self,
+		self,
 		index: usize,
 		cmp: Ordering,
-		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
-	) -> <<T::Kind as Vector<SIZE>>::Output as When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
+		other: <T::Output as Flux>::Basis,
+	) -> <T::Output as When<Constant<<T::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly + When<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
+		T: Vector<SIZE, Output: Poly + When<Constant<<T::Output as Flux>::Basis>>>,
 	{
-		self.when_index(index, cmp, &Temporal::from(Constant(other)))
+		self.when_index(index, cmp, Temporal::from(Constant(other)))
 	}
 	
 	/// Times when a component is equal to a constant.
 	pub fn when_index_eq_constant<const SIZE: usize>(
-		&self,
+		self,
 		index: usize,
-		other: <<T::Kind as Vector<SIZE>>::Output as Flux>::Basis,
-	) -> <<T::Kind as Vector<SIZE>>::Output as WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>::Pred
+		other: <T::Output as Flux>::Basis,
+	) -> <T::Output as WhenEq<Constant<<T::Output as Flux>::Basis>>>::Pred
 	where
-		T::Kind: Vector<SIZE, Output: Poly + WhenEq<Constant<<<T::Kind as Vector<SIZE>>::Output as Flux>::Basis>>>,
+		T: Vector<SIZE, Output: Poly + WhenEq<Constant<<T::Output as Flux>::Basis>>>,
 	{
-		self.when_index_eq(index, &Temporal::from(Constant(other)))
+		self.when_index_eq(index, Temporal::from(Constant(other)))
 	}
 	
 	// !!!

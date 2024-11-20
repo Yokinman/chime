@@ -1036,7 +1036,7 @@ mod tests {
 		// println!("{:?}", a_pos.poly() - b_pos.poly());
 		
 		assert_eq!(
-			Vec::from_iter(a_pos.when_eq(&b_pos)
+			Vec::from_iter(a_pos.to_kind().when_eq(b_pos.to_kind())
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[(2*SEC - 83333333*NANOSEC, 2*SEC + 83333333*NANOSEC)]
@@ -1051,7 +1051,7 @@ mod tests {
 		let a = Temporal::new(SumPoly::new(-193.99999999999997, [4.481238217799146e-6, -500.]), SEC);
 		let b = Temporal::new(Constant::from(-194.), SEC);
 		assert_eq!(
-			Vec::from_iter(a.when_eq(&b)
+			Vec::from_iter(a.when_eq(b)
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
@@ -1071,7 +1071,7 @@ mod tests {
 		], SEC);
 		let dis = Temporal::new(Constant::from(12.), SEC);
 		assert_eq!(
-			Vec::from_iter(a.when_dis_eq(&b, &dis)
+			Vec::from_iter(a.when_dis_eq(b, dis)
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[

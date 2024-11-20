@@ -743,11 +743,11 @@ mod tests {
 			},
 		});
 		
-		assert_time_ranges!(pos.when(Ordering::Greater, &acc), [
+		assert_time_ranges!(pos.to_kind().when(Ordering::Greater, acc.to_kind()), [
 			(Time::ZERO, Time::from_secs_f64(4.56)),
 			(Time::from_secs_f64(26.912), Time::from_secs_f64(127.394))
 		]);
-		assert_times!(pos.when_eq(&acc), [
+		assert_times!(pos.to_kind().when_eq(acc.to_kind()), [
 			Time::from_secs_f64(4.56),
 			Time::from_secs_f64(26.912),
 			Time::from_secs_f64(127.394)
@@ -760,9 +760,9 @@ mod tests {
 		let mut b_pos = position();
 		
 		 // Check Before:
-		assert_time_ranges!(a_pos.when(Ordering::Greater, &b_pos), []);
-		assert_time_ranges!(a_pos.when(Ordering::Equal, &b_pos), [(Time::ZERO, Time::MAX)]);
-		assert_times!(a_pos.when_eq(&b_pos), []);
+		assert_time_ranges!(a_pos.to_kind().when(Ordering::Greater, b_pos.to_kind()), []);
+		assert_time_ranges!(a_pos.to_kind().when(Ordering::Equal, b_pos.to_kind()), [(Time::ZERO, Time::MAX)]);
+		assert_times!(a_pos.to_kind().when_eq(b_pos.to_kind()), []);
 		a_pos.moment_mut(20*SEC);
 		
 		 // Apply Changes:
@@ -779,7 +779,7 @@ mod tests {
 		
 		 // Check After:
 		assert_eq!(
-			Vec::from_iter(a_pos.when(Ordering::Greater, &b_pos)
+			Vec::from_iter(a_pos.to_kind().when(Ordering::Greater, b_pos.to_kind())
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
@@ -787,7 +787,7 @@ mod tests {
 				(50*SEC + time::NANOSEC, Time::MAX)
 			]
 		);
-		assert_times!(a_pos.when_eq(&b_pos), [8*SEC, 50*SEC]);
+		assert_times!(a_pos.to_kind().when_eq(b_pos.to_kind()), [8*SEC, 50*SEC]);
 	}
 	
 	#[test]
@@ -826,7 +826,7 @@ mod tests {
 		let dis = Temporal::from(Spd { value: Iso::new(10), acc: Acc { value: Iso::new(0) } });
 		
 		assert_time_ranges!(
-			a_pos.when_dis(&b_pos, Ordering::Less, &dis),
+			a_pos.to_kind().when_dis(b_pos.to_kind(), Ordering::Less, dis.to_kind()),
 			// https://www.desmos.com/calculator/spxyoloyx9
 			[
 				(Time::ZERO, Time::from_secs_f64(0.0823337)),
@@ -836,14 +836,14 @@ mod tests {
 		
 		let b_pos = Temporal::new(b_pos.to_moment(Time::ZERO), SEC);
 		assert_time_ranges!(
-			a_pos.when_dis_eq_constant(&b_pos, 2.into()),
+			a_pos.to_kind().when_dis_eq_constant(b_pos.to_kind(), 2.into()),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191)),
 			]
 		);
 		assert_time_ranges!(
-			a_pos.when_dis_constant(&b_pos, Ordering::Equal, 2.into()),
+			a_pos.to_kind().when_dis_constant(b_pos.to_kind(), Ordering::Equal, 2.into()),
 			[
 				(Time::from_secs_f64(0.229597034), Time::from_secs_f64(0.414068993)),
 				(Time::from_secs_f64(0.689701729), Time::from_secs_f64(0.84545191))

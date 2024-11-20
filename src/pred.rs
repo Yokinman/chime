@@ -615,32 +615,31 @@ where
 }
 
 /// [`crate::Temporal::when`] predictive comparison.
-pub trait When<B: Flux>: Flux {
+pub trait When<B: Poly>: Poly {
 	type Pred: Prediction;
 	fn when(
-		a_poly: Temporal<Self::Kind>,
+		a_poly: Temporal<Self>,
 		cmp: Ordering,
-		b_poly: Temporal<B::Kind>,
+		b_poly: Temporal<B>,
 	) -> Self::Pred;
 }
 
 impl<A, B> When<B> for A
 where
-	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
-		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>>,
-	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq
+		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>,
+	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A::Kind as Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as Sub<B::Kind>>::Output>,
+		Pred<<A as Sub<B>>::Output>,
+		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output>,
 	>;
 	fn when(
-		a_poly: Temporal<A::Kind>,
+		a_poly: Temporal<A>,
 		cmp: Ordering,
-		b_poly: Temporal<B::Kind>,
-	) -> Self::Pred
-	{
+		b_poly: Temporal<B>,
+	) -> Self::Pred {
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
 			.when_sign(cmp, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
@@ -648,11 +647,11 @@ where
 }
 
 /// [`crate::Temporal::when_eq`] predictive comparison.
-pub trait WhenEq<B: Flux>: Flux {
+pub trait WhenEq<B: Poly>: Poly {
 	type Pred: Prediction;
 	fn when_eq(
-		a_poly: Temporal<Self::Kind>,
-		b_poly: Temporal<B::Kind>,
+		a_poly: Temporal<Self>,
+		b_poly: Temporal<B>,
 	) -> Self::Pred;
 	// ??? Add `diff_poly` method, make `When` a sub-trait, elide the returned
 	// `DiffTimeFilterMap` type, and provide `when(_eq)` by default.
@@ -660,20 +659,19 @@ pub trait WhenEq<B: Flux>: Flux {
 
 impl<A, B> WhenEq<B> for A
 where
-	A: Flux<Kind: Sub<B::Kind, Output: Roots + PartialEq
-		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>>,
-	B: Flux<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq
+		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>,
+	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
 	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<A::Kind as Sub<B::Kind>>::Output>,
-		DiffTimeFilterMap<A::Kind, B::Kind, <A::Kind as Sub<B::Kind>>::Output>,
+		PredEq<<A as Sub<B>>::Output>,
+		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output>,
 	>;
 	fn when_eq(
-		a_poly: Temporal<A::Kind>,
-		b_poly: Temporal<B::Kind>,
-	) -> Self::Pred
-	{
+		a_poly: Temporal<A>,
+		b_poly: Temporal<B>,
+	) -> Self::Pred {
 		let diff_poly = a_poly.clone() - b_poly.clone();
 		diff_poly.clone()
 			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })
@@ -681,29 +679,27 @@ where
 }
 
 /// [`crate::FluxVector::when_dis`] predictive distance comparison.
-pub trait WhenDis<B: Flux, D: Flux, const SIZE: usize>: Flux {
+pub trait WhenDis<B: Poly, D: Poly, const SIZE: usize>: Poly {
 	type Pred: Prediction;
 	fn when_dis(
-		a_poly: Temporal<Self::Kind>,
-		b_poly: Temporal<B::Kind>,
+		a_poly: Temporal<Self>,
+		b_poly: Temporal<B>,
 		cmp: Ordering,
-		dis: Temporal<D::Kind>,
+		dis: Temporal<D>,
 	) -> Self::Pred;
 }
 
 impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
-	A: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
-	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: Sub<
-		<B::Kind as Vector<SIZE>>::Output,
+	A: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	B: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	D: Poly + ops::Sqr,
+	A::Output: Sub<
+		B::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
-			+ Sub<
-				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
-			>
+			Add<Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
+			+ Sub<<D as ops::Sqr>::Output,
+				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
@@ -712,23 +708,23 @@ where
 	KindLinear<D>: PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		Pred<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			A, B, D,
+			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis(
-		a_pos: Temporal<A::Kind>,
-		b_pos: Temporal<B::Kind>,
+		a_pos: Temporal<A>,
+		b_pos: Temporal<B>,
 		cmp: Ordering,
-		dis_poly: Temporal<D::Kind>,
+		dis_poly: Temporal<D>,
 	) -> Self::Pred {
 		use ops::*;
 		
-		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
 				.sub(b_pos.index(i).at_time(a_pos.time).inner)
@@ -746,28 +742,25 @@ where
 }
 
 /// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<B: Flux, D: Flux, const SIZE: usize>: Flux {
+pub trait WhenDisEq<B: Poly, D: Poly, const SIZE: usize>: Poly {
 	type Pred: Prediction;
 	fn when_dis_eq(
-		a_pos: Temporal<Self::Kind>,
-		b_pos: Temporal<B::Kind>,
-		dis: Temporal<D::Kind>,
+		a_pos: Temporal<Self>,
+		b_pos: Temporal<B>,
+		dis: Temporal<D>,
 	) -> Self::Pred;
 }
 
 impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
-	A: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
-	B: Flux<Kind: Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>>,
-	D: Flux<Kind: ops::Sqr>,
-	<A::Kind as Vector<SIZE>>::Output: Sub<
-		<B::Kind as Vector<SIZE>>::Output,
+	A: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	B: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	D: Poly + ops::Sqr,
+	A::Output: Sub<B::Output,
 		Output: ops::Sqr<Output:
-			Add<Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>
-			+ Sub<
-				<D::Kind as ops::Sqr>::Output,
-				Output = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output
-			>
+			Add<Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
+			+ Sub<<D as ops::Sqr>::Output,
+				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
@@ -776,22 +769,22 @@ where
 	KindLinear<D>: PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output>,
+		PredEq<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
-			A::Kind, B::Kind, D::Kind,
-			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
-			<<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as ops::Sqr>::Output,
+			A, B, D,
+			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
 		>
 	>;
 	fn when_dis_eq(
-		a_pos: Temporal<A::Kind>,
-		b_pos: Temporal<B::Kind>,
-		dis_poly: Temporal<D::Kind>,
+		a_pos: Temporal<A>,
+		b_pos: Temporal<B>,
+		dis_poly: Temporal<D>,
 	) -> Self::Pred {
 		use ops::*;
 		
-		let mut sum = <<<A::Kind as Vector<SIZE>>::Output as Sub<<B::Kind as Vector<SIZE>>::Output>>::Output as Sqr>::Output::zero();
+		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
 				.sub(b_pos.index(i).at_time(a_pos.time).inner)
@@ -816,9 +809,9 @@ fn consistent_sign_pred() {
 			SumPoly::zero()
 		], time);
 		poly.when_dis(
-			&Temporal::new([SumPoly::<f64, 2>::zero(); 2], time),
+			Temporal::new([SumPoly::<f64, 2>::zero(); 2], time),
 			Ordering::Greater,
-			&Temporal::new(1., time),
+			Temporal::new(1., time).to_kind(),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (
