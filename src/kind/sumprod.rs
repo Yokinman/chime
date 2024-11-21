@@ -60,20 +60,16 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<SumPoly<T, 1>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
-		let mul_term = self.change.mul_term.into_inner();
-		let factor = mul_term.clone()
-			.div(mul_term.clone().sub(T::Inner::from_f64(1.)));
-		let sum_term = self.change.add_term.into_inner()
-			.mul(factor.clone())
-			.mul_scalar(Scalar::from(-1.));
-		let add_term = self.basis.map(|x| x.sub(sum_term.clone())
-			.mul(T::Inner::from_f64(1.).div(mul_term.clone().ln())));
+		let deriv = self.change.into_poly(self.basis);
+		let sum_term = deriv.basis.0.map(|x| x.sub(deriv.add_term.clone().into_inner()));
+		let add_term = deriv.add_term.map(|x| x.div(deriv.mul_term.clone().into_inner().ln()));
+		let mul_term = deriv.mul_term;
 		// This is specifically the integral of `SumProd` to avoid confusion
 		// when doing predictions on a flux value and its change over time.
 		SumProdPoly {
-			basis: SumPoly::new(basis, [T::from_inner(sum_term)]),
+			basis: SumPoly::new(basis, [sum_term]),
 			add_term,
-			mul_term: T::from_inner(mul_term),
+			mul_term,
 		}
 	}
 	fn scale(mut self, scalar: Scalar) -> Self {
