@@ -66,7 +66,10 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 		let sum_term = self.change.add_term.into_inner()
 			.mul(factor.clone())
 			.mul_scalar(Scalar::from(-1.));
-		let add_term = self.basis.map(|x| x.sub(sum_term.clone()).mul(factor));
+		let add_term = self.basis.map(|x| x.sub(sum_term.clone())
+			.mul(T::Inner::from_f64(1.).div(mul_term.clone().ln())));
+		// This is specifically the integral of `SumProd` to avoid confusion
+		// when doing predictions on a flux value and its change over time.
 		SumProdPoly {
 			basis: SumPoly::new(basis, [T::from_inner(sum_term)]),
 			add_term,
@@ -223,25 +226,25 @@ mod tests {
 		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), f64::INFINITY);
 		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), -8.);
 		
-		assert_eq!(
-			(a - chime::kind::constant::Constant(5.)).roots(),
-			[0.5305147166987798],
-		);
+		for root in (a - chime::kind::constant::Constant(5.)).roots() {
+			let val = a.eval(Scalar::from(root));
+			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
+		}
 		
 		let b = Test2 {
 			value: 1.,
 			add: Test { value: 1., add: 4., mul: 2. }
 		}.to_poly();
 		assert_eq!(b.eval(Scalar::from(0.)), 1.);
-		assert_eq!(b.eval(Scalar::from(1.)), 11.);
-		assert_eq!(b.eval(Scalar::from(2.)), 39.);
-		assert_eq!(b.eval(Scalar::from(3.)), 103.);
-		assert_eq!(b.eval(Scalar::from(-1.)), 0.);
-		assert_eq!(b.eval(Scalar::from(-2.)), 3.5);
+		assert_eq!(b.eval(Scalar::from(1.)), 5.984255368000671);
+		assert_eq!(b.eval(Scalar::from(2.)), 23.95276610400201);
+		assert_eq!(b.eval(Scalar::from(3.)), 67.8897875760047);
+		assert_eq!(b.eval(Scalar::from(-1.)), 2.5078723159996645);
+		assert_eq!(b.eval(Scalar::from(-2.)), 7.261808473999498);
 		
-		assert_eq!(
-			(b - chime::kind::constant::Constant(5.)).roots(),
-			[0.5545124141301092, -2.2898973591118086],
-		);
+		for root in (b - chime::kind::constant::Constant(5.)).roots() {
+			let val = b.eval(Scalar::from(root));
+			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
+		}
 	}
 }
