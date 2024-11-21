@@ -165,6 +165,22 @@ impl Roots for SumProdPoly<Constant<f64>> {
 	}
 }
 
+impl Roots for SumProdPoly<SumPoly<f64, 1>> {
+	type Output = [f64; 2];
+	fn roots(self) -> <Self as Roots>::Output {
+		// Convert to `a + b*x + c^x` and solve using product log.
+		let a = (self.basis.0 / self.add_term) - 1.;
+		let b = self.basis.1[0] / self.add_term;
+		let c = self.mul_term;
+		let c_ln = c.ln();
+		let z = c_ln / (b * c.powf(a / b));
+		[
+			-(lambert_w::lambert_wm1(z) / c_ln) - (a / b),
+			-(lambert_w::lambert_w0(z)  / c_ln) - (a / b),
+		]
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate as chime;
@@ -222,5 +238,10 @@ mod tests {
 		assert_eq!(b.eval(Scalar::from(3.)), 103.);
 		assert_eq!(b.eval(Scalar::from(-1.)), 0.);
 		assert_eq!(b.eval(Scalar::from(-2.)), 3.5);
+		
+		assert_eq!(
+			(b - chime::kind::constant::Constant(5.)).roots(),
+			[0.5545124141301092, -2.2898973591118086],
+		);
 	}
 }

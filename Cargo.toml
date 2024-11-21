@@ -16,6 +16,7 @@ chime-flux-proc-macro = { path = "flux-proc-macro" }
 glam = { version = "0.27.0", optional = true }
 bevy_ecs = { version = "0.14.2", optional = true }
 bevy_time = { version = "0.14.2", optional = true }
+lambert_w = "1.0.3"
 
 [features]
 glam = ["dep:glam"]

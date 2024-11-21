@@ -58,7 +58,7 @@ where
 /// - etc.
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct SumPoly<T, const DEGREE: usize>(T, [T; DEGREE]);
+pub struct SumPoly<T, const DEGREE: usize>(pub(crate) T, pub(crate) [T; DEGREE]);
 
 impl<T, const D: usize> SumPoly<T, D> {
 	pub fn new(basis: T, terms: [T; D]) -> Self {
