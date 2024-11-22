@@ -84,9 +84,10 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				if A::Basis::inner_id(a_poly.eval(next_time).into_inner())
-					!= B::Basis::inner_id(b_poly.eval(next_time).into_inner())
-				{
+				if a_poly.eval(next_time).zip_map(
+					b_poly.eval(next_time),
+					|a, b| A::Basis::inner_id(a).sub(A::Basis::inner_id(b))
+				).with(|x| !x.is_zero()) {
 					break
 				}
 				
@@ -174,37 +175,48 @@ where
 					}
 					
 					 // Calculate Actual Distances:
-					let dis = dis_poly.eval(next_time).into_inner();
-					let mut a_dis = <KindLinear<D> as Linear>::zero();
-					let mut b_dis = <KindLinear<D> as Linear>::zero();
-					let mut real_diff = <KindLinear<D> as Linear>::zero();
+					let dis = dis_poly.eval(next_time);
+					let mut a_dis = D::Basis::zero();
+					let mut b_dis = D::Basis::zero();
+					let mut real_diff = D::Basis::zero();
 					for i in 0..SIZE {
-						let a = a_pos.index(i).eval(next_time).into_inner();
-						let b = b_pos.index(i).eval(next_time).into_inner();
-						a_dis = a_dis.add(a.clone().sqr());
-						b_dis = b_dis.add(b.clone().sqr());
-						real_diff = real_diff.add(a.sub(b).sqr());
+						let a = a_pos.index(i).eval(next_time);
+						let b = b_pos.index(i).eval(next_time);
+						a_dis = a_dis.zip_map(a.clone(), |a, b| a.add(b.sqr()));
+						b_dis = b_dis.zip_map(b.clone(), |a, b| a.add(b.sqr()));
+						real_diff = real_diff.each_map(
+							[a, b],
+							|x, [a, b]| x.add(a.sub(b).sqr())
+						);
 					}
-					a_dis = <A::Output as Poly>::Basis::inner_id(a_dis.sqrt());
-					b_dis = <B::Output as Poly>::Basis::inner_id(b_dis.sqrt());
-					real_diff = Linear::mul_scalar(real_diff.sqrt().sub(dis.clone()), round_factor);
-					let c_dis = D::Basis::inner_id(dis.clone());
+					a_dis = a_dis.map(Linear::sqrt);
+					b_dis = b_dis.map(Linear::sqrt);
+					real_diff = real_diff.zip_map(
+						dis.clone(),
+						|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
+					);
 					
 					 // Undershoot Actual Distances:
+					let diff_is_zero = |dis: D::Basis, diff: D::Basis| -> bool {
+						dis.zip_map(diff, |mut dis, diff| {
+							dis = D::Basis::inner_id(dis);
+							dis.clone().sub(D::Basis::inner_id(dis.add(diff)))
+						}).with(Linear::is_zero)
+					};
 					if
-						a_dis != <A::Output as Poly>::Basis::inner_id(a_dis.clone().add(real_diff.clone())) &&
-						b_dis != <B::Output as Poly>::Basis::inner_id(b_dis.clone().add(real_diff.clone())) &&
-						c_dis != D::Basis::inner_id(c_dis.clone().add(real_diff))
+						!diff_is_zero(a_dis.clone(), real_diff.clone()) &&
+						!diff_is_zero(b_dis.clone(), real_diff.clone()) &&
+						!diff_is_zero(dis.clone(), real_diff)
 					{
 						 // Undershoot Predicted Distances:
-						let pred_diff = Linear::mul_scalar(
-							pos_poly.eval(next_time).into_inner().sqrt().sub(dis),
-							round_factor
+						let pred_diff = pos_poly.eval(next_time).zip_map(
+							dis.clone(),
+							|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
 						);
 						if
-							a_dis != <A::Output as Poly>::Basis::inner_id(a_dis.clone().add(pred_diff.clone())) &&
-							b_dis != <B::Output as Poly>::Basis::inner_id(b_dis.clone().add(pred_diff.clone())) &&
-							c_dis != D::Basis::inner_id(c_dis.clone().add(pred_diff))
+							!diff_is_zero(a_dis, pred_diff.clone()) &&
+							!diff_is_zero(b_dis, pred_diff.clone()) &&
+							!diff_is_zero(dis, pred_diff)
 						{
 							break
 						}
@@ -233,14 +245,22 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				let mut pos = <KindLinear<D> as Linear>::zero();
+				let mut pos = D::Basis::zero();
 				for i in 0..SIZE {
-					let x = <A::Output as Poly>::Basis::inner_id(a_pos.index(i).eval(next_time).into_inner())
-						.sub(<B::Output as Poly>::Basis::inner_id(b_pos.index(i).eval(next_time).into_inner()));
-					pos = pos.add(x.sqr());
+					pos = pos.each_map(
+						[
+							a_pos.index(i).eval(next_time),
+							b_pos.index(i).eval(next_time),
+						],
+						|pos, [a, b]| {
+							pos.add(D::Basis::inner_id(a)
+								.sub(D::Basis::inner_id(b))
+								.sqr())
+						}
+					);
 				}
-				let dis = D::Basis::inner_id(dis_poly.eval(next_time).into_inner());
-				if pos != dis.sqr() {
+				let dis = dis_poly.eval(next_time).map(D::Basis::inner_id);
+				if pos.zip_map(dis, |a, b| a.sub(b.sqr())).with(|x| !x.is_zero()) {
 					break
 				}
 				
