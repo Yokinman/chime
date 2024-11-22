@@ -282,60 +282,41 @@ macro_rules! impl_deg_order {
 				})
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, 0>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
-				Sum(rhs.0.map(|x| A::from_inner(x.into_inner())))
+		impl<T: Basis> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, 0> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
+				rhs
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, { $($num +)+ 0 }>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+		impl<T: Basis> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, { $($num +)+ 0 }> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
 				Sum(std::array::from_fn(|_| unsafe {
 					// SAFETY: Sizes of all input & output arrays are equal.
 					a.next().unwrap_unchecked()
-						.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+						.zip_map(b.next().unwrap_unchecked(), Linear::add)
 				}))
 			}
 		}
-		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, 0>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = SumPoly<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
-				SumPoly::new(
-					A::from_inner(rhs.0.into_inner()),
-					rhs.1.map(|x| A::from_inner(x.into_inner())),
-				)
+		impl<T: Basis> Add<SumPoly<T, { $($num +)+ 0 }>> for SumPoly<T, 0> {
+			type Output = SumPoly<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<T, { $($num +)+ 0 }>) -> Self::Output {
+				rhs
 			}
 		}
-		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, { $($num +)+ 0 }>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = SumPoly<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
+		impl<T: Basis> Add<SumPoly<T, { $($num +)+ 0 }>> for SumPoly<T, { $($num +)+ 0 }> {
+			type Output = SumPoly<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<T, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					self.0.map(|x| x.add(rhs.0.into_inner())),
+					self.0.zip_map(rhs.0, Linear::add),
 					std::array::from_fn(|_| unsafe {
 						// SAFETY: Sizes of all input & output arrays are equal.
 						a.next().unwrap_unchecked()
-							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+							.zip_map(b.next().unwrap_unchecked(), Linear::add)
 					}),
 				)
 			}
@@ -387,13 +368,9 @@ macro_rules! impl_deg_add {
 	// ($a:tt, 32 32 $($num:tt)*) => { impl_deg_add!($a, 64 $($num)*); };
 	($a:tt, 8) => {/* break */};
 	($a:tt, $($num:tt)+) => {
-		impl<A, B> Add<Sum<B, $a>> for Sum<A, { $($num +)+ 0 }>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, $a>) -> Self::Output {
+		impl<T: Basis> Add<Sum<T, $a>> for Sum<T, { $($num +)+ 0 }> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, $a>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
 				Sum(std::array::from_fn(|i| unsafe {
@@ -401,20 +378,16 @@ macro_rules! impl_deg_add {
 					// `b` is the size of `$a` (bad naming).
 					if i < $a {
 						a.next().unwrap_unchecked()
-							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+							.zip_map(b.next().unwrap_unchecked(), Linear::add)
 					} else {
 						a.next().unwrap_unchecked()
 					}
 				}))
 			}
 		}
-		impl<A, B> Add<Sum<B, { $($num +)+ 0 }>> for Sum<A, $a>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = Sum<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: Sum<B, { $($num +)+ 0 }>) -> Self::Output {
+		impl<T: Basis> Add<Sum<T, { $($num +)+ 0 }>> for Sum<T, $a> {
+			type Output = Sum<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: Sum<T, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.0.into_iter();
 				let mut b = rhs.0.into_iter();
 				Sum(std::array::from_fn(|i| unsafe {
@@ -422,30 +395,26 @@ macro_rules! impl_deg_add {
 					// `a` is the size of `$a`.
 					if i < $a {
 						a.next().unwrap_unchecked()
-							.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+							.zip_map(b.next().unwrap_unchecked(), Linear::add)
 					} else {
-						A::from_inner(b.next().unwrap_unchecked().into_inner())
+						b.next().unwrap_unchecked()
 					}
 				}))
 			}
 		}
-		impl<A, B> Add<SumPoly<B, $a>> for SumPoly<A, { $($num +)+ 0 }>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = SumPoly<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumPoly<B, $a>) -> Self::Output {
+		impl<T: Basis> Add<SumPoly<T, $a>> for SumPoly<T, { $($num +)+ 0 }> {
+			type Output = SumPoly<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<T, $a>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					self.0.map(|x| x.add(rhs.0.into_inner())),
+					self.0.zip_map(rhs.0, Linear::add),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `a` is the same size as the output array, and
 						// `b` is the size of `$a` (bad naming).
 						if i < $a {
 							a.next().unwrap_unchecked()
-								.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+								.zip_map(b.next().unwrap_unchecked(), Linear::add)
 						} else {
 							a.next().unwrap_unchecked()
 						}
@@ -453,25 +422,21 @@ macro_rules! impl_deg_add {
 				)
 			}
 		}
-		impl<A, B> Add<SumPoly<B, { $($num +)+ 0 }>> for SumPoly<A, $a>
-		where
-			A: Basis,
-			B: Basis<Inner = A::Inner>,
-		{
-			type Output = SumPoly<A, { $($num +)+ 0 }>;
-			fn add(self, rhs: SumPoly<B, { $($num +)+ 0 }>) -> Self::Output {
+		impl<T: Basis> Add<SumPoly<T, { $($num +)+ 0 }>> for SumPoly<T, $a> {
+			type Output = SumPoly<T, { $($num +)+ 0 }>;
+			fn add(self, rhs: SumPoly<T, { $($num +)+ 0 }>) -> Self::Output {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly::new(
-					self.0.map(|x| x.add(rhs.0.into_inner())),
+					self.0.zip_map(rhs.0, Linear::add),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `b` is the same size as the output array, and
 						// `a` is the size of `$a`.
 						if i < $a {
 							a.next().unwrap_unchecked()
-								.map(|x| x.add(b.next().unwrap_unchecked().into_inner()))
+								.zip_map(b.next().unwrap_unchecked(), Linear::add)
 						} else {
-							A::from_inner(b.next().unwrap_unchecked().into_inner())
+							b.next().unwrap_unchecked()
 						}
 					}),
 				)
