@@ -687,6 +687,10 @@ mod _iso_impls {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
 		}
+		
+		pub fn from_inner(inner: A) -> Self {
+			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
+		}
 	}
 	
 	impl<A, B> Simple for Iso<A, B> {}
