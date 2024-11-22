@@ -678,6 +678,17 @@ mod _iso_impls {
 	use std::ops::{Deref, DerefMut};
 	use super::{Basis, Iso, Linear, LinearIso, Scalar, Simple};
 	
+	impl<A, B> Iso<A, B>
+	where
+		A: Linear,
+		B: LinearIso<A>,
+	{
+		pub fn into_inner(self) -> A {
+			let Iso(inner, outer) = self;
+			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
+	}
+	
 	impl<A, B> Simple for Iso<A, B> {}
 	
 	impl<A, B> From<B> for Iso<A, B> {
