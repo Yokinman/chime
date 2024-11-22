@@ -313,7 +313,7 @@ pub trait Basis: Clone + Debug + 'static {
 	fn into_inner(self) -> Self::Inner;
 	
 	fn map(self, f: impl FnOnce(Self::Inner) -> Self::Inner) -> Self {
-		Self::from_inner(f(self.into_inner()))
+		self.each_map([], |x, []| f(x))
 	}
 	
 	fn zip_map(
@@ -321,7 +321,7 @@ pub trait Basis: Clone + Debug + 'static {
 		other: Self,
 		f: impl FnOnce(Self::Inner, Self::Inner) -> Self::Inner,
 	) -> Self {
-		Self::from_inner(f(self.into_inner(), other.into_inner()))
+		self.each_map([other], |a, [b]| f(a, b))
 	}
 	
 	fn each_map<const N: usize>(
