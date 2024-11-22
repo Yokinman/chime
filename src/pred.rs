@@ -59,8 +59,8 @@ where
 impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
 	A: Poly,
-	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
-	D: Poly<Basis: Basis<Inner = KindLinear<A>>>,
+	B: Poly<Basis = A::Basis>,
+	D: Poly<Basis = A::Basis>,
 	KindLinear<A>: PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
@@ -143,10 +143,10 @@ where
 	B: Vector<SIZE, Output: Poly> + Clone,
 	D: Poly,
 	KindLinear<D>: PartialEq,
-	A::Output: Poly<Basis: Basis<Inner = KindLinear<D>>>,
-	B::Output: Poly<Basis: Basis<Inner = KindLinear<D>>>,
-	E: Poly<Basis: Basis<Inner = KindLinear<D>>>,
-	F: Poly<Basis: Basis<Inner = KindLinear<D>>>,
+	A::Output: Poly<Basis = D::Basis>,
+	B::Output: Poly<Basis = D::Basis>,
+	E: Poly<Basis = D::Basis>,
+	F: Poly<Basis = D::Basis>,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -626,9 +626,8 @@ pub trait When<B: Poly>: Poly {
 
 impl<A, B> When<B> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq
-		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>,
-	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
+	B: Poly<Basis = A::Basis>,
 	KindLinear<A>: PartialOrd,
 {
 	type Pred = PredFilter<
@@ -659,9 +658,8 @@ pub trait WhenEq<B: Poly>: Poly {
 
 impl<A, B> WhenEq<B> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq
-		+ Poly<Basis: Basis<Inner = KindLinear<A>>>>,
-	B: Poly<Basis: Basis<Inner = KindLinear<A>>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
+	B: Poly<Basis = A::Basis>,
 	KindLinear<A>: PartialEq,
 {
 	type Pred = PredFilter<
@@ -691,8 +689,8 @@ pub trait WhenDis<B: Poly, D: Poly, const SIZE: usize>: Poly {
 
 impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
-	A: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
-	B: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
+	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	D: Poly + ops::Sqr,
 	A::Output: Sub<
 		B::Output,
@@ -702,7 +700,7 @@ where
 				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ Roots
 			+ PartialEq
-			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
+			+ Poly<Basis = D::Basis>
 		>,
 	>,
 	KindLinear<D>: PartialOrd,
@@ -753,8 +751,8 @@ pub trait WhenDisEq<B: Poly, D: Poly, const SIZE: usize>: Poly {
 
 impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
-	A: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
-	B: Poly + Vector<SIZE, Output: Poly<Basis: Basis<Inner = KindLinear<D>>>>,
+	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
+	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	D: Poly + ops::Sqr,
 	A::Output: Sub<B::Output,
 		Output: ops::Sqr<Output:
@@ -763,7 +761,7 @@ where
 				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
 			+ Roots
 			+ PartialEq
-			+ Poly<Basis: Basis<Inner = KindLinear<D>>>
+			+ Poly<Basis = D::Basis>
 		>,
 	>,
 	KindLinear<D>: PartialEq,
