@@ -321,38 +321,37 @@ macro_rules! impl_deg_order {
 				)
 			}
 		}
-		impl<T> Mul for SumPoly<T, { $($num +)+ 0 }> // Squaring
-		where
-			T: Basis,
-			T::Inner: Mul<Output = T::Inner>,
-		{
+		impl<T: Basis> Mul for SumPoly<T, { $($num +)+ 0 }> { // Squaring
 			type Output = SumPoly<T, { 2 * ($($num +)+ 0) }>;
-			#[allow(clippy::suspicious_arithmetic_impl)]
 			fn mul(self, rhs: Self) -> Self::Output {
 				const SIZE: usize = $($num +)+ 0;
 				let SumPoly(a_value, a_terms) = self;
 				let SumPoly(b_value, b_terms) = rhs;
-				let a_value = a_value.into_inner();
-				let b_value = b_value.into_inner();
-				let a_terms = a_terms.map(T::into_inner);
-				let b_terms = b_terms.map(T::into_inner);
-				let terms = std::array::from_fn(|i| T::from_inner(
+				let terms = std::array::from_fn(|i|
 					if i < SIZE {
-						let mut x = (a_terms[i].clone() * b_value.clone())
-							.add(a_value.clone() * b_terms[i].clone());
+						let mut term = a_terms[i].clone().each_map(
+							[b_terms[i].clone(), b_value.clone(), a_value.clone()],
+							|a, [b, a_val, b_val]| a.mul(b_val).add(b.mul(a_val))
+						);
 						for j in 0..i {
-							x = x.add(a_terms[j].clone() * b_terms[i-j-1].clone());
+							term = term.each_map(
+								[a_terms[j].clone(), b_terms[i-j-1].clone()],
+								|x, [a, b]| x.add(a.mul(b))
+							);
 						}
-						x
+						term
 					} else {
-						let mut x = T::zero().into_inner();
+						let mut term = T::zero();
 						for j in (i - SIZE)..SIZE {
-							x = x.add(a_terms[j].clone() * b_terms[i-j-1].clone());
+							term = term.each_map(
+								[a_terms[j].clone(), b_terms[i-j-1].clone()],
+								|x, [a, b]| x.add(a.mul(b))
+							);
 						}
-						x
+						term
 					}
-				));
-				SumPoly(T::from_inner(a_value * b_value), terms)
+				);
+				SumPoly(a_value.zip_map(b_value, |a, b| a.mul(b)), terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
