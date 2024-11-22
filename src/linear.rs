@@ -316,6 +316,22 @@ pub trait Basis: Clone + Debug + 'static {
 		Self::from_inner(f(self.into_inner()))
 	}
 	
+	fn zip_map(
+		self,
+		other: Self,
+		f: impl FnOnce(Self::Inner, Self::Inner) -> Self::Inner,
+	) -> Self {
+		Self::from_inner(f(self.into_inner(), other.into_inner()))
+	}
+	
+	fn each_map<const N: usize>(
+		self,
+		other: [Self; N],
+		f: impl FnOnce(Self::Inner, [Self::Inner; N]) -> Self::Inner
+	) -> Self {
+		Self::from_inner(f(self.into_inner(), other.map(Self::into_inner)))
+	}
+	
 	fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R;
 	
 	// !!! Can probably get rid of this method with some clever particular usage
