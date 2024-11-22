@@ -166,8 +166,7 @@ pub trait Poly: ToMomentMut + Clone + Debug + 'static {
 		
 		for degree in 0..=Self::DEGREE {
 			let order = deriv.eval(time)
-				.into_inner()
-				.partial_cmp(&Linear::zero());
+				.with(|x| x.partial_cmp(&Linear::zero()));
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
 				return if degree % 2 == 0 {

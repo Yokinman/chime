@@ -68,7 +68,7 @@ where
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).into_inner().sign();
+		let sign = diff_rate.eval(time).with(Linear::sign);
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -78,8 +78,8 @@ where
 				time.checked_sub(inc_time)
 			} {
 				 // Stop Before Rate Reverses:
-				let rate = diff_rate.eval(next_time).into_inner();
-				if sign != rate.sign() && !rate.is_zero() {
+				let rate = diff_rate.eval(next_time);
+				if rate.with(|x| sign != x.sign() && !x.is_zero()) {
 					break
 				}
 				
@@ -156,7 +156,7 @@ where
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).into_inner().sign();
+		let sign = diff_rate.eval(time).with(Linear::sign);
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -165,8 +165,8 @@ where
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
-					let rate = diff_rate.eval(next_time).into_inner();
-					if sign != rate.sign() && !rate.is_zero() {
+					let rate = diff_rate.eval(next_time);
+					if rate.with(|x| sign != x.sign() && !x.is_zero()) {
 						if inc_time == time::NANOSEC {
 							return Some(time)
 						}
@@ -227,8 +227,8 @@ where
 			let mut inc_time = time::NANOSEC;
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
-				let rate = diff_rate.eval(next_time).into_inner();
-				if sign != rate.sign() && !rate.is_zero() {
+				let rate = diff_rate.eval(next_time);
+				if rate.with(|x| sign != x.sign() && !x.is_zero()) {
 					break
 				}
 				

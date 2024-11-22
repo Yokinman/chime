@@ -188,8 +188,8 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		Self(value, std::array::from_fn(|_| T::zero()))
 	}
 	
-	fn add_basis(mut self, value: Self::Basis) -> Self {
-		self.0 = self.0.map(|x| x.add(value.into_inner()));
+	fn add_basis(mut self, basis: Self::Basis) -> Self {
+		self.0 = self.0.zip_map(basis, T::Inner::add);
 		self
 	}
 	
@@ -209,11 +209,13 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		if time == Scalar::from(0.) {
 			return self.0.clone()
 		}
-		let mut value = <T::Inner as Linear>::zero();
+		let mut value = T::zero();
 		for degree in 1..=D {
-			value = value.mul_scalar(time).add(self.1[D - degree].clone().into_inner());
+			value = self.1[D - degree].clone()
+				.zip_map(value, |a, b| a.add(b.mul_scalar(time)))
 		}
-		self.0.clone().map(|x| x.add(value.mul_scalar(time)))
+		self.0.clone()
+			.zip_map(value, |a, b| a.add(b.mul_scalar(time)))
 	}
 }
 
@@ -246,12 +248,11 @@ impl<T: Basis> From<Constant<T>> for SumPoly<T, 0> {
 impl<A, B, const D: usize> Add<B> for SumPoly<A, D>
 where
 	A: Basis,
-	B: Poly + Into<Constant<B::Basis>>,
-	B::Basis: Basis<Inner = A::Inner>,
+	B: Poly + Into<Constant<A>>,
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = self.0.map(|x| x.add(rhs.into().0.into_inner()));
+		self.0 = self.0.zip_map(rhs.into().0, Linear::add);
 		self
 	}
 }
