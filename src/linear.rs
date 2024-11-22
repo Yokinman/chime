@@ -312,23 +312,24 @@ pub trait Basis: Clone + Debug + 'static {
 	fn from_inner(inner: Self::Inner) -> Self;
 	fn into_inner(self) -> Self::Inner;
 	
-	fn map(self, f: impl FnOnce(Self::Inner) -> Self::Inner) -> Self {
+	fn map<F>(self, f: F) -> Self
+	where
+		F: Fn(Self::Inner) -> Self::Inner
+	{
 		self.each_map([], |x, []| f(x))
 	}
 	
-	fn zip_map(
-		self,
-		other: Self,
-		f: impl FnOnce(Self::Inner, Self::Inner) -> Self::Inner,
-	) -> Self {
+	fn zip_map<F>(self, other: Self, f: F) -> Self
+	where
+		F: Fn(Self::Inner, Self::Inner) -> Self::Inner
+	{
 		self.each_map([other], |a, [b]| f(a, b))
 	}
 	
-	fn each_map<const N: usize>(
-		self,
-		other: [Self; N],
-		f: impl FnOnce(Self::Inner, [Self::Inner; N]) -> Self::Inner
-	) -> Self {
+	fn each_map<F, const N: usize>(self, other: [Self; N], f: F) -> Self
+	where
+		F: Fn(Self::Inner, [Self::Inner; N]) -> Self::Inner
+	{
 		Self::from_inner(f(self.into_inner(), other.map(Self::into_inner)))
 	}
 	
