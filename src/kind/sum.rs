@@ -329,23 +329,30 @@ macro_rules! impl_deg_order {
 				let SumPoly(b_value, b_terms) = rhs;
 				let terms = std::array::from_fn(|i|
 					if i < SIZE {
-						let mut term = a_terms[i].clone().each_map(
-							[b_terms[i].clone(), b_value.clone(), a_value.clone()],
-							|a, [b, a_val, b_val]| a.mul(b_val).add(b.mul(a_val))
+						let mut term = T::each_map(
+							[
+								a_terms[i].clone(),
+								b_terms[i].clone(),
+								b_value.clone(),
+								a_value.clone(),
+							],
+							|[a, b, a_val, b_val]| {
+								a.mul(b_val).add(b.mul(a_val))
+							}
 						);
 						for j in 0..i {
-							term = term.each_map(
-								[a_terms[j].clone(), b_terms[i-j-1].clone()],
-								|x, [a, b]| x.add(a.mul(b))
+							term = T::each_map(
+								[term, a_terms[j].clone(), b_terms[i-j-1].clone()],
+								|[x, a, b]| x.add(a.mul(b))
 							);
 						}
 						term
 					} else {
 						let mut term = T::zero();
 						for j in (i - SIZE)..SIZE {
-							term = term.each_map(
-								[a_terms[j].clone(), b_terms[i-j-1].clone()],
-								|x, [a, b]| x.add(a.mul(b))
+							term = T::each_map(
+								[term, a_terms[j].clone(), b_terms[i-j-1].clone()],
+								|[x, a, b]| x.add(a.mul(b))
 							);
 						}
 						term

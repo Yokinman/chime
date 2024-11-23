@@ -23,9 +23,9 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<Constant<T>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
-		let add_term = self.add_term.each_map(
-			[self.mul_term.clone(), basis.clone()],
-			|a, [b, c]| a
+		let add_term = T::each_map(
+			[self.add_term, self.mul_term.clone(), basis.clone()],
+			|[a, b, c]| a
 				.mul(b.clone())
 				.div(b.sub(Linear::from_f64(1.)))
 				.add(c)
@@ -113,10 +113,11 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		// !!! if add_term == inf && mul_term == 1 { return basis + add_term*x }
-		self.basis.eval(time).each_map(
-			[self.add_term.clone(), self.mul_term.clone()],
-			|a, [b, c]| a.clone()
-				.add(b.mul(c.pow_scalar(time).sub(Linear::from_f64(1.))))
+		Basis::each_map(
+			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],
+			|[a, b, c]| {
+				a.add(b.mul(c.pow_scalar(time).sub(Linear::from_f64(1.))))
+			}
 		)
 	}
 }
