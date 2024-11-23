@@ -256,7 +256,7 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
-		KindLinear<K>: PartialOrd
+		K::Basis: PartialOrd
 	{
 		self.inner.initial_order(self.secs(time))
 	}
@@ -278,7 +278,7 @@ impl<K: Poly> Temporal<K> {
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
-		KindLinear<K>: PartialOrd,
+		K::Basis: PartialOrd,
 	{
 		let pred = crate::pred::Pred {
 			poly: self,
@@ -292,7 +292,7 @@ impl<K: Poly> Temporal<K> {
 	where
 		F: crate::pred::TimeFilterMap,
 		K: Roots + PartialEq,
-		KindLinear<K>: PartialEq,
+		K::Basis: PartialEq,
 	{
 		crate::pred::PredFilter {
 			pred: crate::pred::PredEq { poly: self },

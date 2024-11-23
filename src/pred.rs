@@ -58,17 +58,16 @@ where
 
 impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
-	A: Poly,
+	A: Poly<Basis: PartialEq>,
 	B: Poly<Basis = A::Basis>,
 	D: Poly<Basis = A::Basis>,
-	KindLinear<A>: PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).with(Linear::sign);
+		let sign = diff_rate.eval(time).map(|x| x.sign());
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -79,7 +78,7 @@ where
 			} {
 				 // Stop Before Rate Reverses:
 				let rate = diff_rate.eval(next_time);
-				if rate.with(|x| sign != x.sign() && !x.is_zero()) {
+				if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
 					break
 				}
 				
@@ -87,7 +86,7 @@ where
 				if a_poly.eval(next_time).zip_map(
 					b_poly.eval(next_time),
 					|a, b| A::Basis::inner_id(a).sub(A::Basis::inner_id(b))
-				).with(|x| !x.is_zero()) {
+				) != Basis::zero() {
 					break
 				}
 				
@@ -140,12 +139,9 @@ where
 impl<const SIZE: usize, A, B, D, E, F> TimeFilterMap
 	for DisTimeFilterMap<SIZE, A, B, D, E, F>
 where
-	A: Vector<SIZE, Output: Poly> + Clone,
-	B: Vector<SIZE, Output: Poly> + Clone,
-	D: Poly,
-	KindLinear<D>: PartialEq,
-	A::Output: Poly<Basis = D::Basis>,
-	B::Output: Poly<Basis = D::Basis>,
+	A: Vector<SIZE, Output: Poly<Basis = D::Basis>> + Clone,
+	B: Vector<SIZE, Output: Poly<Basis = D::Basis>> + Clone,
+	D: Poly<Basis: PartialEq>,
 	E: Poly<Basis = D::Basis>,
 	F: Poly<Basis = D::Basis>,
 {
@@ -157,7 +153,7 @@ where
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).with(Linear::sign);
+		let sign = diff_rate.eval(time).map(|x| x.sign());
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -167,7 +163,7 @@ where
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
 					let rate = diff_rate.eval(next_time);
-					if rate.with(|x| sign != x.sign() && !x.is_zero()) {
+					if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
 						if inc_time == time::NANOSEC {
 							return Some(time)
 						}
@@ -197,16 +193,16 @@ where
 					);
 					
 					 // Undershoot Actual Distances:
-					let diff_is_zero = |dis: D::Basis, diff: D::Basis| -> bool {
+					let diff_not_zero = |dis: D::Basis, diff: D::Basis| -> bool {
 						dis.zip_map(diff, |mut dis, diff| {
 							dis = D::Basis::inner_id(dis);
 							dis.clone().sub(D::Basis::inner_id(dis.add(diff)))
-						}).with(Linear::is_zero)
+						}) != Basis::zero()
 					};
 					if
-						!diff_is_zero(a_dis.clone(), real_diff.clone()) &&
-						!diff_is_zero(b_dis.clone(), real_diff.clone()) &&
-						!diff_is_zero(dis.clone(), real_diff)
+						diff_not_zero(a_dis.clone(), real_diff.clone()) &&
+						diff_not_zero(b_dis.clone(), real_diff.clone()) &&
+						diff_not_zero(dis.clone(), real_diff)
 					{
 						 // Undershoot Predicted Distances:
 						let pred_diff = pos_poly.eval(next_time).zip_map(
@@ -214,9 +210,9 @@ where
 							|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
 						);
 						if
-							!diff_is_zero(a_dis, pred_diff.clone()) &&
-							!diff_is_zero(b_dis, pred_diff.clone()) &&
-							!diff_is_zero(dis, pred_diff)
+							diff_not_zero(a_dis, pred_diff.clone()) &&
+							diff_not_zero(b_dis, pred_diff.clone()) &&
+							diff_not_zero(dis, pred_diff)
 						{
 							break
 						}
@@ -240,7 +236,7 @@ where
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
 				let rate = diff_rate.eval(next_time);
-				if rate.with(|x| sign != x.sign() && !x.is_zero()) {
+				if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
 					break
 				}
 				
@@ -261,7 +257,7 @@ where
 					);
 				}
 				let dis = dis_poly.eval(next_time).map(D::Basis::inner_id);
-				if pos.zip_map(dis, |a, b| a.sub(b.sqr())).with(|x| !x.is_zero()) {
+				if pos.zip_map(dis, |a, b| a.sub(b.sqr())) != Basis::zero() {
 					break
 				}
 				
@@ -447,7 +443,7 @@ where
 impl<K> Prediction for Pred<K>
 where
 	K: Roots + PartialEq,
-	KindLinear<K>: PartialOrd,
+	K::Basis: PartialOrd,
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
@@ -482,7 +478,7 @@ where
 impl<K> Prediction for PredEq<K>
 where
 	K: Roots + PartialEq,
-	KindLinear<K>: PartialEq,
+	K::Basis: PartialEq,
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
@@ -649,7 +645,7 @@ impl<A, B> When<B> for A
 where
 	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
 	B: Poly<Basis = A::Basis>,
-	KindLinear<A>: PartialOrd,
+	A::Basis: PartialOrd,
 {
 	type Pred = PredFilter<
 		Pred<<A as Sub<B>>::Output>,
@@ -681,7 +677,7 @@ impl<A, B> WhenEq<B> for A
 where
 	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
 	B: Poly<Basis = A::Basis>,
-	KindLinear<A>: PartialEq,
+	A::Basis: PartialEq,
 {
 	type Pred = PredFilter<
 		PredEq<<A as Sub<B>>::Output>,
@@ -712,7 +708,7 @@ impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
 	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly + ops::Sqr,
+	D: Poly<Basis: PartialOrd> + ops::Sqr,
 	A::Output: Sub<
 		B::Output,
 		Output: ops::Sqr<Output:
@@ -724,7 +720,6 @@ where
 			+ Poly<Basis = D::Basis>
 		>,
 	>,
-	KindLinear<D>: PartialOrd,
 {
 	type Pred = PredFilter<
 		Pred<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,
@@ -774,7 +769,7 @@ impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
 	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly + ops::Sqr,
+	D: Poly<Basis: PartialEq> + ops::Sqr,
 	A::Output: Sub<B::Output,
 		Output: ops::Sqr<Output:
 			Add<Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
@@ -785,7 +780,6 @@ where
 			+ Poly<Basis = D::Basis>
 		>,
 	>,
-	KindLinear<D>: PartialEq,
 {
 	type Pred = PredFilter<
 		PredEq<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,

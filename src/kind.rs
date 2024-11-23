@@ -155,7 +155,7 @@ pub trait Poly: ToMomentMut + Clone + Debug + 'static {
 	/// or its derivatives; reversed for odd derivatives.
 	fn initial_order(&self, time: Scalar) -> Option<Ordering>
 	where
-		<Self::Basis as Basis>::Inner: PartialOrd
+		Self::Basis: PartialOrd
 	{
 		// !!! Alternative: Translate polynomial using `to_time` and then check
 		// leading terms in order. Unknown which is more precise/faster.
@@ -166,7 +166,7 @@ pub trait Poly: ToMomentMut + Clone + Debug + 'static {
 		
 		for degree in 0..=Self::DEGREE {
 			let order = deriv.eval(time)
-				.with(|x| x.partial_cmp(&Linear::zero()));
+				.partial_cmp(&Basis::zero());
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
 				return if degree % 2 == 0 {

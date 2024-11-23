@@ -109,15 +109,14 @@ impl<T, const D: usize> IndexMut<usize> for SumPoly<T, D> {
 
 impl<T, const D: usize> PartialEq for SumPoly<T, D>
 where
-	T: Basis,
-	T::Inner: PartialEq,
+	T: PartialEq,
 {
 	fn eq(&self, other: &Self) -> bool {
-		if !self.0.inner_eq(&other.0) {
+		if self.0 != other.0 {
 			return false
 		}
 		for i in 0..D {
-			if !self.1[i].inner_eq(&other.1[i]) {
+			if self.1[i] != other.1[i] {
 				return false
 			}
 		}
