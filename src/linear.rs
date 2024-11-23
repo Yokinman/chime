@@ -333,8 +333,6 @@ pub trait Basis: Clone + Debug + 'static {
 		Self::from_inner(f(items.map(Self::into_inner)))
 	}
 	
-	fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R;
-	
 	// !!! Can probably get rid of this method with some clever particular usage
 	// of `Basis::map`. TBD
 	fn inner_id(inner: Self::Inner) -> Self::Inner;
@@ -358,9 +356,6 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			self
 		}
-		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			f(self)
-		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner
 		}
@@ -376,9 +371,6 @@ mod _linear_plus_impls {
 		}
 		fn into_inner(self) -> Self::Inner {
 			self.map(T::into_inner)
-		}
-		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			f(&self.clone().into_inner())
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner.map(T::inner_id)
@@ -397,14 +389,6 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
-		}
-		fn with<R>(&self, f: impl FnOnce(&Self::Inner) -> R) -> R {
-			let Iso(inner, outer) = self;
-			if let Some(inner) = inner.as_ref() {
-				f(inner)
-			} else {
-				f(&LinearIso::<A>::into_linear(outer.clone()))
-			}
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			B::linear_id(inner)
