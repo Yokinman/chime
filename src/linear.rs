@@ -328,10 +328,7 @@ pub trait Basis: Clone + Debug + 'static {
 	
 	fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
 	where
-		F: Fn([Self::Inner; N]) -> Self::Inner
-	{
-		Self::from_inner(f(items.map(Self::into_inner)))
-	}
+		F: Fn([Self::Inner; N]) -> Self::Inner;
 	
 	// !!! Can probably get rid of this method with some clever particular usage
 	// of `Basis::map`. TBD
@@ -355,6 +352,12 @@ mod _linear_plus_impls {
 		}
 		fn into_inner(self) -> Self::Inner {
 			self
+		}
+		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+		where
+			F: Fn([Self::Inner; N]) -> Self::Inner
+		{
+			f(items)
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			inner
@@ -399,6 +402,12 @@ mod _linear_plus_impls {
 		fn into_inner(self) -> Self::Inner {
 			let Iso(inner, outer) = self;
 			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
+		}
+		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+		where
+			F: Fn([Self::Inner; N]) -> Self::Inner
+		{
+			Self::from_inner(f(items.map(Iso::into_inner)))
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
 			B::linear_id(inner)
