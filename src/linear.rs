@@ -310,7 +310,6 @@ pub trait Basis: Clone + Debug + 'static {
 	type Inner: Linear;
 	
 	fn from_inner(inner: Self::Inner) -> Self;
-	fn into_inner(self) -> Self::Inner;
 	
 	fn map<F>(self, f: F) -> Self
 	where
@@ -350,9 +349,6 @@ mod _linear_plus_impls {
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
 		}
-		fn into_inner(self) -> Self::Inner {
-			self
-		}
 		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
 		where
 			F: Fn([Self::Inner; N]) -> Self::Inner
@@ -371,9 +367,6 @@ mod _linear_plus_impls {
 		type Inner = T::Inner;
 		fn from_inner(inner: Self::Inner) -> Self {
 			std::array::from_fn(|_| T::from_inner(inner.clone()))
-		}
-		fn into_inner(self) -> Self::Inner {
-			self.into_iter().next().unwrap().into_inner()
 		}
 		fn each_map<F, const M: usize>(items: [Self; M], f: F) -> Self
 		where
@@ -398,10 +391,6 @@ mod _linear_plus_impls {
 		type Inner = A;
 		fn from_inner(inner: Self::Inner) -> Self {
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
-		}
-		fn into_inner(self) -> Self::Inner {
-			let Iso(inner, outer) = self;
-			inner.unwrap_or_else(|| LinearIso::<A>::into_linear(outer))
 		}
 		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
 		where
