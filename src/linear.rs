@@ -365,15 +365,25 @@ mod _linear_plus_impls {
 	where
 		T: Basis,
 	{
-		type Inner = [T::Inner; N];
+		type Inner = T::Inner;
 		fn from_inner(inner: Self::Inner) -> Self {
-			inner.map(T::from_inner)
+			std::array::from_fn(|_| T::from_inner(inner.clone()))
 		}
 		fn into_inner(self) -> Self::Inner {
-			self.map(T::into_inner)
+			self.into_iter().next().unwrap().into_inner()
+		}
+		fn each_map<F, const M: usize>(items: [Self; M], f: F) -> Self
+		where
+			F: Fn([Self::Inner; M]) -> Self::Inner
+		{
+			let mut item_iters = items.map(IntoIterator::into_iter);
+			std::array::from_fn(|_| T::each_map(
+				std::array::from_fn(|i| item_iters[i].next().unwrap()),
+				&f
+			))
 		}
 		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			inner.map(T::inner_id)
+			T::inner_id(inner)
 		}
 	}
 	
