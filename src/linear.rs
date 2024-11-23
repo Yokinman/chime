@@ -339,13 +339,6 @@ pub trait Basis: Clone + Debug + 'static {
 	// of `Basis::map`. TBD
 	fn inner_id(inner: Self::Inner) -> Self::Inner;
 	
-	fn inner_eq(&self, other: &Self) -> bool
-	where
-		Self::Inner: PartialEq	
-	{
-		self.with(|x| other.with(|y| x == y))
-	}
-	
 	fn zero() -> Self {
 		Self::from_inner(Linear::zero())
 	}
