@@ -721,12 +721,12 @@ mod _iso_impls {
 	
 	impl<A, B> std::ops::Mul for Iso<A, B>
 	where
-		A: Linear + std::ops::Mul<Output = A>,
+		A: Linear,
 		B: LinearIso<A>,
 	{
 		type Output = Self;
 		fn mul(self, rhs: Self) -> Self::Output {
-			self.map(|x| x * rhs.into_inner())
+			self.zip_map(rhs, Linear::mul)
 		}
 	}
 	
