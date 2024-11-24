@@ -499,54 +499,25 @@ mod glam_stuff {
 			$(impl_linear_for_vec!($b_vec);)+
 		};
 		(($vec:ty, $size:literal, $value:ty)) => {
-			impl Linear for $vec {
-				fn add(self, other: Self) -> Self {
-					self + other
+			impl Basis for $vec {
+				type Inner = $value;
+				
+				fn from_inner(inner: Self::Inner) -> Self {
+					<$vec>::splat(inner)
 				}
-				fn sub(self, other: Self) -> Self {
-					self - other
+				
+				fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+				where
+					F: Fn([Self::Inner; N]) -> Self::Inner
+				{
+					<$vec>::from_array(std::array::from_fn(|i| {
+						let list = std::array::from_fn(|j| items[j][i]);
+						Basis::each_map(list, &f)
+					}))
 				}
-				fn mul(self, other: Self) -> Self {
-					self * other
-				}
-				fn div(self, other: Self) -> Self {
-					self / other
-				}
-				fn pow(mut self, other: Self) -> Self {
-					for i in 0..$size {
-						self[i] = self[i].powf(other[i]);
-					}
+				
+				fn inner_id(self) -> Self {
 					self
-				}
-				fn mul_scalar(self, scalar: Scalar) -> Self {
-					self * scalar
-				}
-				fn pow_scalar(self, scalar: Scalar) -> Self {
-					self.powf(scalar.into())
-				}
-				fn exp(self) -> Self {
-					<$vec>::exp(self)
-				}
-				fn ln(mut self) -> Self {
-					for i in 0..$size {
-						self[i] = self[i].ln();
-					}
-					self
-				}
-				fn sqr(self) -> Self {
-					self.powf(2.)
-				}
-				fn sqrt(self) -> Self {
-					self.powf(0.5)
-				}
-				fn sign(&self) -> Self {
-					self.signum()
-				}
-				fn from_f64(n: f64) -> Self {
-					Self::splat(n as $value)
-				}
-				fn zero() -> Self {
-					Self::ZERO
 				}
 			}
 		};
