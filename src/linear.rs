@@ -320,18 +320,20 @@ mod _linear_plus_impls {
 	
 	impl<A, B> Basis for Iso<A, B>
 	where
-		A: Linear,
+		A: Basis,
 		B: LinearIso<A>,
 	{
-		type Inner = A;
+		type Inner = A::Inner;
 		fn from_inner(inner: Self::Inner) -> Self {
+			let inner = A::from_inner(inner);
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
 		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
 		where
 			F: Fn([Self::Inner; N]) -> Self::Inner
 		{
-			Self::from_inner(f(items.map(Iso::into_inner)))
+			let inner = A::each_map(items.map(Iso::into_inner), f);
+			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
 		fn inner_id(self) -> Self {
 			Self::from_inner(B::linear_id(self.into_inner()))
@@ -447,7 +449,7 @@ where
 
 impl<A, B, const SIZE: usize> Vector<SIZE> for Iso<A, B>
 where
-	A: Vector<SIZE, Output: Linear>,
+	A: Vector<SIZE, Output: Basis>,
 	B: Vector<SIZE, Output: LinearIso<A::Output>>,
 {
 	type Output = Iso<A::Output, B::Output>;
@@ -601,7 +603,7 @@ mod _iso_impls {
 	
 	impl<A, B> Iso<A, B>
 	where
-		A: Linear,
+		A: Basis,
 		B: LinearIso<A>,
 	{
 		pub fn into_inner(self) -> A {
@@ -664,7 +666,7 @@ mod _iso_impls {
 	
 	impl<A, B> std::ops::Mul for Iso<A, B>
 	where
-		A: Linear,
+		A: Basis,
 		B: LinearIso<A>,
 	{
 		type Output = Self;
@@ -675,7 +677,7 @@ mod _iso_impls {
 	
 	impl<A, B> crate::ToMoment for Iso<A, B>
 	where
-		A: Linear,
+		A: Basis,
 		B: LinearIso<A>,
 	{
 		type Moment<'a> = Self;

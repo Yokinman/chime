@@ -698,7 +698,7 @@ impl Roots for SumPoly<f64, 4> {
 
 impl<A, B, const D: usize> Roots for SumPoly<Iso<A, B>, D>
 where
-	A: Linear,
+	A: Basis,
 	B: LinearIso<A>,
 	SumPoly<A, D>: Roots,
 {
