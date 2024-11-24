@@ -108,7 +108,7 @@ mod _scalar_impls {
 /// 
 /// This basically just represents floating-point numbers and vector types.
 /// For vectors, operations are applied per component in parallel.
-pub trait Linear: Clone + Debug + 'static {
+pub trait Linear: PartialEq + PartialOrd + Clone + Debug + 'static {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
