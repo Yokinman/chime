@@ -266,7 +266,7 @@ pub trait Basis: Clone + Debug + 'static {
 	
 	// !!! Can probably get rid of this method with some clever particular usage
 	// of `Basis::map`. TBD
-	fn inner_id(inner: Self::Inner) -> Self::Inner;
+	fn inner_id(self) -> Self;
 	
 	fn zero() -> Self {
 		Self::from_inner(Linear::zero())
@@ -290,8 +290,8 @@ mod _linear_plus_impls {
 		{
 			f(items)
 		}
-		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			inner
+		fn inner_id(self) -> Self {
+			self
 		}
 	}
 	
@@ -313,8 +313,8 @@ mod _linear_plus_impls {
 				&f
 			))
 		}
-		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			T::inner_id(inner)
+		fn inner_id(self) -> Self {
+			self.map(T::inner_id)
 		}
 	}
 	
@@ -333,8 +333,8 @@ mod _linear_plus_impls {
 		{
 			Self::from_inner(f(items.map(Iso::into_inner)))
 		}
-		fn inner_id(inner: Self::Inner) -> Self::Inner {
-			B::linear_id(inner)
+		fn inner_id(self) -> Self {
+			Self::from_inner(B::linear_id(self.into_inner()))
 		}
 	}
 }
