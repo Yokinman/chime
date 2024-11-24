@@ -13,59 +13,6 @@ use crate::linear::*;
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Exp<T>(pub T);
 
-impl<T: Linear> Linear for Exp<T> {
-	fn add(self, other: Self) -> Self {
-		Self(self.0.add(other.0))
-	}
-	fn sub(self, other: Self) -> Self {
-		Self(self.0.sub(other.0))
-	}
-	fn mul(self, other: Self) -> Self {
-		Self(self.0.mul(other.0))
-	}
-	fn div(self, other: Self) -> Self {
-		Self(self.0.div(other.0))
-	}
-	fn pow(self, other: Self) -> Self {
-		Self(self.0.pow(other.0))
-	}
-	fn mul_scalar(self, scalar: Scalar) -> Self {
-		Self(self.0.mul_scalar(scalar))
-	}
-	fn pow_scalar(self, scalar: Scalar) -> Self {
-		Self(self.0.pow_scalar(scalar))
-	}
-	fn exp(self) -> Self {
-		Self(self.0.exp())
-	}
-	fn ln(self) -> Self {
-		Self(self.0.ln())
-	}
-	fn sqr(mut self) -> Self {
-		self.0 = self.0.sqr();
-		self
-	}
-	fn sqrt(mut self) -> Self {
-		self.0 = self.0.sqrt();
-		self
-	}
-	fn sign(&self) -> Self {
-		Exp(self.0.sign())
-	}
-	fn from_f64(n: f64) -> Self {
-		Exp(T::from_f64(n))
-	}
-	fn zero() -> Self {
-		Self(<T as Linear>::zero())
-	}
-}
-
-impl<T: Linear> Default for Exp<T> {
-	fn default() -> Self {
-		Self(<T as Linear>::zero())
-	}
-}
-
 impl<T> From<T> for Exp<T> {
 	fn from(value: T) -> Exp<T> {
 		Exp(value)
