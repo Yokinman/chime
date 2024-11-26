@@ -4,7 +4,7 @@ use crate::exp::Exp;
 use crate::kind::FluxChange;
 use crate::kind::sum::{Sum, SumPoly};
 use crate::kind::sumprod::SumProd;
-use crate::linear::Linear;
+use crate::linear::{Basis, Linear};
 
 /// Represents the pattern of repeated multiplication, `a = a * b`.
 pub type Prod<T, const DEGREE: usize> = Exp<Sum<T, DEGREE>>;
@@ -19,26 +19,26 @@ impl<T: FluxChange + std::ops::Neg> std::ops::Neg for Exp<T> {
 	}
 }
 
-impl<T: Linear> std::ops::Mul<Prod<T, 1>> for Sum<T, 1> {
+impl<T: Basis> std::ops::Mul<Prod<T, 1>> for Sum<T, 1> {
 	type Output = SumProd<T>;
 	fn mul(self, rhs: Prod<T, 1>) -> Self::Output {
 		let Sum([add_term]) = self;
 		let Exp(Sum([mul_term])) = rhs;
 		SumProd {
 			add_term,
-			mul_term: mul_term.exp(),
+			mul_term: mul_term.map(Linear::exp),
 		}
 	}
 }
 
-impl<T: Linear> std::ops::Div<Prod<T, 1>> for Sum<T, 1> {
+impl<T: Basis> std::ops::Div<Prod<T, 1>> for Sum<T, 1> {
 	type Output = SumProd<T>;
 	fn div(self, rhs: Prod<T, 1>) -> Self::Output {
 		let Sum([add_term]) = self;
 		let Exp(Sum([mul_term])) = rhs;
 		SumProd {
 			add_term,
-			mul_term: T::from_f64(1.).div(mul_term.exp()),
+			mul_term: mul_term.map(|x| T::Inner::from_f64(1.).div(x.exp())),
 		}
 	}
 }
