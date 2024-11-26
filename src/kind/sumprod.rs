@@ -23,17 +23,20 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<Constant<T>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
+		let mul_term = self.mul_term;
 		let add_term = T::each_map(
-			[self.add_term, self.mul_term.clone(), basis.clone()],
-			|[a, b, c]| a
-				.mul(b.clone())
-				.div(b.sub(Linear::from_f64(1.)))
-				.add(c)
+			[basis.clone(), self.add_term, mul_term.clone()],
+			|[a, b, c]| {
+				if c == Linear::from_f64(1.) {
+					return b // a + bx
+				}
+				a.add(b.mul(c.clone()).div(c.sub(Linear::from_f64(1.))))
+			}
 		);
 		SumProdPoly {
 			basis: Constant(basis),
 			add_term,
-			mul_term: self.mul_term,
+			mul_term,
 		}
 	}
 	fn scale(self, scalar: Scalar) -> Self {
@@ -65,8 +68,21 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 	type Poly = SumProdPoly<SumPoly<T, 1>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		let deriv = self.change.into_poly(self.basis);
-		let sum_term = deriv.basis.0.zip_map(deriv.add_term.clone(), Linear::sub);
-		let add_term = deriv.add_term.zip_map(deriv.mul_term.clone(), |a, b| a.div(b.ln()));
+		let sum_term = T::each_map(
+			[deriv.basis.0, deriv.add_term.clone(), deriv.mul_term.clone()],
+			|[a, b, c]| {
+				if c == Linear::from_f64(1.) {
+					return a
+				}
+				a.sub(b)
+			}
+		);
+		let add_term = deriv.add_term.zip_map(deriv.mul_term.clone(), |b, c| {
+			if c == Linear::from_f64(1.) {
+				return b.mul_scalar(Scalar::from(0.5))
+			}
+			b.div(c.ln())
+		});
 		let mul_term = deriv.mul_term;
 		// This is specifically the integral of `SumProd` to avoid confusion
 		// when doing predictions on a flux value and its change over time.
@@ -112,10 +128,21 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		self
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
-		// !!! if add_term == inf && mul_term == 1 { return basis + add_term*x }
 		Basis::each_map(
 			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],
 			|[a, b, c]| {
+				if c == Linear::from_f64(1.) {
+					// Treat `*1` multipliers as `x^t` terms.
+					return a.add(b.mul_scalar(match T::DEGREE {
+						0 => time,
+						1 => time*time,
+						_ => unimplemented!("this is a temporary hacky way to do this")
+						// !!! https://www.desmos.com/calculator/pgflaxsrxs
+						// - Give `SumProdPoly` a `const DEGREE: usize` parameter.
+						// - Use the `T` parameter's `FluxChangeUp::<'+'>::Up` type.
+						// - Make the `SumProd` change impls return 2-variant enums.
+					}))
+				}
 				a.add(b.mul(c.pow_scalar(time).sub(Linear::from_f64(1.))))
 			}
 		)
@@ -165,7 +192,9 @@ where
 impl Roots for SumProdPoly<Constant<f64>> {
 	type Output = [f64; 1];
 	fn roots(self) -> <Self as Roots>::Output {
-		// !!! if add_term == inf && mul_term == 1 { return [-self.basis / self.add_term] }
+		if self.mul_term == 1. {
+			return [-self.basis.0 / self.add_term];
+		}
 		[(1. - (self.basis.0 / self.add_term)).log(self.mul_term)] 
 	}
 }
@@ -173,6 +202,10 @@ impl Roots for SumProdPoly<Constant<f64>> {
 impl Roots for SumProdPoly<SumPoly<f64, 1>> {
 	type Output = [f64; 2];
 	fn roots(self) -> <Self as Roots>::Output {
+		if self.mul_term == 1. {
+			return SumPoly::new(self.basis.0, [self.basis.1[0], self.add_term])
+				.roots()
+		}
 		// Convert to `a + b*x + c^x` and solve using product log.
 		let a = (self.basis.0 / self.add_term) - 1.;
 		let b = self.basis.1[0] / self.add_term;
@@ -246,6 +279,31 @@ mod tests {
 		
 		for root in (b - chime::kind::constant::Constant(5.)).roots() {
 			let val = b.eval(Scalar::from(root));
+			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
+		}
+		
+		let c = Test { value: 1., add: 4., mul: 1. }.to_poly();
+		assert_eq!(c.eval(Scalar::from(0.)), 1.);
+		assert_eq!(c.eval(Scalar::from(1.)), 5.);
+		assert_eq!(c.eval(Scalar::from(2.)), 9.);
+		assert_eq!(c.eval(Scalar::from(3.)), 13.);
+		
+		for root in (c - chime::kind::constant::Constant(5.)).roots() {
+			let val = c.eval(Scalar::from(root));
+			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
+		}
+		
+		let d = Test2 {
+			value: 1.,
+			add: Test { value: 1., add: 4., mul: 1. }
+		}.to_poly();
+		assert_eq!(d.eval(Scalar::from(0.)), 1.);
+		assert_eq!(d.eval(Scalar::from(1.)), 4.);
+		assert_eq!(d.eval(Scalar::from(2.)), 11.);
+		assert_eq!(d.eval(Scalar::from(3.)), 22.);
+		
+		for root in (d - chime::kind::constant::Constant(5.)).roots() {
+			let val = d.eval(Scalar::from(root));
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
 	}
