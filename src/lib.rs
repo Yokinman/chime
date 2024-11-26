@@ -359,7 +359,17 @@ pub struct Change<T> {
 
 mod _change_impls {
 	use crate::linear::Scalar;
+	use crate::temporal::TemporalRef;
 	use super::{Change, Flux, ToMoment, ToMomentMut};
+	
+	impl<T> Change<T> {
+		pub fn as_ref(&self) -> Change<TemporalRef<'_, T>> {
+			Change {
+				rate: TemporalRef(&self.rate),
+				unit: self.unit,
+			}
+		}
+	}
 	
 	impl<T: Flux> Flux for Change<T> {
 		type Basis = T::Basis;
