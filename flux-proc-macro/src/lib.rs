@@ -76,9 +76,9 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						}
 						
 						change_expr = syn::parse_quote!{(#change_expr)
-							#op self.#field_member};
+							#op &self.#field_member};
 						change_type = syn::parse_quote!{<#change_type
-							as #op_trait::<<#field_type as #chime::Flux>::Kind>>::Output};
+							as #op_trait::<<#field_type as #chime::Flux>::Change>>::Output};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
 						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func

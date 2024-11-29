@@ -7,6 +7,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
 use crate::{Change, Flux, ToMomentMut};
+use crate::temporal::TemporalRef;
 
 pub mod constant;
 pub mod sum;
@@ -125,6 +126,46 @@ where
 			.up(rhs.rate.basis())
 			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
 		ChangeAccum(self.0 / change)
+	}
+}
+
+impl<'a, A, B> Add<&'a Change<B>> for ChangeAccum<A>
+where
+	Self: Add<Change<TemporalRef<'a, B>>>
+{
+	type Output = <Self as Add<Change<TemporalRef<'a, B>>>>::Output;
+	fn add(self, rhs: &'a Change<B>) -> Self::Output {
+		self + rhs.as_ref()
+	}
+}
+
+impl<'a, A, B> Sub<&'a Change<B>> for ChangeAccum<A>
+where
+	Self: Sub<Change<TemporalRef<'a, B>>>
+{
+	type Output = <Self as Sub<Change<TemporalRef<'a, B>>>>::Output;
+	fn sub(self, rhs: &'a Change<B>) -> Self::Output {
+		self - rhs.as_ref()
+	}
+}
+
+impl<'a, A, B> Mul<&'a Change<B>> for ChangeAccum<A>
+where
+	Self: Mul<Change<TemporalRef<'a, B>>>
+{
+	type Output = <Self as Mul<Change<TemporalRef<'a, B>>>>::Output;
+	fn mul(self, rhs: &'a Change<B>) -> Self::Output {
+		self * rhs.as_ref()
+	}
+}
+
+impl<'a, A, B> Div<&'a Change<B>> for ChangeAccum<A>
+where
+	Self: Div<Change<TemporalRef<'a, B>>>
+{
+	type Output = <Self as Div<Change<TemporalRef<'a, B>>>>::Output;
+	fn div(self, rhs: &'a Change<B>) -> Self::Output {
+		self / rhs.as_ref()
 	}
 }
 
