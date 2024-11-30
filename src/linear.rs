@@ -599,6 +599,10 @@ mod _iso_impls {
 		pub fn new(outer: B) -> Self {
 			Iso(None, outer)
 		}
+		
+		pub fn map<T>(self, f: impl FnOnce(B) -> T) -> Iso<A, T> {
+			Iso(self.0, f(self.1))
+		}
 	}
 	
 	impl<A, B> Deref for Iso<A, B> {
