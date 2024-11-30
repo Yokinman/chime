@@ -650,6 +650,22 @@ mod _iso_impls {
 		}
 	}
 	
+	impl<A, B> crate::Flux for Iso<A, B>
+	where
+		A: Basis,
+		B: LinearIso<A>,
+	{
+		type Basis = Self;
+		type Change = crate::kind::constant::Nil<Self>;
+		type Kind = crate::kind::constant::Constant<Self>;
+		fn basis(&self) -> Self::Basis {
+			self.clone()
+		}
+		fn change(&self) -> Self::Change {
+			self.accum().into_change()
+		}
+	}
+	
 	impl<A, B> crate::ToMoment for Iso<A, B>
 	where
 		A: Basis,
