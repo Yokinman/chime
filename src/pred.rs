@@ -83,7 +83,7 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				if a_poly.eval(next_time).inner_id().zip_map(
+				if a_poly.eval(next_time).inner_id().zip_map_inner(
 					b_poly.eval(next_time).inner_id(),
 					Linear::sub
 				) != Basis::zero() {
@@ -178,8 +178,8 @@ where
 					for i in 0..SIZE {
 						let a = a_pos.index(i).eval(next_time);
 						let b = b_pos.index(i).eval(next_time);
-						a_dis = a_dis.zip_map(a.clone(), |a, b| a.add(b.sqr()));
-						b_dis = b_dis.zip_map(b.clone(), |a, b| a.add(b.sqr()));
+						a_dis = a_dis.zip_map_inner(a.clone(), |a, b| a.add(b.sqr()));
+						b_dis = b_dis.zip_map_inner(b.clone(), |a, b| a.add(b.sqr()));
 						real_diff = Basis::each_map(
 							[real_diff, a, b],
 							|[real_diff, a, b]| real_diff.add(a.sub(b).sqr())
@@ -187,7 +187,7 @@ where
 					}
 					a_dis = a_dis.map_inner(Linear::sqrt);
 					b_dis = b_dis.map_inner(Linear::sqrt);
-					real_diff = real_diff.zip_map(
+					real_diff = real_diff.zip_map_inner(
 						dis.clone(),
 						|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
 					);
@@ -195,8 +195,8 @@ where
 					 // Undershoot Actual Distances:
 					let diff_not_zero = |mut dis: D::Basis, diff: D::Basis| -> bool {
 						dis = dis.inner_id();
-						dis.clone().zip_map(
-							dis.zip_map(diff, Linear::add).inner_id(),
+						dis.clone().zip_map_inner(
+							dis.zip_map_inner(diff, Linear::add).inner_id(),
 							Linear::sub
 						) != Basis::zero()
 					};
@@ -206,7 +206,7 @@ where
 						diff_not_zero(dis.clone(), real_diff)
 					{
 						 // Undershoot Predicted Distances:
-						let pred_diff = pos_poly.eval(next_time).zip_map(
+						let pred_diff = pos_poly.eval(next_time).zip_map_inner(
 							dis.clone(),
 							|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
 						);
@@ -256,7 +256,7 @@ where
 					);
 				}
 				let dis = dis_poly.eval(next_time).inner_id();
-				if pos.zip_map(dis, |a, b| a.sub(b.sqr())) != Basis::zero() {
+				if pos.zip_map_inner(dis, |a, b| a.sub(b.sqr())) != Basis::zero() {
 					break
 				}
 				

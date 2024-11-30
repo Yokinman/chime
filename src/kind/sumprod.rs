@@ -77,7 +77,7 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 				a.sub(b)
 			}
 		);
-		let add_term = deriv.add_term.zip_map(deriv.mul_term.clone(), |b, c| {
+		let add_term = deriv.add_term.zip_map_inner(deriv.mul_term.clone(), |b, c| {
 			if c == Linear::from_f64(1.) {
 				return b.mul_scalar(Scalar::from(0.5))
 			}
@@ -123,7 +123,7 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		self
 	}
 	fn deriv(mut self) -> Self {
-		self.add_term = self.add_term.zip_map(self.mul_term.clone(), |a, b| a.mul(b.ln()));
+		self.add_term = self.add_term.zip_map_inner(self.mul_term.clone(), |a, b| a.mul(b.ln()));
 		self.basis = self.basis.deriv().add_basis(self.add_term.clone());
 		self
 	}

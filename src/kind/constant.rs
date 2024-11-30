@@ -161,7 +161,7 @@ impl<T: Basis> Poly for Constant<T> {
 		Constant(value)
 	}
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.0 = self.0.zip_map(basis, T::Inner::add);
+		self.0 = self.0.zip_map_inner(basis, T::Inner::add);
 		self
 	}
 	fn deriv(self) -> Self {

@@ -253,7 +253,7 @@ pub trait Basis: Clone + Debug + 'static {
 		Self::each_map([self], |[x]| f(x))
 	}
 	
-	fn zip_map<F>(self, other: Self, f: F) -> Self
+	fn zip_map_inner<F>(self, other: Self, f: F) -> Self
 	where
 		F: Fn(Self::Inner, Self::Inner) -> Self::Inner
 	{
@@ -646,7 +646,7 @@ mod _iso_impls {
 	{
 		type Output = Self;
 		fn mul(self, rhs: Self) -> Self::Output {
-			self.zip_map(rhs, Linear::mul)
+			self.zip_map_inner(rhs, Linear::mul)
 		}
 	}
 	

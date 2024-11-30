@@ -192,7 +192,7 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	}
 	
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.0 = self.0.zip_map(basis, T::Inner::add);
+		self.0 = self.0.zip_map_inner(basis, T::Inner::add);
 		self
 	}
 	
@@ -215,10 +215,10 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		let mut value = T::zero();
 		for degree in 1..=D {
 			value = self.1[D - degree].clone()
-				.zip_map(value, |a, b| a.add(b.mul_scalar(time)))
+				.zip_map_inner(value, |a, b| a.add(b.mul_scalar(time)))
 		}
 		self.0.clone()
-			.zip_map(value, |a, b| a.add(b.mul_scalar(time)))
+			.zip_map_inner(value, |a, b| a.add(b.mul_scalar(time)))
 	}
 }
 
@@ -255,7 +255,7 @@ where
 {
 	type Output = Self;
 	fn add(mut self, rhs: B) -> Self {
-		self.0 = self.0.zip_map(rhs.into().0, Linear::add);
+		self.0 = self.0.zip_map_inner(rhs.into().0, Linear::add);
 		self
 	}
 }
@@ -299,7 +299,7 @@ macro_rules! impl_deg_order {
 				Sum(std::array::from_fn(|_| unsafe {
 					// SAFETY: Sizes of all input & output arrays are equal.
 					a.next().unwrap_unchecked()
-						.zip_map(b.next().unwrap_unchecked(), Linear::add)
+						.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 				}))
 			}
 		}
@@ -315,11 +315,11 @@ macro_rules! impl_deg_order {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					self.0.zip_map(rhs.0, Linear::add),
+					self.0.zip_map_inner(rhs.0, Linear::add),
 					std::array::from_fn(|_| unsafe {
 						// SAFETY: Sizes of all input & output arrays are equal.
 						a.next().unwrap_unchecked()
-							.zip_map(b.next().unwrap_unchecked(), Linear::add)
+							.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 					}),
 				)
 			}
@@ -361,7 +361,7 @@ macro_rules! impl_deg_order {
 						term
 					}
 				);
-				SumPoly(a_value.zip_map(b_value, |a, b| a.mul(b)), terms)
+				SumPoly(a_value.zip_map_inner(b_value, |a, b| a.mul(b)), terms)
 			}
 		}
 		impl_deg_add!({ $($num +)+ 0 }, 1 $($num)+);
@@ -387,7 +387,7 @@ macro_rules! impl_deg_add {
 					// `b` is the size of `$a` (bad naming).
 					if i < $a {
 						a.next().unwrap_unchecked()
-							.zip_map(b.next().unwrap_unchecked(), Linear::add)
+							.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 					} else {
 						a.next().unwrap_unchecked()
 					}
@@ -404,7 +404,7 @@ macro_rules! impl_deg_add {
 					// `a` is the size of `$a`.
 					if i < $a {
 						a.next().unwrap_unchecked()
-							.zip_map(b.next().unwrap_unchecked(), Linear::add)
+							.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 					} else {
 						b.next().unwrap_unchecked()
 					}
@@ -417,13 +417,13 @@ macro_rules! impl_deg_add {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly(
-					self.0.zip_map(rhs.0, Linear::add),
+					self.0.zip_map_inner(rhs.0, Linear::add),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `a` is the same size as the output array, and
 						// `b` is the size of `$a` (bad naming).
 						if i < $a {
 							a.next().unwrap_unchecked()
-								.zip_map(b.next().unwrap_unchecked(), Linear::add)
+								.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 						} else {
 							a.next().unwrap_unchecked()
 						}
@@ -437,13 +437,13 @@ macro_rules! impl_deg_add {
 				let mut a = self.1.into_iter();
 				let mut b = rhs.1.into_iter();
 				SumPoly::new(
-					self.0.zip_map(rhs.0, Linear::add),
+					self.0.zip_map_inner(rhs.0, Linear::add),
 					std::array::from_fn(|i| unsafe {
 						// SAFETY: `b` is the same size as the output array, and
 						// `a` is the size of `$a`.
 						if i < $a {
 							a.next().unwrap_unchecked()
-								.zip_map(b.next().unwrap_unchecked(), Linear::add)
+								.zip_map_inner(b.next().unwrap_unchecked(), Linear::add)
 						} else {
 							b.next().unwrap_unchecked()
 						}
