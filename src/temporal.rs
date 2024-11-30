@@ -433,6 +433,13 @@ mod _temporal_ref_impls {
 	use crate::linear::Scalar;
 	use super::TemporalRef;
 	
+	impl<T> std::ops::Deref for TemporalRef<'_, T> {
+		type Target = T;
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
+	}
+	
 	impl<T> Flux for TemporalRef<'_, T>
 	where
 		T: Flux + ?Sized
