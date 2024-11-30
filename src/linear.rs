@@ -250,17 +250,17 @@ pub trait Basis: Clone + Debug + 'static {
 	where
 		F: Fn(Self::Inner) -> Self::Inner
 	{
-		Self::each_map([self], |[x]| f(x))
+		Self::each_map_inner([self], |[x]| f(x))
 	}
 	
 	fn zip_map_inner<F>(self, other: Self, f: F) -> Self
 	where
 		F: Fn(Self::Inner, Self::Inner) -> Self::Inner
 	{
-		Self::each_map([self, other], |[a, b]| f(a, b))
+		Self::each_map_inner([self, other], |[a, b]| f(a, b))
 	}
 	
-	fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+	fn each_map_inner<F, const N: usize>(items: [Self; N], f: F) -> Self
 	where
 		F: Fn([Self::Inner; N]) -> Self::Inner;
 	
@@ -284,7 +284,7 @@ mod _linear_plus_impls {
 		fn from_inner(inner: Self::Inner) -> Self {
 			inner
 		}
-		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+		fn each_map_inner<F, const N: usize>(items: [Self; N], f: F) -> Self
 		where
 			F: Fn([Self::Inner; N]) -> Self::Inner
 		{
@@ -303,12 +303,12 @@ mod _linear_plus_impls {
 		fn from_inner(inner: Self::Inner) -> Self {
 			std::array::from_fn(|_| T::from_inner(inner.clone()))
 		}
-		fn each_map<F, const M: usize>(items: [Self; M], f: F) -> Self
+		fn each_map_inner<F, const M: usize>(items: [Self; M], f: F) -> Self
 		where
 			F: Fn([Self::Inner; M]) -> Self::Inner
 		{
 			let mut item_iters = items.map(IntoIterator::into_iter);
-			std::array::from_fn(|_| T::each_map(
+			std::array::from_fn(|_| T::each_map_inner(
 				std::array::from_fn(|i| item_iters[i].next().unwrap()),
 				&f
 			))
@@ -328,11 +328,11 @@ mod _linear_plus_impls {
 			let inner = A::from_inner(inner);
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
-		fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+		fn each_map_inner<F, const N: usize>(items: [Self; N], f: F) -> Self
 		where
 			F: Fn([Self::Inner; N]) -> Self::Inner
 		{
-			let inner = A::each_map(items.map(Iso::into_inner), f);
+			let inner = A::each_map_inner(items.map(Iso::into_inner), f);
 			Iso(Some(inner.clone()), LinearIso::<A>::from_linear(inner))
 		}
 		fn inner_id(self) -> Self {
@@ -506,13 +506,13 @@ mod glam_stuff {
 					<$vec>::splat(inner)
 				}
 				
-				fn each_map<F, const N: usize>(items: [Self; N], f: F) -> Self
+				fn each_map_inner<F, const N: usize>(items: [Self; N], f: F) -> Self
 				where
 					F: Fn([Self::Inner; N]) -> Self::Inner
 				{
 					<$vec>::from_array(std::array::from_fn(|i| {
 						let list = std::array::from_fn(|j| items[j][i]);
-						Basis::each_map(list, &f)
+						Basis::each_map_inner(list, &f)
 					}))
 				}
 				

@@ -180,7 +180,7 @@ where
 						let b = b_pos.index(i).eval(next_time);
 						a_dis = a_dis.zip_map_inner(a.clone(), |a, b| a.add(b.sqr()));
 						b_dis = b_dis.zip_map_inner(b.clone(), |a, b| a.add(b.sqr()));
-						real_diff = Basis::each_map(
+						real_diff = Basis::each_map_inner(
 							[real_diff, a, b],
 							|[real_diff, a, b]| real_diff.add(a.sub(b).sqr())
 						);
@@ -244,7 +244,7 @@ where
 				 // Stop Before Inequality:
 				let mut pos = D::Basis::zero();
 				for i in 0..SIZE {
-					pos = Basis::each_map(
+					pos = Basis::each_map_inner(
 						[
 							pos,
 							a_pos.index(i).eval(next_time).inner_id(),

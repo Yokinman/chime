@@ -24,7 +24,7 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	type Poly = SumProdPoly<Constant<T>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		let mul_term = self.mul_term;
-		let add_term = T::each_map(
+		let add_term = T::each_map_inner(
 			[basis.clone(), self.add_term, mul_term.clone()],
 			|[a, b, c]| {
 				if c == Linear::from_f64(1.) {
@@ -68,7 +68,7 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 	type Poly = SumProdPoly<SumPoly<T, 1>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		let deriv = self.change.into_poly(self.basis);
-		let sum_term = T::each_map(
+		let sum_term = T::each_map_inner(
 			[deriv.basis.0, deriv.add_term.clone(), deriv.mul_term.clone()],
 			|[a, b, c]| {
 				if c == Linear::from_f64(1.) {
@@ -128,7 +128,7 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		self
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
-		Basis::each_map(
+		Basis::each_map_inner(
 			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],
 			|[a, b, c]| {
 				if c == Linear::from_f64(1.) {

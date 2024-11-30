@@ -332,7 +332,7 @@ macro_rules! impl_deg_order {
 				let SumPoly(b_value, b_terms) = rhs;
 				let terms = std::array::from_fn(|i|
 					if i < SIZE {
-						let mut term = T::each_map(
+						let mut term = T::each_map_inner(
 							[
 								a_terms[i].clone(),
 								b_terms[i].clone(),
@@ -344,7 +344,7 @@ macro_rules! impl_deg_order {
 							}
 						);
 						for j in 0..i {
-							term = T::each_map(
+							term = T::each_map_inner(
 								[term, a_terms[j].clone(), b_terms[i-j-1].clone()],
 								|[x, a, b]| x.add(a.mul(b))
 							);
@@ -353,7 +353,7 @@ macro_rules! impl_deg_order {
 					} else {
 						let mut term = T::zero();
 						for j in (i - SIZE)..SIZE {
-							term = T::each_map(
+							term = T::each_map_inner(
 								[term, a_terms[j].clone(), b_terms[i-j-1].clone()],
 								|[x, a, b]| x.add(a.mul(b))
 							);
