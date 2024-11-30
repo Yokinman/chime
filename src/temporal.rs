@@ -439,47 +439,6 @@ where
 	}
 }
 
-/// ...
-pub struct TemporalRef<'a, T: ?Sized>(pub(crate) &'a T);
-
-mod _temporal_ref_impls {
-	use crate::{Flux, ToMoment};
-	use crate::linear::Scalar;
-	use super::TemporalRef;
-	
-	impl<T> std::ops::Deref for TemporalRef<'_, T> {
-		type Target = T;
-		fn deref(&self) -> &Self::Target {
-			&self.0
-		}
-	}
-	
-	impl<T> Flux for TemporalRef<'_, T>
-	where
-		T: Flux + ?Sized
-	{
-		type Basis = T::Basis;
-		type Change = T::Change;
-		type Kind = T::Kind;
-		fn basis(&self) -> Self::Basis {
-			T::basis(self.0)
-		}
-		fn change(&self) -> Self::Change {
-			T::change(self.0)
-		}
-	}
-	
-	impl<T> ToMoment for TemporalRef<'_, T>
-	where
-		T: ToMoment + ?Sized
-	{
-		type Moment<'a> = T::Moment<'a> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-			T::to_moment(self.0, time)
-		}
-	}
-}
-
 #[cfg(feature = "bevy")]
 mod bevy_items {
 	use bevy_ecs::component::{Component, ComponentHooks, StorageType};
