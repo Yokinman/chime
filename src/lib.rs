@@ -167,6 +167,9 @@ mod bevy_moment {
 				std::mem::transmute(item)
 			}
 		}
+		fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+			fetch
+		}
 		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
 			// !!! For parallelization, `last_run` could be used as a nanosecond
 			// offset. It's a hack but it's also the most usable option.
@@ -188,11 +191,11 @@ mod bevy_moment {
 		}
 		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
 	        assert!(
-	            !access.access().has_write(*time_id),
+	            !access.access().has_resource_write(*time_id),
 	            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
 	                std::any::type_name::<ChimeTime>(),
 	        );
-	        access.access_mut().add_read(*time_id);
+	        access.access_mut().add_resource_read(*time_id);
 			<Ref<'b, M> as WorldQuery>::update_component_access(state, access)
 		}
 		fn init_state(world: &mut World) -> Self::State {
@@ -227,6 +230,9 @@ mod bevy_moment {
 				std::mem::transmute(item)
 			}
 		}
+		fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+			fetch
+		}
 		unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, (_, state): &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
 			let time = world.get_resource::<ChimeTime>()
 				.expect("bevy_time::Time resource should exist in the world")
@@ -247,12 +253,12 @@ mod bevy_moment {
 		}
 		fn update_component_access((time_id, state): &Self::State, access: &mut FilteredAccess<ComponentId>) {
 	        assert!(
-	            !access.access().has_write(*time_id),
+	            !access.access().has_resource_write(*time_id),
 	            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
 	                std::any::type_name::<ChimeTime>(),
 	        );
-	        access.access_mut().add_read(*time_id);
-			<Mut<'b, M> as WorldQuery>::update_component_access(state, access)
+	        access.access_mut().add_resource_read(*time_id);
+			<Mut<'b, M> as WorldQuery>::update_component_access(state, access);
 		}
 		fn init_state(world: &mut World) -> Self::State {
 			(world.init_resource::<ChimeTime>(),
