@@ -103,6 +103,12 @@ pub struct Constant<T>(pub T);
 /// ...
 pub struct ConstantIter<T>(T);
 
+impl<T> Constant<T> {
+	pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Constant<U> {
+		Constant(f(self.0))
+	}
+}
+
 impl<T> Deref for Constant<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
