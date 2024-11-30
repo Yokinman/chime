@@ -471,21 +471,6 @@ pub trait Flux {
 	}
 }
 
-impl<T> Flux for T
-where
-	T: Basis + Simple
-{
-	type Basis = Self;
-	type Change = constant::Nil<Self>;
-	type Kind = constant::Constant<Self>;
-	fn basis(&self) -> Self::Basis {
-		self.clone()
-	}
-	fn change(&self) -> Self::Change {
-		constant::Nil::default()
-	}
-}
-
 /// Types that represent a timeline of moments.
 /// 
 /// This is similar to [`Flux`] in that both describe change over time, but
