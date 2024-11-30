@@ -359,13 +359,12 @@ pub struct Change<T> {
 
 mod _change_impls {
 	use crate::linear::Scalar;
-	use crate::temporal::TemporalRef;
 	use super::{Change, Flux, ToMoment, ToMomentMut};
 	
 	impl<T> Change<T> {
-		pub fn as_ref(&self) -> Change<TemporalRef<'_, T>> {
+		pub fn as_ref(&self) -> Change<&T> {
 			Change {
-				rate: TemporalRef(&self.rate),
+				rate: &self.rate,
 				unit: self.unit,
 			}
 		}
@@ -458,16 +457,11 @@ pub trait Flux {
 	/// Used to construct a [`Change`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> Change<temporal::TemporalRef<'_, Self>> {
+	fn per(&self, unit: Time) -> Change<&Self> {
 		Change {
-			rate: temporal::TemporalRef(self),
+			rate: &self,
 			unit,
 		}
-	}
-	
-	/// ...
-	fn as_ref(&self) -> temporal::TemporalRef<'_, Self> {
-		temporal::TemporalRef(self)
 	}
 }
 
