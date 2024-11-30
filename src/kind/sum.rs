@@ -65,6 +65,10 @@ impl<T, const D: usize> SumPoly<T, D> {
 		Self(basis, terms)
 	}
 	
+	pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> SumPoly<U, D> {
+		SumPoly(f(self.0), self.1.map(f))
+	}
+	
 	pub fn iter(&self) -> impl Iterator<Item = &T> {
 		std::iter::once(&self.0).chain(&self.1)
 	}
