@@ -41,8 +41,8 @@ impl<T: Basis> FluxChange for SumProd<T> {
 	}
 	fn scale(self, scalar: Scalar) -> Self {
 		Self {
-			add_term: self.add_term.map(|x| x.mul_scalar(scalar)),
-			mul_term: self.mul_term.map(|x| x.pow_scalar(scalar)),
+			add_term: self.add_term.map_inner(|x| x.mul_scalar(scalar)),
+			mul_term: self.mul_term.map_inner(|x| x.pow_scalar(scalar)),
 		}
 	}
 }
@@ -93,7 +93,7 @@ impl<T: Basis> FluxChange for SumProd2<T> {
 		}
 	}
 	fn scale(mut self, scalar: Scalar) -> Self {
-		self.basis = self.basis.map(|x| x.mul_scalar(scalar));
+		self.basis = self.basis.map_inner(|x| x.mul_scalar(scalar));
 		self.change = self.change.scale(scalar);
 		self
 	}

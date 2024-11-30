@@ -26,7 +26,7 @@ impl<T: Basis> std::ops::Mul<Prod<T, 1>> for Sum<T, 1> {
 		let Exp(Sum([mul_term])) = rhs;
 		SumProd {
 			add_term,
-			mul_term: mul_term.map(Linear::exp),
+			mul_term: mul_term.map_inner(Linear::exp),
 		}
 	}
 }
@@ -38,7 +38,7 @@ impl<T: Basis> std::ops::Div<Prod<T, 1>> for Sum<T, 1> {
 		let Exp(Sum([mul_term])) = rhs;
 		SumProd {
 			add_term,
-			mul_term: mul_term.map(|x| T::Inner::from_f64(1.).div(x.exp())),
+			mul_term: mul_term.map_inner(|x| T::Inner::from_f64(1.).div(x.exp())),
 		}
 	}
 }

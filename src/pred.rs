@@ -67,7 +67,7 @@ where
 		
 		let Self { a_poly, b_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).map(|x| x.sign());
+		let sign = diff_rate.eval(time).map_inner(|x| x.sign());
 		
 		loop {
 			let mut inc_time = time::NANOSEC;
@@ -78,7 +78,7 @@ where
 			} {
 				 // Stop Before Rate Reverses:
 				let rate = diff_rate.eval(next_time);
-				if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
+				if rate != Basis::zero() && rate.map_inner(|x| x.sign()) != sign {
 					break
 				}
 				
@@ -153,7 +153,7 @@ where
 		
 		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
 		let diff_rate = diff_poly.clone().deriv();
-		let sign = diff_rate.eval(time).map(|x| x.sign());
+		let sign = diff_rate.eval(time).map_inner(|x| x.sign());
 		
 		 // Rounding Buffer:
 		if !is_end {
@@ -163,7 +163,7 @@ where
 				while let Some(next_time) = time.checked_sub(inc_time) {
 					 // Stop Before Rate Reverses:
 					let rate = diff_rate.eval(next_time);
-					if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
+					if rate != Basis::zero() && rate.map_inner(|x| x.sign()) != sign {
 						if inc_time == time::NANOSEC {
 							return Some(time)
 						}
@@ -185,8 +185,8 @@ where
 							|[real_diff, a, b]| real_diff.add(a.sub(b).sqr())
 						);
 					}
-					a_dis = a_dis.map(Linear::sqrt);
-					b_dis = b_dis.map(Linear::sqrt);
+					a_dis = a_dis.map_inner(Linear::sqrt);
+					b_dis = b_dis.map_inner(Linear::sqrt);
 					real_diff = real_diff.zip_map(
 						dis.clone(),
 						|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
@@ -237,7 +237,7 @@ where
 			while let Some(next_time) = time.checked_add(inc_time) {
 				 // Stop Before Rate Reverses:
 				let rate = diff_rate.eval(next_time);
-				if rate != Basis::zero() && rate.map(|x| x.sign()) != sign {
+				if rate != Basis::zero() && rate.map_inner(|x| x.sign()) != sign {
 					break
 				}
 				

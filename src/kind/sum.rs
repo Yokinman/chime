@@ -21,12 +21,12 @@ where
 		let terms = self.0.map(|term| {
 			i += 1.;
 			n *= i;
-			term.map(|x| x.mul_scalar(Scalar::from(1. / n)))
+			term.map_inner(|x| x.mul_scalar(Scalar::from(1. / n)))
 		});
 		SumPoly::new(basis, terms)
 	}
 	fn scale(self, scalar: Scalar) -> Self {
-		Self(self.0.map(|term| term.map(|x| x.mul_scalar(scalar))))
+		Self(self.0.map(|term| term.map_inner(|x| x.mul_scalar(scalar))))
 	}
 }
 
@@ -46,7 +46,7 @@ where
 {
 	type Output = Self;
 	fn neg(self) -> Self::Output {
-		Self(self.0.map(|term| term.map(|x| x.mul_scalar(Scalar::from(-1.)))))
+		Self(self.0.map(|term| term.map_inner(|x| x.mul_scalar(Scalar::from(-1.)))))
 	}
 }
 
@@ -131,8 +131,8 @@ where
 impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0.map(|x| x.mul_scalar(rhs));
-		self.1 = self.1.map(|term| term.map(|x| x.mul_scalar(rhs)));
+		self.0 = self.0.map_inner(|x| x.mul_scalar(rhs));
+		self.1 = self.1.map(|term| term.map_inner(|x| x.mul_scalar(rhs)));
 		self
 	}
 }
@@ -150,7 +150,7 @@ impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 		let terms = self.1.clone().map(|term| {
 			i += 1.;
 			n *= i;
-			term.map(|x| x.mul_scalar(Scalar::from(n)))
+			term.map_inner(|x| x.mul_scalar(Scalar::from(n)))
 		});
 		Sum(terms)
 	}
@@ -203,7 +203,7 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		let mut d = 1.;
 		self.1 = self.1.map(|term| {
 			d += 1.;
-			term.map(|x| x.mul_scalar(Scalar::from(d)))
+			term.map_inner(|x| x.mul_scalar(Scalar::from(d)))
 		});
 		self
 	}

@@ -45,7 +45,7 @@ where
 {
 	type Up = Exp<crate::kind::sum::Sum<T, 1>>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(crate::kind::sum::Sum([basis.map(Linear::ln)]))
+		Exp(crate::kind::sum::Sum([basis.map_inner(Linear::ln)]))
 	}
 }
 
@@ -185,7 +185,7 @@ where
 impl<T: Basis> Mul<Scalar> for Constant<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0.map(|x| x.mul_scalar(rhs));
+		self.0 = self.0.map_inner(|x| x.mul_scalar(rhs));
 		self
 	}
 }

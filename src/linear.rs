@@ -246,7 +246,7 @@ pub trait Basis: Clone + Debug + 'static {
 	
 	fn from_inner(inner: Self::Inner) -> Self;
 	
-	fn map<F>(self, f: F) -> Self
+	fn map_inner<F>(self, f: F) -> Self
 	where
 		F: Fn(Self::Inner) -> Self::Inner
 	{
