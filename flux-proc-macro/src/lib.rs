@@ -55,20 +55,25 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 				match meta_list.parse_args::<syn::Expr>() {
 					Ok(syn::Expr::Path(syn::ExprPath { path, .. })) => {
 						let op: syn::BinOp;
+						let op_char: syn::LitChar;
 						let op_trait: syn::Path;
 						
 						 // Get Operation:
 						if path.is_ident("add") {
 							op = syn::parse_quote!{+};
+							op_char = syn::parse_quote!{'+'};
 							op_trait = syn::parse_quote!{::std::ops::Add};
 						} else if path.is_ident("sub") {
 							op = syn::parse_quote!{-};
+							op_char = syn::parse_quote!{'+'};
 							op_trait = syn::parse_quote!{::std::ops::Sub};
 						} else if path.is_ident("mul") {
 							op = syn::parse_quote!{*};
+							op_char = syn::parse_quote!{'*'};
 							op_trait = syn::parse_quote!{::std::ops::Mul};
 						} else if path.is_ident("div") {
 							op = syn::parse_quote!{/};
+							op_char = syn::parse_quote!{'*'};
 							op_trait = syn::parse_quote!{::std::ops::Div};
 						} else {
 							panic!("invalid change operation, `{}`{}",
@@ -78,7 +83,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						change_expr = syn::parse_quote!{(#change_expr)
 							#op &self.#field_member};
 						change_type = syn::parse_quote!{<#change_type
-							as #op_trait::<<#field_type as #chime::Flux>::Change>>::Output};
+							as #op_trait::<<<#field_type as #chime::Flux>::Change as #chime::kind::FluxChangeUp<#op_char>>::Up>>::Output};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
 						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func
