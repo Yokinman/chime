@@ -54,9 +54,23 @@ impl<T> Temporal<T> {
 		Self { inner, time }
 	}
 	
-	pub fn map<U>(&self, f: impl Fn(&T) -> &U) -> Temporal<TemporalRef<U>> {
+	pub fn map_ref<U>(&self, f: impl FnOnce(&T) -> &U) -> Temporal<TemporalRef<U>> {
 		Temporal {
 			inner: TemporalRef(f(&self.inner)),
+			time: self.time,
+		}
+	}
+	
+	pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Temporal<U> {
+		Temporal {
+			inner: f(self.inner),
+			time: self.time,
+		}
+	}
+	
+	pub fn as_ref(&self) -> Temporal<TemporalRef<T>> {
+		Temporal {
+			inner: TemporalRef(&self.inner),
 			time: self.time,
 		}
 	}
