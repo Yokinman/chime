@@ -464,6 +464,11 @@ pub trait Flux {
 			unit,
 		}
 	}
+	
+	/// ...
+	fn as_ref(&self) -> temporal::TemporalRef<'_, Self> {
+		temporal::TemporalRef(self)
+	}
 }
 
 impl<T> Flux for T
