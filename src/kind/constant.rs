@@ -171,6 +171,7 @@ impl<T: Basis> Poly for Constant<T> {
 	fn eval(&self, _time: Scalar) -> Self::Basis {
 		self.0.clone()
 	}
+	fn offset_time(&mut self, _time: Scalar) {}
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>

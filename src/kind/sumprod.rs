@@ -147,6 +147,9 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 			}
 		)
 	}
+	fn offset_time(&mut self, _time: Scalar) {
+		todo!()
+	}
 }
 
 impl<T: Poly> ToMoment for SumProdPoly<T> {

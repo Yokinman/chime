@@ -214,6 +214,13 @@ pub trait Poly: ToMomentMut + Clone + Debug + 'static {
 	
 	fn eval(&self, time: Scalar) -> Self::Basis;
 	
+	fn offset_time(&mut self, time: Scalar);
+	
+	fn at_time(mut self, time: Scalar) -> Self {
+		self.offset_time(time);
+		self
+	}
+	
 	/// The order at or immediately preceding the value at a time.
 	/// 
 	/// This should be the first non-zero [`Poly::eval`] value of this kind
@@ -277,6 +284,11 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))
+	}
+	fn offset_time(&mut self, time: Scalar) {
+		for x in self {
+			x.offset_time(time);
+		}
 	}
 }
 

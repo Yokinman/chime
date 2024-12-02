@@ -79,6 +79,9 @@ where
 	fn eval(&self, time: Scalar) -> Self::Basis {
 		self.0.eval(time).map_inner(Linear::exp)
 	}
+	fn offset_time(&mut self, time: Scalar) {
+		self.0.offset_time(time)
+	}
 }
 
 impl<T> Flux for Exp<T>
