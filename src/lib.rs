@@ -356,7 +356,10 @@ mod bevy_moment {
 #[cfg(feature = "bevy")]
 pub use bevy_moment::{ResMoment, ResMomentMut};
 
-/// A description of a change over time for use with arithmetic operators.
+/// Change applied per unit of time.
+/// 
+/// Generally constructed using [`Flux::per`] and applied to an
+/// [accumulator](ChangeAccum) in the [`Flux::change`] method.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Change<T> {
 	pub rate: T,
