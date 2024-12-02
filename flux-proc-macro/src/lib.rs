@@ -28,7 +28,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
-	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self)};
+	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self).into_change()};
 	let mut change_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Nil<Self::Basis>};
 	
 	 // Find Helper Attributes:
@@ -54,57 +54,47 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 				
 				match meta_list.parse_args::<syn::Expr>() {
 					Ok(syn::Expr::Path(syn::ExprPath { path, .. })) => {
-						let op: syn::BinOp;
-						let op_char: syn::LitChar;
+						let mut rhs: syn::Expr = syn::parse_quote!{self.#field_member};
 						
-						 // Get Operation:
-						if path.is_ident("add") {
-							op = syn::parse_quote!{+};
-							op_char = syn::parse_quote!{'+'};
-						} else if path.is_ident("sub") {
-							op = syn::parse_quote!{-};
-							op_char = syn::parse_quote!{'-'};
-						} else if path.is_ident("mul") {
-							op = syn::parse_quote!{*};
-							op_char = syn::parse_quote!{'*'};
-						} else if path.is_ident("div") {
-							op = syn::parse_quote!{/};
-							op_char = syn::parse_quote!{'/'};
-						} else {
+						let op: syn::LitChar = loop {
+							 // Apply by Copy:
+							if path.is_ident("add") { break syn::parse_quote!{'+'} }
+							if path.is_ident("sub") { break syn::parse_quote!{'-'} }
+							if path.is_ident("mul") { break syn::parse_quote!{'*'} }
+							if path.is_ident("div") { break syn::parse_quote!{'/'} }
+							
+							 // Apply by Reference:
+							rhs = syn::parse_quote!{&#rhs};
+							if path.is_ident("add_ref") { break syn::parse_quote!{'+'} }
+							if path.is_ident("sub_ref") { break syn::parse_quote!{'-'} }
+							if path.is_ident("mul_ref") { break syn::parse_quote!{'*'} }
+							if path.is_ident("div_ref") { break syn::parse_quote!{'/'} }
+							
 							panic!("invalid change operation, `{}`{}",
-								path.to_token_stream(), CHANGE_HELP);
-						}
+								path.to_token_stream(), CHANGE_HELP)
+						};
 						
-						change_expr = syn::parse_quote!{(#change_expr)
-							#op self.#field_member};
-						change_type = syn::parse_quote!{<#change_type
-							as #chime::kind::ApplyChange<#op_char, #field_type>>::Output};
+						change_expr = syn::parse_quote!{
+							#chime::kind::ApplyChange::<#op, _>::apply_change(#change_expr, #rhs)
+						};
+						change_type = syn::parse_quote!{
+							<#change_type as #chime::kind::ApplyChange<#op, #field_type>>::Output
+						};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
 						let syn::Expr::Path(syn::ExprPath { path, .. }) = &*func
 							else { panic!("invalid change operation, `{}`{}",
 								func.to_token_stream(), CHANGE_HELP) };
 						
-						let op: syn::BinOp;
-						let op_char: syn::LitChar;
-						
-						 // Get Operation:
-						if path.is_ident("add_per") {
-							op = syn::parse_quote!{+};
-							op_char = syn::parse_quote!{'+'};
-						} else if path.is_ident("sub_per") {
-							op = syn::parse_quote!{-};
-							op_char = syn::parse_quote!{'-'};
-						} else if path.is_ident("mul_per") {
-							op = syn::parse_quote!{*};
-							op_char = syn::parse_quote!{'*'};
-						} else if path.is_ident("div_per") {
-							op = syn::parse_quote!{/};
-							op_char = syn::parse_quote!{'/'};
-						} else {
+						let op: syn::LitChar = loop {
+							if path.is_ident("add_per") { break syn::parse_quote!{'+'} }
+							if path.is_ident("sub_per") { break syn::parse_quote!{'-'} }
+							if path.is_ident("mul_per") { break syn::parse_quote!{'*'} }
+							if path.is_ident("div_per") { break syn::parse_quote!{'/'} }
+							
 							panic!("invalid change operation, `{}`{}",
 								path.to_token_stream(), CHANGE_HELP)
-						}
+						};
 						
 						 // Get Unit:
 						if args.len() != 1 {
@@ -113,10 +103,15 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						}
 						let unit = args.first().unwrap();
 						
-						change_expr = syn::parse_quote!{(#change_expr)
-							#op #chime::Flux::per(&self.#field_member, #unit)};
-						change_type = syn::parse_quote!{<#change_type
-							as #chime::kind::ApplyChange<#op_char, #chime::Rate<#field_type>>>::Output};
+						change_expr = syn::parse_quote!{
+							#chime::kind::ApplyChange::<#op, _>::apply_change(
+								#change_expr,
+								#chime::Flux::per(&self.#field_member, #unit)
+							)
+						};
+						change_type = syn::parse_quote!{
+							<#change_type as #chime::kind::ApplyChange<#op, #chime::Rate<#field_type>>>::Output
+						};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
 						meta.to_token_stream(), CHANGE_HELP),
@@ -141,7 +136,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 				self.#basis_member
 			}
 			fn change(&self) -> Self::Change {
-				#chime::kind::ChangeAccum::<Self::Change>::into_change(#change_expr)
+				#change_expr
 			}
 		}
 	};
