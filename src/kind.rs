@@ -14,20 +14,20 @@ pub mod prod;
 pub mod sumprod;
 
 /// ...
-pub trait FluxChange {
+pub trait Change {
 	type Basis: Basis;
 	type Poly: Poly<Basis = Self::Basis>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
 	fn scale(self, scalar: Scalar) -> Self;
 }
 
-mod _flux_change_impls {
+mod _change_impls {
 	use crate::linear::Scalar;
-	use super::FluxChange;
+	use super::Change;
 	
-	impl<T, const N: usize> FluxChange for [T; N]
+	impl<T, const N: usize> Change for [T; N]
 	where
-		T: FluxChange
+		T: Change
 	{
 		type Basis = [T::Basis; N];
 		type Poly = [T::Poly; N];
@@ -42,8 +42,8 @@ mod _flux_change_impls {
 }
 
 /// ...
-pub trait FluxChangeUp<const OP: char>: FluxChange {
-	type Up: FluxChange<Basis = Self::Basis>;
+pub trait FluxChangeUp<const OP: char>: Change {
+	type Up: Change<Basis = Self::Basis>;
 	fn up(self, basis: Self::Basis) -> Self::Up;
 }
 
@@ -94,15 +94,15 @@ mod _flux_change_up_impls {
 }
 
 /// ...
-pub trait ApplyChange<const OP: char, T>: FluxChange {
-	type Output: FluxChange;
+pub trait ApplyChange<const OP: char, T>: Change {
+	type Output: Change;
 	fn apply_change(self, rhs: T) -> Self::Output;
 }
 
 impl<A, B> ApplyChange<'+', B> for A
 where
-	A: FluxChange + Add<B, Output: FluxChange>,
-	B: FluxChange,
+	A: Change + Add<B, Output: Change>,
+	B: Change,
 {
 	type Output = <A as Add<B>>::Output;
 	fn apply_change(self, rhs: B) -> Self::Output {
@@ -112,8 +112,8 @@ where
 
 impl<A, B> ApplyChange<'-', B> for A
 where
-	A: FluxChange + Sub<B, Output: FluxChange>,
-	B: FluxChange,
+	A: Change + Sub<B, Output: Change>,
+	B: Change,
 {
 	type Output = <A as Sub<B>>::Output;
 	fn apply_change(self, rhs: B) -> Self::Output {
@@ -123,8 +123,8 @@ where
 
 impl<A, B> ApplyChange<'*', B> for A
 where
-	A: FluxChange + Mul<B, Output: FluxChange>,
-	B: FluxChange,
+	A: Change + Mul<B, Output: Change>,
+	B: Change,
 {
 	type Output = <A as Mul<B>>::Output;
 	fn apply_change(self, rhs: B) -> Self::Output {
@@ -134,8 +134,8 @@ where
 
 impl<A, B> ApplyChange<'/', B> for A
 where
-	A: FluxChange + Div<B, Output: FluxChange>,
-	B: FluxChange,
+	A: Change + Div<B, Output: Change>,
+	B: Change,
 {
 	type Output = <A as Div<B>>::Output;
 	fn apply_change(self, rhs: B) -> Self::Output {

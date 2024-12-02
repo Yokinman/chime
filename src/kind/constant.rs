@@ -3,7 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::exp::Exp;
-use crate::kind::{FluxChange, FluxChangeUp, Poly};
+use crate::kind::{Change, FluxChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// ...
@@ -15,7 +15,7 @@ impl<T> Default for Nil<T> {
 	}
 }
 
-impl<T> FluxChange for Nil<T>
+impl<T> Change for Nil<T>
 where
 	T: Basis
 {
@@ -52,7 +52,7 @@ where
 impl<T, U> Add<U> for Nil<T>
 where
 	T: Basis,
-	U: FluxChange<Basis: Basis<Inner = T::Inner>>,
+	U: Change<Basis: Basis<Inner = T::Inner>>,
 {
 	type Output = U;
 	fn add(self, rhs: U) -> Self::Output {
@@ -63,7 +63,8 @@ where
 impl<T, U> Sub<U> for Nil<T>
 where
 	T: Basis,
-	U: FluxChange<Basis: Basis<Inner = T::Inner>> + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
+	U: Change<Basis: Basis<Inner = T::Inner>>
+		+ Neg<Output: Change<Basis: Basis<Inner = T::Inner>>>,
 {
 	type Output = <U as Neg>::Output;
 	fn sub(self, rhs: U) -> Self::Output {
@@ -74,7 +75,7 @@ where
 impl<T, U> Mul<Exp<U>> for Nil<T>
 where
 	T: Basis,
-	U: FluxChange<Basis: Basis<Inner = T::Inner>>,
+	U: Change<Basis: Basis<Inner = T::Inner>>,
 {
 	type Output = Exp<U>;
 	fn mul(self, rhs: Exp<U>) -> Self::Output {
@@ -85,7 +86,8 @@ where
 impl<T, U> Div<Exp<U>> for Nil<T>
 where
 	T: Basis,
-	U: FluxChange<Basis: Basis<Inner = T::Inner>> + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
+	U: Change<Basis: Basis<Inner = T::Inner>>
+		+ Neg<Output: Change<Basis: Basis<Inner = T::Inner>>>,
 {
 	type Output = Exp<<U as Neg>::Output>;
 	fn div(self, rhs: Exp<U>) -> Self::Output {

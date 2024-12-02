@@ -4,7 +4,7 @@
 //! summation over time to multiplication over time.
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxChangeUp, Poly};
+use crate::kind::{Change, FluxChangeUp, Poly};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -37,9 +37,9 @@ impl LinearIso<Exp<f64>> for u64 {
 	}
 }
 
-impl<T> FluxChange for Exp<T>
+impl<T> Change for Exp<T>
 where
-	T: FluxChange
+	T: Change
 {
 	type Basis = T::Basis;
 	type Poly = Exp<T::Poly>;

@@ -369,7 +369,7 @@ pub struct Rate<T> {
 mod _rate_impls {
 	use crate::linear::Scalar;
 	use crate::{Flux, ToMoment, ToMomentMut};
-	use crate::kind::{ApplyChange, FluxChange, FluxChangeUp};
+	use crate::kind::{ApplyChange, Change, FluxChangeUp};
 	use super::Rate;
 	
 	impl<T> Rate<T> {
@@ -439,7 +439,7 @@ pub trait Flux {
 	type Basis: Basis;
 	
 	/// ...
-	type Change: FluxChange<Basis = Self::Basis, Poly = Self::Kind>;
+	type Change: Change<Basis = Self::Basis, Poly = Self::Kind>;
 	
 	/// The kind of change (e.g. `Constant<T>`, `SumPoly<T, D>`, etc.).
 	type Kind: Poly<Basis = Self::Basis>;

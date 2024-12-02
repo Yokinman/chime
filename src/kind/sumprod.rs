@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Sub};
 use crate::{ToMoment, ToMomentMut};
-use crate::kind::{FluxChange, FluxChangeUp, Poly, Roots};
+use crate::kind::{Change, FluxChangeUp, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::kind::sum::SumPoly;
 use crate::linear::{Basis, Linear, Scalar};
@@ -19,7 +19,7 @@ pub struct SumProd<T> {
 	pub(crate) mul_term: T,
 }
 
-impl<T: Basis> FluxChange for SumProd<T> {
+impl<T: Basis> Change for SumProd<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<Constant<T>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
@@ -63,7 +63,7 @@ pub struct SumProd2<T> {
 	change: SumProd<T>,
 }
 
-impl<T: Basis> FluxChange for SumProd2<T> {
+impl<T: Basis> Change for SumProd2<T> {
 	type Basis = T;
 	type Poly = SumProdPoly<SumPoly<T, 1>>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {

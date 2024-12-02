@@ -9,7 +9,7 @@ use crate::kind::constant::Constant;
 #[derive(Debug)]
 pub struct Sum<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
 
-impl<T, const D: usize> FluxChange for Sum<T, D>
+impl<T, const D: usize> Change for Sum<T, D>
 where
 	T: Basis
 {
@@ -458,7 +458,7 @@ impl_deg_order!(1);
 
 impl<K, T, const N: usize> Sub<K> for Sum<T, N>
 where
-	K: FluxChange + Neg<Output: FluxChange<Basis: Basis<Inner = T::Inner>>>,
+	K: Change + Neg<Output: Change<Basis: Basis<Inner = T::Inner>>>,
 	T: Basis,
 	Self: Add<<K as Neg>::Output>,
 {

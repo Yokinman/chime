@@ -1,7 +1,7 @@
 //! ...
 
 use crate::exp::Exp;
-use crate::kind::FluxChange;
+use crate::kind::Change;
 use crate::kind::sum::{Sum, SumPoly};
 use crate::kind::sumprod::SumProd;
 use crate::linear::{Basis, Linear};
@@ -12,7 +12,7 @@ pub type Prod<T, const DEGREE: usize> = Exp<Sum<T, DEGREE>>;
 /// ...
 pub type ProdPoly<T, const DEGREE: usize> = Exp<SumPoly<T, DEGREE>>;
 
-impl<T: FluxChange + std::ops::Neg> std::ops::Neg for Exp<T> {
+impl<T: Change + std::ops::Neg> std::ops::Neg for Exp<T> {
 	type Output = Exp<<T as std::ops::Neg>::Output>;
 	fn neg(self) -> Self::Output {
 		Exp(-self.0)
@@ -45,8 +45,8 @@ impl<T: Basis> std::ops::Div<Prod<T, 1>> for Sum<T, 1> {
 
 impl<A, B> std::ops::Mul<Exp<B>> for Exp<A>
 where
-	A: FluxChange + std::ops::Add<B>,
-	B: FluxChange,
+	A: Change + std::ops::Add<B>,
+	B: Change,
 {
 	type Output = Exp<A::Output>;
 	fn mul(self, rhs: Exp<B>) -> Self::Output {
@@ -56,8 +56,8 @@ where
 
 impl<A, B> std::ops::Div<Exp<B>> for Exp<A>
 where
-	A: FluxChange + std::ops::Sub<B>,
-	B: FluxChange,
+	A: Change + std::ops::Sub<B>,
+	B: Change,
 {
 	type Output = Exp<A::Output>;
 	fn div(self, rhs: Exp<B>) -> Self::Output {
@@ -69,7 +69,7 @@ where
 mod _test {
 	use crate as chime;
 	use crate::Flux;
-	use crate::kind::{FluxChange, Poly};
+	use crate::kind::{Change, Poly};
 	use crate::linear::Scalar;
 	use super::SumPoly;
 	

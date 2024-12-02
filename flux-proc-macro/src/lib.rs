@@ -131,7 +131,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 		impl #impl_params #chime::Flux for #type_name #type_params #impl_clause {
 			type Basis = #basis_type;
 			type Change = #change_type;
-			type Kind = <Self::Change as #chime::kind::FluxChange>::Poly;
+			type Kind = <Self::Change as #chime::kind::Change>::Poly;
 			fn basis(&self) -> Self::Basis {
 				self.#basis_member
 			}
