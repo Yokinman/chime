@@ -361,38 +361,39 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 /// Generally constructed using [`Flux::per`] and applied to an
 /// [accumulator](ChangeAccum) in the [`Flux::change`] method.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Change<T> {
+pub struct Rate<T> {
 	pub rate: T,
 	pub unit: Time,
 }
 
-mod _change_impls {
+mod _rate_impls {
 	use crate::linear::Scalar;
-	use super::{Change, Flux, ToMoment, ToMomentMut};
+	use crate::{ToMoment, ToMomentMut};
+	use super::Rate;
 	
-	impl<T> Change<T> {
-		pub fn as_ref(&self) -> Change<&T> {
-			Change {
+	impl<T> Rate<T> {
+		pub fn as_ref(&self) -> Rate<&T> {
+			Rate {
 				rate: &self.rate,
 				unit: self.unit,
 			}
 		}
 	}
 	
-	impl<T: ToMoment> ToMoment for Change<T> {
-		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
+	impl<T: ToMoment> ToMoment for Rate<T> {
+		type Moment<'a> = Rate<T::Moment<'a>> where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-			Change {
+			Rate {
 				rate: self.rate.to_moment(time),
 				unit: self.unit,
 			}
 		}
 	}
 	
-	impl<T: ToMomentMut> ToMomentMut for Change<T> {
-		type MomentMut<'a> = Change<T::MomentMut<'a>> where Self: 'a;
+	impl<T: ToMomentMut> ToMomentMut for Rate<T> {
+		type MomentMut<'a> = Rate<T::MomentMut<'a>> where Self: 'a;
 		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
-			Change {
+			Rate {
 				rate: self.rate.to_moment_mut(time),
 				unit: self.unit,
 			}
@@ -451,11 +452,11 @@ pub trait Flux {
 		ChangeAccum::default()
 	}
 	
-	/// Used to construct a [`Change`] for convenient change-over-time operations.
+	/// Used to construct a [`Rate`] for convenient change-over-time operations.
 	/// 
 	/// `1 + 2.per(time_unit::SEC)` 
-	fn per(&self, unit: Time) -> Change<&Self> where Self: Sized {
-		Change {
+	fn per(&self, unit: Time) -> Rate<&Self> where Self: Sized {
+		Rate {
 			rate: &self,
 			unit,
 		}
