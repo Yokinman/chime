@@ -376,18 +376,6 @@ mod _change_impls {
 		}
 	}
 	
-	impl<T: Flux> Flux for Change<T> {
-		type Basis = T::Basis;
-		type Change = T::Change;
-		type Kind = T::Kind;
-		fn basis(&self) -> Self::Basis {
-			self.rate.basis()
-		}
-		fn change(&self) -> Self::Change {
-			self.rate.change()
-		}
-	}
-	
 	impl<T: ToMoment> ToMoment for Change<T> {
 		type Moment<'a> = Change<T::Moment<'a>> where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
