@@ -438,11 +438,8 @@ pub trait Flux {
 	/// ...
 	type Basis: Basis;
 	
-	/// ...
-	type Change: Change<Basis = Self::Basis, Poly = Self::Kind>;
-	
 	/// The kind of change (e.g. `Constant<T>`, `SumPoly<T, D>`, etc.).
-	type Kind: Poly<Basis = Self::Basis>;
+	type Change: Change<Basis = Self::Basis>;
 	
 	/// The starting point of this type's change over time.
 	fn basis(&self) -> Self::Basis;
@@ -468,7 +465,7 @@ pub trait Flux {
 	fn change(&self) -> Self::Change;
 	
 	/// Conversion into a standard representation.
-	fn to_poly(&self) -> Self::Kind {
+	fn to_poly(&self) -> <Self::Change as Change>::Poly {
 		self.change().into_poly(self.basis())
 	}
 	
@@ -549,7 +546,6 @@ mod tests {
 	impl Flux for Pos {
 		type Basis = f64;
 		type Change = Sum<f64, 4>;
-		type Kind = SumPoly<f64, 4>;
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}

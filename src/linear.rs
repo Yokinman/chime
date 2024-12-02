@@ -657,7 +657,6 @@ mod _iso_impls {
 	{
 		type Basis = Self;
 		type Change = crate::kind::constant::Nil<Self>;
-		type Kind = crate::kind::constant::Constant<Self>;
 		fn basis(&self) -> Self::Basis {
 			self.clone()
 		}

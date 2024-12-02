@@ -87,7 +87,6 @@ where
 {
 	type Basis = T::Basis;
 	type Change = Exp<T::Change>;
-	type Kind = Exp<T::Kind>;
 	fn basis(&self) -> Self::Basis {
 		self.0.basis()
 	}

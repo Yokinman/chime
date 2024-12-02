@@ -31,7 +31,6 @@ macro_rules! impl_ {
 	(@impl Flux) => {
 		type Basis = Self;
 		type Change = crate::kind::constant::Nil<Self>;
-		type Kind = crate::kind::constant::Constant<Self>;
 		fn basis(&self) -> Self::Basis {
 			*self
 		}
@@ -82,7 +81,6 @@ mod _reference_impls {
 	{
 		type Basis = T::Basis;
 		type Change = T::Change;
-		type Kind = T::Kind;
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
@@ -107,7 +105,6 @@ mod _reference_impls {
 	{
 		type Basis = T::Basis;
 		type Change = T::Change;
-		type Kind = T::Kind;
 		fn basis(&self) -> Self::Basis {
 			T::basis(self)
 		}
@@ -234,7 +231,6 @@ mod _array_impls {
 	impl<T: Flux, const N: usize> Flux for [T; N] {
 		type Basis = [T::Basis; N];
 		type Change = [T::Change; N];
-		type Kind = [T::Kind; N];
 		fn basis(&self) -> Self::Basis {
 			self.each_ref().map(T::basis)
 		}

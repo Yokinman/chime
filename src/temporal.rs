@@ -7,7 +7,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{Poly, KindLinear, ops as kind_ops, Roots};
+use crate::kind::{Poly, KindLinear, ops as kind_ops, Roots, Change};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::kind::constant::Constant;
 
@@ -96,7 +96,7 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Conversion into a standard representation.
-	pub fn to_poly(&self) -> Temporal<T::Kind> {
+	pub fn to_poly(&self) -> Temporal<<T::Change as Change>::Poly> {
 		Temporal {
 			inner: self.inner.to_poly(),
 			time: self.time,

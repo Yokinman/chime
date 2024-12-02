@@ -140,7 +140,6 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 	type Basis = T;
 	type Change = Sum<T, D>;
-	type Kind = Self;
 	fn basis(&self) -> Self::Basis {
 		self.0.clone()
 	}
