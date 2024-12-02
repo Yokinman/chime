@@ -362,7 +362,7 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 /// [accumulator](ChangeAccum) in the [`Flux::change`] method.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Rate<T> {
-	pub rate: T,
+	pub amount: T,
 	pub unit: Time,
 }
 
@@ -374,7 +374,7 @@ mod _rate_impls {
 	impl<T> Rate<T> {
 		pub fn as_ref(&self) -> Rate<&T> {
 			Rate {
-				rate: &self.rate,
+				amount: &self.amount,
 				unit: self.unit,
 			}
 		}
@@ -384,7 +384,7 @@ mod _rate_impls {
 		type Moment<'a> = Rate<T::Moment<'a>> where Self: 'a;
 		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
 			Rate {
-				rate: self.rate.to_moment(time),
+				amount: self.amount.to_moment(time),
 				unit: self.unit,
 			}
 		}
@@ -394,7 +394,7 @@ mod _rate_impls {
 		type MomentMut<'a> = Rate<T::MomentMut<'a>> where Self: 'a;
 		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
 			Rate {
-				rate: self.rate.to_moment_mut(time),
+				amount: self.amount.to_moment_mut(time),
 				unit: self.unit,
 			}
 		}
@@ -457,7 +457,7 @@ pub trait Flux {
 	/// `1 + 2.per(time_unit::SEC)` 
 	fn per(&self, unit: Time) -> Rate<&Self> where Self: Sized {
 		Rate {
-			rate: &self,
+			amount: &self,
 			unit,
 		}
 	}

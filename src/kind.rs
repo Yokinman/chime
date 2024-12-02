@@ -79,8 +79,8 @@ where
 {
 	type Output = ChangeAccum<A::Output>;
 	fn add(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.rate.change()
-			.up(rhs.rate.basis())
+		let change = rhs.amount.change()
+			.up(rhs.amount.basis())
 			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
 		ChangeAccum(self.0 + change)
 	}
@@ -93,8 +93,8 @@ where
 {
 	type Output = ChangeAccum<A::Output>;
 	fn sub(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.rate.change()
-			.up(rhs.rate.basis())
+		let change = rhs.amount.change()
+			.up(rhs.amount.basis())
 			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
 		ChangeAccum(self.0 - change)
 	}
@@ -107,8 +107,8 @@ where
 {
 	type Output = ChangeAccum<A::Output>;
 	fn mul(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.rate.change()
-			.up(rhs.rate.basis())
+		let change = rhs.amount.change()
+			.up(rhs.amount.basis())
 			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
 		ChangeAccum(self.0 * change)
 	}
@@ -121,8 +121,8 @@ where
 {
 	type Output = ChangeAccum<A::Output>;
 	fn div(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.rate.change()
-			.up(rhs.rate.basis())
+		let change = rhs.amount.change()
+			.up(rhs.amount.basis())
 			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
 		ChangeAccum(self.0 / change)
 	}
