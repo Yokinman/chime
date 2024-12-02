@@ -7,7 +7,7 @@ use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 use crate::linear::{Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{Poly, KindLinear, ops as kind_ops, Roots, Change};
+use crate::kind::{Poly, ops as kind_ops, Roots, Change};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::kind::constant::Constant;
 

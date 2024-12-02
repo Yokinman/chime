@@ -280,28 +280,25 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 }
 
-/// Shortcut for the inner [`Linear`] type of a [`Poly`].
-pub(crate) type KindLinear<T> = <<T as Poly>::Basis as Basis>::Inner;
-
 /// Combining [`Poly`] types.
 /// 
 /// Primarily this serves as a way to put two kinds of change-over-time into
 /// the same space, for combination or comparison purposes.
 pub mod ops {
 	use std::ops;
-	use super::{Poly, KindLinear};
 	use crate::linear::Basis;
+	use super::Poly;
 	
 	/// Squaring a kind of change.
 	pub trait Sqr: Poly {
-		type Output: Poly<Basis: Basis<Inner = KindLinear<Self>>>;
+		type Output: Poly<Basis: Basis<Inner = <Self::Basis as Basis>::Inner>>;
 		fn sqr(self) -> <Self as Sqr>::Output;
 	}
 	
 	impl<K: Poly> Sqr for K
 	where
 		K: ops::Mul,
-		<K as ops::Mul>::Output: Poly<Basis: Basis<Inner = KindLinear<K>>>,
+		<K as ops::Mul>::Output: Poly<Basis: Basis<Inner = <K::Basis as Basis>::Inner>>,
 	{
 		type Output = <K as ops::Mul>::Output;
 		fn sqr(self) -> <Self as Sqr>::Output {
