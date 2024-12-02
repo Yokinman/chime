@@ -368,7 +368,8 @@ pub struct Rate<T> {
 
 mod _rate_impls {
 	use crate::linear::Scalar;
-	use crate::{ToMoment, ToMomentMut};
+	use crate::{Flux, ToMoment, ToMomentMut};
+	use crate::kind::{ApplyChange, FluxChange, FluxChangeUp};
 	use super::Rate;
 	
 	impl<T> Rate<T> {
@@ -377,6 +378,30 @@ mod _rate_impls {
 				amount: &self.amount,
 				unit: self.unit,
 			}
+		}
+	}
+	
+	impl<T, F, const OP: char> ApplyChange<OP, Rate<F>> for T
+	where
+		T: ApplyChange<OP, <F::Change as FluxChangeUp<OP>>::Up>,
+		F: Flux<Change: FluxChangeUp<OP>>,
+	{
+		type Output = T::Output;
+		fn apply_change(self, rhs: Rate<F>) -> Self::Output {
+			let change = rhs.amount.change()
+				.up(rhs.amount.basis())
+				.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
+			self.apply_change(change)
+		}
+	}
+	
+	impl<'a, T, F, const OP: char> ApplyChange<OP, &'a Rate<F>> for T
+	where
+		T: ApplyChange<OP, Rate<&'a F>>,
+	{
+		type Output = T::Output;
+		fn apply_change(self, rhs: &'a Rate<F>) -> Self::Output {
+			self.apply_change(rhs.as_ref())
 		}
 	}
 	

@@ -6,7 +6,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
-use crate::{Flux, Rate, ToMomentMut};
+use crate::ToMomentMut;
 
 pub mod constant;
 pub mod sum;
@@ -50,15 +50,96 @@ pub trait FluxChangeUp<const OP: char>: FluxChange {
 mod _flux_change_up_impls {
 	use super::FluxChangeUp;
 	
-	impl<T, const N: usize, const OP: char> FluxChangeUp<OP> for [T; N]
+	impl<T> FluxChangeUp<'-'> for T
 	where
-		T: FluxChangeUp<OP>
+		T: FluxChangeUp<'+'>
+	{
+		type Up = <T as FluxChangeUp<'+'>>::Up;
+		fn up(self, basis: Self::Basis) -> Self::Up {
+			FluxChangeUp::<'+'>::up(self, basis)
+		}
+	}
+	
+	impl<T> FluxChangeUp<'/'> for T
+	where
+		T: FluxChangeUp<'*'>
+	{
+		type Up = <T as FluxChangeUp<'*'>>::Up;
+		fn up(self, basis: Self::Basis) -> Self::Up {
+			FluxChangeUp::<'*'>::up(self, basis)
+		}
+	}
+	
+	impl<T, const N: usize> FluxChangeUp<'+'> for [T; N]
+	where
+		T: FluxChangeUp<'+'>
 	{
 		type Up = [T::Up; N];
 		fn up(self, basis: Self::Basis) -> Self::Up {
 			let mut basis_iter = basis.into_iter();
 			self.map(|x| x.up(basis_iter.next().unwrap()))
 		}
+	}
+	
+	impl<T, const N: usize> FluxChangeUp<'*'> for [T; N]
+	where
+		T: FluxChangeUp<'*'>
+	{
+		type Up = [T::Up; N];
+		fn up(self, basis: Self::Basis) -> Self::Up {
+			let mut basis_iter = basis.into_iter();
+			self.map(|x| x.up(basis_iter.next().unwrap()))
+		}
+	}
+}
+
+/// ...
+pub trait ApplyChange<const OP: char, T>: FluxChange {
+	type Output: FluxChange;
+	fn apply_change(self, rhs: T) -> Self::Output;
+}
+
+impl<A, B> ApplyChange<'+', B> for A
+where
+	A: FluxChange + Add<B, Output: FluxChange>,
+	B: FluxChange,
+{
+	type Output = <A as Add<B>>::Output;
+	fn apply_change(self, rhs: B) -> Self::Output {
+		self + rhs
+	}
+}
+
+impl<A, B> ApplyChange<'-', B> for A
+where
+	A: FluxChange + Sub<B, Output: FluxChange>,
+	B: FluxChange,
+{
+	type Output = <A as Sub<B>>::Output;
+	fn apply_change(self, rhs: B) -> Self::Output {
+		self - rhs
+	}
+}
+
+impl<A, B> ApplyChange<'*', B> for A
+where
+	A: FluxChange + Mul<B, Output: FluxChange>,
+	B: FluxChange,
+{
+	type Output = <A as Mul<B>>::Output;
+	fn apply_change(self, rhs: B) -> Self::Output {
+		self * rhs
+	}
+}
+
+impl<A, B> ApplyChange<'/', B> for A
+where
+	A: FluxChange + Div<B, Output: FluxChange>,
+	B: FluxChange,
+{
+	type Output = <A as Div<B>>::Output;
+	fn apply_change(self, rhs: B) -> Self::Output {
+		self / rhs
 	}
 }
 
@@ -72,99 +153,43 @@ impl<T> ChangeAccum<T> {
 	}
 }
 
-impl<A, B> Add<Rate<B>> for ChangeAccum<A>
+impl<A, B> Add<B> for ChangeAccum<A>
 where
-	A: FluxChange + Add<<B::Change as FluxChangeUp<'+'>>::Up>,
-	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'+'>>,
+	A: ApplyChange<'+', B>
 {
 	type Output = ChangeAccum<A::Output>;
-	fn add(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.amount.change()
-			.up(rhs.amount.basis())
-			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
-		ChangeAccum(self.0 + change)
+	fn add(self, rhs: B) -> Self::Output {
+		ChangeAccum(self.0.apply_change(rhs))
 	}
 }
 
-impl<A, B> Sub<Rate<B>> for ChangeAccum<A>
+impl<A, B> Sub<B> for ChangeAccum<A>
 where
-	A: FluxChange + Sub<<B::Change as FluxChangeUp<'+'>>::Up>,
-	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'+'>>,
+	A: ApplyChange<'-', B>
 {
 	type Output = ChangeAccum<A::Output>;
-	fn sub(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.amount.change()
-			.up(rhs.amount.basis())
-			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
-		ChangeAccum(self.0 - change)
+	fn sub(self, rhs: B) -> Self::Output {
+		ChangeAccum(self.0.apply_change(rhs))
 	}
 }
 
-impl<A, B> Mul<Rate<B>> for ChangeAccum<A>
+impl<A, B> Mul<B> for ChangeAccum<A>
 where
-	A: FluxChange + Mul<<B::Change as FluxChangeUp<'*'>>::Up>,
-	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'*'>>,
+	A: ApplyChange<'*', B>
 {
 	type Output = ChangeAccum<A::Output>;
-	fn mul(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.amount.change()
-			.up(rhs.amount.basis())
-			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
-		ChangeAccum(self.0 * change)
+	fn mul(self, rhs: B) -> Self::Output {
+		ChangeAccum(self.0.apply_change(rhs))
 	}
 }
 
-impl<A, B> Div<Rate<B>> for ChangeAccum<A>
+impl<A, B> Div<B> for ChangeAccum<A>
 where
-	A: FluxChange + Div<<B::Change as FluxChangeUp<'*'>>::Up>,
-	B: Flux<Basis = A::Basis, Change: FluxChangeUp<'*'>>,
+	A: ApplyChange<'/', B>
 {
 	type Output = ChangeAccum<A::Output>;
-	fn div(self, rhs: Rate<B>) -> Self::Output {
-		let change = rhs.amount.change()
-			.up(rhs.amount.basis())
-			.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
-		ChangeAccum(self.0 / change)
-	}
-}
-
-impl<'a, A, B> Add<&'a Rate<B>> for ChangeAccum<A>
-where
-	Self: Add<Rate<&'a B>>
-{
-	type Output = <Self as Add<Rate<&'a B>>>::Output;
-	fn add(self, rhs: &'a Rate<B>) -> Self::Output {
-		self + rhs.as_ref()
-	}
-}
-
-impl<'a, A, B> Sub<&'a Rate<B>> for ChangeAccum<A>
-where
-	Self: Sub<Rate<&'a B>>
-{
-	type Output = <Self as Sub<Rate<&'a B>>>::Output;
-	fn sub(self, rhs: &'a Rate<B>) -> Self::Output {
-		self - rhs.as_ref()
-	}
-}
-
-impl<'a, A, B> Mul<&'a Rate<B>> for ChangeAccum<A>
-where
-	Self: Mul<Rate<&'a B>>
-{
-	type Output = <Self as Mul<Rate<&'a B>>>::Output;
-	fn mul(self, rhs: &'a Rate<B>) -> Self::Output {
-		self * rhs.as_ref()
-	}
-}
-
-impl<'a, A, B> Div<&'a Rate<B>> for ChangeAccum<A>
-where
-	Self: Div<Rate<&'a B>>
-{
-	type Output = <Self as Div<Rate<&'a B>>>::Output;
-	fn div(self, rhs: &'a Rate<B>) -> Self::Output {
-		self / rhs.as_ref()
+	fn div(self, rhs: B) -> Self::Output {
+		ChangeAccum(self.0.apply_change(rhs))
 	}
 }
 
