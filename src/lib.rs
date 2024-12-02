@@ -81,7 +81,7 @@ mod _moment_mut_impls {
 		}
 	}
 	
-	impl<'a, T: ToMomentMut> DerefMut for MomentMut<'a, T> {
+	impl<T: ToMomentMut> DerefMut for MomentMut<'_, T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.moment
 		}
@@ -124,7 +124,7 @@ mod bevy_moment {
 	type Mut<'b, M> = &'b mut Temporal<M>;
 	
 	/// SAFETY: `Self` is the same as `Self::ReadOnly`.
-	unsafe impl<'b, M> QueryData for Moment<'b, M>
+	unsafe impl<M> QueryData for Moment<'_, M>
 	where
 		M: ToMoment,
 		Temporal<M>: Component,
@@ -133,7 +133,7 @@ mod bevy_moment {
 	}
 	
 	/// SAFETY: access is read only.
-	unsafe impl<'b, M> ReadOnlyQueryData for Moment<'b, M>
+	unsafe impl<M> ReadOnlyQueryData for Moment<'_, M>
 	where
 		M: ToMoment,
 		Temporal<M>: Component,
@@ -297,7 +297,7 @@ mod bevy_moment {
 		}
 	}
 	
-	impl<'w, M: ToMomentMut> DerefMut for ResMomentMut<'w, M> {
+	impl<M: ToMomentMut> DerefMut for ResMomentMut<'_, M> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.inner
 		}

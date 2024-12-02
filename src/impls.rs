@@ -76,7 +76,7 @@ impl_!({Simple, ToMoment, ToMomentMut} for glam::{
 mod _reference_impls {
 	use super::*;
 	
-	impl<'t, T> Flux for &'t T
+	impl<T> Flux for &T
 	where
 		T: Flux
 	{
@@ -91,7 +91,7 @@ mod _reference_impls {
 		}
 	}
 	
-	impl<'t, T> ToMoment for &'t T
+	impl<T> ToMoment for &T
 	where
 		T: ToMoment,
 	{
@@ -101,7 +101,7 @@ mod _reference_impls {
 		}
 	}
 	
-	impl<'t, T> Flux for &'t mut T
+	impl<T> Flux for &mut T
 	where
 		T: Flux
 	{
@@ -116,7 +116,7 @@ mod _reference_impls {
 		}
 	}
 	
-	impl<'t, T> ToMoment for &'t mut T
+	impl<T> ToMoment for &mut T
 	where
 		T: ToMoment,
 	{
@@ -126,7 +126,7 @@ mod _reference_impls {
 		}
 	}
 	
-	impl<'t, T> ToMomentMut for &'t mut T
+	impl<T> ToMomentMut for &mut T
 	where
 		T: ToMomentMut,
 	{
