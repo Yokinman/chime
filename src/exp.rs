@@ -4,7 +4,7 @@
 //! summation over time to multiplication over time.
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::kind::{Change, FluxChangeUp, Poly};
+use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.
@@ -51,13 +51,13 @@ where
 	}
 }
 
-impl<T> FluxChangeUp<'*'> for Exp<T>
+impl<T> ChangeUp<'*'> for Exp<T>
 where
-	T: FluxChangeUp<'+'>
+	T: ChangeUp<'+'>
 {
 	type Up = Exp<T::Up>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(FluxChangeUp::<'+'>::up(self.0, basis.map_inner(Linear::ln)))
+		Exp(ChangeUp::<'+'>::up(self.0, basis.map_inner(Linear::ln)))
 	}
 }
 

@@ -369,7 +369,7 @@ pub struct Rate<T> {
 mod _rate_impls {
 	use crate::linear::Scalar;
 	use crate::{Flux, ToMoment, ToMomentMut};
-	use crate::kind::{ApplyChange, Change, FluxChangeUp};
+	use crate::kind::{ApplyChange, Change, ChangeUp};
 	use super::Rate;
 	
 	impl<T> Rate<T> {
@@ -383,8 +383,8 @@ mod _rate_impls {
 	
 	impl<T, F, const OP: char> ApplyChange<OP, Rate<F>> for T
 	where
-		T: ApplyChange<OP, <F::Change as FluxChangeUp<OP>>::Up>,
-		F: Flux<Change: FluxChangeUp<OP>>,
+		T: ApplyChange<OP, <F::Change as ChangeUp<OP>>::Up>,
+		F: Flux<Change: ChangeUp<OP>>,
 	{
 		type Output = T::Output;
 		fn apply_change(self, rhs: Rate<F>) -> Self::Output {

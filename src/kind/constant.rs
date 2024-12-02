@@ -3,7 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::{Flux, ToMoment, ToMomentMut};
 use crate::exp::Exp;
-use crate::kind::{Change, FluxChangeUp, Poly};
+use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
 
 /// ...
@@ -29,7 +29,7 @@ where
 	}
 }
 
-impl<T> FluxChangeUp<'+'> for Nil<T>
+impl<T> ChangeUp<'+'> for Nil<T>
 where
 	T: Basis
 {
@@ -39,7 +39,7 @@ where
 	}
 }
 
-impl<T> FluxChangeUp<'*'> for Nil<T>
+impl<T> ChangeUp<'*'> for Nil<T>
 where
 	T: Basis
 {

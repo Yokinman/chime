@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Sub};
 use crate::{ToMoment, ToMomentMut};
-use crate::kind::{Change, FluxChangeUp, Poly, Roots};
+use crate::kind::{Change, ChangeUp, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::kind::sum::SumPoly;
 use crate::linear::{Basis, Linear, Scalar};
@@ -47,7 +47,7 @@ impl<T: Basis> Change for SumProd<T> {
 	}
 }
 
-impl<T: Basis> FluxChangeUp<'+'> for SumProd<T> {
+impl<T: Basis> ChangeUp<'+'> for SumProd<T> {
 	type Up = SumProd2<T>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
 		SumProd2 {
@@ -139,7 +139,7 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 						_ => unimplemented!("this is a temporary hacky way to do this")
 						// !!! https://www.desmos.com/calculator/pgflaxsrxs
 						// - Give `SumProdPoly` a `const DEGREE: usize` parameter.
-						// - Use the `T` parameter's `FluxChangeUp::<'+'>::Up` type.
+						// - Use the `T` parameter's `ChangeUp::<'+'>::Up` type.
 						// - Make the `SumProd` change impls return 2-variant enums.
 					}))
 				}

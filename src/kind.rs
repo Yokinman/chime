@@ -42,37 +42,37 @@ mod _change_impls {
 }
 
 /// ...
-pub trait FluxChangeUp<const OP: char>: Change {
+pub trait ChangeUp<const OP: char>: Change {
 	type Up: Change<Basis = Self::Basis>;
 	fn up(self, basis: Self::Basis) -> Self::Up;
 }
 
 mod _flux_change_up_impls {
-	use super::FluxChangeUp;
+	use super::ChangeUp;
 	
-	impl<T> FluxChangeUp<'-'> for T
+	impl<T> ChangeUp<'-'> for T
 	where
-		T: FluxChangeUp<'+'>
+		T: ChangeUp<'+'>
 	{
-		type Up = <T as FluxChangeUp<'+'>>::Up;
+		type Up = <T as ChangeUp<'+'>>::Up;
 		fn up(self, basis: Self::Basis) -> Self::Up {
-			FluxChangeUp::<'+'>::up(self, basis)
+			ChangeUp::<'+'>::up(self, basis)
 		}
 	}
 	
-	impl<T> FluxChangeUp<'/'> for T
+	impl<T> ChangeUp<'/'> for T
 	where
-		T: FluxChangeUp<'*'>
+		T: ChangeUp<'*'>
 	{
-		type Up = <T as FluxChangeUp<'*'>>::Up;
+		type Up = <T as ChangeUp<'*'>>::Up;
 		fn up(self, basis: Self::Basis) -> Self::Up {
-			FluxChangeUp::<'*'>::up(self, basis)
+			ChangeUp::<'*'>::up(self, basis)
 		}
 	}
 	
-	impl<T, const N: usize> FluxChangeUp<'+'> for [T; N]
+	impl<T, const N: usize> ChangeUp<'+'> for [T; N]
 	where
-		T: FluxChangeUp<'+'>
+		T: ChangeUp<'+'>
 	{
 		type Up = [T::Up; N];
 		fn up(self, basis: Self::Basis) -> Self::Up {
@@ -81,9 +81,9 @@ mod _flux_change_up_impls {
 		}
 	}
 	
-	impl<T, const N: usize> FluxChangeUp<'*'> for [T; N]
+	impl<T, const N: usize> ChangeUp<'*'> for [T; N]
 	where
-		T: FluxChangeUp<'*'>
+		T: ChangeUp<'*'>
 	{
 		type Up = [T::Up; N];
 		fn up(self, basis: Self::Basis) -> Self::Up {
