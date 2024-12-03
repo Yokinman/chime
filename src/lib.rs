@@ -425,42 +425,73 @@ mod _rate_impls {
 	}
 }
 
-/// Types with a description of change over time.
-/// 
-/// Used to facilitate interoperation between types (by way of conversion into
-/// a standard representation: [`Poly`]).
+/// Defining values that change over time.
 /// 
 /// This is similar to [`ToMoment`] in that both describe change over time, but
 /// specific to abstracting the timeline. User types will often implement all of
 /// `Flux`, [`ToMoment`], and [`ToMomentMut`].
+/// 
+/// # Describing a Change
+/// 
+/// For simple cases, derive `Flux`:
+/// 
+/// ```
+/// use chime::Flux;
+/// use chime::time::SEC;
+/// 
+/// // pos = pos + spd
+/// #[derive(Flux)]
+/// struct Position {
+///     #[basis]
+///     pos: f64,
+///     #[change(add_per(SEC))]
+///     spd: Speed,
+/// }
+/// 
+/// // spd = spd + acc - fric
+/// #[derive(Flux)]
+/// struct Speed {
+///     #[basis]
+///     spd: f64,
+///     #[change(add_per(SEC))]
+///     acc: f64,
+///     #[change(sub_per(SEC))]
+///     fric: f64,
+/// }
+/// ```
+/// 
+/// # Evaluating a State
+/// 
+/// ```
+/// use chime::Flux;
+/// use chime::kind::Poly;
+/// use chime::time::SEC;
+/// 
+/// #[derive(Flux)]
+/// struct Num {
+///     #[basis]
+///     num: f64,
+///     #[change(add_per(SEC))]
+///     add: f64,
+/// }
+/// 
+/// let poly = Num { num: 3., add: 1.5 }.to_poly();
+/// assert_eq!(poly.eval(0.), 3.);
+/// assert_eq!(poly.eval(1.), 4.5);
+/// assert_eq!(poly.eval(2.), 6.);
+/// ```
 pub trait Flux {
-	/// ...
+	/// The type of value (e.g. `f64`, `f32`, `[f64; N]`, etc.).
 	type Basis: Basis;
 	
-	/// The kind of change (e.g. `Constant<T>`, `SumPoly<T, D>`, etc.).
+	/// The type of change over time (e.g. [`Nil<T>`](constant::Nil),
+	/// [`Sum<T, D>`](sum::Sum), etc.).
 	type Change: Change<Basis = Self::Basis>;
 	
-	/// The starting point of this type's change over time.
+	/// The initial value.
 	fn basis(&self) -> Self::Basis;
 	
-	/// Applies the change of this type to an accumulator.
-	/// 
-	/// The accumulator contains a polynomial and the current time value. It
-	/// supports certain operations:
-	/// 
-	/// - `Add<Change<T>>` and `Sub<Change<T>>`, where `T: ...`.
-	///   
-	///   These describe integration over time, for example:
-	///   
-	///   ```text
-	///   accum + 2_f64.per(time::SEC) -> FluxAccum<SumPoly<f64, 1>>
-	///   // equivalent to `b+2t` where `b` is [`Self::basis`] and `t` is time.
-	///   
-	///   accum + SumPoly(1_f64, [2., 3.]).per(time::SEC) -> FluxAccum<SumPoly<f64, 3>>
-	///   // b + int_0^t (1 + 2x + 3x^2) dt -> b + t + t^2 + t^3
-	///   // https://www.desmos.com/calculator/gwvvkwuhy1
-	///   ```
-	///   
+	/// The applied change over time.
 	fn change(&self) -> Self::Change;
 	
 	/// Conversion into a standard representation.
@@ -468,7 +499,7 @@ pub trait Flux {
 		self.change().into_poly(self.basis())
 	}
 	
-	/// ...
+	/// Used with [`Self::per`] to manually implement [`Self::change`].
 	fn accum(&self) -> ChangeAccum<constant::Nil<Self::Basis>> {
 		ChangeAccum::default()
 	}
