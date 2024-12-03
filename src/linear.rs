@@ -4,7 +4,7 @@
 /// 
 /// This basically just represents floating-point numbers and vector types.
 /// For vectors, operations are applied per component in parallel.
-pub trait Linear: Copy + Clone + PartialEq + PartialOrd + 'static {
+pub trait Linear: Copy + Clone + PartialEq + PartialOrd {
 	fn add(self, other: Self) -> Self;
 	
 	fn sub(self, other: Self) -> Self;
@@ -121,7 +121,7 @@ mod _linear_impls {
 }
 
 /// A [`Linear`] type packaged with extra information (e.g. [`Iso`]).
-pub trait Basis: Clone + 'static {
+pub trait Basis: Clone {
 	type Inner: Linear;
 	
 	fn from_inner(inner: Self::Inner) -> Self;
@@ -228,7 +228,7 @@ mod _linear_plus_impls {
 /// - Generally isomorphic       - `inv_map(map(T)) = T`, `map(inv_map(U)) = U`
 /// - Maps vector addition       - `map(A + B) = map(A) • map(B)`
 /// - Maps scalar multiplication - `map(A * S) = map(A) ^ S`
-pub trait LinearIso<T>: Sized + Clone + 'static {
+pub trait LinearIso<T>: Sized + Clone {
 	fn into_linear(value: Self) -> T;
 	fn from_linear(value: T) -> Self;
 	// fn identity(value: Self) -> Self {
@@ -550,7 +550,7 @@ mod _iso_impls {
 		A: Basis,
 		B: LinearIso<A>,
 	{
-		type Moment<'a> = Self;
+		type Moment<'a> = Self where Self: 'a;
 		fn to_moment(&self, _time: f64) -> Self::Moment<'_> {
 			self.clone()
 		}

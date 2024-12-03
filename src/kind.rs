@@ -196,7 +196,7 @@ where
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait Poly: Clone + 'static {
+pub trait Poly: Clone {
 	const DEGREE: usize;
 	
 	type Basis: Basis;
