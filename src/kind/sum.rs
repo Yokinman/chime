@@ -163,17 +163,17 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		self
 	}
 	
-	fn eval(&self, time: Scalar) -> Self::Basis {
-		if time == Scalar::from(0.) {
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
+		if time == Linear::zero() {
 			return self.0.clone()
 		}
 		let mut value = T::zero();
 		for degree in 1..=D {
 			value = self.1[D - degree].clone()
-				.zip_map_inner(value, |a, b| a.add(b.mul_scalar(time)))
+				.zip_map_inner(value, |a, b| a.add(b.mul(time)))
 		}
 		self.0.clone()
-			.zip_map_inner(value, |a, b| a.add(b.mul_scalar(time)))
+			.zip_map_inner(value, |a, b| a.add(b.mul(time)))
 	}
 
 	fn offset_time(&mut self, time: Scalar) {
@@ -181,10 +181,10 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 			return
 		}
 		let mut deriv = self.clone();
-		self.0 = deriv.eval(time);
+		self.0 = deriv.eval(Linear::from_f64(time.into()));
 		for degree in 1..D {
 			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
-			self.1[degree-1] = deriv.eval(time);
+			self.1[degree-1] = deriv.eval(Linear::from_f64(time.into()));
 			// !!! This could be made more accurate with manual deriv/eval code.
 		}
 	}
@@ -641,7 +641,7 @@ impl Roots for SumPoly<f64, 4> {
 					"expected a positive root from: {:?}",
 					resolvent_cubic
 				));
-			let y = resolvent_cubic.eval(Scalar::from(m))
+			let y = resolvent_cubic.eval(m)
 				/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.1[0]);
 			if m > y && y.is_finite() {
 				m -= y; // Newton-Raphson step

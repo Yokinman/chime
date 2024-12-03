@@ -265,7 +265,7 @@ impl<T: Poly> Temporal<T> {
 
 impl<K: Poly> Temporal<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
-		self.inner.eval(self.secs(time))
+		self.inner.eval(crate::linear::Linear::from_f64(self.secs(time).into()))
 	}
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>

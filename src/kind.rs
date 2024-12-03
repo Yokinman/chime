@@ -211,7 +211,7 @@ pub trait Poly: Clone + Debug + 'static {
 	
 	fn deriv(self) -> Self;
 	
-	fn eval(&self, time: Scalar) -> Self::Basis;
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis;
 	
 	fn offset_time(&mut self, time: Scalar);
 	
@@ -236,7 +236,7 @@ pub trait Poly: Clone + Debug + 'static {
 		let mut deriv = Cow::Borrowed(self);
 		
 		for degree in 0..=Self::DEGREE {
-			let order = deriv.eval(time)
+			let order = deriv.eval(Linear::from_f64(time.into()))
 				.partial_cmp(&Basis::zero());
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
@@ -281,7 +281,7 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	fn deriv(self) -> Self {
 		self.map(T::deriv)
 	}
-	fn eval(&self, time: Scalar) -> Self::Basis {
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))
 	}
 	fn offset_time(&mut self, time: Scalar) {

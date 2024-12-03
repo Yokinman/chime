@@ -126,15 +126,15 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		self.basis = self.basis.deriv().add_basis(self.add_term.clone());
 		self
 	}
-	fn eval(&self, time: Scalar) -> Self::Basis {
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		Basis::each_map_inner(
 			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],
 			|[a, b, c]| {
 				if c == Linear::from_f64(1.) {
 					// Treat `*1` multipliers as `x^t` terms.
-					return a.add(b.mul_scalar(match T::DEGREE {
+					return a.add(b.mul(match T::DEGREE {
 						0 => time,
-						1 => time*time,
+						1 => time.mul(time),
 						_ => unimplemented!("this is a temporary hacky way to do this")
 						// !!! https://www.desmos.com/calculator/pgflaxsrxs
 						// - Give `SumProdPoly` a `const DEGREE: usize` parameter.
@@ -142,7 +142,7 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 						// - Make the `SumProd` change impls return 2-variant enums.
 					}))
 				}
-				a.add(b.mul(c.pow_scalar(time).sub(Linear::from_f64(1.))))
+				a.add(b.mul(c.pow(time).sub(Linear::from_f64(1.))))
 			}
 		)
 	}
@@ -207,7 +207,6 @@ impl Roots for SumProdPoly<SumPoly<f64, 1>> {
 mod tests {
 	use crate as chime;
 	use crate::Flux;
-	use crate::linear::Scalar;
 	use crate::kind::{Poly, Roots};
 
 	#[derive(Flux)]
@@ -231,22 +230,22 @@ mod tests {
 	#[test]
 	fn sumprod() {
 		let a = Test { value: 1., add: 4., mul: 0.5 }.to_poly();
-		assert_eq!(a.eval(Scalar::from(0.)), 1.);
-		assert_eq!(a.eval(Scalar::from(1.)), 2.5);
-		assert_eq!(a.eval(Scalar::from(2.)), 3.25);
-		assert_eq!(a.eval(Scalar::from(3.)), 3.625);
-		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), 4.);
-		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), f64::NEG_INFINITY);
+		assert_eq!(a.eval(0.), 1.);
+		assert_eq!(a.eval(1.), 2.5);
+		assert_eq!(a.eval(2.), 3.25);
+		assert_eq!(a.eval(3.), 3.625);
+		assert_eq!(a.eval(f64::INFINITY), 4.);
+		assert_eq!(a.eval(f64::NEG_INFINITY), f64::NEG_INFINITY);
 		let a = Test { value: 1., add: 4., mul: 2. }.to_poly();
-		assert_eq!(a.eval(Scalar::from(0.)), 1.);
-		assert_eq!(a.eval(Scalar::from(1.)), 10.);
-		assert_eq!(a.eval(Scalar::from(2.)), 28.);
-		assert_eq!(a.eval(Scalar::from(3.)), 64.);
-		assert_eq!(a.eval(Scalar::from(f64::INFINITY)), f64::INFINITY);
-		assert_eq!(a.eval(Scalar::from(f64::NEG_INFINITY)), -8.);
+		assert_eq!(a.eval(0.), 1.);
+		assert_eq!(a.eval(1.), 10.);
+		assert_eq!(a.eval(2.), 28.);
+		assert_eq!(a.eval(3.), 64.);
+		assert_eq!(a.eval(f64::INFINITY), f64::INFINITY);
+		assert_eq!(a.eval(f64::NEG_INFINITY), -8.);
 		
 		for root in (a - chime::kind::constant::Constant(5.)).roots() {
-			let val = a.eval(Scalar::from(root));
+			let val = a.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
 		
@@ -254,26 +253,26 @@ mod tests {
 			value: 1.,
 			add: Test { value: 1., add: 4., mul: 2. }
 		}.to_poly();
-		assert_eq!(b.eval(Scalar::from(0.)), 1.);
-		assert_eq!(b.eval(Scalar::from(1.)), 5.984255368000671);
-		assert_eq!(b.eval(Scalar::from(2.)), 23.95276610400201);
-		assert_eq!(b.eval(Scalar::from(3.)), 67.8897875760047);
-		assert_eq!(b.eval(Scalar::from(-1.)), 2.5078723159996645);
-		assert_eq!(b.eval(Scalar::from(-2.)), 7.261808473999498);
+		assert_eq!(b.eval(0.), 1.);
+		assert_eq!(b.eval(1.), 5.984255368000671);
+		assert_eq!(b.eval(2.), 23.95276610400201);
+		assert_eq!(b.eval(3.), 67.8897875760047);
+		assert_eq!(b.eval(-1.), 2.5078723159996645);
+		assert_eq!(b.eval(-2.), 7.261808473999498);
 		
 		for root in (b - chime::kind::constant::Constant(5.)).roots() {
-			let val = b.eval(Scalar::from(root));
+			let val = b.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
 		
 		let c = Test { value: 1., add: 4., mul: 1. }.to_poly();
-		assert_eq!(c.eval(Scalar::from(0.)), 1.);
-		assert_eq!(c.eval(Scalar::from(1.)), 5.);
-		assert_eq!(c.eval(Scalar::from(2.)), 9.);
-		assert_eq!(c.eval(Scalar::from(3.)), 13.);
+		assert_eq!(c.eval(0.), 1.);
+		assert_eq!(c.eval(1.), 5.);
+		assert_eq!(c.eval(2.), 9.);
+		assert_eq!(c.eval(3.), 13.);
 		
 		for root in (c - chime::kind::constant::Constant(5.)).roots() {
-			let val = c.eval(Scalar::from(root));
+			let val = c.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
 		
@@ -281,13 +280,13 @@ mod tests {
 			value: 1.,
 			add: Test { value: 1., add: 4., mul: 1. }
 		}.to_poly();
-		assert_eq!(d.eval(Scalar::from(0.)), 1.);
-		assert_eq!(d.eval(Scalar::from(1.)), 4.);
-		assert_eq!(d.eval(Scalar::from(2.)), 11.);
-		assert_eq!(d.eval(Scalar::from(3.)), 22.);
+		assert_eq!(d.eval(0.), 1.);
+		assert_eq!(d.eval(1.), 4.);
+		assert_eq!(d.eval(2.), 11.);
+		assert_eq!(d.eval(3.), 22.);
 		
 		for root in (d - chime::kind::constant::Constant(5.)).roots() {
-			let val = d.eval(Scalar::from(root));
+			let val = d.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
 	}
