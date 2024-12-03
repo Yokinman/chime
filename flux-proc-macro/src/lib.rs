@@ -29,7 +29,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
 	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self).into_change()};
-	let mut change_type: syn::Type = syn::parse_quote!{#chime::kind::constant::Nil<Self::Basis>};
+	let mut change_type: syn::Type = syn::parse_quote!{#chime::change::constant::Nil<Self::Basis>};
 	
 	 // Find Helper Attributes:
 	for (field_index, field) in item.fields.iter().enumerate() {
@@ -75,10 +75,10 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						};
 						
 						change_expr = syn::parse_quote!{
-							#chime::kind::ApplyChange::<#op, _>::apply_change(#change_expr, #rhs)
+							#chime::change::ApplyChange::<#op, _>::apply_change(#change_expr, #rhs)
 						};
 						change_type = syn::parse_quote!{
-							<#change_type as #chime::kind::ApplyChange<#op, #field_type>>::Output
+							<#change_type as #chime::change::ApplyChange<#op, #field_type>>::Output
 						};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
@@ -104,13 +104,13 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						let unit = args.first().unwrap();
 						
 						change_expr = syn::parse_quote!{
-							#chime::kind::ApplyChange::<#op, _>::apply_change(
+							#chime::change::ApplyChange::<#op, _>::apply_change(
 								#change_expr,
 								#chime::Flux::per(&self.#field_member, #unit)
 							)
 						};
 						change_type = syn::parse_quote!{
-							<#change_type as #chime::kind::ApplyChange<#op, #chime::Rate<#field_type>>>::Output
+							<#change_type as #chime::change::ApplyChange<#op, #chime::Rate<#field_type>>>::Output
 						};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
@@ -171,7 +171,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 		for attr in field.attrs.iter() {
 			if attr.meta.path().is_ident("basis") {
 				expr = syn::parse_quote!{
-					#chime::kind::Poly::eval(
+					#chime::change::Poly::eval(
 						&#chime::Flux::to_poly(self),
 						#chime::linear::Linear::from_f64(time),
 					)

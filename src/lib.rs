@@ -1,6 +1,6 @@
 //! Utilities for describing how a type changes over time.
 
-pub mod kind;
+pub mod change;
 pub mod temporal;
 pub mod time;
 pub mod linear;
@@ -10,7 +10,7 @@ pub mod exp;
 mod impls;
 
 use linear::*;
-use kind::*;
+use change::*;
 
 use time::Time;
 
@@ -368,7 +368,7 @@ pub struct Rate<T> {
 
 mod _rate_impls {
 	use crate::{Flux, ToMoment, ToMomentMut};
-	use crate::kind::{ApplyChange, Change, ChangeUp};
+	use crate::change::{ApplyChange, Change, ChangeUp};
 	use super::Rate;
 	
 	impl<T> Rate<T> {
@@ -464,7 +464,7 @@ mod _rate_impls {
 /// 
 /// ```
 /// use chime::Flux;
-/// use chime::kind::Poly;
+/// use chime::change::Poly;
 /// use chime::time::SEC;
 /// 
 /// #[derive(Flux)]
@@ -559,7 +559,7 @@ mod tests {
 	use super::*;
 	use crate::time;
 	use crate::time::{SEC, TimeRanges};
-	use crate::kind::sum::{SumPoly, Sum};
+	use crate::change::sum::{SumPoly, Sum};
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	

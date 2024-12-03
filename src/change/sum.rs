@@ -2,8 +2,8 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
-use crate::{kind::*, linear::*};
-use crate::kind::constant::Constant;
+use crate::{change::*, linear::*};
+use crate::change::constant::Constant;
 
 /// ...
 #[derive(Copy, Clone, Debug)]

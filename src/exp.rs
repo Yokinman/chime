@@ -3,7 +3,7 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
-use crate::kind::{Change, ChangeUp, Poly};
+use crate::change::{Change, ChangeUp, Poly};
 use crate::linear::*;
 
 /// A linear map that translates between addition and multiplication.

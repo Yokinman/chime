@@ -1,9 +1,9 @@
 //! ...
 
 use crate::exp::Exp;
-use crate::kind::Change;
-use crate::kind::sum::{Sum, SumPoly};
-use crate::kind::sumprod::SumProd;
+use crate::change::Change;
+use crate::change::sum::{Sum, SumPoly};
+use crate::change::sumprod::SumProd;
 use crate::linear::{Basis, Linear};
 
 /// Represents the pattern of repeated multiplication, `a = a * b`.
@@ -69,7 +69,7 @@ where
 mod _test {
 	use crate as chime;
 	use crate::Flux;
-	use crate::kind::{Change, Poly};
+	use crate::change::{Change, Poly};
 	
 	#[derive(Flux)]
 	pub struct Test {
@@ -81,7 +81,7 @@ mod _test {
 	
 	#[test]
 	fn prod() {
-		let a_change = crate::kind::sum::Sum([1.5]);
+		let a_change = crate::change::sum::Sum([1.5]);
 		let a_basis = 5.;
 		let a = a_change.into_poly(a_basis);
 		assert_eq!(a.eval(0.), 5.);

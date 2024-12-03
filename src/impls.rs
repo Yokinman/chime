@@ -30,7 +30,7 @@ macro_rules! impl_ {
     (@impl Simple) => {};
 	(@impl Flux) => {
 		type Basis = Self;
-		type Change = crate::kind::constant::Nil<Self>;
+		type Change = crate::change::constant::Nil<Self>;
 		fn basis(&self) -> Self::Basis {
 			*self
 		}

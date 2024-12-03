@@ -7,7 +7,7 @@ use crate::linear::{Linear, Basis, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::temporal::Temporal;
-use crate::kind::*;
+use crate::change::*;
 
 /// Function that converts a root value to a Time, or ignores it.
 pub(crate) trait TimeFilterMap: Clone {
@@ -813,7 +813,7 @@ where
 
 #[test]
 fn consistent_sign_pred() {
-	use crate::kind::sum::SumPoly;
+	use crate::change::sum::SumPoly;
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
 		let poly = Temporal::new([

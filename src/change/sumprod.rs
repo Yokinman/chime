@@ -1,9 +1,9 @@
 //! ... https://www.desmos.com/calculator/ko5owr56jx
 
 use std::ops::{Add, Sub};
-use crate::kind::{Change, ChangeUp, Poly, Roots};
-use crate::kind::constant::Constant;
-use crate::kind::sum::SumPoly;
+use crate::change::{Change, ChangeUp, Poly, Roots};
+use crate::change::constant::Constant;
+use crate::change::sum::SumPoly;
 use crate::linear::{Basis, Linear};
 
 /// ...
@@ -207,7 +207,7 @@ impl Roots for SumProdPoly<SumPoly<f64, 1>> {
 mod tests {
 	use crate as chime;
 	use crate::Flux;
-	use crate::kind::{Poly, Roots};
+	use crate::change::{Poly, Roots};
 
 	#[derive(Flux)]
 	struct Test {
@@ -244,7 +244,7 @@ mod tests {
 		assert_eq!(a.eval(f64::INFINITY), f64::INFINITY);
 		assert_eq!(a.eval(f64::NEG_INFINITY), -8.);
 		
-		for root in (a - chime::kind::constant::Constant(5.)).roots() {
+		for root in (a - chime::change::constant::Constant(5.)).roots() {
 			let val = a.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
@@ -260,7 +260,7 @@ mod tests {
 		assert_eq!(b.eval(-1.), 2.5078723159996645);
 		assert_eq!(b.eval(-2.), 7.261808473999498);
 		
-		for root in (b - chime::kind::constant::Constant(5.)).roots() {
+		for root in (b - chime::change::constant::Constant(5.)).roots() {
 			let val = b.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
@@ -271,7 +271,7 @@ mod tests {
 		assert_eq!(c.eval(2.), 9.);
 		assert_eq!(c.eval(3.), 13.);
 		
-		for root in (c - chime::kind::constant::Constant(5.)).roots() {
+		for root in (c - chime::change::constant::Constant(5.)).roots() {
 			let val = c.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
@@ -285,7 +285,7 @@ mod tests {
 		assert_eq!(d.eval(2.), 11.);
 		assert_eq!(d.eval(3.), 22.);
 		
-		for root in (d - chime::kind::constant::Constant(5.)).roots() {
+		for root in (d - chime::change::constant::Constant(5.)).roots() {
 			let val = d.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}

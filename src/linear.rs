@@ -536,7 +536,7 @@ mod _iso_impls {
 		B: LinearIso<A>,
 	{
 		type Basis = Self;
-		type Change = crate::kind::constant::Nil<Self>;
+		type Change = crate::change::constant::Nil<Self>;
 		fn basis(&self) -> Self::Basis {
 			self.clone()
 		}

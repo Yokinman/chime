@@ -7,9 +7,9 @@ use std::ops::{Add, Deref, DerefMut, Sub};
 use crate::linear::{Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
-use crate::kind::{Poly, ops as kind_ops, Roots, Change};
+use crate::change::{Poly, ops as kind_ops, Roots, Change};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
-use crate::kind::constant::Constant;
+use crate::change::constant::Constant;
 
 /// A [`Poly`] paired with a basis time.
 /// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.

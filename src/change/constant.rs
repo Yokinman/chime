@@ -2,7 +2,7 @@
 
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
-use crate::kind::{Change, ChangeUp, Poly};
+use crate::change::{Change, ChangeUp, Poly};
 use crate::linear::{Basis, Linear, Vector};
 
 /// ...
@@ -32,9 +32,9 @@ impl<T> ChangeUp<'+'> for Nil<T>
 where
 	T: Basis
 {
-	type Up = crate::kind::sum::Sum<T, 1>;
+	type Up = crate::change::sum::Sum<T, 1>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		crate::kind::sum::Sum([basis])
+		crate::change::sum::Sum([basis])
 	}
 }
 
@@ -42,9 +42,9 @@ impl<T> ChangeUp<'*'> for Nil<T>
 where
 	T: Basis
 {
-	type Up = Exp<crate::kind::sum::Sum<T, 1>>;
+	type Up = Exp<crate::change::sum::Sum<T, 1>>;
 	fn up(self, basis: Self::Basis) -> Self::Up {
-		Exp(crate::kind::sum::Sum([basis.map_inner(Linear::ln)]))
+		Exp(crate::change::sum::Sum([basis.map_inner(Linear::ln)]))
 	}
 }
 
