@@ -224,7 +224,7 @@ pub trait Poly: Clone + Debug + 'static {
 	/// 
 	/// This should be the first non-zero [`Poly::eval`] value of this kind
 	/// or its derivatives; reversed for odd derivatives.
-	fn initial_order(&self, time: Scalar) -> Option<Ordering>
+	fn initial_order(&self, time: <Self::Basis as Basis>::Inner) -> Option<Ordering>
 	where
 		Self::Basis: PartialOrd
 	{
@@ -236,7 +236,7 @@ pub trait Poly: Clone + Debug + 'static {
 		let mut deriv = Cow::Borrowed(self);
 		
 		for degree in 0..=Self::DEGREE {
-			let order = deriv.eval(Linear::from_f64(time.into()))
+			let order = deriv.eval(time)
 				.partial_cmp(&Basis::zero());
 			
 			if order != Some(Ordering::Equal) || degree == Self::DEGREE {

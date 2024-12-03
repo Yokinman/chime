@@ -272,7 +272,7 @@ impl<K: Poly> Temporal<K> {
 	where
 		K::Basis: PartialOrd
 	{
-		self.inner.initial_order(self.secs(time))
+		self.inner.initial_order(crate::linear::Linear::from_f64(self.secs(time).into()))
 	}
 	
 	pub fn deriv(mut self) -> Self {
