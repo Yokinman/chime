@@ -7,7 +7,7 @@ use crate::linear::{Linear, Basis, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::temporal::Temporal;
-use crate::change::*;
+use crate::poly::{IntoTimes, Poly, Roots, RootFilterMap, ops::Sqr};
 
 /// Function that converts a root value to a Time, or ignores it.
 pub(crate) trait TimeFilterMap: Clone {
@@ -707,13 +707,13 @@ impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
 where
 	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly<Basis: PartialOrd> + ops::Sqr,
+	D: Poly<Basis: PartialOrd> + Sqr,
 	A::Output: Sub<
 		B::Output,
-		Output: ops::Sqr<Output:
-			Add<Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
-			+ Sub<<D as ops::Sqr>::Output,
-				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
+		Output: Sqr<Output:
+			Add<Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
+			+ Sub<<D as Sqr>::Output,
+				Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis = D::Basis>
@@ -721,12 +721,12 @@ where
 	>,
 {
 	type Pred = PredFilter<
-		Pred<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,
+		Pred<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
-			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
-			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
 		>
 	>;
 	fn when_dis(
@@ -735,8 +735,6 @@ where
 		cmp: Ordering,
 		dis_poly: Temporal<D>,
 	) -> Self::Pred {
-		use ops::*;
-		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner
@@ -768,12 +766,12 @@ impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
 where
 	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
 	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly<Basis: PartialEq> + ops::Sqr,
+	D: Poly<Basis: PartialEq> + Sqr,
 	A::Output: Sub<B::Output,
-		Output: ops::Sqr<Output:
-			Add<Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
-			+ Sub<<D as ops::Sqr>::Output,
-				Output = <<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>
+		Output: Sqr<Output:
+			Add<Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
+			+ Sub<<D as Sqr>::Output,
+				Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis = D::Basis>
@@ -781,12 +779,12 @@ where
 	>,
 {
 	type Pred = PredFilter<
-		PredEq<<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output>,
+		PredEq<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
-			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
-			<<A::Output as Sub<B::Output>>::Output as ops::Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
+			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
 		>
 	>;
 	fn when_dis_eq(
@@ -794,8 +792,6 @@ where
 		b_pos: Temporal<B>,
 		dis_poly: Temporal<D>,
 	) -> Self::Pred {
-		use ops::*;
-		
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
 			sum = sum + a_pos.index(i).inner

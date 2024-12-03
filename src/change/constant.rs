@@ -2,8 +2,9 @@
 
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
-use crate::change::{Change, ChangeUp, Poly};
+use crate::change::{Change, ChangeUp};
 use crate::linear::{Basis, Linear, Vector};
+use crate::poly::Poly;
 
 /// ...
 pub struct Nil<T>(std::marker::PhantomData<T>);

@@ -69,7 +69,8 @@ where
 mod _test {
 	use crate as chime;
 	use crate::Flux;
-	use crate::change::{Change, Poly};
+	use crate::change::Change;
+	use crate::poly::Poly;
 	
 	#[derive(Flux)]
 	pub struct Test {

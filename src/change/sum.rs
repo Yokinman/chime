@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
+use crate::poly::{Poly, Roots};
 
 /// ...
 #[derive(Copy, Clone, Debug)]

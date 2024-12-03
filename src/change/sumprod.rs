@@ -1,10 +1,11 @@
 //! ... https://www.desmos.com/calculator/ko5owr56jx
 
 use std::ops::{Add, Sub};
-use crate::change::{Change, ChangeUp, Poly, Roots};
+use crate::change::{Change, ChangeUp};
 use crate::change::constant::Constant;
 use crate::change::sum::SumPoly;
 use crate::linear::{Basis, Linear};
+use crate::poly::{Poly, Roots};
 
 /// ...
 /// Represents the pattern
@@ -207,7 +208,7 @@ impl Roots for SumProdPoly<SumPoly<f64, 1>> {
 mod tests {
 	use crate as chime;
 	use crate::Flux;
-	use crate::change::{Poly, Roots};
+	use crate::poly::{Poly, Roots};
 
 	#[derive(Flux)]
 	struct Test {

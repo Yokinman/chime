@@ -4,6 +4,7 @@ pub mod change;
 pub mod temporal;
 pub mod time;
 pub mod linear;
+pub mod poly;
 pub mod pred;
 pub mod exp;
 
@@ -464,7 +465,7 @@ mod _rate_impls {
 /// 
 /// ```
 /// use chime::Flux;
-/// use chime::change::Poly;
+/// use chime::poly::Poly;
 /// use chime::time::SEC;
 /// 
 /// #[derive(Flux)]
