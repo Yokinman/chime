@@ -45,7 +45,7 @@ where
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		Exp(self.0.into_poly(basis.map_inner(Linear::ln)))
 	}
-	fn scale(self, scalar: Scalar) -> Self {
+	fn scale(self, scalar: <Self::Basis as Basis>::Inner) -> Self {
 		Exp(self.0.scale(scalar))
 	}
 }

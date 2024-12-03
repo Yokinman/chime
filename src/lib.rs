@@ -390,7 +390,7 @@ mod _rate_impls {
 		fn apply_change(self, rhs: Rate<F>) -> Self::Output {
 			let change = rhs.amount.change()
 				.up(rhs.amount.basis())
-				.scale(Scalar::from(rhs.unit.as_secs_f64().recip()));
+				.scale(crate::linear::Linear::from_f64(rhs.unit.as_secs_f64().recip()));
 			self.apply_change(change)
 		}
 	}

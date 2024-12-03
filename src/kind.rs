@@ -17,11 +17,11 @@ pub trait Change {
 	type Basis: Basis;
 	type Poly: Poly<Basis = Self::Basis>;
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly;
-	fn scale(self, scalar: Scalar) -> Self;
+	fn scale(self, scalar: <Self::Basis as Basis>::Inner) -> Self;
 }
 
 mod _change_impls {
-	use crate::linear::Scalar;
+	use crate::linear::Basis;
 	use super::Change;
 	
 	impl<T, const N: usize> Change for [T; N]
@@ -34,8 +34,8 @@ mod _change_impls {
 			let mut basis_iter = basis.into_iter();
 			self.map(|x| x.into_poly(basis_iter.next().unwrap()))
 		}
-		fn scale(self, scalar: Scalar) -> Self {
-			self.map(|x| x.scale(scalar))
+		fn scale(self, scalar: <Self::Basis as Basis>::Inner) -> Self {
+			self.map(|x| x.scale(scalar.clone()))
 		}
 	}
 }

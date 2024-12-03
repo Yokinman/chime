@@ -23,7 +23,7 @@ where
 	fn into_poly(self, basis: Self::Basis) -> Self::Poly {
 		Constant(basis)
 	}
-	fn scale(self, _scalar: Scalar) -> Self {
+	fn scale(self, _scalar: <Self::Basis as Basis>::Inner) -> Self {
 		self
 	}
 }

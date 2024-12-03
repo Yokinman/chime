@@ -38,10 +38,10 @@ impl<T: Basis> Change for SumProd<T> {
 			mul_term,
 		}
 	}
-	fn scale(self, scalar: Scalar) -> Self {
+	fn scale(self, scalar: <Self::Basis as Basis>::Inner) -> Self {
 		Self {
-			add_term: self.add_term.map_inner(|x| x.mul_scalar(scalar)),
-			mul_term: self.mul_term.map_inner(|x| x.pow_scalar(scalar)),
+			add_term: self.add_term.map_inner(|x| x.mul(scalar.clone())),
+			mul_term: self.mul_term.map_inner(|x| x.pow(scalar.clone())),
 		}
 	}
 }
@@ -91,8 +91,8 @@ impl<T: Basis> Change for SumProd2<T> {
 			mul_term,
 		}
 	}
-	fn scale(mut self, scalar: Scalar) -> Self {
-		self.basis = self.basis.map_inner(|x| x.mul_scalar(scalar));
+	fn scale(mut self, scalar: <Self::Basis as Basis>::Inner) -> Self {
+		self.basis = self.basis.map_inner(|x| x.mul(scalar.clone()));
 		self.change = self.change.scale(scalar);
 		self
 	}

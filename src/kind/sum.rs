@@ -25,8 +25,8 @@ where
 		});
 		SumPoly::new(basis, terms)
 	}
-	fn scale(self, scalar: Scalar) -> Self {
-		Self(self.0.map(|term| term.map_inner(|x| x.mul_scalar(scalar))))
+	fn scale(self, scalar: <Self::Basis as Basis>::Inner) -> Self {
+		Self(self.0.map(|term| term.map_inner(|x| x.mul(scalar.clone()))))
 	}
 }
 
