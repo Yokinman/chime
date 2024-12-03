@@ -4,7 +4,7 @@ use std::ops::{Add, Sub};
 use crate::kind::{Change, ChangeUp, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::kind::sum::SumPoly;
-use crate::linear::{Basis, Linear, Scalar};
+use crate::linear::{Basis, Linear};
 
 /// ...
 /// Represents the pattern
@@ -78,7 +78,7 @@ impl<T: Basis> Change for SumProd2<T> {
 		);
 		let add_term = deriv.add_term.zip_map_inner(deriv.mul_term.clone(), |b, c| {
 			if c == Linear::from_f64(1.) {
-				return b.mul_scalar(Scalar::from(0.5))
+				return b.div(Linear::from_f64(2.))
 			}
 			b.div(c.ln())
 		});

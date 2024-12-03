@@ -21,7 +21,7 @@ where
 		let terms = self.0.map(|term| {
 			i += 1.;
 			n *= i;
-			term.map_inner(|x| x.mul_scalar(Scalar::from(1. / n)))
+			term.map_inner(|x| x.mul(Linear::from_f64(1. / n)))
 		});
 		SumPoly::new(basis, terms)
 	}
@@ -46,7 +46,7 @@ where
 {
 	type Output = Self;
 	fn neg(self) -> Self::Output {
-		Self(self.0.map(|term| term.map_inner(|x| x.mul_scalar(Scalar::from(-1.)))))
+		Self(self.0.map(|term| term.map_inner(|x| x.mul(Linear::from_f64(-1.)))))
 	}
 }
 
@@ -183,7 +183,9 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		let mut deriv = self.clone();
 		self.0 = deriv.eval(time);
 		for degree in 1..D {
-			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
+			deriv = deriv.deriv().map(|term| term.map_inner(|x| {
+				x.mul(Linear::from_f64(1. / (degree as f64)))
+			}));
 			self.1[degree-1] = deriv.eval(time);
 			// !!! This could be made more accurate with manual deriv/eval code.
 		}

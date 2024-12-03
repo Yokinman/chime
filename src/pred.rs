@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::{Add, Sub};
 
-use crate::linear::{Linear, Basis, Scalar, Vector};
+use crate::linear::{Linear, Basis, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::temporal::Temporal;
@@ -157,7 +157,7 @@ where
 		
 		 // Rounding Buffer:
 		if !is_end {
-			let round_factor = Scalar::from(0.5 / (SIZE as f64).sqrt());
+			let round_factor = Linear::from_f64(0.5 / (SIZE as f64).sqrt());
 			loop {
 				let mut inc_time = time::NANOSEC;
 				while let Some(next_time) = time.checked_sub(inc_time) {
@@ -189,7 +189,7 @@ where
 					b_dis = b_dis.map_inner(Linear::sqrt);
 					real_diff = real_diff.zip_map_inner(
 						dis.clone(),
-						|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
+						|x, dis| x.sqrt().sub(dis).mul(round_factor)
 					);
 					
 					 // Undershoot Actual Distances:
@@ -208,7 +208,7 @@ where
 						 // Undershoot Predicted Distances:
 						let pred_diff = pos_poly.eval(next_time).zip_map_inner(
 							dis.clone(),
-							|x, dis| x.sqrt().sub(dis).mul_scalar(round_factor)
+							|x, dis| x.sqrt().sub(dis).mul(round_factor)
 						);
 						if
 							diff_not_zero(a_dis, pred_diff.clone()) &&
