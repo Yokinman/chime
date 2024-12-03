@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-use crate::linear::{Scalar, Vector};
+use crate::linear::{Linear, Scalar, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{Poly, ops as kind_ops, Roots, Change};
@@ -75,12 +75,12 @@ impl<T> Temporal<T> {
 		}
 	}
 	
-	fn secs(&self, time: Time) -> Scalar {
-		Scalar::from(if time > self.time {
+	fn secs(&self, time: Time) -> f64 {
+		if time > self.time {
 			(time - self.time).as_secs_f64()
 		} else {
 			-(self.time - time).as_secs_f64()
-		})
+		}
 	}
 }
 
@@ -265,14 +265,14 @@ impl<T: Poly> Temporal<T> {
 
 impl<K: Poly> Temporal<K> {
 	pub fn eval(&self, time: Time) -> K::Basis {
-		self.inner.eval(crate::linear::Linear::from_f64(self.secs(time).into()))
+		self.inner.eval(Linear::from_f64(self.secs(time)))
 	}
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
 		K::Basis: PartialOrd
 	{
-		self.inner.initial_order(crate::linear::Linear::from_f64(self.secs(time).into()))
+		self.inner.initial_order(Linear::from_f64(self.secs(time)))
 	}
 	
 	pub fn deriv(mut self) -> Self {
@@ -283,7 +283,7 @@ impl<K: Poly> Temporal<K> {
 	pub fn at_time(self, time: Time) -> Self {
 		let secs = self.secs(time);
 		Self {
-			inner: self.inner.at_time(crate::linear::Linear::from_f64(secs.into())),
+			inner: self.inner.at_time(Linear::from_f64(secs)),
 			time,
 		}
 	}
@@ -348,7 +348,7 @@ impl<K: Poly> Temporal<K> {
 impl<T: ToMoment> Temporal<T> {
 	/// See [`ToMoment::to_moment`].
 	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
-		self.inner.to_moment(self.secs(time).into())
+		self.inner.to_moment(self.secs(time))
 	}
 	
 	pub fn moment(&self, time: Time) -> Moment<T> {
@@ -364,7 +364,7 @@ impl<T: ToMomentMut> Temporal<T> {
 	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
 		let secs = self.secs(time);
 		self.time = time;
-		self.inner.to_moment_mut(secs.into())
+		self.inner.to_moment_mut(secs)
 	}
 	
 	pub fn moment_mut(&mut self, time: Time) -> MomentMut<T> {
