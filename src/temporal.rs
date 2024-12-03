@@ -2,9 +2,9 @@
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::ops::{Add, Deref, DerefMut, Sub};
 
-use crate::linear::{Linear, Scalar, Vector};
+use crate::linear::{Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::kind::{Poly, ops as kind_ops, Roots, Change};
@@ -378,17 +378,6 @@ impl<T: ToMomentMut> Temporal<T> {
 impl<T> From<T> for Temporal<T> {
 	fn from(value: T) -> Self {
 		Self::new(value, Time::ZERO)
-	}
-}
-
-impl<K> Mul<Scalar> for Temporal<K>
-where
-	K: Mul<Scalar, Output=K>
-{
-	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.inner = self.inner * rhs;
-		self
 	}
 }
 
