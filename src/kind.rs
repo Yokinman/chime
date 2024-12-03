@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Sub};
 
-use crate::linear::{Linear, Basis, Scalar};
+use crate::linear::{Linear, Basis};
 use crate::time::Time;
 
 pub mod constant;
@@ -204,10 +204,6 @@ pub trait Poly: Clone + Debug + 'static {
 	fn with_basis(value: Self::Basis) -> Self;
 	
 	fn add_basis(self, value: Self::Basis) -> Self;
-	
-	fn sub_basis(self, value: Self::Basis) -> Self {
-		self.add_basis(value.map_inner(|x| x.mul_scalar(Scalar::from(-1.))))
-	}
 	
 	fn deriv(self) -> Self;
 	
