@@ -78,7 +78,7 @@ where
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.eval(time).map_inner(Linear::exp)
 	}
-	fn offset_time(&mut self, time: Scalar) {
+	fn offset_time(&mut self, time: <Self::Basis as Basis>::Inner) {
 		self.0.offset_time(time)
 	}
 }

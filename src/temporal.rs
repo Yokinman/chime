@@ -283,7 +283,7 @@ impl<K: Poly> Temporal<K> {
 	pub fn at_time(self, time: Time) -> Self {
 		let secs = self.secs(time);
 		Self {
-			inner: self.inner.at_time(secs),
+			inner: self.inner.at_time(crate::linear::Linear::from_f64(secs.into())),
 			time,
 		}
 	}

@@ -213,9 +213,9 @@ pub trait Poly: Clone + Debug + 'static {
 	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis;
 	
-	fn offset_time(&mut self, time: Scalar);
+	fn offset_time(&mut self, time: <Self::Basis as Basis>::Inner);
 	
-	fn at_time(mut self, time: Scalar) -> Self {
+	fn at_time(mut self, time: <Self::Basis as Basis>::Inner) -> Self {
 		self.offset_time(time);
 		self
 	}
@@ -284,7 +284,7 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))
 	}
-	fn offset_time(&mut self, time: Scalar) {
+	fn offset_time(&mut self, time: <Self::Basis as Basis>::Inner) {
 		for x in self {
 			x.offset_time(time);
 		}

@@ -176,15 +176,15 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 			.zip_map_inner(value, |a, b| a.add(b.mul(time)))
 	}
 
-	fn offset_time(&mut self, time: Scalar) {
-		if time == Scalar::from(0.) {
+	fn offset_time(&mut self, time: <Self::Basis as Basis>::Inner) {
+		if time == Linear::zero() {
 			return
 		}
 		let mut deriv = self.clone();
-		self.0 = deriv.eval(Linear::from_f64(time.into()));
+		self.0 = deriv.eval(time);
 		for degree in 1..D {
 			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
-			self.1[degree-1] = deriv.eval(Linear::from_f64(time.into()));
+			self.1[degree-1] = deriv.eval(time);
 			// !!! This could be made more accurate with manual deriv/eval code.
 		}
 	}
