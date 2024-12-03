@@ -6,7 +6,7 @@ use crate::{*, kind::*, linear::*};
 use crate::kind::constant::Constant;
 
 /// ...
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Sum<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
 
 impl<T, const D: usize> Change for Sum<T, D>
