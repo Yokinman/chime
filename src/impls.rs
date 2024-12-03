@@ -1,7 +1,7 @@
 //! Convenient [`Flux`] implementations (`Vec<T>`, `[T; S]`, ??? tuples, etc.).
 
 use crate::{Flux, ToMoment, ToMomentMut};
-use crate::linear::{Simple, Scalar};
+use crate::linear::Simple;
 
 macro_rules! impl_ {
     ($trait_:ident for $type_:ty) => {
@@ -40,13 +40,13 @@ macro_rules! impl_ {
     };
     (@impl ToMoment) => {
 		type Moment<'a> = Self;
-		fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, _time: f64) -> Self::Moment<'_> {
 			*self
 		}
     };
     (@impl ToMomentMut) => {
 		type MomentMut<'a> = &'a mut Self;
-		fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, _time: f64) -> Self::MomentMut<'_> {
 			self
 		}
     };
@@ -94,7 +94,7 @@ mod _reference_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = T::Moment<'a> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			T::to_moment(self, time)
 		}
 	}
@@ -118,7 +118,7 @@ mod _reference_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = T::Moment<'a> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			T::to_moment(self, time)
 		}
 	}
@@ -128,7 +128,7 @@ mod _reference_impls {
 		T: ToMomentMut,
 	{
 		type MomentMut<'a> = T::MomentMut<'a> where Self: 'a;
-		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 			T::to_moment_mut(self, time)
 		}
 	}
@@ -139,7 +139,7 @@ where
 	T: ToMoment,
 {
 	type Moment<'a> = Option<T::Moment<'a>> where Self: 'a;
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+	fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 		self.as_ref().map(|x| x.to_moment(time))
 	}
 }
@@ -150,7 +150,7 @@ where
 	E: ToMoment,
 {
 	type Moment<'a> = Result<T::Moment<'a>, E::Moment<'a>> where Self: 'a;
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+	fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 		self.as_ref()
 			.map(|x| x.to_moment(time))
 			.map_err(|x| x.to_moment(time))
@@ -167,7 +167,7 @@ mod _range_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = std::ops::Range<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			std::ops::Range {
 				start: self.start.to_moment(time),
 				end: self.end.to_moment(time),
@@ -180,7 +180,7 @@ mod _range_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = std::ops::RangeFrom<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			std::ops::RangeFrom {
 				start: self.start.to_moment(time),
 			}
@@ -192,7 +192,7 @@ mod _range_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = std::ops::RangeInclusive<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			std::ops::RangeInclusive::new(
 				self.start().to_moment(time),
 				self.end().to_moment(time),
@@ -205,7 +205,7 @@ mod _range_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = std::ops::RangeTo<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			std::ops::RangeTo {
 				end: self.end.to_moment(time),
 			}
@@ -217,7 +217,7 @@ mod _range_impls {
 		T: ToMoment,
 	{
 		type Moment<'a> = std::ops::RangeToInclusive<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			std::ops::RangeToInclusive {
 				end: self.end.to_moment(time),
 			}
@@ -241,14 +241,14 @@ mod _array_impls {
 	
 	impl<T: ToMoment, const N: usize> ToMoment for [T; N] {
 		type Moment<'a> = [T::Moment<'a>; N] where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			self.each_ref().map(|x| x.to_moment(time))
 		}
 	}
 	
 	impl<T: ToMomentMut, const N: usize> ToMomentMut for [T; N] {
 		type MomentMut<'a> = [T::MomentMut<'a>; N] where Self: 'a;
-		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 			self.each_mut().map(|x| x.to_moment_mut(time))
 		}
 	}
@@ -260,7 +260,7 @@ mod _vec_impls {
 	
 	impl<T: ToMoment> ToMoment for Vec<T> {
 		type Moment<'a> = Vec<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			self.iter()
 				.map(|x| x.to_moment(time))
 				.collect()
@@ -269,7 +269,7 @@ mod _vec_impls {
 	
 	impl<T: ToMomentMut> ToMomentMut for Vec<T> {
 		type MomentMut<'a> = Vec<T::MomentMut<'a>> where Self: 'a;
-		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 			self.iter_mut()
 				.map(|x| x.to_moment_mut(time))
 				.collect()
@@ -287,7 +287,7 @@ mod _hashmap_impls {
 		V: ToMoment,
 	{
 		type Moment<'a> = HashMap<&'a K, V::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			self.iter()
 				.map(|(k, v)| (k, v.to_moment(time)))
 				.collect()
@@ -300,7 +300,7 @@ mod _hashmap_impls {
 		V: ToMomentMut,
 	{
 		type MomentMut<'a> = HashMap<&'a K, V::MomentMut<'a>> where Self: 'a;
-		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 			self.iter_mut()
 				.map(|(k, v)| (k, v.to_moment_mut(time)))
 				.collect()
@@ -319,7 +319,7 @@ mod _tuple_impls {
 			{
 				type Moment<'a> = ($($t::Moment<'a>,)*) where Self: 'a;
 				#[allow(unused_variables)]
-				fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+				fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 					let ($($t,)*) = self;
 					#[allow(clippy::unused_unit)]
 					($($t.to_moment(time),)*)

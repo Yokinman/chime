@@ -348,7 +348,7 @@ impl<K: Poly> Temporal<K> {
 impl<T: ToMoment> Temporal<T> {
 	/// See [`ToMoment::to_moment`].
 	pub fn to_moment(&self, time: Time) -> T::Moment<'_> {
-		self.inner.to_moment(self.secs(time))
+		self.inner.to_moment(self.secs(time).into())
 	}
 	
 	pub fn moment(&self, time: Time) -> Moment<T> {
@@ -364,7 +364,7 @@ impl<T: ToMomentMut> Temporal<T> {
 	pub fn to_moment_mut(&mut self, time: Time) -> T::MomentMut<'_> {
 		let secs = self.secs(time);
 		self.time = time;
-		self.inner.to_moment_mut(secs)
+		self.inner.to_moment_mut(secs.into())
 	}
 	
 	pub fn moment_mut(&mut self, time: Time) -> MomentMut<T> {

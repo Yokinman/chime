@@ -367,7 +367,6 @@ pub struct Rate<T> {
 }
 
 mod _rate_impls {
-	use crate::linear::Scalar;
 	use crate::{Flux, ToMoment, ToMomentMut};
 	use crate::kind::{ApplyChange, Change, ChangeUp};
 	use super::Rate;
@@ -407,7 +406,7 @@ mod _rate_impls {
 	
 	impl<T: ToMoment> ToMoment for Rate<T> {
 		type Moment<'a> = Rate<T::Moment<'a>> where Self: 'a;
-		fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 			Rate {
 				amount: self.amount.to_moment(time),
 				unit: self.unit,
@@ -417,7 +416,7 @@ mod _rate_impls {
 	
 	impl<T: ToMomentMut> ToMomentMut for Rate<T> {
 		type MomentMut<'a> = Rate<T::MomentMut<'a>> where Self: 'a;
-		fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
+		fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 			Rate {
 				amount: self.amount.to_moment_mut(time),
 				unit: self.unit,
@@ -503,7 +502,7 @@ pub trait ToMoment {
 	/// This generally returns an owned value. However, the value should be
 	/// treated as a reference, as modifying it has no effect on the timeline.
 	/// This is enforced through [`Temporal::moment`] ([`Moment`]).
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_>;
+	fn to_moment(&self, time: f64) -> Self::Moment<'_>;
 }
 
 /// Types that represent a mutable timeline of moments.
@@ -520,7 +519,7 @@ pub trait ToMomentMut: ToMoment {
 	/// In general, this should permanently shift the basis of the value and
 	/// return the moment by reference, unlike [`ToMoment::to_moment`]. This
 	/// is enforced through [`Temporal::moment_mut`] ([`MomentMut`]).
-	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_>;
+	fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_>;
 }
 
 #[cfg(test)]

@@ -173,7 +173,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 				expr = syn::parse_quote!{
 					#chime::kind::Poly::eval(
 						&#chime::Flux::to_poly(self),
-						#chime::linear::Linear::from_f64(time.into()),
+						#chime::linear::Linear::from_f64(time),
 					)
 				};
 				continue
@@ -218,7 +218,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 	let trait_impl = quote::quote!{
 		impl #impl_params #chime::ToMoment for #type_name #type_params #impl_clause {
 			type Moment<'a_> = Self; // !!! Replace marked type params later
-			fn to_moment(&self, time: #chime::linear::Scalar) -> Self::Moment<'_> {
+			fn to_moment(&self, time: f64) -> Self::Moment<'_> {
 				#moment_struct
 			}
 		}
@@ -242,7 +242,7 @@ pub fn derive_to_moment_mut(item_tokens: TokenStream) -> TokenStream {
 	let trait_impl = quote::quote!{
 		impl #impl_params #chime::ToMomentMut for #type_name #type_params #impl_clause {
 			type MomentMut<'a_> = &'a_ mut Self;
-			fn to_moment_mut(&mut self, time: #chime::linear::Scalar) -> Self::MomentMut<'_> {
+			fn to_moment_mut(&mut self, time: f64) -> Self::MomentMut<'_> {
 				*self = #chime::ToMoment::to_moment(&self, time);
 				self
 			}

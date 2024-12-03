@@ -570,7 +570,7 @@ pub struct Iso<A, B>(Option<A>, B);
 mod _iso_impls {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use super::{Basis, Iso, Linear, LinearIso, Scalar, Simple};
+	use super::{Basis, Iso, Linear, LinearIso, Simple};
 	
 	impl<A, B> Iso<A, B>
 	where
@@ -671,7 +671,7 @@ mod _iso_impls {
 		B: LinearIso<A>,
 	{
 		type Moment<'a> = Self;
-		fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
+		fn to_moment(&self, _time: f64) -> Self::Moment<'_> {
 			self.clone()
 		}
 	}
