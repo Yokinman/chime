@@ -3,7 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::kind::{Change, ChangeUp, Poly};
-use crate::linear::{Basis, Linear, Scalar, Vector};
+use crate::linear::{Basis, Linear, Vector};
 
 /// ...
 pub struct Nil<T>(std::marker::PhantomData<T>);
@@ -158,11 +158,10 @@ where
 	}
 }
 
-impl<T: Basis> Mul<Scalar> for Constant<T> {
+impl<T: Basis> Neg for Constant<T> {
 	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0.map_inner(|x| x.mul_scalar(rhs));
-		self
+	fn neg(self) -> Self::Output {
+		Self(self.0.map_inner(|x| x.mul(Linear::from_f64(-1.))))
 	}
 }
 
@@ -190,12 +189,12 @@ where
 
 impl<A, B> Sub<B> for Constant<A>
 where
-	A: Basis,
-	B: Poly<Basis = A> + Mul<Scalar, Output = B>,
+	B: Neg,
+	Self: Add<B::Output>,
 {
-	type Output = B;
+	type Output = <Self as Add<B::Output>>::Output;
 	fn sub(self, rhs: B) -> Self::Output {
-		(rhs * Scalar::from(-1.)).add_basis(self.0)
+		self + -rhs
 	}
 }
 

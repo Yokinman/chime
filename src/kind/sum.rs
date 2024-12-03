@@ -128,11 +128,11 @@ where
 	}
 }
 
-impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
+impl<T: Basis, const D: usize> Neg for SumPoly<T, D> {
 	type Output = Self;
-	fn mul(mut self, rhs: Scalar) -> Self::Output {
-		self.0 = self.0.map_inner(|x| x.mul_scalar(rhs));
-		self.1 = self.1.map(|term| term.map_inner(|x| x.mul_scalar(rhs)));
+	fn neg(mut self) -> Self::Output {
+		self.0 = self.0.map_inner(|x| x.mul(Linear::from_f64(-1.)));
+		self.1 = self.1.map(|term| term.map_inner(|x| x.mul(Linear::from_f64(-1.))));
 		self
 	}
 }
@@ -158,7 +158,7 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		let mut d = 1.;
 		self.1 = self.1.map(|term| {
 			d += 1.;
-			term.map_inner(|x| x.mul_scalar(Scalar::from(d)))
+			term.map_inner(|x| x.mul(Linear::from_f64(d)))
 		});
 		self
 	}
@@ -440,13 +440,12 @@ where
 
 impl<K, T, const N: usize> Sub<K> for SumPoly<T, N>
 where
-	K: Poly + Mul<Scalar, Output = K>,
-	T: Basis,
-	Self: Add<K>,
+	K: Neg,
+	Self: Add<K::Output>,
 {
-	type Output = <Self as Add<K>>::Output;
+	type Output = <Self as Add<K::Output>>::Output;
 	fn sub(self, rhs: K) -> Self::Output {
-		self + (rhs * Scalar::from(-1.))
+		self + -rhs
 	}
 }
 
@@ -775,8 +774,8 @@ mod tests {
 	fn scalar_mul() {
 		let a = SumPoly(1.5, [2.5, 3.2, 4.5, 5.7]);
 		let b = SumPoly(7.1, [5.9, 3.1]);
-		assert_eq!(a * Scalar::from(1.5), SumPoly(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
-		assert_eq!(b * Scalar::from(1.5), SumPoly(10.649999999999999, [8.850000000000001, 4.65]));
+		assert_eq!(a.map(|x| x * 1.5), SumPoly(2.25, [3.75, 4.800000000000001, 6.75, 8.55]));
+		assert_eq!(b.map(|x| x * 1.5), SumPoly(10.649999999999999, [8.850000000000001, 4.65]));
 	}
 	
 	fn assert_roots<K: Poly>(p: K, expected_roots: &[f64])
