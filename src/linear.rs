@@ -104,7 +104,7 @@ mod _scalar_impls {
 	}
 }
 
-/// Any vector type that has addition and [`Scalar`] multiplication.
+/// Any vector type that has addition and scalar multiplication.
 /// 
 /// This basically just represents floating-point numbers and vector types.
 /// For vectors, operations are applied per component in parallel.
@@ -118,10 +118,6 @@ pub trait Linear: Copy + Clone + PartialEq + PartialOrd + Debug + 'static {
 	fn div(self, other: Self) -> Self;
 	
 	fn pow(self, other: Self) -> Self;
-	
-	fn mul_scalar(self, scalar: Scalar) -> Self;
-	
-	fn pow_scalar(self, scalar: Scalar) -> Self;
 	
 	fn exp(self) -> Self;
 	
@@ -146,7 +142,7 @@ pub trait Linear: Copy + Clone + PartialEq + PartialOrd + Debug + 'static {
 }
 
 mod _linear_impls {
-	use super::{Linear, Scalar};
+	use super::Linear;
 	
 	impl Linear for f64 {
 		fn add(self, other: Self) -> Self {
@@ -163,12 +159,6 @@ mod _linear_impls {
 		}
 		fn pow(self, other: Self) -> Self {
 			self.powf(other)
-		}
-		fn mul_scalar(self, scalar: Scalar) -> Self {
-			self * scalar
-		}
-		fn pow_scalar(self, scalar: Scalar) -> Self {
-			self.powf(scalar.into())
 		}
 		fn exp(self) -> Self {
 			f64::exp(self)
@@ -209,12 +199,6 @@ mod _linear_impls {
 		}
 		fn pow(self, other: Self) -> Self {
 			self.powf(other)
-		}
-		fn mul_scalar(self, scalar: Scalar) -> Self {
-			self * scalar
-		}
-		fn pow_scalar(self, scalar: Scalar) -> Self {
-			self.powf(scalar.into())
 		}
 		fn exp(self) -> Self {
 			f32::exp(self)
