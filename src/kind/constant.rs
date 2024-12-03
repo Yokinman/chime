@@ -1,7 +1,7 @@
 //! ...
 
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-use crate::{Flux, ToMoment, ToMomentMut};
+use crate::Flux;
 use crate::exp::Exp;
 use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
@@ -138,20 +138,6 @@ impl<T: Basis> Flux for Constant<T> {
 	}
 	fn change(&self) -> Self::Change {
 		Nil::default()
-	}
-}
-
-impl<T: Basis> ToMoment for Constant<T> {
-	type Moment<'a> = Self;
-	fn to_moment(&self, _time: Scalar) -> Self::Moment<'_> {
-		self.clone()
-	}
-}
-
-impl<T: Basis> ToMomentMut for Constant<T> {
-	type MomentMut<'a> = &'a mut Self;
-	fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
-		self
 	}
 }
 

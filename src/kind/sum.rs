@@ -155,32 +155,6 @@ impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
 	}
 }
 
-impl<T: Basis, const D: usize> ToMoment for SumPoly<T, D> {
-	type Moment<'a> = Self;
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-		let mut sum = self.clone();
-		sum.to_moment_mut(time);
-		sum
-	}
-}
-
-impl<T: Basis, const D: usize> ToMomentMut for SumPoly<T, D> {
-	type MomentMut<'a> = &'a mut Self;
-	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
-		if time == Scalar::from(0.) {
-			return self
-		}
-		let mut deriv = self.clone();
-		self.0 = deriv.eval(time);
-		for degree in 1..D {
-			deriv = deriv.deriv() * Scalar::from(1. / (degree as f64));
-			self.1[degree-1] = deriv.eval(time);
-			// !!! This could be made more accurate with manual deriv/eval code.
-		}
-		self
-	}
-}
-
 impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	const DEGREE: usize = D;
 	

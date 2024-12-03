@@ -1,7 +1,6 @@
 //! ... https://www.desmos.com/calculator/ko5owr56jx
 
 use std::ops::{Add, Sub};
-use crate::{ToMoment, ToMomentMut};
 use crate::kind::{Change, ChangeUp, Poly, Roots};
 use crate::kind::constant::Constant;
 use crate::kind::sum::SumPoly;
@@ -148,24 +147,6 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		)
 	}
 	fn offset_time(&mut self, _time: Scalar) {
-		todo!()
-	}
-}
-
-impl<T: Poly> ToMoment for SumProdPoly<T> {
-	type Moment<'a> = Self where Self: 'a;
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-		let mut x = self.clone();
-		let _ = x.to_moment_mut(time);
-		x
-	}
-}
-
-impl<T: Poly> ToMomentMut for SumProdPoly<T> {
-	type MomentMut<'a> = &'a mut Self where Self: 'a;
-	fn to_moment_mut(&mut self, _time: Scalar) -> Self::MomentMut<'_> {
-		// self.basis = self.eval(time);
-		// self
 		todo!()
 	}
 }

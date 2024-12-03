@@ -3,7 +3,7 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
-use crate::{Flux, ToMoment, ToMomentMut};
+use crate::Flux;
 use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::*;
 
@@ -95,25 +95,5 @@ where
 	}
 	fn change(&self) -> Self::Change {
 		Exp(self.0.change())
-	}
-}
-
-impl<T> ToMoment for Exp<T>
-where
-	T: ToMoment
-{
-	type Moment<'a> = Exp<T::Moment<'a>> where Self: 'a;
-	fn to_moment(&self, time: Scalar) -> Self::Moment<'_> {
-		Exp(self.0.to_moment(time))
-	}
-}
-
-impl<T> ToMomentMut for Exp<T>
-where
-	T: ToMomentMut
-{
-	type MomentMut<'a> = Exp<T::MomentMut<'a>> where Self: 'a;
-	fn to_moment_mut(&mut self, time: Scalar) -> Self::MomentMut<'_> {
-		Exp(self.0.to_moment_mut(time))
 	}
 }
