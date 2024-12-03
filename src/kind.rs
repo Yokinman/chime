@@ -6,7 +6,6 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use crate::linear::{Linear, Basis, Scalar};
 use crate::time::Time;
-use crate::ToMomentMut;
 
 pub mod constant;
 pub mod sum;
@@ -197,7 +196,7 @@ where
 /// 
 /// Used to define the standard representations of [`Flux`] types. In
 /// other words, the layout of a polynomial.
-pub trait Poly: ToMomentMut + Clone + Debug + 'static {
+pub trait Poly: Clone + Debug + 'static {
 	const DEGREE: usize;
 	
 	type Basis: Basis;
