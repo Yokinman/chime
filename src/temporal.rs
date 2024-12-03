@@ -280,11 +280,41 @@ impl<K: Poly> Temporal<K> {
 		self
 	}
 	
+	pub fn at_time(self, time: Time) -> Self {
+		let secs = self.secs(time);
+		Self {
+			inner: self.inner.at_time(secs),
+			time,
+		}
+	}
+	
 	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
 	where
 		K: kind_ops::Sqr
 	{
 		Temporal::new(self.inner.sqr(), self.time)
+	}
+	
+	pub fn add_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
+	where
+		K: Add<P>,
+		P: Poly,
+	{
+		Temporal {
+			inner: self.inner + other.at_time(self.time).inner,
+			time: self.time,
+		}
+	}
+	
+	pub fn sub_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
+	where
+		K: Sub<P>,
+		P: Poly,
+	{
+		Temporal {
+			inner: self.inner - other.at_time(self.time).inner,
+			time: self.time,
+		}
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
@@ -343,47 +373,11 @@ impl<T: ToMomentMut> Temporal<T> {
 			borrow: std::marker::PhantomData,
 		}
 	}
-	
-	pub fn at_time(mut self, time: Time) -> Self {
-		if self.time != time {
-			let _ = self.inner.to_moment_mut(self.secs(time));
-			self.time = time;
-		}
-		self
-	}
 }
 
 impl<T> From<T> for Temporal<T> {
 	fn from(value: T) -> Self {
 		Self::new(value, Time::ZERO)
-	}
-}
-
-impl<A, B> Add<Temporal<B>> for Temporal<A>
-where
-	A: Add<B>,
-	B: ToMomentMut,
-{
-	type Output = Temporal<<A as Add<B>>::Output>;
-	fn add(self, rhs: Temporal<B>) -> Self::Output {
-		Temporal {
-			inner: self.inner.add(rhs.at_time(self.time).inner),
-			time: self.time,
-		}
-	}
-}
-
-impl<A, B> Sub<Temporal<B>> for Temporal<A>
-where
-	A: Sub<B>,
-	B: ToMomentMut,
-{
-	type Output = Temporal<<A as Sub<B>>::Output>;
-	fn sub(self, rhs: Temporal<B>) -> Self::Output {
-		Temporal {
-			inner: self.inner.sub(rhs.at_time(self.time).inner),
-			time: self.time,
-		}
 	}
 }
 
