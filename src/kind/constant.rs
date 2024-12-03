@@ -1,7 +1,6 @@
 //! ...
 
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-use crate::Flux;
 use crate::exp::Exp;
 use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::{Basis, Linear, Scalar, Vector};
@@ -127,17 +126,6 @@ impl<T> DerefMut for Constant<T> {
 impl<T: Basis> From<T> for Constant<T> {
 	fn from(value: T) -> Self {
 		Constant(value)
-	}
-}
-
-impl<T: Basis> Flux for Constant<T> {
-	type Basis = T;
-	type Change = Nil<T>;
-	fn basis(&self) -> Self::Basis {
-		self.0.clone()
-	}
-	fn change(&self) -> Self::Change {
-		Nil::default()
 	}
 }
 

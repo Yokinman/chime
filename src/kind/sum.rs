@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
-use crate::{*, kind::*, linear::*};
+use crate::{kind::*, linear::*};
 use crate::kind::constant::Constant;
 
 /// ...
@@ -134,24 +134,6 @@ impl<T: Basis, const D: usize> Mul<Scalar> for SumPoly<T, D> {
 		self.0 = self.0.map_inner(|x| x.mul_scalar(rhs));
 		self.1 = self.1.map(|term| term.map_inner(|x| x.mul_scalar(rhs)));
 		self
-	}
-}
-
-impl<T: Basis, const D: usize> Flux for SumPoly<T, D> {
-	type Basis = T;
-	type Change = Sum<T, D>;
-	fn basis(&self) -> Self::Basis {
-		self.0.clone()
-	}
-	fn change(&self) -> Self::Change {
-		let mut i = 0.;
-		let mut n = 1.;
-		let terms = self.1.clone().map(|term| {
-			i += 1.;
-			n *= i;
-			term.map_inner(|x| x.mul_scalar(Scalar::from(n)))
-		});
-		Sum(terms)
 	}
 }
 
@@ -753,6 +735,7 @@ mod tests {
 	use crate::time::*;
 	use crate::temporal::Temporal;
 	use crate::pred::Prediction;
+	use crate::*;
 	use super::*;
 	
 	fn real_roots<K>(poly: Temporal<K>) -> impl Iterator<Item=f64>

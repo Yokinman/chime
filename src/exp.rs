@@ -3,7 +3,6 @@
 //! Can be used to map a change over time from addition to multiplication. AKA
 //! summation over time to multiplication over time.
 
-use crate::Flux;
 use crate::kind::{Change, ChangeUp, Poly};
 use crate::linear::*;
 
@@ -81,19 +80,5 @@ where
 	}
 	fn offset_time(&mut self, time: Scalar) {
 		self.0.offset_time(time)
-	}
-}
-
-impl<T> Flux for Exp<T>
-where
-	T: Flux
-{
-	type Basis = T::Basis;
-	type Change = Exp<T::Change>;
-	fn basis(&self) -> Self::Basis {
-		self.0.basis()
-	}
-	fn change(&self) -> Self::Change {
-		Exp(self.0.change())
 	}
 }

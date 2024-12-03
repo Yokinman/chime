@@ -71,7 +71,6 @@ mod _test {
 	use crate::Flux;
 	use crate::kind::{Change, Poly};
 	use crate::linear::Scalar;
-	use super::SumPoly;
 	
 	#[derive(Flux)]
 	pub struct Test {
@@ -83,19 +82,23 @@ mod _test {
 	
 	#[test]
 	fn prod() {
-		let a = SumPoly::new(5., [1.5]);
+		let a_change = crate::kind::sum::Sum([1.5]);
+		let a_basis = 5.;
+		let a = a_change.into_poly(a_basis);
 		assert_eq!(a.eval(Scalar::from(0.)), 5.);
 		assert_eq!(a.eval(Scalar::from(1.)), 6.5);
 		assert_eq!(a.eval(Scalar::from(2.)), 8.);
-		let b = Test { value: 1., mul: 2. }.to_poly();
+		let b = Test { value: 1., mul: 2. };
+		let b_change = b.change();
+		let b = b.to_poly();
 		assert_eq!(b.eval(Scalar::from(0.)), 1.);
 		assert_eq!(b.eval(Scalar::from(1.)), 2.);
 		assert_eq!(b.eval(Scalar::from(2.)), 4.);
-		let c = (a.change() * b.change()).into_poly(a.basis());
+		let c = (a_change * b_change).into_poly(a_basis);
 		assert_eq!(c.eval(Scalar::from(0.)), 5.);
 		assert_eq!(c.eval(Scalar::from(1.)), 13.);
 		assert_eq!(c.eval(Scalar::from(2.)), 29.);
-		let d = (a.change() / b.change()).into_poly(a.basis());
+		let d = (a_change / b_change).into_poly(a_basis);
 		assert_eq!(d.eval(Scalar::from(0.)), 5.);
 		assert_eq!(d.eval(Scalar::from(1.)), 3.25);
 		assert_eq!(d.eval(Scalar::from(2.)), 2.375);
