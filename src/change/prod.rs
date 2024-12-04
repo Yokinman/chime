@@ -5,7 +5,7 @@ use crate::change::{Change, Sum, SumProd};
 use crate::linear::{Basis, Linear};
 use crate::poly::SumPoly;
 
-/// Represents the pattern of repeated multiplication, `a = a * b`.
+/// The pattern of repeated multiplication, `a = a * b`.
 pub type Prod<T, const DEGREE: usize> = Exp<Sum<T, DEGREE>>;
 
 /// ...

@@ -6,7 +6,7 @@ use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
 use crate::poly::{Poly, Roots};
 
-/// ...
+/// The pattern of repeated addition, `a = a + b`.
 #[derive(Copy, Clone, Debug)]
 pub struct Sum<T, const DEGREE: usize>(pub(crate) [T; DEGREE]);
 

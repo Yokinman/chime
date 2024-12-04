@@ -7,13 +7,7 @@ use crate::change::sum::SumPoly;
 use crate::linear::{Basis, Linear};
 use crate::poly::{Poly, Roots};
 
-/// ...
-/// Represents the pattern
-/// `a = (a + b)*c`
-/// as
-/// `f(x) = (a + bc/(c-1))*c^x - bc/(c-1)`
-/// or maybe even
-/// `f(x) = (a + b/ln(c))*c^x - b/ln(c)`
+/// The pattern of alternating addition and multiplication, `a = (a + b) * c`.
 pub struct SumProd<T> {
 	pub(crate) add_term: T,
 	pub(crate) mul_term: T,
