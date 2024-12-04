@@ -102,9 +102,6 @@ where
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Constant<T>(pub T);
 
-/// ...
-pub struct ConstantIter<T>(T);
-
 impl<T> Constant<T> {
 	pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Constant<U> {
 		Constant(f(self.0))
@@ -196,29 +193,5 @@ where
 	type Output = <Self as Add<B::Output>>::Output;
 	fn sub(self, rhs: B) -> Self::Output {
 		self + -rhs
-	}
-}
-
-impl<T> IntoIterator for Constant<T>
-where
-	T: IntoIterator,
-{
-	type Item = Constant<T::Item>;
-	type IntoIter = ConstantIter<T::IntoIter>;
-	fn into_iter(self) -> Self::IntoIter {
-		ConstantIter(self.0.into_iter())
-	}
-}
-
-impl<T> Iterator for ConstantIter<T>
-where
-	T: Iterator,
-{
-	type Item = Constant<T::Item>;
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next().map(Constant)
-	}
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		self.0.size_hint()
 	}
 }
