@@ -6,10 +6,15 @@ use std::ops::{Add, Div, Mul, Sub};
 use crate::linear::{Linear, Basis};
 use crate::poly::Poly;
 
-pub mod constant;
-pub mod sum;
-pub mod prod;
-pub mod sumprod;
+pub(crate) mod constant;
+pub(crate) mod sum;
+pub(crate) mod prod;
+pub(crate) mod sumprod;
+
+pub use constant::Nil;
+pub use sum::Sum;
+pub use prod::Prod;
+pub use sumprod::{SumProd, SumProd2};
 
 /// ...
 pub trait Change {

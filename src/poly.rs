@@ -2,6 +2,11 @@ use std::cmp::Ordering;
 use crate::linear::Basis;
 use crate::time::Time;
 
+pub use crate::change::constant::Constant;
+pub use crate::change::sum::SumPoly;
+pub use crate::change::prod::ProdPoly;
+pub use crate::change::sumprod::SumProdPoly;
+
 /// An abstract description of change over time.
 /// 
 /// Used to define the standard representations of [`Flux`] types. In

@@ -1,10 +1,9 @@
 //! ...
 
 use crate::exp::Exp;
-use crate::change::Change;
-use crate::change::sum::{Sum, SumPoly};
-use crate::change::sumprod::SumProd;
+use crate::change::{Change, Sum, SumProd};
 use crate::linear::{Basis, Linear};
+use crate::poly::SumPoly;
 
 /// Represents the pattern of repeated multiplication, `a = a * b`.
 pub type Prod<T, const DEGREE: usize> = Exp<Sum<T, DEGREE>>;

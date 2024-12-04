@@ -29,7 +29,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
 	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self).into_change()};
-	let mut change_type: syn::Type = syn::parse_quote!{#chime::change::constant::Nil<Self::Basis>};
+	let mut change_type: syn::Type = syn::parse_quote!{#chime::change::Nil<Self::Basis>};
 	
 	 // Find Helper Attributes:
 	for (field_index, field) in item.fields.iter().enumerate() {
