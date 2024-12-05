@@ -8,7 +8,7 @@ use crate::linear::{Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::change::Change;
-use crate::poly::{Poly, ops as kind_ops, Roots};
+use crate::poly::{Poly, ops as kind_ops, Roots, Deriv};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::change::constant::Constant;
 
@@ -271,14 +271,20 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn initial_order(&self, time: Time) -> Option<Ordering>
 	where
-		K::Basis: PartialOrd
+		K: Deriv,
+		K::Basis: PartialOrd,
 	{
 		self.inner.initial_order(Linear::from_f64(self.secs(time)))
 	}
 	
-	pub fn deriv(mut self) -> Self {
-		self.inner = self.inner.deriv();
-		self
+	pub fn deriv(mut self) -> Temporal<K::Deriv>
+	where
+		K: Deriv
+	{
+		Temporal {
+			inner: <K as Deriv>::deriv(self.inner),
+			time: self.time,
+		}
 	}
 	
 	pub fn at_time(self, time: Time) -> Self {

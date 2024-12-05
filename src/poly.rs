@@ -102,6 +102,22 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 }
 
+impl<T, const N: usize> Deriv for [T; N]
+where
+	T: Deriv
+{
+	type Deriv = [T::Deriv; N];
+	fn deriv(self) -> Self::Deriv {
+		self.map(<T as Deriv>::deriv)
+	}
+}
+
+/// ...
+pub trait Deriv: Poly {
+	type Deriv: Deriv<Basis = Self::Basis>;
+	fn deriv(self) -> Self::Deriv;
+}
+
 /// Combining [`Poly`] types.
 /// 
 /// Primarily this serves as a way to put two kinds of change-over-time into

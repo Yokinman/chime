@@ -5,7 +5,7 @@
 
 use crate::change::{Change, ChangeUp};
 use crate::linear::*;
-use crate::poly::Poly;
+use crate::poly::{Deriv, Poly};
 
 /// A linear map that translates between addition and multiplication.
 /// 
@@ -81,5 +81,15 @@ where
 	}
 	fn offset_time(&mut self, time: <Self::Basis as Basis>::Inner) {
 		self.0.offset_time(time)
+	}
+}
+
+impl<T> Deriv for Exp<T>
+where
+	T: Deriv
+{
+	type Deriv = Exp<T::Deriv>;
+	fn deriv(self) -> Self::Deriv {
+		Exp(Deriv::deriv(self.0))
 	}
 }

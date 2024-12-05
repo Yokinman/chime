@@ -4,7 +4,7 @@ use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::change::{Change, ChangeUp, Sum};
 use crate::linear::{Basis, Linear, Vector};
-use crate::poly::Poly;
+use crate::poly::{Deriv, Poly};
 
 /// ...
 pub struct Nil<T>(std::marker::PhantomData<T>);
@@ -144,6 +144,16 @@ impl<T: Basis> Poly for Constant<T> {
 		self.0.clone()
 	}
 	fn offset_time(&mut self, _time: <Self::Basis as Basis>::Inner) {}
+}
+
+impl<T> Deriv for Constant<T>
+where
+	T: Basis
+{
+	type Deriv = Self;
+	fn deriv(self) -> Self::Deriv {
+		Self(T::zero())
+	}
 }
 
 impl<T, const SIZE: usize> Vector<SIZE> for Constant<T>

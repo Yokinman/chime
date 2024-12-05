@@ -7,7 +7,7 @@ use crate::linear::{Linear, Basis, Vector};
 use crate::time;
 use crate::time::Time;
 use crate::temporal::Temporal;
-use crate::poly::{IntoTimes, Poly, Roots, RootFilterMap, ops::Sqr};
+use crate::poly::{IntoTimes, Poly, Roots, RootFilterMap, ops::Sqr, Deriv};
 
 /// Function that converts a root value to a Time, or ignores it.
 pub(crate) trait TimeFilterMap: Clone {
@@ -60,7 +60,7 @@ impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
 where
 	A: Poly<Basis: PartialEq>,
 	B: Poly<Basis = A::Basis>,
-	D: Poly<Basis = A::Basis>,
+	D: Poly<Basis = A::Basis> + Deriv,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -143,7 +143,7 @@ where
 	B: Vector<SIZE, Output: Poly<Basis = D::Basis>> + Clone,
 	D: Poly<Basis: PartialEq>,
 	E: Poly<Basis = D::Basis>,
-	F: Poly<Basis = D::Basis>,
+	F: Poly<Basis = D::Basis> + Deriv,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -441,7 +441,7 @@ where
 
 impl<K> Prediction for Pred<K>
 where
-	K: Roots + PartialEq,
+	K: Roots + PartialEq + Deriv,
 	K::Basis: PartialOrd,
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
@@ -642,7 +642,7 @@ pub trait When<B: Poly>: Poly {
 
 impl<A, B> When<B> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis> + Deriv>,
 	B: Poly<Basis = A::Basis>,
 	A::Basis: PartialOrd,
 {
@@ -674,7 +674,7 @@ pub trait WhenEq<B: Poly>: Poly {
 
 impl<A, B> WhenEq<B> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis>>,
+	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis> + Deriv>,
 	B: Poly<Basis = A::Basis>,
 	A::Basis: PartialEq,
 {
@@ -717,6 +717,7 @@ where
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis = D::Basis>
+			+ Deriv
 		>,
 	>,
 {
@@ -775,6 +776,7 @@ where
 			+ Roots
 			+ PartialEq
 			+ Poly<Basis = D::Basis>
+			+ Deriv
 		>,
 	>,
 {

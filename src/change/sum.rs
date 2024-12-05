@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
-use crate::poly::{Poly, Roots};
+use crate::poly::{Deriv, Poly, Roots};
 
 /// The pattern of repeated addition, `a = a + b`.
 #[derive(Copy, Clone, Debug)]
@@ -193,6 +193,13 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	}
 }
 
+impl<T: Basis> Deriv for SumPoly<T, 0> {
+	type Deriv = Self;
+	fn deriv(self) -> Self::Deriv {
+		Self(T::zero(), [])
+	}
+}
+
 impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for SumPoly<T, DEGREE>
 where
 	T: Vector<SIZE>
@@ -241,6 +248,18 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
+		impl<T: Basis> Deriv for SumPoly<T, { $($num +)+ 0 }> {
+			type Deriv = SumPoly<T, { $($num +)+ 0 - 1 }>;
+			fn deriv(self) -> Self::Deriv {
+				SumPoly(
+					self.1[0].clone(),
+					std::array::from_fn(|i| {
+						let term = self.1[i + 1].clone();
+						term.map_inner(|x| x.mul(Linear::from_f64((i + 2) as f64)))
+					})
+				)
+			}
+		}
 		impl<T: Basis> ChangeUp<'+'> for Sum<T, { $($num +)+ 0 }> {
 			type Up = Sum<T, { $($num +)+ 1 }>;
 			fn up(self, basis: Self::Basis) -> Self::Up {

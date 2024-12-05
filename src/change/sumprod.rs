@@ -5,7 +5,7 @@ use crate::change::{Change, ChangeUp};
 use crate::change::constant::Constant;
 use crate::change::sum::SumPoly;
 use crate::linear::{Basis, Linear};
-use crate::poly::{Poly, Roots};
+use crate::poly::{Deriv, Poly, Roots};
 
 /// The pattern of alternating addition and multiplication, `a = (a + b) * c`.
 pub struct SumProd<T> {
@@ -143,6 +143,21 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 	}
 	fn offset_time(&mut self, _time: <Self::Basis as Basis>::Inner) {
 		todo!()
+	}
+}
+
+impl<T> Deriv for SumProdPoly<T>
+where
+	T: Deriv
+{
+	type Deriv = SumProdPoly<T::Deriv>;
+	fn deriv(self) -> Self::Deriv {
+		let add_term = self.add_term.zip_map_inner(self.mul_term.clone(), |a, b| a.mul(b.ln()));
+		SumProdPoly {
+			add_term: add_term.clone(),
+			mul_term: self.mul_term,
+			basis: Deriv::deriv(self.basis).add_basis(add_term),
+		}
 	}
 }
 
