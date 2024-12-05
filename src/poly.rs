@@ -35,36 +35,22 @@ pub trait Poly: Clone {
 	/// 
 	/// This should be the first non-zero [`Poly::eval`] value of this kind
 	/// or its derivatives; reversed for odd derivatives.
-	fn initial_order(&self, time: <Self::Basis as Basis>::Inner) -> Option<Ordering>
+	fn initial_order(self, time: <Self::Basis as Basis>::Inner) -> Option<Ordering>
 	where
-		Self::Basis: PartialOrd
+		Self: Deriv,
+		Self::Basis: PartialOrd,
 	{
 		// !!! Alternative: Translate polynomial using `to_time` and then check
 		// leading terms in order. Unknown which is more precise/faster.
 		
-		use std::borrow::Cow;
+		let order = self.eval(time)
+			.partial_cmp(&Basis::zero());
 		
-		let mut deriv = Cow::Borrowed(self);
-		
-		for degree in 0..=Self::DEGREE {
-			let order = deriv.eval(time)
-				.partial_cmp(&Basis::zero());
-			
-			if order != Some(Ordering::Equal) || degree == Self::DEGREE {
-				return if degree % 2 == 0 {
-					order
-				} else {
-					order.map(Ordering::reverse)
-				}
-			}
-			
-			deriv = match deriv {
-				Cow::Borrowed(x) => Cow::Owned(x.clone().deriv()),
-				Cow::Owned(x) => Cow::Owned(x.deriv()),
-			};
+		if order != Some(Ordering::Equal) || Self::DEGREE == 0 {
+			return order
 		}
 		
-		None
+		Deriv::deriv(self).initial_order(time).map(Ordering::reverse)
 	}
 	
 	fn zero() -> Self {

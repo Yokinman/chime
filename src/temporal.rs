@@ -269,15 +269,16 @@ impl<K: Poly> Temporal<K> {
 		self.inner.eval(Linear::from_f64(self.secs(time)))
 	}
 	
-	pub fn initial_order(&self, time: Time) -> Option<Ordering>
+	pub fn initial_order(self, time: Time) -> Option<Ordering>
 	where
 		K: Deriv,
 		K::Basis: PartialOrd,
 	{
-		self.inner.initial_order(Linear::from_f64(self.secs(time)))
+		let secs = self.secs(time);
+		self.inner.initial_order(Linear::from_f64(secs))
 	}
 	
-	pub fn deriv(mut self) -> Temporal<K::Deriv>
+	pub fn deriv(self) -> Temporal<K::Deriv>
 	where
 		K: Deriv
 	{

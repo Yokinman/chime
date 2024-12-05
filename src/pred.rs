@@ -446,7 +446,7 @@ where
 {
 	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
-		let basis_order = self.poly
+		let basis_order = self.poly.clone()
 			.initial_order(Time::ZERO)
 			.unwrap_or(Ordering::Equal);
 		let times = RootFilterMap {
