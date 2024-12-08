@@ -141,9 +141,6 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 			}
 		)
 	}
-	fn offset_time(&mut self, _time: <Self::Basis as Basis>::Inner) {
-		todo!()
-	}
 }
 
 impl<T> Deriv for SumProdPoly<T>

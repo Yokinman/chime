@@ -143,7 +143,6 @@ impl<T: Basis> Poly for Constant<T> {
 	fn eval(&self, _time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.clone()
 	}
-	fn offset_time(&mut self, _time: <Self::Basis as Basis>::Inner) {}
 }
 
 impl<T> Deriv for Constant<T>
