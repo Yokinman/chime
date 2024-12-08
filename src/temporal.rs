@@ -8,7 +8,7 @@ use crate::linear::{Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::change::Change;
-use crate::poly::{Poly, ops as kind_ops, Roots, Deriv};
+use crate::poly::{Poly, ops as kind_ops, Roots, Deriv, PolyOffset};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::change::constant::Constant;
 
@@ -109,8 +109,8 @@ impl<T: Poly> Temporal<T> {
 	/// Ranges when this is above/below/equal to another flux.
 	pub fn when<U>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
 	where
-		T: When<U>,
-		U: Poly,
+		T: When<U::Offset>,
+		U: PolyOffset,
 	{
 		let time = self.time;
 		T::when(self, cmp, other.at_time(time))
@@ -119,8 +119,8 @@ impl<T: Poly> Temporal<T> {
 	/// Times when this is equal to another flux.
 	pub fn when_eq<U>(self, other: Temporal<U>) -> T::Pred
 	where
-		T: WhenEq<U>,
-		U: Poly,
+		T: WhenEq<U::Offset>,
+		U: PolyOffset,
 	{
 		let time = self.time;
 		T::when_eq(self, other.at_time(time))
@@ -150,9 +150,9 @@ impl<T: Poly> Temporal<T> {
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDis<U, D, SIZE>,
-		U: Poly,
-		D: Poly,
+		T: WhenDis<U::Offset, D::Offset, SIZE>,
+		U: PolyOffset,
+		D: PolyOffset,
 	{
 		let time = self.time;
 		T::when_dis(self, other.at_time(time), cmp, dis.at_time(time))
@@ -165,9 +165,9 @@ impl<T: Poly> Temporal<T> {
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDisEq<U, D, SIZE>,
-		U: Poly,
-		D: Poly,
+		T: WhenDisEq<U::Offset, D::Offset, SIZE>,
+		U: PolyOffset,
+		D: PolyOffset,
 	{
 		let time = self.time;
 		T::when_dis_eq(self, other.at_time(time), dis.at_time(time))
@@ -182,8 +182,8 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDis<U, Constant<<T::Output as Poly>::Basis>, SIZE>,
-		U: Poly,
+			+ WhenDis<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
+		U: PolyOffset,
 	{
 		self.when_dis(other, cmp, Temporal::from(Constant(dis)))
 	}
@@ -196,8 +196,8 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDisEq<U, Constant<<T::Output as Poly>::Basis>, SIZE>,
-		U: Poly,
+			+ WhenDisEq<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
+		U: PolyOffset,
 	{
 		self.when_dis_eq(other, Temporal::from(Constant(dis)))
 	}
@@ -208,13 +208,13 @@ impl<T: Poly> Temporal<T> {
 		index: usize,
 		cmp: Ordering,
 		other: Temporal<U>,
-	) -> <T::Output as When<U>>::Pred
+	) -> <T::Output as When<U::Offset>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + When<U>>,
-		U: Poly,
+		T: Vector<SIZE, Output: Poly + When<U::Offset>>,
+		U: PolyOffset,
 	{
 		let time = self.time;
-		<T::Output as When<U>>::when(self.index(index), cmp, other.at_time(time))
+		<T::Output as When<U::Offset>>::when(self.index(index), cmp, other.at_time(time))
 	}
 	
 	/// Times when a component is equal to another flux.
@@ -222,13 +222,13 @@ impl<T: Poly> Temporal<T> {
 		self,
 		index: usize,
 		other: Temporal<U>,
-	) -> <T::Output as WhenEq<U>>::Pred
+	) -> <T::Output as WhenEq<U::Offset>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + WhenEq<U>>,
-		U: Poly,
+		T: Vector<SIZE, Output: Poly + WhenEq<U::Offset>>,
+		U: PolyOffset,
 	{
 		let time = self.time;
-		<T::Output as WhenEq<U>>::when_eq(self.index(index), other.at_time(time))
+		<T::Output as WhenEq<U::Offset>>::when_eq(self.index(index), other.at_time(time))
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
@@ -288,10 +288,13 @@ impl<K: Poly> Temporal<K> {
 		}
 	}
 	
-	pub fn at_time(self, time: Time) -> Self {
+	pub fn at_time(self, time: Time) -> Temporal<K::Offset>
+	where
+		K: PolyOffset
+	{
 		let secs = self.secs(time);
-		Self {
-			inner: self.inner.at_time(Linear::from_f64(secs)),
+		Temporal {
+			inner: self.inner.offset(Linear::from_f64(secs)),
 			time,
 		}
 	}
@@ -305,8 +308,8 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn add_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
-		K: Add<P>,
-		P: Poly,
+		K: Add<P::Offset>,
+		P: PolyOffset,
 	{
 		Temporal {
 			inner: self.inner + other.at_time(self.time).inner,
@@ -316,8 +319,8 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn sub_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
-		K: Sub<P>,
-		P: Poly,
+		K: Sub<P::Offset>,
+		P: PolyOffset,
 	{
 		Temporal {
 			inner: self.inner - other.at_time(self.time).inner,
