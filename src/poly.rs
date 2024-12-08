@@ -88,6 +88,16 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 }
 
+impl<T, const N: usize> PolyOffset for [T; N]
+where
+	T: PolyOffset
+{
+	type Offset = [T::Offset; N];
+	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		self.map(|x| x.offset(amount))
+	}
+}
+
 impl<T, const N: usize> Deriv for [T; N]
 where
 	T: Deriv
@@ -102,6 +112,12 @@ where
 pub trait Deriv: Poly {
 	type Deriv: Deriv<Basis = Self::Basis>;
 	fn deriv(self) -> Self::Deriv;
+}
+
+/// ...
+pub trait PolyOffset: Poly {
+	type Offset: Poly<Basis = Self::Basis>;
+	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset;
 }
 
 /// Combining [`Poly`] types.

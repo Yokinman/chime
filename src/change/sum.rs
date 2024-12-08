@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
-use crate::poly::{Deriv, Poly, Roots};
+use crate::poly::{Deriv, Poly, PolyOffset, Roots};
 
 /// The pattern of repeated addition, `a = a + b`.
 #[derive(Copy, Clone, Debug)]
@@ -200,6 +200,13 @@ impl<T: Basis> Deriv for SumPoly<T, 0> {
 	}
 }
 
+impl<T: Basis> PolyOffset for SumPoly<T, 0> {
+	type Offset = Self;
+	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		self
+	}
+}
+
 impl<T, const DEGREE: usize, const SIZE: usize> Vector<SIZE> for SumPoly<T, DEGREE>
 where
 	T: Vector<SIZE>
@@ -258,6 +265,24 @@ macro_rules! impl_deg_order {
 						term.map_inner(|x| x.mul(Linear::from_f64((i + 2) as f64)))
 					})
 				)
+			}
+		}
+		impl<T: Basis> PolyOffset for SumPoly<T, { $($num +)+ 0 }> {
+			type Offset = Self;
+			fn offset(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+				if amount == Linear::zero() {
+					return self
+				}
+				let mut deriv = self.clone();
+				self.0 = deriv.eval(amount);
+				const D: usize = { $($num +)+ 0 };
+				for degree in 1..D {
+					deriv = Poly::deriv(deriv).map(|term| term.map_inner(|x| {
+						x.mul(Linear::from_f64(1. / (degree as f64)))
+					}));
+					self.1[degree-1] = deriv.eval(amount);
+				}
+				self
 			}
 		}
 		impl<T: Basis> ChangeUp<'+'> for Sum<T, { $($num +)+ 0 }> {

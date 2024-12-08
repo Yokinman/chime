@@ -4,7 +4,7 @@ use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::change::{Change, ChangeUp, Sum};
 use crate::linear::{Basis, Linear, Vector};
-use crate::poly::{Deriv, Poly};
+use crate::poly::{Deriv, Poly, PolyOffset};
 
 /// ...
 pub struct Nil<T>(std::marker::PhantomData<T>);
@@ -153,6 +153,16 @@ where
 	type Deriv = Self;
 	fn deriv(self) -> Self::Deriv {
 		Self(T::zero())
+	}
+}
+
+impl<T> PolyOffset for Constant<T>
+where
+	T: Basis
+{
+	type Offset = Self;
+	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		self
 	}
 }
 
