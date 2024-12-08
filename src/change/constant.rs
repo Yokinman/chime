@@ -137,9 +137,6 @@ impl<T: Basis> Poly for Constant<T> {
 		self.0 = self.0.zip_map_inner(basis, T::Inner::add);
 		self
 	}
-	fn deriv(self) -> Self {
-		Self::zero()
-	}
 	fn eval(&self, _time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.clone()
 	}

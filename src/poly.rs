@@ -20,8 +20,6 @@ pub trait Poly: Clone {
 	
 	fn add_basis(self, value: Self::Basis) -> Self;
 	
-	fn deriv(self) -> Self;
-	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis;
 	
 	/// The order at or immediately preceding the value at a time.
@@ -67,9 +65,6 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	fn add_basis(self, value: Self::Basis) -> Self {
 		let mut values = value.into_iter();
 		self.map(|x| x.add_basis(values.next().unwrap()))
-	}
-	fn deriv(self) -> Self {
-		self.map(T::deriv)
 	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))

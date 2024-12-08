@@ -152,18 +152,6 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		self
 	}
 	
-	fn deriv(mut self) -> Self {
-		std::mem::swap(&mut self.0, &mut self.1[0]);
-		self.1.rotate_left(1);
-		self.1[D-1] = T::zero();
-		let mut d = 1.;
-		self.1 = self.1.map(|term| {
-			d += 1.;
-			term.map_inner(|x| x.mul(Linear::from_f64(d)))
-		});
-		self
-	}
-	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		if time == Linear::zero() {
 			return self.0.clone()
@@ -262,7 +250,18 @@ macro_rules! impl_deg_order {
 				self.0 = deriv.eval(amount);
 				const D: usize = { $($num +)+ 0 };
 				for degree in 1..D {
-					deriv = Poly::deriv(deriv).map(|term| term.map_inner(|x| {
+					deriv = {
+						std::mem::swap(&mut deriv.0, &mut deriv.1[0]);
+						deriv.1.rotate_left(1);
+						deriv.1[D-1] = T::zero();
+						let mut d = 1.;
+						deriv.1 = deriv.1.map(|term| {
+							d += 1.;
+							term.map_inner(|x| x.mul(Linear::from_f64(d)))
+						});
+						deriv
+					};
+					deriv = deriv.map(|term| term.map_inner(|x| {
 						x.mul(Linear::from_f64(1. / (degree as f64)))
 					}));
 					self.1[degree-1] = deriv.eval(amount);

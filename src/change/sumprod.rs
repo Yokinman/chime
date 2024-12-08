@@ -116,11 +116,6 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 		self.basis = self.basis.add_basis(basis);
 		self
 	}
-	fn deriv(mut self) -> Self {
-		self.add_term = self.add_term.zip_map_inner(self.mul_term.clone(), |a, b| a.mul(b.ln()));
-		self.basis = self.basis.deriv().add_basis(self.add_term.clone());
-		self
-	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		Basis::each_map_inner(
 			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],
