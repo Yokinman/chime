@@ -655,7 +655,10 @@ where
 		cmp: Ordering,
 		b_poly: Temporal<B>,
 	) -> Self::Pred {
-		let diff_poly = a_poly.clone().sub_poly(b_poly.clone());
+		let diff_poly = Temporal {
+			inner: a_poly.inner.clone() - b_poly.inner.clone(),
+			time: a_poly.time,
+		};
 		diff_poly.clone()
 			.when_sign(cmp, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
 	}
@@ -686,7 +689,10 @@ where
 		a_poly: Temporal<A>,
 		b_poly: Temporal<B>,
 	) -> Self::Pred {
-		let diff_poly = a_poly.clone().sub_poly(b_poly.clone());
+		let diff_poly = Temporal {
+			inner: a_poly.inner.clone() - b_poly.inner.clone(),
+			time: a_poly.time,
+		};
 		diff_poly.clone()
 			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })
 	}
@@ -738,13 +744,14 @@ where
 	) -> Self::Pred {
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + a_pos.index(i).inner
-				.sub(b_pos.index(i).at_time(a_pos.time).inner)
-				.sqr();
+			sum = sum + (a_pos.index(i).inner - b_pos.index(i).inner).sqr();
 		}
 		
 		let pos_poly = Temporal::new(sum, a_pos.time);
-		let diff_poly = pos_poly.clone().sub_poly(dis_poly.clone().sqr());
+		let diff_poly = Temporal {
+			inner: pos_poly.inner.clone() - dis_poly.clone().sqr().inner,
+			time: a_pos.time,
+		};
 		
 		diff_poly.clone().when_sign(
 			cmp,
@@ -796,13 +803,14 @@ where
 	) -> Self::Pred {
 		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
 		for i in 0..SIZE {
-			sum = sum + a_pos.index(i).inner
-				.sub(b_pos.index(i).at_time(a_pos.time).inner)
-				.sqr();
+			sum = sum + (a_pos.index(i).inner - b_pos.index(i).inner).sqr();
 		}
 		
 		let pos_poly = Temporal::new(sum, a_pos.time);
-		let diff_poly = pos_poly.clone().sub_poly(dis_poly.clone().sqr());
+		let diff_poly = Temporal {
+			inner: pos_poly.inner.clone() - dis_poly.clone().sqr().inner,
+			time: a_pos.time,
+		};
 		
 		diff_poly.clone()
 			.when_zero(DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly })
