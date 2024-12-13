@@ -44,9 +44,7 @@ pub trait Poly: Clone {
 		Deriv::deriv(self).initial_order(time).map(Ordering::reverse)
 	}
 	
-	fn zero() -> Self {
-		Self::with_basis(Basis::zero())
-	}
+	fn zero() -> Self;
 	
 	fn is_zero(&self) -> bool
 	where
@@ -68,6 +66,9 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))
+	}
+	fn zero() -> Self {
+		std::array::from_fn(|_| T::zero())
 	}
 }
 

@@ -164,6 +164,10 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 		self.0.clone()
 			.zip_map_inner(value, |a, b| a.add(b.mul(time)))
 	}
+
+	fn zero() -> Self {
+		Self(T::zero(), std::array::from_fn(|_| T::zero()))
+	}
 }
 
 impl<T: Basis> Deriv for SumPoly<T, 0> {

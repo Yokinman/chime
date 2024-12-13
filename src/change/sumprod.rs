@@ -136,6 +136,13 @@ impl<T: Poly> Poly for SumProdPoly<T> {
 			}
 		)
 	}
+	fn zero() -> Self {
+		Self {
+			basis: T::zero(),
+			add_term: Basis::zero(),
+			mul_term: Basis::zero(),
+		}
+	}
 }
 
 impl<T> Deriv for SumProdPoly<T>

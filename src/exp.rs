@@ -76,6 +76,9 @@ where
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.eval(time).map_inner(Linear::exp)
 	}
+	fn zero() -> Self {
+		Self(T::zero())
+	}
 }
 
 impl<T> Deriv for Exp<T>

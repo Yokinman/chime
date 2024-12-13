@@ -140,6 +140,9 @@ impl<T: Basis> Poly for Constant<T> {
 	fn eval(&self, _time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.clone()
 	}
+	fn zero() -> Self {
+		Self(T::zero())
+	}
 }
 
 impl<T> Deriv for Constant<T>
