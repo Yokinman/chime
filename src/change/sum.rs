@@ -87,7 +87,7 @@ impl<T, const D: usize> SumPoly<T, D> {
 
 impl<T: Basis, const D: usize> From<T> for SumPoly<T, D> {
 	fn from(value: T) -> Self {
-		Self::with_basis(value)
+		Self(value, std::array::from_fn(|_| T::zero()))
 	}
 }
 
@@ -142,10 +142,6 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	const DEGREE: usize = D;
 	
 	type Basis = T;
-	
-	fn with_basis(value: Self::Basis) -> Self {
-		Self(value, std::array::from_fn(|_| T::zero()))
-	}
 	
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
 		self.0 = self.0.zip_map_inner(basis, T::Inner::add);

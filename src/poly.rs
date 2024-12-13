@@ -16,8 +16,6 @@ pub trait Poly: Clone {
 	
 	type Basis: Basis;
 	
-	fn with_basis(value: Self::Basis) -> Self;
-	
 	fn add_basis(self, value: Self::Basis) -> Self;
 	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis;
@@ -57,9 +55,6 @@ pub trait Poly: Clone {
 impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
 	type Basis = [T::Basis; SIZE];
-	fn with_basis(value: Self::Basis) -> Self {
-		value.map(T::with_basis)
-	}
 	fn add_basis(self, value: Self::Basis) -> Self {
 		let mut values = value.into_iter();
 		self.map(|x| x.add_basis(values.next().unwrap()))

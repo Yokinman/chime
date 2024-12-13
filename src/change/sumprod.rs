@@ -105,13 +105,6 @@ pub struct SumProdPoly<T: Poly> {
 impl<T: Poly> Poly for SumProdPoly<T> {
 	const DEGREE: usize = usize::MAX;
 	type Basis = T::Basis;
-	fn with_basis(basis: Self::Basis) -> Self {
-		Self {
-			basis: T::with_basis(basis),
-			add_term: Basis::zero(),
-			mul_term: Basis::zero(),
-		}
-	}
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
 		self.basis = self.basis.add_basis(basis);
 		self

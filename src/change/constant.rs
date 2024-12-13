@@ -130,9 +130,6 @@ impl<T: Basis> From<T> for Constant<T> {
 impl<T: Basis> Poly for Constant<T> {
 	const DEGREE: usize = 0;
 	type Basis = T;
-	fn with_basis(value: Self::Basis) -> Self {
-		Constant(value)
-	}
 	fn add_basis(mut self, basis: Self::Basis) -> Self {
 		self.0 = self.0.zip_map_inner(basis, T::Inner::add);
 		self
