@@ -105,10 +105,6 @@ pub struct SumProdPoly<T: Poly> {
 impl<T: Poly> Poly for SumProdPoly<T> {
 	const DEGREE: usize = usize::MAX;
 	type Basis = T::Basis;
-	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.basis = self.basis.add_basis(basis);
-		self
-	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		Basis::each_map_inner(
 			[self.basis.eval(time), self.add_term.clone(), self.mul_term.clone()],

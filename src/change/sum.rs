@@ -143,11 +143,6 @@ impl<T: Basis, const D: usize> Poly for SumPoly<T, D> {
 	
 	type Basis = T;
 	
-	fn add_basis(mut self, basis: Self::Basis) -> Self {
-		self.0 = self.0.zip_map_inner(basis, T::Inner::add);
-		self
-	}
-	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		if time == Linear::zero() {
 			return self.0.clone()

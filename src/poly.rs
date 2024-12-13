@@ -16,8 +16,6 @@ pub trait Poly: Clone {
 	
 	type Basis: Basis;
 	
-	fn add_basis(self, value: Self::Basis) -> Self;
-	
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis;
 	
 	/// The order at or immediately preceding the value at a time.
@@ -55,10 +53,6 @@ pub trait Poly: Clone {
 impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	const DEGREE: usize = T::DEGREE;
 	type Basis = [T::Basis; SIZE];
-	fn add_basis(self, value: Self::Basis) -> Self {
-		let mut values = value.into_iter();
-		self.map(|x| x.add_basis(values.next().unwrap()))
-	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.each_ref().map(|x| T::eval(x, time))
 	}

@@ -67,9 +67,6 @@ where
 {
 	const DEGREE: usize = T::DEGREE;
 	type Basis = T::Basis;
-	fn add_basis(self, basis: Self::Basis) -> Self {
-		Self(self.0.add_basis(basis.map_inner(Linear::ln)))
-	}
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
 		self.0.eval(time).map_inner(Linear::exp)
 	}
