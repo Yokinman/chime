@@ -190,24 +190,22 @@ where
 	}
 }
 
-impl<A, B> Add<B> for Constant<A>
+impl<A, B> Add<Constant<B>> for Constant<A>
 where
-	A: Basis,
-	B: Poly<Basis = A>,
+	A: Add<B>,
 {
-	type Output = B;
-	fn add(self, rhs: B) -> Self::Output {
-		rhs.add_basis(self.0)
+	type Output = Constant<A::Output>;
+	fn add(self, rhs: Constant<B>) -> Self::Output {
+		Constant(self.0 + rhs.0)
 	}
 }
 
-impl<A, B> Sub<B> for Constant<A>
+impl<A, B> Sub<Constant<B>> for Constant<A>
 where
-	B: Neg,
-	Self: Add<B::Output>,
+	A: Sub<B>,
 {
-	type Output = <Self as Add<B::Output>>::Output;
-	fn sub(self, rhs: B) -> Self::Output {
-		self + -rhs
+	type Output = Constant<A::Output>;
+	fn sub(self, rhs: Constant<B>) -> Self::Output {
+		Constant(self.0 - rhs.0)
 	}
 }
