@@ -51,6 +51,153 @@ where
 	}
 }
 
+/// ...
+#[derive(Copy, Clone, Debug)]
+pub struct Monomial<T, const DEGREE: usize>(T);
+
+impl<T, const D: usize> Poly for Monomial<T, D>
+where
+	T: Basis
+{
+	const DEGREE: usize = D;
+	type Basis = T;
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
+		self.0.clone()
+			.map_inner(|n| n.mul(time.pow(Linear::from_f64(D as f64))))
+	}
+	fn zero() -> Self {
+		Self(T::zero())
+	}
+}
+
+impl<T> Deriv for Monomial<T, 1>
+where
+	T: Basis
+{
+	type Deriv = Constant<T>;
+	fn deriv(self) -> Self::Deriv {
+		Constant(self.0)
+	}
+}
+
+/// ...
+pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
+	const DEG: usize;
+	
+	fn sum_eval(
+		&self,
+		sum: Self::Basis,
+		time: <Self::Basis as Basis>::Inner,
+	) -> Self::Basis;
+}
+
+impl<T> MonomialOrder<Monomial<T, 1>> for Constant<T>
+where
+	T: Basis
+{
+	const DEG: usize = 0;
+	
+	fn sum_eval(
+		&self,
+		sum: Self::Basis,
+		time: <Self::Basis as Basis>::Inner,
+	) -> Self::Basis {
+		self.eval(time)
+			.zip_map_inner(sum, Linear::add)
+	}
+}
+
+/// Summation over time.
+/// 
+/// `Binomial<Monomial<T, 2>, Binomial<Monomial<T, 1>, Constant<T>>>`: `a + bx + cx^2`
+#[derive(Copy, Clone, Debug)]
+pub struct Binomial<A, B> {
+	lhs: A,
+	rhs: B,
+}
+
+impl<A, B> Poly for Binomial<A, B>
+where
+	A: Poly,
+	B: MonomialOrder<A>,
+{
+	const DEGREE: usize = A::DEGREE;
+	type Basis = A::Basis;
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
+		let sum = self.lhs.eval(Linear::from_f64(1.))
+			.map_inner(|n| n.mul(time));
+		self.rhs.sum_eval(sum, time)
+	}
+	fn zero() -> Self {
+		Self {
+			lhs: A::zero(),
+			rhs: B::zero(),
+		}
+	}
+}
+
+impl<A, B, const D: usize> Deriv for Binomial<A, Monomial<B, D>>
+where
+	A: Deriv,
+	Monomial<B, D>: MonomialOrder<A> + Deriv,
+	Binomial<A::Deriv, <Monomial<B, D> as Deriv>::Deriv>: Deriv<Basis = A::Basis>,
+{
+	type Deriv = Binomial<A::Deriv, <Monomial<B, D> as Deriv>::Deriv>;
+	fn deriv(self) -> Self::Deriv {
+		Binomial {
+			lhs: self.lhs.deriv(),
+			rhs: self.rhs.deriv(),
+		}
+	}
+}
+
+impl<A, B, C> Deriv for Binomial<A, Binomial<B, C>>
+where
+	A: Deriv,
+	Binomial<B, C>: MonomialOrder<A> + Deriv,
+	Binomial<A::Deriv, <Binomial<B, C> as Deriv>::Deriv>: Deriv<Basis = A::Basis>,
+{
+	type Deriv = Binomial<A::Deriv, <Binomial<B, C> as Deriv>::Deriv>;
+	fn deriv(self) -> Self::Deriv {
+		Binomial {
+			lhs: self.lhs.deriv(),
+			rhs: self.rhs.deriv(),
+		}
+	}
+}
+
+impl<A, B> Deriv for Binomial<A, Constant<B>>
+where
+	A: Deriv,
+	Constant<B>: MonomialOrder<A>,
+{
+	type Deriv = A::Deriv;
+	fn deriv(self) -> Self::Deriv {
+		self.lhs.deriv()
+	}
+}
+
+#[test]
+fn binomial_temp() {
+	let a = SumPoly::new(5., [10., 0.9, 0., 4.]);
+	let b = Binomial {
+		lhs: Monomial::<_, 4>(4.),
+		rhs: Binomial {
+			lhs: Monomial::<_, 2>(0.9),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(10.),
+				rhs: Constant(5.),
+			}
+		}
+	};
+	for i in 0..100 {
+		let t = i as f64;
+		println!("> {:?}", (a.eval(t), b.eval(t)));
+		assert_eq!(a.eval(t), b.eval(t));
+		assert_eq!(a.deriv().eval(t), b.deriv().eval(t));
+	}
+}
+
 /// Summation over time.
 /// 
 /// - `SumPoly<0>`: `a`
@@ -223,6 +370,72 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
+		impl<T> Deriv for Monomial<T, { $($num +)+ 1 }>
+		where
+			T: Basis
+		{
+			type Deriv = Monomial<T, { $($num +)+ 0 }>;
+			fn deriv(self) -> Self::Deriv {
+				Monomial(self.0.map_inner(
+					|x| x.mul(Linear::from_f64({ $($num +)+ 1 } as f64))))
+			}
+		}
+		
+		impl<T> MonomialOrder<Monomial<T, { $($num +)+ 1 }>> for Monomial<T, { $($num +)+ 0 }>
+		where
+			T: Basis
+		{
+			const DEG: usize = { $($num +)+ 0 };
+			
+			// ax^2 + bx + c -> (ax + b)x + c
+			fn sum_eval(
+				&self,
+				sum: Self::Basis,
+				time: <Self::Basis as Basis>::Inner,
+			) -> Self::Basis {
+				self.eval(time)
+					.zip_map_inner(sum, Linear::add)
+			}
+		}
+		
+		impl<T, R> MonomialOrder<Monomial<T, { $($num +)+ 1 }>> for Binomial<Monomial<T, { $($num +)+ 0 }>, R>
+		where
+			T: Basis,
+			R: MonomialOrder<Monomial<T, { $($num +)+ 0 }>>,
+		{
+			const DEG: usize = { $($num +)+ 0 };
+			fn sum_eval(
+				&self,
+				sum: Self::Basis,
+				time: <Self::Basis as Basis>::Inner,
+			) -> Self::Basis {
+				let sum = self.lhs.eval(Linear::from_f64(1.))
+					.zip_map_inner(sum, |a, b| a.add(b).mul(time));
+				self.rhs.sum_eval(sum, time)
+			}
+		}
+		
+		impl<T, B> MonomialOrder<Monomial<B, { $($num +)+ 1 }>> for T
+		where
+			B: Basis,
+			T: MonomialOrder<Monomial<B, { $($num +)+ 0 }>, Basis = B>
+		{
+			const DEG: usize = <T as MonomialOrder<Monomial<B, { $($num +)+ 0 }>>>::DEG;
+			
+			// ax^3 + bx + c -> (ax^2 + b)x + c
+			fn sum_eval(
+				&self,
+				sum: Self::Basis,
+				time: <Self::Basis as Basis>::Inner,
+			) -> Self::Basis {
+				MonomialOrder::<Monomial<B, { $($num +)+ 0 }>>::sum_eval(
+					self,
+					sum.map_inner(|n| n.mul(time)),
+					time
+				)
+			}
+		}
+		
 		impl<T: Basis> Deriv for SumPoly<T, { $($num +)+ 0 }> {
 			type Deriv = SumPoly<T, { $($num +)+ 0 - 1 }>;
 			fn deriv(self) -> Self::Deriv {
