@@ -70,13 +70,15 @@ where
 	}
 }
 
-impl<T> Deriv for Monomial<T, 1>
+impl<T, const D: usize> Deriv for Monomial<T, D>
 where
-	T: Basis
+	T: Basis,
+	Self: MonomialDown<Down: Deriv, Basis = T>,
 {
-	type Deriv = Constant<T>;
-	fn deriv(self) -> Self::Deriv {
-		Constant(self.0)
+	type Deriv = <Self as MonomialDown>::Down;
+	fn deriv(mut self) -> Self::Deriv {
+		self.0 = self.0.map_inner(|x| x.mul(Linear::from_f64(D as f64)));
+		self.downgrade()
 	}
 }
 
@@ -402,17 +404,6 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T> Deriv for Monomial<T, { $($num +)+ 1 }>
-		where
-			T: Basis
-		{
-			type Deriv = Monomial<T, { $($num +)+ 0 }>;
-			fn deriv(self) -> Self::Deriv {
-				Monomial(self.0.map_inner(
-					|x| x.mul(Linear::from_f64({ $($num +)+ 1 } as f64))))
-			}
-		}
-		
 		impl<T> MonomialUp for Monomial<T, { $($num +)+ 0 }>
 		where
 			T: Basis
