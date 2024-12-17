@@ -81,6 +81,38 @@ where
 }
 
 /// ...
+pub trait MonomialUp: Poly {
+	type Up: MonomialDown<Down = Self, Basis = Self::Basis>;
+	fn upgrade(self) -> Self::Up;
+}
+
+impl<T> MonomialUp for Constant<T>
+where
+	T: Basis
+{
+	type Up = Monomial<T, 1>;
+	fn upgrade(self) -> Self::Up {
+		Monomial(self.0)
+	}
+}
+
+/// ...
+pub trait MonomialDown: Poly {
+	type Down: MonomialUp<Up = Self, Basis = Self::Basis>;
+	fn downgrade(self) -> Self::Down;
+}
+
+impl<T> MonomialDown for Monomial<T, 1>
+where
+	T: Basis
+{
+	type Down = Constant<T>;
+	fn downgrade(self) -> Self::Down {
+		Constant(self.0)
+	}
+}
+
+/// ...
 pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
 	const DEG: usize;
 	
@@ -378,6 +410,26 @@ macro_rules! impl_deg_order {
 			fn deriv(self) -> Self::Deriv {
 				Monomial(self.0.map_inner(
 					|x| x.mul(Linear::from_f64({ $($num +)+ 1 } as f64))))
+			}
+		}
+		
+		impl<T> MonomialUp for Monomial<T, { $($num +)+ 0 }>
+		where
+			T: Basis
+		{
+			type Up = Monomial<T, { $($num +)+ 1 }>;
+			fn upgrade(self) -> Self::Up {
+				Monomial(self.0)
+			}
+		}
+		
+		impl<T> MonomialDown for Monomial<T, { $($num +)+ 1 }>
+		where
+			T: Basis
+		{
+			type Down = Monomial<T, { $($num +)+ 0 }>;
+			fn downgrade(self) -> Self::Down {
+				Monomial(self.0)
 			}
 		}
 		
