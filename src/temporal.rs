@@ -8,7 +8,7 @@ use crate::linear::{Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::change::Change;
-use crate::poly::{Poly, ops as kind_ops, Roots, Deriv, PolyOffset};
+use crate::poly::{Poly, ops as kind_ops, Roots, Deriv, Translate};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
 use crate::change::constant::Constant;
 
@@ -110,7 +110,7 @@ impl<T: Poly> Temporal<T> {
 	pub fn when<U>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
 	where
 		T: When<U::Offset>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		let time = self.time;
 		T::when(self, cmp, other.at_time(time))
@@ -120,7 +120,7 @@ impl<T: Poly> Temporal<T> {
 	pub fn when_eq<U>(self, other: Temporal<U>) -> T::Pred
 	where
 		T: WhenEq<U::Offset>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		let time = self.time;
 		T::when_eq(self, other.at_time(time))
@@ -151,8 +151,8 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: WhenDis<U::Offset, D::Offset, SIZE>,
-		U: PolyOffset,
-		D: PolyOffset,
+		U: Translate,
+		D: Translate,
 	{
 		let time = self.time;
 		T::when_dis(self, other.at_time(time), cmp, dis.at_time(time))
@@ -166,8 +166,8 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: WhenDisEq<U::Offset, D::Offset, SIZE>,
-		U: PolyOffset,
-		D: PolyOffset,
+		U: Translate,
+		D: Translate,
 	{
 		let time = self.time;
 		T::when_dis_eq(self, other.at_time(time), dis.at_time(time))
@@ -183,7 +183,7 @@ impl<T: Poly> Temporal<T> {
 	where
 		T: Vector<SIZE, Output: Poly>
 			+ WhenDis<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		self.when_dis(other, cmp, Temporal::from(Constant(dis)))
 	}
@@ -197,7 +197,7 @@ impl<T: Poly> Temporal<T> {
 	where
 		T: Vector<SIZE, Output: Poly>
 			+ WhenDisEq<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		self.when_dis_eq(other, Temporal::from(Constant(dis)))
 	}
@@ -211,7 +211,7 @@ impl<T: Poly> Temporal<T> {
 	) -> <T::Output as When<U::Offset>>::Pred
 	where
 		T: Vector<SIZE, Output: Poly + When<U::Offset>>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		let time = self.time;
 		<T::Output as When<U::Offset>>::when(self.index(index), cmp, other.at_time(time))
@@ -225,7 +225,7 @@ impl<T: Poly> Temporal<T> {
 	) -> <T::Output as WhenEq<U::Offset>>::Pred
 	where
 		T: Vector<SIZE, Output: Poly + WhenEq<U::Offset>>,
-		U: PolyOffset,
+		U: Translate,
 	{
 		let time = self.time;
 		<T::Output as WhenEq<U::Offset>>::when_eq(self.index(index), other.at_time(time))
@@ -290,7 +290,7 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn at_time(self, time: Time) -> Temporal<K::Offset>
 	where
-		K: PolyOffset
+		K: Translate
 	{
 		let secs = self.secs(time);
 		Temporal {
@@ -309,7 +309,7 @@ impl<K: Poly> Temporal<K> {
 	pub fn add_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
 		K: Add<P::Offset>,
-		P: PolyOffset,
+		P: Translate,
 	{
 		Temporal {
 			inner: self.inner + other.at_time(self.time).inner,
@@ -320,7 +320,7 @@ impl<K: Poly> Temporal<K> {
 	pub fn sub_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
 		K: Sub<P::Offset>,
-		P: PolyOffset,
+		P: Translate,
 	{
 		Temporal {
 			inner: self.inner - other.at_time(self.time).inner,

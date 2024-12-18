@@ -5,7 +5,7 @@ use crate::change::{Change, ChangeUp};
 use crate::change::constant::Constant;
 use crate::change::sum::SumPoly;
 use crate::linear::{Basis, Linear};
-use crate::poly::{Deriv, Poly, PolyOffset, Roots};
+use crate::poly::{Deriv, Poly, Roots, Translate};
 
 /// The pattern of alternating addition and multiplication, `a = (a + b) * c`.
 pub struct SumProd<T> {
@@ -150,9 +150,9 @@ where
 	}
 }
 
-impl<T> PolyOffset for SumProdPoly<T>
+impl<T> Translate for SumProdPoly<T>
 where
-	T: PolyOffset,
+	T: Translate,
 	Self: Add<T::Offset, Output: Poly<Basis = Self::Basis>>,
 {
 	type Offset = <Self as Add<T::Offset>>::Output;

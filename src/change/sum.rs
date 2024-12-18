@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
-use crate::poly::{Deriv, Poly, PolyOffset, Roots};
+use crate::poly::{Deriv, Poly, Roots, Translate};
 
 /// The pattern of repeated addition, `a = a + b`.
 #[derive(Copy, Clone, Debug)]
@@ -82,7 +82,7 @@ where
 	}
 }
 
-impl<T, const D: usize> PolyOffset for Monomial<T, D>
+impl<T, const D: usize> Translate for Monomial<T, D>
 where
 	Self: MonomialOffset
 {
@@ -523,7 +523,7 @@ impl<T: Basis> Deriv for SumPoly<T, 0> {
 	}
 }
 
-impl<T: Basis> PolyOffset for SumPoly<T, 0> {
+impl<T: Basis> Translate for SumPoly<T, 0> {
 	type Offset = Self;
 	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 		self
@@ -610,11 +610,11 @@ macro_rules! impl_deg_order {
 				)
 			}
 		}
-		impl<T: Basis> PolyOffset for SumPoly<T, { $($num +)+ 0 }> {
+		impl<T: Basis> Translate for SumPoly<T, { $($num +)+ 0 }> {
 			type Offset = Self;
 			fn offset(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 				if amount == Linear::zero() {
-					return self
+					return self;
 				}
 				let mut deriv = self.clone();
 				self.0 = deriv.eval(amount);

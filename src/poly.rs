@@ -61,9 +61,9 @@ impl<T: Poly, const SIZE: usize> Poly for [T; SIZE] {
 	}
 }
 
-impl<T, const N: usize> PolyOffset for [T; N]
+impl<T, const N: usize> Translate for [T; N]
 where
-	T: PolyOffset
+	T: Translate
 {
 	type Offset = [T::Offset; N];
 	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
@@ -88,7 +88,7 @@ pub trait Deriv: Poly {
 }
 
 /// ...
-pub trait PolyOffset: Poly {
+pub trait Translate: Poly {
 	type Offset: Poly<Basis = Self::Basis>;
 	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset;
 }

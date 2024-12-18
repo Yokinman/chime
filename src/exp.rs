@@ -5,7 +5,7 @@
 
 use crate::change::{Change, ChangeUp};
 use crate::linear::*;
-use crate::poly::{Deriv, Poly, PolyOffset};
+use crate::poly::{Deriv, Poly, Translate};
 
 /// A linear map that translates between addition and multiplication.
 /// 
@@ -85,9 +85,9 @@ where
 	}
 }
 
-impl<T> PolyOffset for Exp<T>
+impl<T> Translate for Exp<T>
 where
-	T: PolyOffset
+	T: Translate
 {
 	type Offset = Exp<T::Offset>;
 	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {

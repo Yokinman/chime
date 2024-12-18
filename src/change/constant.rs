@@ -4,7 +4,7 @@ use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::change::{Change, ChangeUp, Sum};
 use crate::linear::{Basis, Linear, Vector};
-use crate::poly::{Deriv, Poly, PolyOffset};
+use crate::poly::{Deriv, Poly, Translate};
 
 /// ...
 pub struct Nil<T>(std::marker::PhantomData<T>);
@@ -148,7 +148,7 @@ where
 	}
 }
 
-impl<T> PolyOffset for Constant<T>
+impl<T> Translate for Constant<T>
 where
 	T: Basis
 {
