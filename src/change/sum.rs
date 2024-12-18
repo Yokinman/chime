@@ -93,6 +93,69 @@ where
 	}
 }
 
+impl<T, O, P, const A: usize, const B: usize> Add<Monomial<T, B>> for Monomial<T, A>
+where
+	T: Basis,
+	Self: MonomialCmp<Monomial<T, B>, Order=O>
+		+ MonomialAdd<Monomial<T, B>, O, Output=P>,
+{
+	type Output = P;
+	fn add(self, rhs: Monomial<T, B>) -> Self::Output {
+		self.monom_add(rhs)
+	}
+}
+
+impl<T, P, const A: usize, const B: usize> Sub<Monomial<T, B>> for Monomial<T, A>
+where
+	T: Basis,
+	Self: Add<Monomial<T, B>, Output=P>,
+{
+	type Output = P;
+	fn sub(self, rhs: Monomial<T, B>) -> Self::Output {
+		self + -rhs
+	}
+}
+
+impl<T, const D: usize> Neg for Monomial<T, D>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn neg(self) -> Self::Output {
+		Self(self.0.map_inner(|x| x.mul(Linear::from_f64(-1.))))
+	}
+}
+
+/// ...
+pub trait MonomialAdd<Rhs, OrdMarker> {
+	type Output;
+	fn monom_add(self, rhs: Rhs) -> Self::Output;
+}
+
+impl<A, B> MonomialAdd<B, order::Above> for A {
+	type Output = Binomial<B, A>;
+	fn monom_add(self, rhs: B) -> Self::Output {
+		Binomial { lhs: rhs, rhs: self }
+	}
+}
+
+impl<A, B> MonomialAdd<B, order::Below> for A {
+	type Output = Binomial<A, B>;
+	fn monom_add(self, rhs: B) -> Self::Output {
+		Binomial { lhs: self, rhs }
+	}
+}
+
+impl<T, const A: usize, const B: usize> MonomialAdd<Monomial<T, B>, order::Same> for Monomial<T, A>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn monom_add(self, rhs: Monomial<T, B>) -> Self::Output {
+		Self(self.0.zip_map_inner(rhs.0, Linear::add))
+	}
+}
+
 /// ...
 pub trait MonomialTranslate<const N: usize, OrdMarker = order::Below>: Poly {
 	type Output: Poly<Basis = Self::Basis>;
@@ -354,11 +417,8 @@ fn binomial_temp() {
 	let b = Binomial {
 		lhs: Constant(5.),
 		rhs: Binomial {
-			lhs: Monomial::<_, 1>(10.),
-			rhs: Binomial {
-				lhs: Monomial::<_, 2>(0.9),
-				rhs: Monomial::<_, 4>(4.),
-			}
+			lhs: Monomial::<_, 1>(5.) + Monomial::<_, 1>(5.),
+			rhs: Monomial::<_, 4>(4.) - Monomial::<_, 2>(-0.9),
 		}
 	};
 	for i in 0..100 {
