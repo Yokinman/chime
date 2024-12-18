@@ -87,7 +87,7 @@ where
 	Self: MonomialOffset
 {
 	type Offset = <Self as MonomialOffset>::Offset;
-	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 		self.monom_offset(amount, D)
 	}
 }
@@ -401,8 +401,8 @@ fn binomial_temp() {
 				}
 			},
 		}
-	} = Monomial::<f64, 4>(3.).offset(2.) else {
-		panic!("> {:?}", Monomial::<f64, 4>(3.).offset(2.));
+	} = Monomial::<f64, 4>(3.).translate(2.) else {
+		panic!("> {:?}", Monomial::<f64, 4>(3.).translate(2.));
 	};
 }
 
@@ -525,7 +525,7 @@ impl<T: Basis> Deriv for SumPoly<T, 0> {
 
 impl<T: Basis> Translate for SumPoly<T, 0> {
 	type Offset = Self;
-	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 		self
 	}
 }
@@ -612,7 +612,7 @@ macro_rules! impl_deg_order {
 		}
 		impl<T: Basis> Translate for SumPoly<T, { $($num +)+ 0 }> {
 			type Offset = Self;
-			fn offset(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+			fn translate(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 				if amount == Linear::zero() {
 					return self;
 				}

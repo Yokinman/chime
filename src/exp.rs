@@ -90,7 +90,7 @@ where
 	T: Translate
 {
 	type Offset = Exp<T::Offset>;
-	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
-		Exp(self.0.offset(amount))
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		Exp(self.0.translate(amount))
 	}
 }

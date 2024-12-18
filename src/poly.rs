@@ -66,8 +66,8 @@ where
 	T: Translate
 {
 	type Offset = [T::Offset; N];
-	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
-		self.map(|x| x.offset(amount))
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		self.map(|x| x.translate(amount))
 	}
 }
 
@@ -90,7 +90,7 @@ pub trait Deriv: Poly {
 /// ...
 pub trait Translate: Poly {
 	type Offset: Poly<Basis = Self::Basis>;
-	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset;
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset;
 }
 
 /// Combining [`Poly`] types.

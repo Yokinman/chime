@@ -153,7 +153,7 @@ where
 	T: Basis
 {
 	type Offset = Self;
-	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 		self
 	}
 }

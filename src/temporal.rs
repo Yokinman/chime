@@ -294,7 +294,7 @@ impl<K: Poly> Temporal<K> {
 	{
 		let secs = self.secs(time);
 		Temporal {
-			inner: self.inner.offset(Linear::from_f64(secs)),
+			inner: self.inner.translate(Linear::from_f64(secs)),
 			time,
 		}
 	}

@@ -156,7 +156,7 @@ where
 	Self: Add<T::Offset, Output: Poly<Basis = Self::Basis>>,
 {
 	type Offset = <Self as Add<T::Offset>>::Output;
-	fn offset(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
 		todo!()
 	}
 }
