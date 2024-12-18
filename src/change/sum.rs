@@ -115,6 +115,49 @@ where
 }
 
 /// ...
+mod order {
+	pub struct Above;
+	pub struct Below;
+	pub struct Same;
+}
+
+/// ...
+pub trait MonomialCmp<T: Poly>: Poly<Basis = T::Basis> {
+	type Order;
+}
+
+impl<A, B> MonomialCmp<B> for A
+where
+	A: MonomialDown<Down: MonomialCmp<B::Down>>,
+	B: MonomialDown<Basis = A::Basis>,
+{
+	type Order = <A::Down as MonomialCmp<B::Down>>::Order;
+}
+
+impl<T, B> MonomialCmp<Constant<B>> for T
+where
+	B: Basis,
+	T: MonomialDown<Basis = B>,
+{
+	type Order = order::Above;
+}
+
+impl<T, B> MonomialCmp<T> for Constant<B>
+where
+	B: Basis,
+	T: MonomialDown<Basis = B>,
+{
+	type Order = order::Below;
+}
+
+impl<B> MonomialCmp<Constant<B>> for Constant<B>
+where
+	B: Basis
+{
+	type Order = order::Same;
+}
+
+/// ...
 pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
 	const DEG: usize;
 	
