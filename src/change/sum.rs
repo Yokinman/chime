@@ -159,8 +159,6 @@ where
 
 /// ...
 pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
-	const DEG: usize;
-	
 	fn binom_eval(
 		&self,
 		lhs: T,
@@ -173,8 +171,6 @@ where
 	T: Basis,
 	Monomial<T, D>: MonomialCmp<Self, Order = order::Above>,
 {
-	const DEG: usize = 0;
-	
 	// Tx^D + T
 	fn binom_eval(
 		&self,
@@ -195,8 +191,6 @@ where
 	T: Basis,
 	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
 {
-	const DEG: usize = B;
-	
 	// Tx^A + Tx^B -> (Tx^{A-B} + T)x^B
 	fn binom_eval(
 		&self,
@@ -219,8 +213,6 @@ where
 	U: MonomialOrder<Monomial<T, B>>,
 	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
 {
-	const DEG: usize = B;
-	
 	// Tx^A + Tx^B + .. -> (Tx^{A-B} + T)x^B + ..
 	fn binom_eval(
 		&self,
