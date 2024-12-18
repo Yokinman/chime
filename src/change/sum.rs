@@ -84,50 +84,50 @@ where
 
 impl<T, const D: usize> Translate for Monomial<T, D>
 where
-	Self: MonomialOffset
+	Self: MonomialTranslate
 {
-	type Output = <Self as MonomialOffset>::Offset;
+	type Output = <Self as MonomialTranslate>::Output;
 	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
-		self.monom_offset(amount, D)
+		self.monom_translate(amount, D)
 	}
 }
 
 /// ...
-pub trait MonomialOffset: Poly {
-	type Offset: Poly<Basis = Self::Basis>;
-	fn monom_offset(
+pub trait MonomialTranslate: Poly {
+	type Output: Poly<Basis = Self::Basis>;
+	fn monom_translate(
 		self,
 		amount: <Self::Basis as Basis>::Inner,
 		degree: usize,
-	) -> Self::Offset;
+	) -> Self::Output;
 }
 
-impl<T> MonomialOffset for Constant<T>
+impl<T> MonomialTranslate for Constant<T>
 where
 	T: Basis
 {
-	type Offset = Self;
-	fn monom_offset(
+	type Output = Self;
+	fn monom_translate(
 		self,
 		amount: <Self::Basis as Basis>::Inner,
 		degree: usize
-	) -> Self::Offset {
+	) -> Self::Output {
 		let fac = amount.pow(Linear::from_f64(degree as f64));
 		Self(self.0.map_inner(|n| n.mul(fac)))
 	}
 }
 
-impl<T, const D: usize> MonomialOffset for Monomial<T, D>
+impl<T, const D: usize> MonomialTranslate for Monomial<T, D>
 where
 	T: Basis,
-	Self: MonomialDown<Down: MonomialOffset<Offset: MonomialOrder<Self>>, Basis = T>,
+	Self: MonomialDown<Down: MonomialTranslate<Output: MonomialOrder<Self>>, Basis = T>,
 {
-	type Offset = Binomial<Self, <<Self as MonomialDown>::Down as MonomialOffset>::Offset>;
-	fn monom_offset(
+	type Output = Binomial<Self, <<Self as MonomialDown>::Down as MonomialTranslate>::Output>;
+	fn monom_translate(
 		self,
 		amount: <Self::Basis as Basis>::Inner,
 		degree: usize,
-	) -> Self::Offset {
+	) -> Self::Output {
 		// binomial coefficient
 		const fn binom(n: usize, k: usize) -> usize {
 		    if n < k {
@@ -150,7 +150,7 @@ where
 			.mul(Linear::from_f64(binom(degree, D) as f64));
 		Binomial {
 			lhs: Monomial(self.0.clone().map_inner(|n| n.mul(fac))),
-			rhs: self.downgrade().monom_offset(amount, degree),
+			rhs: self.downgrade().monom_translate(amount, degree),
 		}
 	}
 }
