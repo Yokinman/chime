@@ -82,6 +82,79 @@ where
 	}
 }
 
+impl<T, const D: usize> PolyOffset for Monomial<T, D>
+where
+	Self: MonomialOffset
+{
+	type Offset = <Self as MonomialOffset>::Offset;
+	fn offset(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+		self.monom_offset(amount, D)
+	}
+}
+
+/// ...
+pub trait MonomialOffset: Poly {
+	type Offset: Poly<Basis = Self::Basis>;
+	fn monom_offset(
+		self,
+		amount: <Self::Basis as Basis>::Inner,
+		degree: usize,
+	) -> Self::Offset;
+}
+
+impl<T> MonomialOffset for Constant<T>
+where
+	T: Basis
+{
+	type Offset = Self;
+	fn monom_offset(
+		self,
+		amount: <Self::Basis as Basis>::Inner,
+		degree: usize
+	) -> Self::Offset {
+		let fac = amount.pow(Linear::from_f64(degree as f64));
+		Self(self.0.map_inner(|n| n.mul(fac)))
+	}
+}
+
+impl<T, const D: usize> MonomialOffset for Monomial<T, D>
+where
+	T: Basis,
+	Self: MonomialDown<Down: MonomialOffset<Offset: MonomialOrder<Self>>, Basis = T>,
+{
+	type Offset = Binomial<Self, <<Self as MonomialDown>::Down as MonomialOffset>::Offset>;
+	fn monom_offset(
+		self,
+		amount: <Self::Basis as Basis>::Inner,
+		degree: usize,
+	) -> Self::Offset {
+		// binomial coefficient
+		const fn binom(n: usize, k: usize) -> usize {
+		    if n < k {
+		        return 0
+		    }
+		    let mut numer = 1;
+		    let mut denom = 1;
+		    let mut n = n;
+		    let mut k = k;
+		    while k != 0 {
+		        numer *= n;
+		        denom *= k;
+		        n -= 1;
+		        k -= 1;
+		    }
+		    numer / denom
+		}
+		
+		let fac = amount.pow(Linear::from_f64((degree - D) as f64))
+			.mul(Linear::from_f64(binom(degree, D) as f64));
+		Binomial {
+			lhs: Monomial(self.0.clone().map_inner(|n| n.mul(fac))),
+			rhs: self.downgrade().monom_offset(amount, degree),
+		}
+	}
+}
+
 /// ...
 pub trait MonomialUp: Poly {
 	type Up: MonomialDown<Down = Self, Basis = Self::Basis>;
@@ -315,6 +388,22 @@ fn binomial_temp() {
 		assert_eq!(a.eval(t), b.eval(t));
 		assert_eq!(a.deriv().eval(t), b.deriv().eval(t));
 	}
+	
+	let Binomial {
+		lhs: Monomial::<_, 4>(3.),
+		rhs: Binomial {
+			lhs: Monomial::<_, 3>(24.),
+			rhs: Binomial {
+				lhs: Monomial::<_, 2>(72.),
+				rhs: Binomial {
+					lhs: Monomial::<_, 1>(96.),
+					rhs: Constant(48.),
+				}
+			},
+		}
+	} = Monomial::<f64, 4>(3.).offset(2.) else {
+		panic!("> {:?}", Monomial::<f64, 4>(3.).offset(2.));
+	};
 }
 
 /// Summation over time.
