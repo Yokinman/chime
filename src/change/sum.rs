@@ -84,50 +84,38 @@ where
 
 impl<T, const D: usize> Translate for Monomial<T, D>
 where
-	Self: MonomialTranslate
+	Self: MonomialTranslate<D>
 {
-	type Output = <Self as MonomialTranslate>::Output;
+	type Output = <Self as MonomialTranslate<D>>::Output;
 	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
-		self.monom_translate(amount, D)
+		self.monom_translate(amount)
 	}
 }
 
 /// ...
-pub trait MonomialTranslate: Poly {
+pub trait MonomialTranslate<const N: usize>: Poly {
 	type Output: Poly<Basis = Self::Basis>;
-	fn monom_translate(
-		self,
-		amount: <Self::Basis as Basis>::Inner,
-		degree: usize,
-	) -> Self::Output;
+	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output;
 }
 
-impl<T> MonomialTranslate for Constant<T>
+impl<T, const N: usize> MonomialTranslate<N> for Constant<T>
 where
 	T: Basis
 {
 	type Output = Self;
-	fn monom_translate(
-		self,
-		amount: <Self::Basis as Basis>::Inner,
-		degree: usize
-	) -> Self::Output {
-		let fac = amount.pow(Linear::from_f64(degree as f64));
+	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
+		let fac = amount.pow(Linear::from_f64(N as f64));
 		Self(self.0.map_inner(|n| n.mul(fac)))
 	}
 }
 
-impl<T, const D: usize> MonomialTranslate for Monomial<T, D>
+impl<T, const D: usize, const N: usize> MonomialTranslate<N> for Monomial<T, D>
 where
 	T: Basis,
-	Self: MonomialDown<Down: MonomialTranslate<Output: MonomialOrder<Self>>, Basis = T>,
+	Self: MonomialDown<Down: MonomialTranslate<N, Output: MonomialOrder<Self>>, Basis = T>,
 {
-	type Output = Binomial<Self, <<Self as MonomialDown>::Down as MonomialTranslate>::Output>;
-	fn monom_translate(
-		self,
-		amount: <Self::Basis as Basis>::Inner,
-		degree: usize,
-	) -> Self::Output {
+	type Output = Binomial<Self, <<Self as MonomialDown>::Down as MonomialTranslate<N>>::Output>;
+	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		// binomial coefficient
 		const fn binom(n: usize, k: usize) -> usize {
 		    if n < k {
@@ -146,11 +134,11 @@ where
 		    numer / denom
 		}
 		
-		let fac = amount.pow(Linear::from_f64((degree - D) as f64))
-			.mul(Linear::from_f64(binom(degree, D) as f64));
+		let fac = amount.pow(Linear::from_f64((N - D) as f64))
+			.mul(Linear::from_f64(binom(N, D) as f64));
 		Binomial {
 			lhs: Monomial(self.0.clone().map_inner(|n| n.mul(fac))),
-			rhs: self.downgrade().monom_translate(amount, degree),
+			rhs: self.downgrade().monom_translate(amount),
 		}
 	}
 }
