@@ -89,8 +89,8 @@ impl<T> Translate for Exp<T>
 where
 	T: Translate
 {
-	type Offset = Exp<T::Offset>;
-	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = Exp<T::Output>;
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		Exp(self.0.translate(amount))
 	}
 }

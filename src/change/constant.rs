@@ -152,8 +152,8 @@ impl<T> Translate for Constant<T>
 where
 	T: Basis
 {
-	type Offset = Self;
-	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = Self;
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		self
 	}
 }

@@ -153,10 +153,10 @@ where
 impl<T> Translate for SumProdPoly<T>
 where
 	T: Translate,
-	Self: Add<T::Offset, Output: Poly<Basis = Self::Basis>>,
+	Self: Add<T::Output, Output: Poly<Basis = Self::Basis>>,
 {
-	type Offset = <Self as Add<T::Offset>>::Output;
-	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = <Self as Add<T::Output>>::Output;
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		todo!()
 	}
 }

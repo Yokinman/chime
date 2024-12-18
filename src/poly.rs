@@ -65,8 +65,8 @@ impl<T, const N: usize> Translate for [T; N]
 where
 	T: Translate
 {
-	type Offset = [T::Offset; N];
-	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = [T::Output; N];
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		self.map(|x| x.translate(amount))
 	}
 }
@@ -89,8 +89,8 @@ pub trait Deriv: Poly {
 
 /// ...
 pub trait Translate: Poly {
-	type Offset: Poly<Basis = Self::Basis>;
-	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset;
+	type Output: Poly<Basis = Self::Basis>;
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output;
 }
 
 /// Combining [`Poly`] types.

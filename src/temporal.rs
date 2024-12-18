@@ -109,7 +109,7 @@ impl<T: Poly> Temporal<T> {
 	/// Ranges when this is above/below/equal to another flux.
 	pub fn when<U>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
 	where
-		T: When<U::Offset>,
+		T: When<U::Output>,
 		U: Translate,
 	{
 		let time = self.time;
@@ -119,7 +119,7 @@ impl<T: Poly> Temporal<T> {
 	/// Times when this is equal to another flux.
 	pub fn when_eq<U>(self, other: Temporal<U>) -> T::Pred
 	where
-		T: WhenEq<U::Offset>,
+		T: WhenEq<U::Output>,
 		U: Translate,
 	{
 		let time = self.time;
@@ -150,7 +150,7 @@ impl<T: Poly> Temporal<T> {
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDis<U::Offset, D::Offset, SIZE>,
+		T: WhenDis<U::Output, D::Output, SIZE>,
 		U: Translate,
 		D: Translate,
 	{
@@ -165,7 +165,7 @@ impl<T: Poly> Temporal<T> {
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDisEq<U::Offset, D::Offset, SIZE>,
+		T: WhenDisEq<U::Output, D::Output, SIZE>,
 		U: Translate,
 		D: Translate,
 	{
@@ -182,7 +182,7 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDis<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
+			+ WhenDis<U::Output, Constant<<T::Output as Poly>::Basis>, SIZE>,
 		U: Translate,
 	{
 		self.when_dis(other, cmp, Temporal::from(Constant(dis)))
@@ -196,7 +196,7 @@ impl<T: Poly> Temporal<T> {
 	) -> T::Pred
 	where
 		T: Vector<SIZE, Output: Poly>
-			+ WhenDisEq<U::Offset, Constant<<T::Output as Poly>::Basis>, SIZE>,
+			+ WhenDisEq<U::Output, Constant<<T::Output as Poly>::Basis>, SIZE>,
 		U: Translate,
 	{
 		self.when_dis_eq(other, Temporal::from(Constant(dis)))
@@ -208,13 +208,13 @@ impl<T: Poly> Temporal<T> {
 		index: usize,
 		cmp: Ordering,
 		other: Temporal<U>,
-	) -> <T::Output as When<U::Offset>>::Pred
+	) -> <T::Output as When<U::Output>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + When<U::Offset>>,
+		T: Vector<SIZE, Output: Poly + When<U::Output>>,
 		U: Translate,
 	{
 		let time = self.time;
-		<T::Output as When<U::Offset>>::when(self.index(index), cmp, other.at_time(time))
+		<T::Output as When<U::Output>>::when(self.index(index), cmp, other.at_time(time))
 	}
 	
 	/// Times when a component is equal to another flux.
@@ -222,13 +222,13 @@ impl<T: Poly> Temporal<T> {
 		self,
 		index: usize,
 		other: Temporal<U>,
-	) -> <T::Output as WhenEq<U::Offset>>::Pred
+	) -> <T::Output as WhenEq<U::Output>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + WhenEq<U::Offset>>,
+		T: Vector<SIZE, Output: Poly + WhenEq<U::Output>>,
 		U: Translate,
 	{
 		let time = self.time;
-		<T::Output as WhenEq<U::Offset>>::when_eq(self.index(index), other.at_time(time))
+		<T::Output as WhenEq<U::Output>>::when_eq(self.index(index), other.at_time(time))
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
@@ -288,7 +288,7 @@ impl<K: Poly> Temporal<K> {
 		}
 	}
 	
-	pub fn at_time(self, time: Time) -> Temporal<K::Offset>
+	pub fn at_time(self, time: Time) -> Temporal<K::Output>
 	where
 		K: Translate
 	{
@@ -308,7 +308,7 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn add_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
-		K: Add<P::Offset>,
+		K: Add<P::Output>,
 		P: Translate,
 	{
 		Temporal {
@@ -319,7 +319,7 @@ impl<K: Poly> Temporal<K> {
 	
 	pub fn sub_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
-		K: Sub<P::Offset>,
+		K: Sub<P::Output>,
 		P: Translate,
 	{
 		Temporal {

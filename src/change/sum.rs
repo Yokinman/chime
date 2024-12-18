@@ -86,8 +86,8 @@ impl<T, const D: usize> Translate for Monomial<T, D>
 where
 	Self: MonomialOffset
 {
-	type Offset = <Self as MonomialOffset>::Offset;
-	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = <Self as MonomialOffset>::Offset;
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		self.monom_offset(amount, D)
 	}
 }
@@ -524,8 +524,8 @@ impl<T: Basis> Deriv for SumPoly<T, 0> {
 }
 
 impl<T: Basis> Translate for SumPoly<T, 0> {
-	type Offset = Self;
-	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+	type Output = Self;
+	fn translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		self
 	}
 }
@@ -611,8 +611,8 @@ macro_rules! impl_deg_order {
 			}
 		}
 		impl<T: Basis> Translate for SumPoly<T, { $($num +)+ 0 }> {
-			type Offset = Self;
-			fn translate(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Offset {
+			type Output = Self;
+			fn translate(mut self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 				if amount == Linear::zero() {
 					return self;
 				}
