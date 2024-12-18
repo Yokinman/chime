@@ -84,38 +84,57 @@ where
 
 impl<T, const D: usize> Translate for Monomial<T, D>
 where
-	Self: MonomialTranslate<D>
+	T: Basis,
+	Constant<T>: MonomialTranslate<D, Basis = T>,
 {
-	type Output = <Self as MonomialTranslate<D>>::Output;
+	type Output = <Constant<T> as MonomialTranslate<D>>::Output;
 	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
-		self.monom_translate(amount)
+		Constant(self.0).monom_translate(amount)
 	}
 }
 
 /// ...
-pub trait MonomialTranslate<const N: usize>: Poly {
+pub trait MonomialTranslate<const N: usize, OrdMarker = order::Below>: Poly {
 	type Output: Poly<Basis = Self::Basis>;
 	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output;
 }
 
-impl<T, const N: usize> MonomialTranslate<N> for Constant<T>
+impl<T, O, P, const N: usize> MonomialTranslate<N> for Constant<T>
+where
+	T: Basis,
+	P: Poly,
+	Monomial<T, 1>: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P>,
+	Self: MonomialOrder<P, Basis = T>,
+{
+	type Output = Binomial<Self, P>;
+	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
+		let fac = amount.mul(Linear::from_f64(-1.))
+			.pow(Linear::from_f64(N as f64));
+		Binomial {
+			lhs: Self(self.0.clone().map_inner(|n| n.mul(fac))),
+			rhs: self.upgrade().monom_translate(amount),
+		}
+	}
+}
+
+impl<T, const N: usize> MonomialTranslate<N, order::Same> for Monomial<T, N>
 where
 	T: Basis
 {
 	type Output = Self;
-	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
-		let fac = amount.mul(Linear::from_f64(-1.))
-			.pow(Linear::from_f64(N as f64));
-		Self(self.0.map_inner(|n| n.mul(fac)))
+	fn monom_translate(self, _amount: <Self::Basis as Basis>::Inner) -> Self::Output {
+		self
 	}
 }
 
-impl<T, const D: usize, const N: usize> MonomialTranslate<N> for Monomial<T, D>
+impl<T, O, P, const D: usize, const N: usize> MonomialTranslate<N> for Monomial<T, D>
 where
 	T: Basis,
-	Self: MonomialDown<Down: MonomialTranslate<N, Output: MonomialOrder<Self>>, Basis = T>,
+	P: Poly,
+	Self: MonomialUp<Up: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P>>
+		+ MonomialOrder<P, Basis = T>,
 {
-	type Output = Binomial<Self, <<Self as MonomialDown>::Down as MonomialTranslate<N>>::Output>;
+	type Output = Binomial<Self, P>;
 	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
 		// binomial coefficient
 		const fn binom(n: usize, k: usize) -> usize {
@@ -140,7 +159,7 @@ where
 			.mul(Linear::from_f64(binom(N, D) as f64));
 		Binomial {
 			lhs: Monomial(self.0.clone().map_inner(|n| n.mul(fac))),
-			rhs: self.downgrade().monom_translate(amount),
+			rhs: self.upgrade().monom_translate(amount),
 		}
 	}
 }
@@ -221,73 +240,56 @@ where
 }
 
 /// ...
-pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
-	fn binom_eval(
-		&self,
-		lhs: T,
-		time: <Self::Basis as Basis>::Inner,
-	) -> Self::Basis;
+pub trait MonomialOrder<T>: Poly {
+	fn binom_eval(self, rhs: T, time: <Self::Basis as Basis>::Inner) -> Self;
 }
 
 impl<T, const D: usize> MonomialOrder<Monomial<T, D>> for Constant<T>
 where
 	T: Basis,
-	Monomial<T, D>: MonomialCmp<Self, Order = order::Above>,
 {
-	// Tx^D + T
+	// a + bx^B
 	fn binom_eval(
-		&self,
-		Monomial(coeff): Monomial<T, D>,
+		self,
+		rhs: Monomial<T, D>,
 		time: <Self::Basis as Basis>::Inner,
-	) -> Self::Basis {
-		let fac = time.pow(Linear::from_f64(D as f64));
-		coeff.zip_map_inner(
-			self.0.clone(),
-			|a, b| a.mul(fac).add(b)
-		)
+	) -> Self {
+		Self(self.0.zip_map_inner(rhs.eval(time), Linear::add))
 	}
 }
 
-impl<T, const A: usize, const B: usize> MonomialOrder<Monomial<T, A>>
-	for Monomial<T, B>
+impl<T, const A: usize, const B: usize> MonomialOrder<Monomial<T, B>> for Monomial<T, A>
 where
 	T: Basis,
-	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
+	Self: MonomialCmp<Monomial<T, B>, Order = order::Below>,
 {
-	// Tx^A + Tx^B -> (Tx^{A-B} + T)x^B
+	// ax^A + bx^B -> (a + bx^{B-A})x^A
 	fn binom_eval(
-		&self,
-		Monomial(coeff): Monomial<T, A>,
+		self,
+		rhs: Monomial<T, B>,
 		time: <Self::Basis as Basis>::Inner,
-	) -> Self::Basis {
-		let a_fac = time.pow(Linear::from_f64((A - B) as f64));
-		let b_fac = time.pow(Linear::from_f64(B as f64));
-		coeff.zip_map_inner(
-			self.0.clone(),
-			|a, b| a.mul(a_fac).add(b).mul(b_fac)
-		)
+	) -> Self {
+		let fac = time.pow(Linear::from_f64((B - A) as f64));
+		Self(self.0.zip_map_inner(
+			rhs.0,
+			|a, b| a.add(b.mul(fac))
+		))
 	}
 }
 
-impl<T, U, const A: usize, const B: usize> MonomialOrder<Monomial<T, A>>
-	for Binomial<Monomial<T, B>, U>
+impl<T, A, B> MonomialOrder<Binomial<A, B>> for T
 where
-	T: Basis,
-	U: MonomialOrder<Monomial<T, B>>,
-	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
+	A: MonomialOrder<B>,
+	B: Poly,
+	T: MonomialOrder<A, Basis = A::Basis>,
 {
-	// Tx^A + Tx^B + .. -> (Tx^{A-B} + T)x^B + ..
+	// n + (ax^A + bx^B) -> n + (a + bx^{B-A})x^A
 	fn binom_eval(
-		&self,
-		Monomial(coeff): Monomial<T, A>,
+		self,
+		rhs: Binomial<A, B>,
 		time: <Self::Basis as Basis>::Inner,
-	) -> Self::Basis {
-		let fac = time.pow(Linear::from_f64((A - B) as f64));
-		let lhs = Monomial(coeff.zip_map_inner(
-			self.lhs.0.clone(),
-			|a, b| a.mul(fac).add(b)
-		));
-		self.rhs.binom_eval(lhs, time)
+	) -> Self {
+		self.binom_eval(rhs.lhs.binom_eval(rhs.rhs, time), time)
 	}
 }
 
@@ -302,13 +304,15 @@ pub struct Binomial<A, B> {
 
 impl<A, B> Poly for Binomial<A, B>
 where
-	A: Poly,
-	B: MonomialOrder<A>,
+	A: MonomialOrder<B>,
+	B: Poly,
 {
-	const DEGREE: usize = A::DEGREE;
+	const DEGREE: usize = B::DEGREE;
 	type Basis = A::Basis;
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
-		self.rhs.binom_eval(self.lhs.clone(), time)
+		self.lhs.clone()
+			.binom_eval(self.rhs.clone(), time)
+			.eval(time)
 	}
 	fn zero() -> Self {
 		Self {
@@ -318,13 +322,13 @@ where
 	}
 }
 
-impl<A, B, const D: usize> Deriv for Binomial<A, Monomial<B, D>>
+impl<T, const D: usize> Deriv for Binomial<Monomial<T::Basis, D>, T>
 where
-	A: Deriv,
-	Monomial<B, D>: MonomialOrder<A> + Deriv,
-	Binomial<A::Deriv, <Monomial<B, D> as Deriv>::Deriv>: Deriv<Basis = A::Basis>,
+	T: Deriv,
+	Monomial<T::Basis, D>: MonomialOrder<T, Basis = T::Basis> + Deriv,
+	Binomial<<Monomial<T::Basis, D> as Deriv>::Deriv, T::Deriv>: Deriv<Basis = T::Basis>,
 {
-	type Deriv = Binomial<A::Deriv, <Monomial<B, D> as Deriv>::Deriv>;
+	type Deriv = Binomial<<Monomial<T::Basis, D> as Deriv>::Deriv, T::Deriv>;
 	fn deriv(self) -> Self::Deriv {
 		Binomial {
 			lhs: self.lhs.deriv(),
@@ -333,29 +337,14 @@ where
 	}
 }
 
-impl<A, B, C> Deriv for Binomial<A, Binomial<B, C>>
+impl<T> Deriv for Binomial<Constant<T::Basis>, T>
 where
-	A: Deriv,
-	Binomial<B, C>: MonomialOrder<A> + Deriv,
-	Binomial<A::Deriv, <Binomial<B, C> as Deriv>::Deriv>: Deriv<Basis = A::Basis>,
+	T: Deriv,
+	Constant<T::Basis>: MonomialOrder<T, Basis = T::Basis>,
 {
-	type Deriv = Binomial<A::Deriv, <Binomial<B, C> as Deriv>::Deriv>;
+	type Deriv = T::Deriv;
 	fn deriv(self) -> Self::Deriv {
-		Binomial {
-			lhs: self.lhs.deriv(),
-			rhs: self.rhs.deriv(),
-		}
-	}
-}
-
-impl<A, B> Deriv for Binomial<A, Constant<B>>
-where
-	A: Deriv,
-	Constant<B>: MonomialOrder<A>,
-{
-	type Deriv = A::Deriv;
-	fn deriv(self) -> Self::Deriv {
-		self.lhs.deriv()
+		self.rhs.deriv()
 	}
 }
 
@@ -363,12 +352,12 @@ where
 fn binomial_temp() {
 	let a = SumPoly::new(5., [10., 0.9, 0., 4.]);
 	let b = Binomial {
-		lhs: Monomial::<_, 4>(4.),
+		lhs: Constant(5.),
 		rhs: Binomial {
-			lhs: Monomial::<_, 2>(0.9),
+			lhs: Monomial::<_, 1>(10.),
 			rhs: Binomial {
-				lhs: Monomial::<_, 1>(10.),
-				rhs: Constant(5.),
+				lhs: Monomial::<_, 2>(0.9),
+				rhs: Monomial::<_, 4>(4.),
 			}
 		}
 	};
@@ -380,14 +369,14 @@ fn binomial_temp() {
 	}
 	
 	let Binomial {
-		lhs: Monomial::<_, 4>(3.),
+		lhs: Constant(48.),
 		rhs: Binomial {
-			lhs: Monomial::<_, 3>(24.),
+			lhs: Monomial::<_, 1>(96.),
 			rhs: Binomial {
 				lhs: Monomial::<_, 2>(72.),
 				rhs: Binomial {
-					lhs: Monomial::<_, 1>(96.),
-					rhs: Constant(48.),
+					lhs: Monomial::<_, 3>(24.),
+					rhs: Monomial::<_, 4>(3.),
 				}
 			},
 		}
