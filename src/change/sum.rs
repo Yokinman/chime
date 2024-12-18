@@ -161,26 +161,78 @@ where
 pub trait MonomialOrder<T: Poly>: Poly<Basis = T::Basis> {
 	const DEG: usize;
 	
-	fn sum_eval(
+	fn binom_eval(
 		&self,
-		sum: Self::Basis,
+		lhs: T,
 		time: <Self::Basis as Basis>::Inner,
 	) -> Self::Basis;
 }
 
-impl<T> MonomialOrder<Monomial<T, 1>> for Constant<T>
+impl<T, const D: usize> MonomialOrder<Monomial<T, D>> for Constant<T>
 where
-	T: Basis
+	T: Basis,
+	Monomial<T, D>: MonomialCmp<Self, Order = order::Above>,
 {
 	const DEG: usize = 0;
 	
-	fn sum_eval(
+	// Tx^D + T
+	fn binom_eval(
 		&self,
-		sum: Self::Basis,
+		Monomial(coeff): Monomial<T, D>,
 		time: <Self::Basis as Basis>::Inner,
 	) -> Self::Basis {
-		self.eval(time)
-			.zip_map_inner(sum, Linear::add)
+		let fac = time.pow(Linear::from_f64(D as f64));
+		coeff.zip_map_inner(
+			self.0.clone(),
+			|a, b| a.mul(fac).add(b)
+		)
+	}
+}
+
+impl<T, const A: usize, const B: usize> MonomialOrder<Monomial<T, A>>
+	for Monomial<T, B>
+where
+	T: Basis,
+	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
+{
+	const DEG: usize = B;
+	
+	// Tx^A + Tx^B -> (Tx^{A-B} + T)x^B
+	fn binom_eval(
+		&self,
+		Monomial(coeff): Monomial<T, A>,
+		time: <Self::Basis as Basis>::Inner,
+	) -> Self::Basis {
+		let a_fac = time.pow(Linear::from_f64((A - B) as f64));
+		let b_fac = time.pow(Linear::from_f64(B as f64));
+		coeff.zip_map_inner(
+			self.0.clone(),
+			|a, b| a.mul(a_fac).add(b).mul(b_fac)
+		)
+	}
+}
+
+impl<T, U, const A: usize, const B: usize> MonomialOrder<Monomial<T, A>>
+	for Binomial<Monomial<T, B>, U>
+where
+	T: Basis,
+	U: MonomialOrder<Monomial<T, B>>,
+	Monomial<T, A>: MonomialCmp<Monomial<T, B>, Order = order::Above>,
+{
+	const DEG: usize = B;
+	
+	// Tx^A + Tx^B + .. -> (Tx^{A-B} + T)x^B + ..
+	fn binom_eval(
+		&self,
+		Monomial(coeff): Monomial<T, A>,
+		time: <Self::Basis as Basis>::Inner,
+	) -> Self::Basis {
+		let fac = time.pow(Linear::from_f64((A - B) as f64));
+		let lhs = Monomial(coeff.zip_map_inner(
+			self.lhs.0.clone(),
+			|a, b| a.mul(fac).add(b)
+		));
+		self.rhs.binom_eval(lhs, time)
 	}
 }
 
@@ -201,9 +253,7 @@ where
 	const DEGREE: usize = A::DEGREE;
 	type Basis = A::Basis;
 	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
-		let sum = self.lhs.eval(Linear::from_f64(1.))
-			.map_inner(|n| n.mul(time));
-		self.rhs.sum_eval(sum, time)
+		self.rhs.binom_eval(self.lhs.clone(), time)
 	}
 	fn zero() -> Self {
 		Self {
@@ -464,61 +514,6 @@ macro_rules! impl_deg_order {
 			type Down = Monomial<T, { $($num +)+ 0 }>;
 			fn downgrade(self) -> Self::Down {
 				Monomial(self.0)
-			}
-		}
-		
-		impl<T> MonomialOrder<Monomial<T, { $($num +)+ 1 }>> for Monomial<T, { $($num +)+ 0 }>
-		where
-			T: Basis
-		{
-			const DEG: usize = { $($num +)+ 0 };
-			
-			// ax^2 + bx + c -> (ax + b)x + c
-			fn sum_eval(
-				&self,
-				sum: Self::Basis,
-				time: <Self::Basis as Basis>::Inner,
-			) -> Self::Basis {
-				self.eval(time)
-					.zip_map_inner(sum, Linear::add)
-			}
-		}
-		
-		impl<T, R> MonomialOrder<Monomial<T, { $($num +)+ 1 }>> for Binomial<Monomial<T, { $($num +)+ 0 }>, R>
-		where
-			T: Basis,
-			R: MonomialOrder<Monomial<T, { $($num +)+ 0 }>>,
-		{
-			const DEG: usize = { $($num +)+ 0 };
-			fn sum_eval(
-				&self,
-				sum: Self::Basis,
-				time: <Self::Basis as Basis>::Inner,
-			) -> Self::Basis {
-				let sum = self.lhs.eval(Linear::from_f64(1.))
-					.zip_map_inner(sum, |a, b| a.add(b).mul(time));
-				self.rhs.sum_eval(sum, time)
-			}
-		}
-		
-		impl<T, B> MonomialOrder<Monomial<B, { $($num +)+ 1 }>> for T
-		where
-			B: Basis,
-			T: MonomialOrder<Monomial<B, { $($num +)+ 0 }>, Basis = B>
-		{
-			const DEG: usize = <T as MonomialOrder<Monomial<B, { $($num +)+ 0 }>>>::DEG;
-			
-			// ax^3 + bx + c -> (ax^2 + b)x + c
-			fn sum_eval(
-				&self,
-				sum: Self::Basis,
-				time: <Self::Basis as Basis>::Inner,
-			) -> Self::Basis {
-				MonomialOrder::<Monomial<B, { $($num +)+ 0 }>>::sum_eval(
-					self,
-					sum.map_inner(|n| n.mul(time)),
-					time
-				)
 			}
 		}
 		
