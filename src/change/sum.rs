@@ -104,7 +104,8 @@ where
 {
 	type Output = Self;
 	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
-		let fac = amount.pow(Linear::from_f64(N as f64));
+		let fac = amount.mul(Linear::from_f64(-1.))
+			.pow(Linear::from_f64(N as f64));
 		Self(self.0.map_inner(|n| n.mul(fac)))
 	}
 }
@@ -134,7 +135,8 @@ where
 		    numer / denom
 		}
 		
-		let fac = amount.pow(Linear::from_f64((N - D) as f64))
+		let fac = amount.mul(Linear::from_f64(-1.))
+			.pow(Linear::from_f64((N - D) as f64))
 			.mul(Linear::from_f64(binom(N, D) as f64));
 		Binomial {
 			lhs: Monomial(self.0.clone().map_inner(|n| n.mul(fac))),
@@ -389,8 +391,8 @@ fn binomial_temp() {
 				}
 			},
 		}
-	} = Monomial::<f64, 4>(3.).translate(2.) else {
-		panic!("> {:?}", Monomial::<f64, 4>(3.).translate(2.));
+	} = Monomial::<f64, 4>(3.).translate(-2.) else {
+		panic!("> {:?}", Monomial::<f64, 4>(3.).translate(-2.));
 	};
 }
 
