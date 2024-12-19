@@ -73,7 +73,7 @@ where
 impl<T, const D: usize> Deriv for Monomial<T, D>
 where
 	T: Basis,
-	Self: MonomialDown<Down: Deriv, Basis = T>,
+	Self: MonomialDown<Down: Deriv<Basis = T>>,
 {
 	type Deriv = <Self as MonomialDown>::Down;
 	fn deriv(mut self) -> Self::Deriv {
@@ -166,7 +166,7 @@ impl<T, O, P, const N: usize> MonomialTranslate<N> for Constant<T>
 where
 	T: Basis,
 	P: Poly,
-	Monomial<T, 1>: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P>,
+	Monomial<T, 1>: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P, Basis=T>,
 	Self: MonomialOrder<P, Basis = T>,
 {
 	type Output = Binomial<Self, P>;
@@ -194,7 +194,7 @@ impl<T, O, P, const D: usize, const N: usize> MonomialTranslate<N> for Monomial<
 where
 	T: Basis,
 	P: Poly,
-	Self: MonomialUp<Up: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P>>
+	Self: MonomialUp<Up: MonomialCmp<Monomial<T, N>, Order=O> + MonomialTranslate<N, O, Output=P, Basis=T>>
 		+ MonomialOrder<P, Basis = T>,
 {
 	type Output = Binomial<Self, P>;
@@ -228,15 +228,12 @@ where
 }
 
 /// ...
-pub trait MonomialUp: Poly {
-	type Up: MonomialDown<Down = Self, Basis = Self::Basis>;
+pub trait MonomialUp {
+	type Up: MonomialDown<Down = Self>;
 	fn upgrade(self) -> Self::Up;
 }
 
-impl<T> MonomialUp for Constant<T>
-where
-	T: Basis
-{
+impl<T> MonomialUp for Constant<T> {
 	type Up = Monomial<T, 1>;
 	fn upgrade(self) -> Self::Up {
 		Monomial(self.0)
@@ -244,15 +241,12 @@ where
 }
 
 /// ...
-pub trait MonomialDown: Poly {
-	type Down: MonomialUp<Up = Self, Basis = Self::Basis>;
+pub trait MonomialDown {
+	type Down: MonomialUp<Up = Self>;
 	fn downgrade(self) -> Self::Down;
 }
 
-impl<T> MonomialDown for Monomial<T, 1>
-where
-	T: Basis
-{
+impl<T> MonomialDown for Monomial<T, 1> {
 	type Down = Constant<T>;
 	fn downgrade(self) -> Self::Down {
 		Constant(self.0)
@@ -267,38 +261,33 @@ mod order {
 }
 
 /// ...
-pub trait MonomialCmp<T: Poly>: Poly<Basis = T::Basis> {
+pub trait MonomialCmp<T> {
 	type Order;
 }
 
 impl<A, B> MonomialCmp<B> for A
 where
 	A: MonomialDown<Down: MonomialCmp<B::Down>>,
-	B: MonomialDown<Basis = A::Basis>,
+	B: MonomialDown,
 {
 	type Order = <A::Down as MonomialCmp<B::Down>>::Order;
 }
 
 impl<T, B> MonomialCmp<Constant<B>> for T
 where
-	B: Basis,
-	T: MonomialDown<Basis = B>,
+	T: MonomialDown
 {
 	type Order = order::Above;
 }
 
 impl<T, B> MonomialCmp<T> for Constant<B>
 where
-	B: Basis,
-	T: MonomialDown<Basis = B>,
+	T: MonomialDown
 {
 	type Order = order::Below;
 }
 
-impl<B> MonomialCmp<Constant<B>> for Constant<B>
-where
-	B: Basis
-{
+impl<B> MonomialCmp<Constant<B>> for Constant<B> {
 	type Order = order::Same;
 }
 
