@@ -229,7 +229,7 @@ where
 
 /// ...
 pub trait MonomialUp {
-	type Up: MonomialDown<Down = Self>;
+	type Up;
 	fn upgrade(self) -> Self::Up;
 }
 
@@ -240,9 +240,23 @@ impl<T> MonomialUp for Constant<T> {
 	}
 }
 
+impl<A, B> MonomialUp for Binomial<A, B>
+where
+	A: MonomialUp,
+	B: MonomialUp,
+{
+	type Up = Binomial<A::Up, B::Up>;
+	fn upgrade(self) -> Self::Up {
+		Binomial {
+			lhs: self.lhs.upgrade(),
+			rhs: self.rhs.upgrade(),
+		}
+	}
+}
+
 /// ...
 pub trait MonomialDown {
-	type Down: MonomialUp<Up = Self>;
+	type Down;
 	fn downgrade(self) -> Self::Down;
 }
 
@@ -250,6 +264,30 @@ impl<T> MonomialDown for Monomial<T, 1> {
 	type Down = Constant<T>;
 	fn downgrade(self) -> Self::Down {
 		Constant(self.0)
+	}
+}
+
+impl<A, B> MonomialDown for Binomial<A, B>
+where
+	A: MonomialDown,
+	B: MonomialDown,
+{
+	type Down = Binomial<A::Down, B::Down>;
+	fn downgrade(self) -> Self::Down {
+		Binomial {
+			lhs: self.lhs.downgrade(),
+			rhs: self.rhs.downgrade(),
+		}
+	}
+}
+
+impl<A, B> MonomialDown for Binomial<Constant<A>, B>
+where
+	B: MonomialDown,
+{
+	type Down = B::Down;
+	fn downgrade(self) -> Self::Down {
+		self.rhs.downgrade()
 	}
 }
 
