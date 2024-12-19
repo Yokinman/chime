@@ -303,12 +303,13 @@ pub trait MonomialCmp<T> {
 	type Order;
 }
 
-impl<A, B> MonomialCmp<B> for A
+impl<A, B, O> MonomialCmp<B> for A
 where
-	A: MonomialDown<Down: MonomialCmp<B::Down>>,
+	A: MonomialDown,
 	B: MonomialDown,
+	A::Down: MonomialCmp<B::Down, Order = O>,
 {
-	type Order = <A::Down as MonomialCmp<B::Down>>::Order;
+	type Order = O;
 }
 
 impl<T, B> MonomialCmp<Constant<B>> for T
@@ -644,20 +645,14 @@ macro_rules! impl_deg_order {
 	// (32 32 $($num:tt)*) => { impl_deg_order!(64 $($num)*); };
 	(8) => {/* break */};
 	($($num:tt)+) => {
-		impl<T> MonomialUp for Monomial<T, { $($num +)+ 0 }>
-		where
-			T: Basis
-		{
+		impl<T> MonomialUp for Monomial<T, { $($num +)+ 0 }> {
 			type Up = Monomial<T, { $($num +)+ 1 }>;
 			fn upgrade(self) -> Self::Up {
 				Monomial(self.0)
 			}
 		}
 		
-		impl<T> MonomialDown for Monomial<T, { $($num +)+ 1 }>
-		where
-			T: Basis
-		{
+		impl<T> MonomialDown for Monomial<T, { $($num +)+ 1 }> {
 			type Down = Monomial<T, { $($num +)+ 0 }>;
 			fn downgrade(self) -> Self::Down {
 				Monomial(self.0)
