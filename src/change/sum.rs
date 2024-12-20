@@ -93,25 +93,34 @@ where
 	}
 }
 
-impl<T, O, P, const A: usize, const B: usize> Add<Monomial<T, B>> for Monomial<T, A>
+impl<T, const D: usize> MonomialAdd for Monomial<T, D>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn monom_add(self, rhs: Self) -> Self::Output {
+		Self(self.0.zip_map_inner(rhs.0, Linear::add))
+	}
+}
+
+impl<T, const D: usize, A, O, P> Add<A> for Monomial<T, D>
 where
 	T: Basis,
-	Self: MonomialCmp<Monomial<T, B>, Order=O>
-		+ MonomialAdd<Monomial<T, B>, O, Output=P>,
+	Self: MonomialCmp<A, Order=O> + MonomialAdd<A, O, Output=P>,
 {
 	type Output = P;
-	fn add(self, rhs: Monomial<T, B>) -> Self::Output {
+	fn add(self, rhs: A) -> Self::Output {
 		self.monom_add(rhs)
 	}
 }
 
-impl<T, P, const A: usize, const B: usize> Sub<Monomial<T, B>> for Monomial<T, A>
+impl<T, const D: usize, A, P> Sub<A> for Monomial<T, D>
 where
-	T: Basis,
-	Self: Add<Monomial<T, B>, Output=P>,
+	A: Neg,
+	Self: Add<A::Output, Output=P>,
 {
 	type Output = P;
-	fn sub(self, rhs: Monomial<T, B>) -> Self::Output {
+	fn sub(self, rhs: A) -> Self::Output {
 		self + -rhs
 	}
 }
@@ -127,32 +136,110 @@ where
 }
 
 /// ...
-pub trait MonomialAdd<Rhs, OrdMarker> {
+pub trait MonomialAdd<Rhs=Self, OrdMarker=order::Same> {
 	type Output;
 	fn monom_add(self, rhs: Rhs) -> Self::Output;
-}
-
-impl<A, B> MonomialAdd<B, order::Above> for A {
-	type Output = Binomial<B, A>;
-	fn monom_add(self, rhs: B) -> Self::Output {
-		Binomial { lhs: rhs, rhs: self }
-	}
 }
 
 impl<A, B> MonomialAdd<B, order::Below> for A {
 	type Output = Binomial<A, B>;
 	fn monom_add(self, rhs: B) -> Self::Output {
-		Binomial { lhs: self, rhs }
+		Binomial {
+			lhs: self,
+			rhs,
+		}
 	}
 }
 
-impl<T, const A: usize, const B: usize> MonomialAdd<Monomial<T, B>, order::Same> for Monomial<T, A>
+impl<A, B> MonomialAdd<B, order::Above> for A {
+	type Output = Binomial<B, A>;
+	fn monom_add(self, rhs: B) -> Self::Output {
+		Binomial {
+			lhs: rhs,
+			rhs: self,
+		}
+	}
+}
+
+impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Below, O)> for T {
+	type Output = Binomial<T, Binomial<A, B>>;
+	fn monom_add(self, rhs: Binomial<A, B>) -> Self::Output {
+		Binomial {
+			lhs: self,
+			rhs,
+		}
+	}
+}
+
+impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Same, O)> for T
 where
-	T: Basis
+	T: MonomialAdd<A, order::Same>
 {
-	type Output = Self;
-	fn monom_add(self, rhs: Monomial<T, B>) -> Self::Output {
-		Self(self.0.zip_map_inner(rhs.0, Linear::add))
+	type Output = Binomial<T::Output, B>;
+	fn monom_add(self, rhs: Binomial<A, B>) -> Self::Output {
+		Binomial {
+			lhs: self.monom_add(rhs.lhs),
+			rhs: rhs.rhs,
+		}
+	}
+}
+
+impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Above, O)> for T
+where
+	T: MonomialAdd<B, O>
+{
+	type Output = Binomial<A, T::Output>;
+	fn monom_add(self, rhs: Binomial<A, B>) -> Self::Output {
+		Binomial {
+			lhs: rhs.lhs,
+			rhs: self.monom_add(rhs.rhs),
+		}
+	}
+}
+
+impl<A, B, T, O> MonomialAdd<T, Binomial<order::Below, O>> for Binomial<A, B>
+where
+	B: MonomialAdd<T, O>
+{
+	type Output = Binomial<A, B::Output>;
+	fn monom_add(self, rhs: T) -> Self::Output {
+		Binomial {
+			lhs: self.lhs,
+			rhs: self.rhs.monom_add(rhs),
+		}
+	}
+}
+
+impl<A, B, T, O> MonomialAdd<T, Binomial<order::Same, O>> for Binomial<A, B>
+where
+	A: MonomialAdd<T, order::Same>
+{
+	type Output = Binomial<A::Output, B>;
+	fn monom_add(self, rhs: T) -> Self::Output {
+		Binomial {
+			lhs: self.lhs.monom_add(rhs),
+			rhs: self.rhs,
+		}
+	}
+}
+
+impl<A, B, T, O> MonomialAdd<T, Binomial<order::Above, O>> for Binomial<A, B> {
+	type Output = Binomial<T, Binomial<A, B>>;
+	fn monom_add(self, rhs: T) -> Self::Output {
+		Binomial {
+			lhs: rhs,
+			rhs: self,
+		}
+	}
+}
+
+impl<A, B, X, Y, M, N, O, P> MonomialAdd<Binomial<X, Y>, Binomial<(M, N), O>> for Binomial<A, B>
+where
+	Self: Add<X, Output: Add<Y, Output=P>>
+{
+	type Output = P;
+	fn monom_add(self, rhs: Binomial<X, Y>) -> Self::Output {
+		self + rhs.lhs + rhs.rhs
 	}
 }
 
@@ -240,20 +327,6 @@ impl<T> MonomialUp for Constant<T> {
 	}
 }
 
-impl<A, B> MonomialUp for Binomial<A, B>
-where
-	A: MonomialUp,
-	B: MonomialUp,
-{
-	type Up = Binomial<A::Up, B::Up>;
-	fn upgrade(self) -> Self::Up {
-		Binomial {
-			lhs: self.lhs.upgrade(),
-			rhs: self.rhs.upgrade(),
-		}
-	}
-}
-
 /// ...
 pub trait MonomialDown {
 	type Down;
@@ -264,30 +337,6 @@ impl<T> MonomialDown for Monomial<T, 1> {
 	type Down = Constant<T>;
 	fn downgrade(self) -> Self::Down {
 		Constant(self.0)
-	}
-}
-
-impl<A, B> MonomialDown for Binomial<A, B>
-where
-	A: MonomialDown,
-	B: MonomialDown,
-{
-	type Down = Binomial<A::Down, B::Down>;
-	fn downgrade(self) -> Self::Down {
-		Binomial {
-			lhs: self.lhs.downgrade(),
-			rhs: self.rhs.downgrade(),
-		}
-	}
-}
-
-impl<A, B> MonomialDown for Binomial<Constant<A>, B>
-where
-	B: MonomialDown,
-{
-	type Down = B::Down;
-	fn downgrade(self) -> Self::Down {
-		self.rhs.downgrade()
 	}
 }
 
@@ -328,6 +377,25 @@ where
 
 impl<B> MonomialCmp<Constant<B>> for Constant<B> {
 	type Order = order::Same;
+}
+
+impl<A, B, T, O, P> MonomialCmp<Binomial<A, B>> for T
+where
+	A: MonomialDown,
+	B: MonomialDown,
+	T: MonomialDown,
+	T::Down: MonomialCmp<A::Down, Order=O>,
+	T::Down: MonomialCmp<B::Down, Order=P>,
+{
+	type Order = (O, P);
+}
+
+impl<A, B, T> MonomialCmp<T> for Binomial<A, B>
+where
+	A: MonomialCmp<T>,
+	B: MonomialCmp<T>,
+{
+	type Order = Binomial<A::Order, B::Order>;
 }
 
 /// ...
@@ -439,15 +507,47 @@ where
 	}
 }
 
+impl<A, B, T, O, P> Add<T> for Binomial<A, B>
+where
+	Self: MonomialCmp<T, Order=O> + MonomialAdd<T, O, Output=P>,
+{
+	type Output = P;
+	fn add(self, rhs: T) -> Self::Output {
+		self.monom_add(rhs)
+	}
+}
+
+impl<A, B, T, P> Sub<T> for Binomial<A, B>
+where
+	T: Neg,
+	Self: Add<T::Output, Output=P>,
+{
+	type Output = P;
+	fn sub(self, rhs: T) -> Self::Output {
+		self + -rhs
+	}
+}
+
+impl<A, B> Neg for Binomial<A, B>
+where
+	A: Neg,
+	B: Neg,
+{
+	type Output = Binomial<A::Output, B::Output>;
+	fn neg(self) -> Self::Output {
+		Binomial {
+			lhs: -self.lhs,
+			rhs: -self.rhs,
+		}
+	}
+}
+
 #[test]
 fn binomial_temp() {
 	let a = SumPoly::new(5., [10., 0.9, 0., 4.]);
 	let b = Binomial {
 		lhs: Constant(5.),
-		rhs: Binomial {
-			lhs: Monomial::<_, 1>(5.) + Monomial::<_, 1>(5.),
-			rhs: Monomial::<_, 4>(4.) - Monomial::<_, 2>(-0.9),
-		}
+		rhs: (Monomial::<_, 1>(5.) + Monomial::<_, 1>(5.)) + (Monomial::<_, 4>(4.) - Monomial::<_, 2>(-0.9)),
 	};
 	for i in 0..100 {
 		let t = i as f64;
