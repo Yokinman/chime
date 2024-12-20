@@ -103,14 +103,13 @@ where
 	}
 }
 
-impl<T, const D: usize, A, O, P> Add<A> for Monomial<T, D>
+impl<T, const D: usize, A, P> Add<A> for Monomial<T, D>
 where
-	T: Basis,
-	Self: MonomialCmp<A, Order=O> + MonomialAdd<A, O, Output=P>,
+	Self: AddPoly<A, Output=P>
 {
 	type Output = P;
 	fn add(self, rhs: A) -> Self::Output {
-		self.monom_add(rhs)
+		self.add_poly(rhs)
 	}
 }
 
@@ -132,6 +131,22 @@ where
 	type Output = Self;
 	fn neg(self) -> Self::Output {
 		Self(self.0.map_inner(|x| x.mul(Linear::from_f64(-1.))))
+	}
+}
+
+/// ...
+pub trait AddPoly<T> {
+	type Output;
+	fn add_poly(self, rhs: T) -> Self::Output;
+}
+
+impl<A, B, O, P> AddPoly<B> for A
+where
+	A: MonomialCmp<B, Order=O> + MonomialAdd<B, O, Output=P>,
+{
+	type Output = P;
+	fn add_poly(self, rhs: B) -> Self::Output {
+		self.monom_add(rhs)
 	}
 }
 
@@ -507,23 +522,23 @@ where
 	}
 }
 
-impl<A, B, T, O, P> Add<T> for Binomial<A, B>
+impl<A, B, C, P> Add<C> for Binomial<A, B>
 where
-	Self: MonomialCmp<T, Order=O> + MonomialAdd<T, O, Output=P>,
+	Self: AddPoly<C, Output=P>
 {
 	type Output = P;
-	fn add(self, rhs: T) -> Self::Output {
-		self.monom_add(rhs)
+	fn add(self, rhs: C) -> Self::Output {
+		self.add_poly(rhs)
 	}
 }
 
-impl<A, B, T, P> Sub<T> for Binomial<A, B>
+impl<A, B, C, P> Sub<C> for Binomial<A, B>
 where
-	T: Neg,
-	Self: Add<T::Output, Output=P>,
+	C: Neg,
+	Self: Add<C::Output, Output=P>,
 {
 	type Output = P;
-	fn sub(self, rhs: T) -> Self::Output {
+	fn sub(self, rhs: C) -> Self::Output {
 		self + -rhs
 	}
 }
