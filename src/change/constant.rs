@@ -3,6 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::change::{Change, ChangeUp, Sum};
+use crate::change::sum::{AddPoly, MonomialAdd};
 use crate::linear::{Basis, Linear, Vector};
 use crate::poly::{Deriv, Poly, Translate};
 
@@ -186,22 +187,33 @@ where
 	}
 }
 
-impl<A, B> Add<Constant<B>> for Constant<A>
+impl<T> MonomialAdd for Constant<T>
 where
-	A: Add<B>,
+	T: Basis
 {
-	type Output = Constant<A::Output>;
-	fn add(self, rhs: Constant<B>) -> Self::Output {
-		Constant(self.0 + rhs.0)
+	type Output = Self;
+	fn monom_add(self, rhs: Self) -> Self::Output {
+		Constant(self.0.zip_map_inner(rhs.0, Linear::add))
 	}
 }
 
-impl<A, B> Sub<Constant<B>> for Constant<A>
+impl<T, A, P> Add<A> for Constant<T>
 where
-	A: Sub<B>,
+	Self: AddPoly<A, Output=P>
 {
-	type Output = Constant<A::Output>;
-	fn sub(self, rhs: Constant<B>) -> Self::Output {
-		Constant(self.0 - rhs.0)
+	type Output = P;
+	fn add(self, rhs: A) -> Self::Output {
+		self.add_poly(rhs)
+	}
+}
+
+impl<T, A, P> Sub<A> for Constant<T>
+where
+	A: Neg,
+	Self: Add<<A as Neg>::Output, Output=P>,
+{
+	type Output = P;
+	fn sub(self, rhs: A) -> Self::Output {
+		self + -rhs
 	}
 }

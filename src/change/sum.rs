@@ -397,10 +397,26 @@ impl<B> MonomialCmp<Constant<B>> for Constant<B> {
 impl<A, B, T, O, P> MonomialCmp<Binomial<A, B>> for T
 where
 	A: MonomialDown,
-	B: MonomialDown,
 	T: MonomialDown,
 	T::Down: MonomialCmp<A::Down, Order=O>,
-	T::Down: MonomialCmp<B::Down, Order=P>,
+	T: MonomialCmp<B, Order=P>,
+{
+	type Order = (O, P);
+}
+
+impl<A, B, T, O, P> MonomialCmp<Binomial<Constant<A>, B>> for T
+where
+	T: MonomialDown,
+	T: MonomialCmp<Constant<A>, Order=O>,
+	T: MonomialCmp<B, Order=P>,
+{
+	type Order = (O, P);
+}
+
+impl<A, B, T, O, P> MonomialCmp<Binomial<A, B>> for Constant<T>
+where
+	Constant<T>: MonomialCmp<A, Order=O>,
+	Constant<T>: MonomialCmp<B, Order=P>,
 {
 	type Order = (O, P);
 }
@@ -560,10 +576,7 @@ where
 #[test]
 fn binomial_temp() {
 	let a = SumPoly::new(5., [10., 0.9, 0., 4.]);
-	let b = Binomial {
-		lhs: Constant(5.),
-		rhs: (Monomial::<_, 1>(5.) + Monomial::<_, 1>(5.)) + (Monomial::<_, 4>(4.) - Monomial::<_, 2>(-0.9)),
-	};
+	let b = (Constant(5.) + Monomial::<_, 1>(5.) + Monomial::<_, 1>(5.)) + (Monomial::<_, 4>(4.) - Monomial::<_, 2>(-0.9));
 	for i in 0..100 {
 		let t = i as f64;
 		println!("> {:?}", (a.eval(t), b.eval(t)));
