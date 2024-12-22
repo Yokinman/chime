@@ -504,6 +504,21 @@ where
 	}
 }
 
+impl<T, A, B, O> Translate for Binomial<A, B>
+where
+	Self: Poly<Basis=T>,
+	T: Basis,
+	A: Translate<Basis = T>,
+	B: Translate<Basis = T>,
+	A::Output: Add<B::Output, Output=O>,
+	O: Poly<Basis = T>,
+{
+	type Output = O;
+	fn translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output {
+		self.lhs.translate(amount) + self.rhs.translate(amount)
+	}
+}
+
 impl<A, B, C, P> Add<C> for Binomial<A, B>
 where
 	Self: AddPoly<C, Output=P>
@@ -551,19 +566,19 @@ fn binomial_temp() {
 	}
 	
 	let Binomial {
-		lhs: Constant(48.),
+		lhs: Constant(52.599999999999994),
 		rhs: Binomial {
-			lhs: Monomial::<_, 1>(96.),
+			lhs: Monomial::<_, 1>(-121.6),
 			rhs: Binomial {
-				lhs: Monomial::<_, 2>(72.),
+				lhs: Monomial::<_, 2>(96.9),
 				rhs: Binomial {
-					lhs: Monomial::<_, 3>(24.),
-					rhs: Monomial::<_, 4>(3.),
+					lhs: Monomial::<_, 3>(-32.),
+					rhs: Monomial::<_, 4>(4.),
 				}
 			},
 		}
-	} = Monomial::<f64, 4>(3.).translate(-2.) else {
-		panic!("> {:?}", Monomial::<f64, 4>(3.).translate(-2.));
+	} = b.translate(2.) else {
+		panic!("> {:?}", b.translate(2.));
 	};
 }
 
