@@ -176,7 +176,7 @@ impl<A, B> MonomialAdd<B, order::Above> for A {
 	}
 }
 
-impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Below, O)> for T {
+impl<A, B, T> MonomialAdd<Binomial<A, B>, order::ToLhs<order::Below>> for T {
 	type Output = Binomial<T, Binomial<A, B>>;
 	fn monom_add(self, rhs: Binomial<A, B>) -> Self::Output {
 		Binomial {
@@ -186,7 +186,7 @@ impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Below, O)> for T {
 	}
 }
 
-impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Same, O)> for T
+impl<A, B, T> MonomialAdd<Binomial<A, B>, order::ToLhs<order::Same>> for T
 where
 	T: MonomialAdd<A, order::Same>
 {
@@ -199,9 +199,9 @@ where
 	}
 }
 
-impl<A, B, O, T> MonomialAdd<Binomial<A, B>, (order::Above, O)> for T
+impl<A, B, T> MonomialAdd<Binomial<A, B>, order::ToLhs<order::Above>> for T
 where
-	T: MonomialAdd<B, O>
+	T: MonomialCmp<B> + MonomialAdd<B, T::Order>,
 {
 	type Output = Binomial<A, T::Output>;
 	fn monom_add(self, rhs: Binomial<A, B>) -> Self::Output {
@@ -212,49 +212,14 @@ where
 	}
 }
 
-impl<A, B, T, O> MonomialAdd<T, Binomial<order::Below, O>> for Binomial<A, B>
+impl<A, B, T, O> MonomialAdd<T, order::FromLhs<O>> for Binomial<A, B>
 where
-	B: MonomialAdd<T, O>
+	A: MonomialAdd<T, O>,
+	B: MonomialCmp<A::Output> + MonomialAdd<A::Output, B::Order>,
 {
-	type Output = Binomial<A, B::Output>;
+	type Output = B::Output;
 	fn monom_add(self, rhs: T) -> Self::Output {
-		Binomial {
-			lhs: self.lhs,
-			rhs: self.rhs.monom_add(rhs),
-		}
-	}
-}
-
-impl<A, B, T, O> MonomialAdd<T, Binomial<order::Same, O>> for Binomial<A, B>
-where
-	A: MonomialAdd<T, order::Same>
-{
-	type Output = Binomial<A::Output, B>;
-	fn monom_add(self, rhs: T) -> Self::Output {
-		Binomial {
-			lhs: self.lhs.monom_add(rhs),
-			rhs: self.rhs,
-		}
-	}
-}
-
-impl<A, B, T, O> MonomialAdd<T, Binomial<order::Above, O>> for Binomial<A, B> {
-	type Output = Binomial<T, Binomial<A, B>>;
-	fn monom_add(self, rhs: T) -> Self::Output {
-		Binomial {
-			lhs: rhs,
-			rhs: self,
-		}
-	}
-}
-
-impl<A, B, X, Y, M, N, O, P> MonomialAdd<Binomial<X, Y>, Binomial<(M, N), O>> for Binomial<A, B>
-where
-	Self: Add<X, Output: Add<Y, Output=P>>
-{
-	type Output = P;
-	fn monom_add(self, rhs: Binomial<X, Y>) -> Self::Output {
-		self + rhs.lhs + rhs.rhs
+		self.rhs.monom_add(self.lhs.monom_add(rhs))
 	}
 }
 
@@ -360,6 +325,8 @@ mod order {
 	pub struct Above;
 	pub struct Below;
 	pub struct Same;
+	pub struct ToLhs<T>(T);
+	pub struct FromLhs<T>(T);
 }
 
 /// ...
@@ -394,39 +361,38 @@ impl<B> MonomialCmp<Constant<B>> for Constant<B> {
 	type Order = order::Same;
 }
 
-impl<A, B, T, O, P> MonomialCmp<Binomial<A, B>> for T
+impl<A, B, T, O> MonomialCmp<Binomial<A, B>> for T
 where
 	A: MonomialDown,
 	T: MonomialDown,
 	T::Down: MonomialCmp<A::Down, Order=O>,
-	T: MonomialCmp<B, Order=P>,
 {
-	type Order = (O, P);
+	type Order = order::ToLhs<O>;
 }
 
-impl<A, B, T, O, P> MonomialCmp<Binomial<Constant<A>, B>> for T
+impl<A, B, T> MonomialCmp<Binomial<Constant<A>, B>> for T
 where
 	T: MonomialDown,
-	T: MonomialCmp<Constant<A>, Order=O>,
-	T: MonomialCmp<B, Order=P>,
 {
-	type Order = (O, P);
+	type Order = order::ToLhs<order::Above>;
 }
 
-impl<A, B, T, O, P> MonomialCmp<Binomial<A, B>> for Constant<T>
+impl<A, B, T> MonomialCmp<Binomial<A, B>> for Constant<T>
 where
-	Constant<T>: MonomialCmp<A, Order=O>,
-	Constant<T>: MonomialCmp<B, Order=P>,
+	A: MonomialDown,
 {
-	type Order = (O, P);
+	type Order = order::ToLhs<order::Below>;
+}
+
+impl<A, B, T> MonomialCmp<Binomial<Constant<A>, B>> for Constant<T> {
+	type Order = order::ToLhs<order::Same>;
 }
 
 impl<A, B, T> MonomialCmp<T> for Binomial<A, B>
 where
 	A: MonomialCmp<T>,
-	B: MonomialCmp<T>,
 {
-	type Order = Binomial<A::Order, B::Order>;
+	type Order = order::FromLhs<A::Order>;
 }
 
 /// ...
