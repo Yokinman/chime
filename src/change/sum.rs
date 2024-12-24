@@ -190,6 +190,139 @@ impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Monomial<f64, 
 	}
 }
 
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Monomial<f64, 3>>> {
+	type Output = [f64; 3];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(b), rhs: Monomial(d) }
+		} = self;
+		
+		 // Pseudo-linear:
+		if b == 0. {
+			return Binomial { lhs: Constant(a), rhs: Monomial::<_, 3>(d) }.roots()
+		}
+		
+		let p = -a / (2. * d);
+		let q = -b / (3. * d);
+		let r = p / q;
+		let discriminant = if q < 0. {
+			1.
+		} else {
+			let disc = f64::ln((r*r) / q.abs());
+			if disc.abs() < 1e-15 {
+				0.
+			} else {
+				disc
+			}
+		};
+		match discriminant.partial_cmp(&0.) {
+			 // 3 Real Roots:
+			Some(Ordering::Less) => {
+				let sqrt_q = q.sqrt();
+				let angle = f64::acos(r / sqrt_q);
+				debug_assert!(!angle.is_nan(), "{:?}", self);
+				use std::f64::consts::TAU;
+				[
+					2. * sqrt_q * f64::cos((angle         ) / 3.),
+					2. * sqrt_q * f64::cos((angle +    TAU) / 3.),
+					2. * sqrt_q * f64::cos((angle + 2.*TAU) / 3.),
+				] 
+			},
+			
+			 // 1 Real Root:
+			Some(Ordering::Greater) => {
+				let n = q.mul_add(-q*q, p*p).sqrt();
+				debug_assert!(!n.is_nan());
+				[(p + n).cbrt() + (p - n).cbrt(), f64::NAN, f64::NAN]
+			},
+			
+			 // 2 Real Roots:
+			_ => [-r, -r, 2.*r]
+		}
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 2>, Monomial<f64, 3>>> {
+	type Output = [f64; 3];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(c), rhs: Monomial(d) }
+		} = self;
+		Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(0.),
+				rhs: Binomial { lhs: Monomial::<_, 2>(c), rhs: Monomial::<_, 3>(d) }
+			}
+		}.roots()
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Binomial<Monomial<f64, 2>, Monomial<f64, 3>>>> {
+	type Output = [f64; 3];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial(b),
+				rhs: Binomial { lhs: Monomial(c), rhs: Monomial(d) }
+			}
+		} = self;
+		
+		 // Weak Constant:
+		let x = -a / b;
+		if x.is_nan() || (
+			((x   * c) / b).abs() < 1e-5 && // ??? Adjust as needed
+			((x*x * d) / b).abs() < 1e-16
+		) {
+			let [y, z] = Binomial {
+				lhs: Constant(b),
+				rhs: Binomial { lhs: Monomial::<_, 1>(c), rhs: Monomial::<_, 2>(d) },
+			}.roots();
+			return if x.is_nan() {
+				[y, y, z]
+			} else {
+				[x, y-x, z]
+			}
+		}
+		
+		let mut n = -c / d;
+		
+		 // Weak Leading Term:
+		if n.is_nan() || (
+			(b / (n   * c)).abs() < 1e-9 && // ??? Adjust as needed
+			(a / (n*n * c)).abs() < 1e-13
+		) {
+			let [x, y] = Binomial {
+				lhs: Constant(a),
+				rhs: Binomial { lhs: Monomial::<_, 1>(b), rhs: Monomial::<_, 2>(c) }
+			}.roots();
+			return [x, y, n]
+		}
+		
+		 // Depressed Cubic:
+		if c == 0. {
+			return Binomial {
+				lhs: Constant(a),
+				rhs: Binomial { lhs: Monomial::<_, 1>(b), rhs: Monomial::<_, 3>(d) }
+			}.roots()
+		}
+		
+		 // General Cubic:
+		n /= 3.;
+		let depressed_cubic = Binomial {
+			lhs: Constant(n.mul_add(n.mul_add(c * (2./3.), b), a)),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(n.mul_add(c, b)),
+				rhs: Monomial::<_, 3>(d),
+			}
+		};
+		depressed_cubic.roots().map(|x| x + n)
+	}
+}
+
 impl<T, const A: usize, const B: usize, const N: usize> Roots for Binomial<Monomial<f64, A>, T>
 where
 	Self: Poly + BinomialDown<Down: Roots<Output = [f64; N]>>,
@@ -198,7 +331,7 @@ where
 	type Output = [f64; B];
 	fn roots(self) -> <Self as Roots>::Output {
 		let mut roots = [0.; B];
-		roots[0..N].copy_from_slice(&self.binom_downgrade().roots());
+		roots[1..=N].copy_from_slice(&self.binom_downgrade().roots());
 		roots
 	}
 }
@@ -675,8 +808,8 @@ fn binomial_temp() {
 	}
 	
 	assert_eq!(
-		(Monomial::<_, 4>(4.) + Monomial::<_, 3>(-32.)).roots(),
-		[8., 0., 0., 0.]
+		(Monomial::<_, 1>(10.) + Monomial::<_, 4>(4.) + Monomial::<_, 3>(-32.)).roots(),
+		SumPoly(0., [10., 0., -32., 4.]).roots()
 	);
 	
 	let Binomial {
