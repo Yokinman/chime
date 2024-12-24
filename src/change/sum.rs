@@ -141,6 +141,28 @@ impl<const D: usize> Roots for Monomial<f64, D> {
 	}
 }
 
+impl<const D: usize> Roots for Binomial<Constant<f64>, Monomial<f64, D>> {
+	type Output = [f64; D];
+	fn roots(self) -> <Self as Roots>::Output {
+		let Binomial { lhs: Constant(a), rhs: Monomial(b) } = self;
+		
+		if D == 1 {
+			return [-a / b; D]
+		}
+		
+		if a == 0. {
+			return Monomial::<_, D>(b).roots()
+		}
+		
+		let mut roots = [f64::NAN; D];
+		roots[0] = (-a / b).powf((D as f64).recip());
+		if D % 2 == 0 {
+			roots[1] = -roots[0];
+		}
+		roots
+	}
+}
+
 /// ...
 pub trait AddPoly<T> {
 	type Output;
