@@ -203,6 +203,7 @@ impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Monomial<f64, 
 			return Binomial { lhs: Constant(a), rhs: Monomial::<_, 3>(d) }.roots()
 		}
 		
+		 // Depressed Cubic:
 		let p = -a / (2. * d);
 		let q = -b / (3. * d);
 		let r = p / q;
@@ -320,6 +321,253 @@ impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Binomial<Monom
 			}
 		};
 		depressed_cubic.roots().map(|x| x + n)
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Monomial<f64, 4>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(b), rhs: Monomial(e) }
+		} = self;
+		Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(b),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(0.),
+					rhs: Binomial { lhs: Monomial::<_, 3>(0.), rhs: Monomial::<_, 4>(e) }
+				}
+			}
+		}.roots()
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 2>, Monomial<f64, 4>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(c), rhs: Monomial(e) }
+		} = self;
+		
+		 // Pseudo-linear:
+		if c == 0. {
+			return Binomial { lhs: Constant(a), rhs: Monomial::<_, 4>(e) }.roots()
+		}
+		
+		 // Biquadratic:
+		let [x, y] = Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial::<_, 1>(c), rhs: Monomial::<_, 2>(e) }
+		}.roots();
+		let (x, y) = (x.sqrt(), y.sqrt());
+		return [-x, x, -y, y];
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 3>, Monomial<f64, 4>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(d), rhs: Monomial(e) }
+		} = self;
+		Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(0.),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(0.),
+					rhs: Binomial { lhs: Monomial::<_, 3>(d), rhs: Monomial::<_, 4>(e) }
+				}
+			}
+		}.roots()
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Binomial<Monomial<f64, 2>, Monomial<f64, 4>>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial(b),
+				rhs: Binomial { lhs: Monomial(c), rhs: Monomial(e) }
+			},
+		} = self;
+		
+		 // Biquadratic:
+		if b == 0. {
+			return Binomial {
+				lhs: Constant(a),
+				rhs: Binomial { lhs: Monomial::<_, 2>(c), rhs: Monomial::<_, 4>(e) }
+			}.roots()
+		}
+		
+		 // Depressed Quartic:
+		let p = a / e;
+		let q = b / (2. * e);
+		let r = c / (2. * e);
+		let resolvent_cubic = Binomial {
+			lhs: Constant(-(q * q) / 2.),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(r.mul_add(r, -p)),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(2. * r),
+					rhs: Monomial::<_, 3>(1.),
+				}
+			}
+		};
+		let mut m = resolvent_cubic.roots().into_iter()
+			.find(|&r| r > 0. && r.is_finite())
+			.unwrap_or_else(|| panic!(
+				"expected a positive root from: {:?}",
+				resolvent_cubic
+			));
+		let y = resolvent_cubic.eval(m)
+			/ m.mul_add(m.mul_add(3., 4.*r), resolvent_cubic.rhs.lhs.0);
+		if m > y && y.is_finite() {
+			m -= y; // Newton-Raphson step
+		}
+		let sqrt_2m = (2. * m).sqrt();
+		let [x, y] = Binomial {
+			lhs: Constant((q / sqrt_2m) + r + m),
+			rhs: Binomial { lhs: Monomial::<_, 1>(-sqrt_2m), rhs: Monomial::<_, 2>(1.) }
+		}.roots();
+		let [z, w] = Binomial {
+			lhs: Constant(-(q / sqrt_2m) + r + m),
+			rhs: Binomial { lhs: Monomial::<_, 1>(sqrt_2m), rhs: Monomial::<_, 2>(1.) }
+		}.roots();
+		[x, y, z, w]
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Binomial<Monomial<f64, 3>, Monomial<f64, 4>>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial(b),
+				rhs: Binomial { lhs: Monomial(d), rhs: Monomial(e) }
+			}
+		} = self;
+		Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(b),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(0.),
+					rhs: Binomial { lhs: Monomial::<_, 3>(d), rhs: Monomial::<_, 4>(e) }
+				}
+			}
+		}.roots()
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 2>, Binomial<Monomial<f64, 3>, Monomial<f64, 4>>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial(c),
+				rhs: Binomial { lhs: Monomial(d), rhs: Monomial(e) }
+			}
+		} = self;
+		Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(0.),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(c),
+					rhs: Binomial { lhs: Monomial::<_, 3>(d), rhs: Monomial::<_, 4>(e) }
+				}
+			}
+		}.roots()
+	}
+}
+
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Binomial<Monomial<f64, 2>, Binomial<Monomial<f64, 3>, Monomial<f64, 4>>>>> {
+	type Output = [f64; 4];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial {
+				lhs: Monomial(b),
+				rhs: Binomial {
+					lhs: Monomial(c),
+					rhs: Binomial { lhs: Monomial(d), rhs: Monomial(e) }
+				}
+			}
+		} = self;
+		
+		 // Weak Constant:
+		let x = -a / b;
+		if x.is_nan() || (
+			((x     * c) / b).abs() < 1e-4  && // ??? Adjust as needed
+			((x*x   * d) / b).abs() < 1e-12 &&
+			((x*x*x * e) / b).abs() < 1e-20
+		) {
+			let [y, z, w] = Binomial {
+				lhs: Constant(b),
+				rhs: Binomial {
+					lhs: Monomial::<_, 1>(c),
+					rhs: Binomial { lhs: Monomial::<_, 2>(d), rhs: Monomial::<_, 3>(e) }
+				}
+			}.roots();
+			return if x.is_nan() {
+				[y, y, z, w]
+			} else {
+				[x, y-x, z, w]
+			}
+		}
+		
+		let mut n = -d / e;
+		
+		 // Weak Leading Term:
+		if n.is_nan() || (
+		    (c / (n     * d)).abs() < 1e-7  && // ??? Adjust as needed
+			(b / (n*n   * d)).abs() < 1e-10 &&
+			(a / (n*n*n * d)).abs() < 1e-15
+		) {
+			let [x, y, z] = Binomial {
+				lhs: Constant(a),
+				rhs: Binomial {
+					lhs: Monomial::<_, 1>(b),
+					rhs: Binomial { lhs: Monomial::<_, 2>(c), rhs: Monomial::<_, 3>(d) }
+				}
+			}.roots();
+			return [x, y, z, n]
+		}
+		
+		 // Depressed Quartic:
+		if d == 0. {
+			return Binomial {
+				lhs: Constant(a),
+				rhs: Binomial {
+					lhs: Monomial::<_, 1>(b),
+					rhs: Binomial { lhs: Monomial::<_, 2>(c), rhs: Monomial::<_, 4>(e) }
+				}
+			}.roots()
+		}
+		
+		 // General Quartic:
+		n /= 4.;
+		let depressed_quartic = Binomial {
+			lhs: Constant(n.mul_add(n.mul_add(n.mul_add(d * (3./4.), c), b), a)),
+			rhs: Binomial {
+				lhs: Monomial::<_, 1>(n.mul_add(n.mul_add(d, c) * 2., b)),
+				rhs: Binomial {
+					lhs: Monomial::<_, 2>(n.mul_add(d * (3./2.), c)),
+					rhs: Monomial::<_, 4>(e),
+				}
+			}
+		};
+		let [x, y, z, w] = depressed_quartic.roots();
+		[x+n, y+n, z+n, w+n]
 	}
 }
 
@@ -798,9 +1046,11 @@ fn binomial_temp() {
 	}
 	
 	assert_eq!(
-		(Monomial::<_, 1>(10.) + Monomial::<_, 4>(4.) + Monomial::<_, 3>(-32.)).roots(),
-		SumPoly(0., [10., 0., -32., 4.]).roots()
+		(Monomial::<_, 1>(10.) + Constant(-2.) + Monomial::<_, 4>(4.) + Monomial::<_, 3>(-32.)).roots(),
+		SumPoly(-2., [10., 0., -32., 4.]).roots()
 	);
+	assert!(a.roots().iter().zip(b.roots())
+		.all(|(x, y)| x.total_cmp(&y) == Ordering::Equal));
 	
 	let Binomial {
 		lhs: Constant(52.599999999999994),
