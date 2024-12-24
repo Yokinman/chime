@@ -163,6 +163,33 @@ impl<const D: usize> Roots for Binomial<Constant<f64>, Monomial<f64, D>> {
 	}
 }
 
+impl Roots for Binomial<Constant<f64>, Binomial<Monomial<f64, 1>, Monomial<f64, 2>>> {
+	type Output = [f64; 2];
+	fn roots(self) -> Self::Output {
+		let Binomial {
+			lhs: Constant(a),
+			rhs: Binomial { lhs: Monomial(b), rhs: Monomial(c) },
+		} = self;
+		
+		let mut n = -b / c;
+		
+		 // Precision Breakdown (Discriminant Quotient):
+		let x = -a / b;
+		if x.is_nan() || n.is_nan() || (x / n).abs() < 1e-8 {
+			return if x.is_nan() {
+				[n, n]
+			} else {
+				[x, n-x]
+			}
+		}
+		
+		 // General Quadratic:
+		n /= 2.;
+		let x = n.mul_add(n, -a/c).sqrt();
+		[n-x, n+x]
+	}
+}
+
 impl<T, const A: usize, const B: usize, const N: usize> Roots for Binomial<Monomial<f64, A>, T>
 where
 	Self: Poly + BinomialDown<Down: Roots<Output = [f64; N]>>,
