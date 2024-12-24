@@ -163,6 +163,19 @@ impl<const D: usize> Roots for Binomial<Constant<f64>, Monomial<f64, D>> {
 	}
 }
 
+impl<T, const A: usize, const B: usize, const N: usize> Roots for Binomial<Monomial<f64, A>, T>
+where
+	Self: Poly + BinomialDown<Down: Roots<Output = [f64; N]>>,
+	T: Roots<Output = [f64; B]>,
+{
+	type Output = [f64; B];
+	fn roots(self) -> <Self as Roots>::Output {
+		let mut roots = [0.; B];
+		roots[0..N].copy_from_slice(&self.binom_downgrade().roots());
+		roots
+	}
+}
+
 /// ...
 pub trait AddPoly<T> {
 	type Output;
@@ -346,6 +359,46 @@ impl<T> MonomialDown for Monomial<T, 1> {
 	type Down = Constant<T>;
 	fn downgrade(self) -> Self::Down {
 		Constant(self.0)
+	}
+}
+
+/// ...
+pub trait BinomialDown {
+	type Down;
+	fn binom_downgrade(self) -> Self::Down;
+}
+
+impl<T> BinomialDown for T
+where
+	T: MonomialDown
+{
+	type Down = T::Down;
+	fn binom_downgrade(self) -> Self::Down {
+		self.downgrade()
+	}
+}
+
+impl<T, B> BinomialDown for Binomial<Constant<T>, B>
+where
+	B: BinomialDown
+{
+	type Down = B::Down;
+	fn binom_downgrade(self) -> Self::Down {
+		self.rhs.binom_downgrade()
+	}
+}
+
+impl<A, B> BinomialDown for Binomial<A, B>
+where
+	A: MonomialDown,
+	B: BinomialDown,
+{
+	type Down = Binomial<A::Down, B::Down>;
+	fn binom_downgrade(self) -> Self::Down {
+		Binomial {
+			lhs: self.lhs.downgrade(),
+			rhs: self.rhs.binom_downgrade(),
+		}
 	}
 }
 
@@ -593,6 +646,11 @@ fn binomial_temp() {
 		assert_eq!(a.eval(t), b.eval(t));
 		assert_eq!(a.deriv().eval(t), b.deriv().eval(t));
 	}
+	
+	assert_eq!(
+		(Monomial::<_, 4>(4.) + Monomial::<_, 3>(-32.)).roots(),
+		[8., 0., 0., 0.]
+	);
 	
 	let Binomial {
 		lhs: Constant(52.599999999999994),
