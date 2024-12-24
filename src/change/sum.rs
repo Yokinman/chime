@@ -538,16 +538,6 @@ where
 	}
 }
 
-impl<T, B> BinomialDown for Binomial<Constant<T>, B>
-where
-	B: BinomialDown
-{
-	type Down = B::Down;
-	fn binom_downgrade(self) -> Self::Down {
-		self.rhs.binom_downgrade()
-	}
-}
-
 impl<A, B> BinomialDown for Binomial<A, B>
 where
 	A: MonomialDown,
