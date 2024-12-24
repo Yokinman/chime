@@ -134,6 +134,13 @@ where
 	}
 }
 
+impl<const D: usize> Roots for Monomial<f64, D> {
+	type Output = [f64; D];
+	fn roots(self) -> <Self as Roots>::Output {
+		[0. / self.0; D]
+	}
+}
+
 /// ...
 pub trait AddPoly<T> {
 	type Output;
