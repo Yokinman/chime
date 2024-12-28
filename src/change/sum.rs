@@ -52,8 +52,7 @@ where
 }
 
 /// ...
-#[derive(Copy, Clone, Debug)]
-pub struct Monomial<T, const DEGREE: usize>(T);
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Monomial<T, const DEGREE: usize>(pub(crate) T);
 
 impl<T, const D: usize> Poly for Monomial<T, D>
@@ -933,7 +932,7 @@ where
 /// Summation over time.
 /// 
 /// `Binomial<Monomial<T, 2>, Binomial<Monomial<T, 1>, Constant<T>>>`: `a + bx + cx^2`
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Binomial<A, B> {
 	pub(crate) lhs: A,
 	pub(crate) rhs: B,
