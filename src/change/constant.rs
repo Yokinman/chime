@@ -3,7 +3,7 @@
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use crate::exp::Exp;
 use crate::change::{Change, ChangeUp, Sum};
-use crate::change::sum::{AddPoly, MonomialAdd};
+use crate::change::sum::{AddPoly, Binomial, Monomial, MonomialAdd};
 use crate::linear::{Basis, Linear, Vector};
 use crate::poly::{Deriv, Poly, Translate};
 
@@ -176,17 +176,6 @@ impl<T: Basis> Neg for Constant<T> {
 	}
 }
 
-impl<T> Mul<Constant<T>> for Constant<T>
-where
-	T: Mul<Output = T>
-{
-	type Output = Self;
-	fn mul(mut self, rhs: Self) -> Self {
-		self.0 = self.0 * rhs.0;
-		self
-	}
-}
-
 impl<T> MonomialAdd for Constant<T>
 where
 	T: Basis
@@ -215,5 +204,48 @@ where
 	type Output = P;
 	fn sub(self, rhs: A) -> Self::Output {
 		self + -rhs
+	}
+}
+
+impl<T> Mul for Constant<T>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn mul(self, rhs: Self) -> Self::Output {
+		self.map(|n| n.zip_map_inner(rhs.0, Linear::mul))
+	}
+}
+
+impl<T> Div for Constant<T>
+where
+	T: Basis
+{
+	type Output = Self;
+	fn div(self, rhs: Self) -> Self::Output {
+		self.map(|n| n.zip_map_inner(rhs.0, Linear::div))
+	}
+}
+
+impl<T, const D: usize> Mul<Monomial<T, D>> for Constant<T>
+where
+	T: Basis
+{
+	type Output = Monomial<T, D>;
+	fn mul(self, rhs: Monomial<T, D>) -> Self::Output {
+		Monomial(self.0.zip_map_inner(rhs.0, Linear::mul))
+	}
+}
+
+impl<T, A, B, X, Y> Mul<Binomial<A, B>> for Constant<T>
+where
+	Self: Clone + Mul<A, Output=X> + Mul<B, Output=Y>
+{
+	type Output = Binomial<X, Y>;
+	fn mul(self, rhs: Binomial<A, B>) -> Self::Output {
+		Binomial {
+			lhs: self.clone() * rhs.lhs,
+			rhs: self * rhs.rhs,
+		}
 	}
 }
