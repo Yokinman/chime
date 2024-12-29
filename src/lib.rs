@@ -1,5 +1,7 @@
 //! Utilities for describing how a type changes over time.
 
+#![recursion_limit = "2048"]
+
 pub mod change;
 pub mod temporal;
 pub mod time;

@@ -5,6 +5,7 @@ use crate::time::Time;
 pub use crate::change::constant::Constant;
 pub use crate::change::sum::SumPoly;
 pub use crate::change::prod::ProdPoly;
+use crate::change::sum::Monomial;
 pub use crate::change::sumprod::SumProdPoly;
 
 /// An abstract description of change over time.
@@ -259,4 +260,183 @@ where
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		(0, self.times.size_hint().1)
 	}
+}
+
+/// ...
+pub struct Exponent<const N: usize>;
+
+/// ...
+#[derive(Copy, Clone, Debug)]
+pub struct Variable<const D: usize>;
+
+impl<const T: usize> IntoTerm for Variable<T> {
+	type Term = Self;
+	fn into_term(self) -> Self::Term {
+		self
+	}
+}
+
+impl<const N: usize> std::ops::BitXor<Exponent<N>> for Variable<1> {
+	type Output = Variable<N>;
+	fn bitxor(self, _rhs: Exponent<N>) -> Self::Output {
+		Variable::<N>
+	}
+}
+
+impl<T, const D: usize> std::ops::Mul<Variable<D>> for Constant<T> {
+	type Output = Monomial<T, D>;
+	fn mul(self, _rhs: Variable<D>) -> Self::Output {
+		Monomial(self.0)
+	}
+}
+
+/// ...
+pub trait IntoTerm {
+	type Term;
+	fn into_term(self) -> Self::Term;
+}
+
+impl<T> IntoTerm for T
+where
+	T: Basis
+{
+	type Term = Constant<T>;
+	fn into_term(self) -> Self::Term {
+		Constant(self)
+	}
+}
+
+impl<T> IntoTerm for Constant<T> {
+	type Term = Self;
+	fn into_term(self) -> Self::Term {
+		self
+	}
+}
+
+impl<T, const D: usize> IntoTerm for Monomial<T, D> {
+	type Term = Self;
+	fn into_term(self) -> Self::Term {
+		self
+	}
+}
+
+impl<A, B> IntoTerm for crate::change::sum::Binomial<A, B> {
+	type Term = Self;
+	fn into_term(self) -> Self::Term {
+		self
+	}
+}
+
+/// ...
+#[macro_export]
+macro_rules! poly {
+	 // Callback Handling:
+	(@ return ($($t:tt)*) -> {
+		$call:ident
+		$(($([$($lhs:tt)*]:)? in $(:[$($rhs:tt)*])? ! $(, $args:tt)*))?
+		$(-> $($rest:tt)+)?
+	}) => {
+		$crate::poly!{@ $call($($($($lhs)*)?)? $($t)* $($($($rhs)*)?$(, $args)*)?) $(-> $($rest)+)?}
+	};
+	(@ $rule:ident $input:tt -> $call:ident $($rest:tt)*) => {
+		$crate::poly!{@ $rule $input -> { $call $($rest)* } }
+	};
+	
+	 // Parse Terms:
+	(@ parse_expr([- $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_expr([$($input)*], [1])
+			-> parse_binop([-]:in!, $weight)
+			-> $ret }
+	};
+	(@ parse_expr([$x:ident $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_binop($crate::poly::IntoTerm::into_term($x), [$($input)*], $weight) -> $ret }
+	};
+	(@ parse_expr([$x:literal $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_binop($crate::poly::IntoTerm::into_term($x), [$($input)*], $weight) -> $ret }
+	};
+	(@ parse_expr([($($x:tt)*) $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_expr([$($x)*], [])
+			-> take_first
+			-> parse_binop(in!, [$($input)*], $weight)
+			-> $ret }
+	};
+	(@ parse_expr([], $weight:tt) -> $ret:tt) => {
+		compile_error!("expected expression, found end of input")
+	};
+	
+	 // Parse Exponents:
+	(@ parse_const_expr([$x:ident $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_binop(($crate::poly::Exponent::<$x>), [$($input)*], $weight) -> $ret }
+	};
+	(@ parse_const_expr([$x:literal $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_binop(($crate::poly::Exponent::<$x>), [$($input)*], $weight) -> $ret }
+	};
+	(@ parse_const_expr([{$($x:tt)*} $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ parse_binop(($crate::poly::Exponent::<{$($x)*}>), [$($input)*], $weight) -> $ret }
+	};
+	(@ parse_const_expr([$x:tt $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		compile_error!(concat!("expected const expression, found `", stringify!($x), "`"))
+	};
+	
+	 // Parse Binary Operations:
+	(@ parse_binop($lhs:expr, [$op:tt $($input:tt)*], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ weigh_binop($op, $weight)
+			-> parse_binop_rhs(in!, [$($input)*], $weight, $lhs, $op)
+			-> $ret }
+	};
+	(@ parse_binop($lhs:expr, [/*No Tokens*/], $weight:tt) -> $ret:tt) => {
+		$crate::poly!{@ return ($lhs, []) -> $ret }
+	};
+	(@ parse_binop_rhs([], [$($input:tt)*], [], $lhs:expr, $op:tt) -> $ret:tt) => {
+		 // Invalid Operator:
+		compile_error!(concat!("expected arithmetic operator, found `", stringify!($op), "`"))
+	};
+	(@ parse_binop_rhs([], [$($input:tt)*], $weight:tt, $lhs:expr, $op:tt) -> $ret:tt) => {
+		 // Found Operator of Lower/Same Precedence:
+		$crate::poly!{@ return ($lhs, [$op $($input)*]) -> $ret }
+	};
+	(@ parse_binop_rhs($op_weight:tt, $input:tt, $weight:tt, $lhs:expr, ^) -> $ret:tt) => {
+		 // Found Operator `^`, Parse Rhs as Const & Continue Search:
+		$crate::poly!{@ parse_const_expr($input, $op_weight)
+			-> parse_binop([$lhs ^]:in!, $weight)
+			-> $ret }
+	};
+	(@ parse_binop_rhs($op_weight:tt, $input:tt, $weight:tt, $lhs:expr, $op:tt) -> $ret:tt) => {
+		 // Found Operator of Higher Precedence, Parse Rhs & Continue Search:
+		$crate::poly!{@ parse_expr($input, $op_weight)
+			-> parse_binop([$lhs $op]:in!, $weight)
+			-> $ret }
+	};
+	
+	 // Operator Weight Comparison:
+	(@ weigh_binop(+, [])           -> $ret:tt) => { $crate::poly!{@ return ([1])     -> $ret } };
+	(@ weigh_binop(-, [])           -> $ret:tt) => { $crate::poly!{@ return ([1])     -> $ret } };
+	(@ weigh_binop(*, [$(1)?])      -> $ret:tt) => { $crate::poly!{@ return ([1 1])   -> $ret } };
+	(@ weigh_binop(/, [$(1)?])      -> $ret:tt) => { $crate::poly!{@ return ([1 1])   -> $ret } };
+	(@ weigh_binop(^, [$(1$(1)?)?]) -> $ret:tt) => { $crate::poly!{@ return ([1 1 1]) -> $ret } };
+	(@ weigh_binop($op:tt, $max:tt) -> $ret:tt) => { $crate::poly!{@ return ([])      -> $ret } };
+	
+	 // Token Handling:
+	(@ take_first($first:tt $($rest:tt)*) -> $ret:tt) => {
+		$crate::poly!{@ return ($first) -> $ret }
+	};
+	(@ expand($($t:tt)*)) => {
+		$($t)*
+	};
+	
+	 // Recursion Fallback:
+	(@ $($t:tt)*) => {
+		compile_error!(concat!("cannot find rule `", stringify!(@ $($t)*), "` in this macro"))
+	};
+	
+	 // User Entry Point:
+	(|$x:ident /*$(: $basis:ty)?*/| $($input:tt)+) => {
+		{
+			let $x = $crate::poly::Variable::<1>;
+			$crate::poly!(|_| $($input)+)
+		}
+	};
+	(|_ /*$(: $basis:ty)?*/| $($input:tt)+) => {
+		$crate::poly!{@ parse_expr([$($input)+], []) -> take_first -> expand }
+	};
 }
