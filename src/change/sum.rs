@@ -134,6 +134,16 @@ where
 	}
 }
 
+impl<T, const D: usize, A, P> Mul<A> for Monomial<T, D>
+where
+	Self: MonomialMul<A, Output=P>
+{
+	type Output = P;
+	fn mul(self, rhs: A) -> Self::Output {
+		self.monom_mul(rhs)
+	}
+}
+
 impl<const D: usize> Roots for Monomial<f64, D> {
 	type Output = [f64; D];
 	fn roots(self) -> <Self as Roots>::Output {
@@ -674,6 +684,44 @@ where
 }
 
 /// ...
+pub trait MonomialMul<Rhs=Self> {
+	type Output;
+	fn monom_mul(self, rhs: Rhs) -> Self::Output;
+}
+
+impl<T, U, V, const A: usize, const B: usize> MonomialMul<Monomial<T, B>> for Monomial<T, A>
+where
+	Monomial<T, A>: MonomialDown<Down = V>,
+	Monomial<T, B>: MonomialUp<Up = U>,
+	V: MonomialMul<U>,
+{
+	type Output = V::Output;
+	fn monom_mul(self, rhs: Monomial<T, B>) -> Self::Output {
+		self.downgrade().monom_mul(rhs.upgrade())
+	}
+}
+
+impl<T, const D: usize> MonomialMul<Monomial<T, D>> for Constant<T>
+where
+	T: Basis
+{
+	type Output = Monomial<T, D>;
+	fn monom_mul(self, rhs: Monomial<T, D>) -> Self::Output {
+		Monomial(self.0.zip_map_inner(rhs.0, Linear::mul))
+	}
+}
+
+impl<T, const D: usize> MonomialMul<Constant<T>> for Monomial<T, D>
+where
+	T: Basis
+{
+	type Output = Monomial<T, D>;
+	fn monom_mul(self, rhs: Constant<T>) -> Self::Output {
+		Monomial(self.0.zip_map_inner(rhs.0, Linear::mul))
+	}
+}
+
+/// ...
 pub trait MonomialTranslate<const N: usize, OrdMarker = order::Below>: Poly {
 	type Output: Poly<Basis = Self::Basis>;
 	fn monom_translate(self, amount: <Self::Basis as Basis>::Inner) -> Self::Output;
@@ -1067,6 +1115,11 @@ fn binomial_temp() {
 	} = b.translate(2.) else {
 		panic!("> {:?}", b.translate(2.));
 	};
+	
+	assert_eq!(
+		Monomial::<_, 3>(5.) * Monomial::<_, 2>(2.),
+		Monomial::<f64, 5>(10.)
+	);
 }
 
 /// Summation over time.
