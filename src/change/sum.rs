@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 use crate::{change::*, linear::*};
 use crate::change::constant::Constant;
+use crate::exp::{ApplyExp, ApplyLn, Ln};
 use crate::poly::{Deriv, Poly, Roots, Translate};
 
 /// The pattern of repeated addition, `a = a + b`.
@@ -136,11 +137,19 @@ where
 
 impl<T, const D: usize, A, P> Mul<A> for Monomial<T, D>
 where
-	Self: MonomialMul<A, Output=P>
+	Self: ApplyLn<Output: Add<A::Output, Output: ApplyExp<Output=P>>>,
+	A: ApplyLn,
 {
 	type Output = P;
 	fn mul(self, rhs: A) -> Self::Output {
-		self.monom_mul(rhs)
+		(self.ln() + rhs.ln()).exp()
+	}
+}
+
+impl<T, const D: usize> ApplyLn for Monomial<T, D> {
+	type Output = Ln<Self>;
+	fn ln(self) -> Self::Output {
+		Ln(self)
 	}
 }
 
@@ -683,6 +692,48 @@ where
 	}
 }
 
+impl<T, U, V, const A: usize, const B: usize> MonomialAdd<Ln<Monomial<T, B>>, order::Same> for Ln<Monomial<T, A>>
+where
+	Monomial<T, A>: MonomialDown<Down = V>,
+	Monomial<T, B>: MonomialUp<Up = U>,
+	Ln<V>: Add<Ln<U>>,
+{
+	type Output = <Ln<V> as Add<Ln<U>>>::Output;
+	fn monom_add(self, rhs: Ln<Monomial<T, B>>) -> Self::Output {
+		Ln(self.0.downgrade()) + Ln(rhs.0.upgrade())
+	}
+}
+
+impl<T, const D: usize> MonomialAdd<Ln<Monomial<T, D>>, order::Same> for Ln<Constant<T>>
+where
+	T: Basis
+{
+	type Output = Ln<Monomial<T, D>>;
+	fn monom_add(self, rhs: Ln<Monomial<T, D>>) -> Self::Output {
+		Ln(Monomial(self.0.0.zip_map_inner(rhs.0.0, Linear::mul)))
+	}
+}
+
+impl<T, const D: usize> MonomialAdd<Ln<Constant<T>>, order::Same> for Ln<Monomial<T, D>>
+where
+	T: Basis
+{
+	type Output = Ln<Monomial<T, D>>;
+	fn monom_add(self, rhs: Ln<Constant<T>>) -> Self::Output {
+		Ln(Monomial(self.0.0.zip_map_inner(rhs.0.0, Linear::mul)))
+	}
+}
+
+impl<T, const D: usize, A, B, P> MonomialAdd<Ln<Binomial<A, B>>, order::Same> for Ln<Monomial<T, D>>
+where
+	Binomial<A, B>: Mul<Monomial<T, D>, Output = P>,
+{
+	type Output = Ln<P>;
+	fn monom_add(self, rhs: Ln<Binomial<A, B>>) -> Self::Output {
+		Ln(rhs.0 * self.0)
+	}
+}
+
 /// ...
 pub trait MonomialMul<Rhs=Self> {
 	type Output;
@@ -923,6 +974,10 @@ where
 	type Order = order::FromLhs<A::Order>;
 }
 
+impl<T, U> MonomialCmp<Ln<U>> for Ln<T> {
+	type Order = order::Same;
+}
+
 /// ...
 pub trait MonomialOrder<T>: Poly {
 	fn binom_eval(self, rhs: T, time: <Self::Basis as Basis>::Inner) -> Self;
@@ -1082,6 +1137,25 @@ where
 	}
 }
 
+impl<A, B, C, P> Mul<C> for Binomial<A, B>
+where
+	A: Mul<C, Output: Add<B::Output, Output=P>>,
+	B: Mul<C>,
+	C: Clone,
+{
+	type Output = P;
+	fn mul(self, rhs: C) -> Self::Output {
+		(self.lhs * rhs.clone()) + (self.rhs * rhs)
+	}
+}
+
+impl<A, B> ApplyLn for Binomial<A, B> {
+	type Output = Ln<Self>;
+	fn ln(self) -> Self::Output {
+		Ln(self)
+	}
+}
+
 #[test]
 fn binomial_temp() {
 	let a = SumPoly::new(5., [10., 0.9, 0., 4.]);
@@ -1117,8 +1191,17 @@ fn binomial_temp() {
 	};
 	
 	assert_eq!(
-		Monomial::<_, 3>(5.) * Monomial::<_, 2>(2.),
-		Monomial::<f64, 5>(10.)
+		(Monomial::<_, 5>(4.) + Monomial::<_, 3>(5.)) * (Monomial::<_, 2>(2.) + Monomial::<_, 3>(4.)),
+		Binomial {
+			lhs: Monomial::<f64, 5>(10.),
+			rhs: Binomial {
+				lhs: Monomial::<_, 6>(20.),
+				rhs: Binomial {
+					lhs: Monomial::<_, 7>(8.),
+					rhs: Monomial::<_, 8>(16.),
+				}
+			},
+		}
 	);
 }
 
