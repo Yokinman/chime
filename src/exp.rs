@@ -94,3 +94,60 @@ where
 		Exp(self.0.translate(amount))
 	}
 }
+
+/// ... natural logarithm
+#[derive(Copy, Clone, Debug)]
+pub struct Ln<T>(pub T);
+
+impl<T> Poly for Ln<T>
+where
+	T: Poly
+{
+	const DEGREE: usize = T::DEGREE;
+	
+	type Basis = T::Basis;
+	
+	fn eval(&self, time: <Self::Basis as Basis>::Inner) -> Self::Basis {
+		self.0.eval(time).map_inner(Linear::ln)
+	}
+	
+	fn zero() -> Self {
+		Self(T::zero())
+	}
+}
+
+impl<A, B, P> std::ops::Add<B> for Ln<A>
+where
+	Self: crate::change::sum::AddPoly<B, Output=P>
+{
+	type Output = P;
+	fn add(self, rhs: B) -> Self::Output {
+		crate::change::sum::AddPoly::add_poly(self, rhs)
+	}
+}
+
+/// ...
+pub trait ApplyExp {
+	type Output;
+	fn exp(self) -> Self::Output;
+}
+
+impl<T> ApplyExp for Ln<T> {
+	type Output = T;
+	fn exp(self) -> Self::Output {
+		self.0
+	}
+}
+
+/// ...
+pub trait ApplyLn {
+	type Output;
+	fn ln(self) -> Self::Output;
+}
+
+impl<T> ApplyLn for Exp<T> {
+	type Output = T;
+	fn ln(self) -> Self::Output {
+		self.0
+	}
+}
