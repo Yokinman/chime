@@ -28,8 +28,8 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 	let (impl_params, type_params, impl_clause) = item.generics.split_for_impl();
 	
 	let mut basis: Option<(syn::Member, syn::Type)> = None;
-	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::Flux::accum(self).into_change()};
-	let mut change_type: syn::Type = syn::parse_quote!{#chime::change::Nil<Self::Basis>};
+	let mut change_expr: syn::Expr = syn::parse_quote!{#chime::FluxAccum::empty()};
+	let mut change_type: syn::Type = syn::parse_quote!{#chime::change::Nil};
 	
 	 // Find Helper Attributes:
 	for (field_index, field) in item.fields.iter().enumerate() {
@@ -75,10 +75,10 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 						};
 						
 						change_expr = syn::parse_quote!{
-							(#change_expr >> #rhs)
+							<#change_type as #chime::change::ApplyChange<#field_type>>::apply_change(#change_expr, #rhs)
 						};
 						change_type = syn::parse_quote!{
-							<#change_type as std::ops::Shr<#field_type>>::Output
+							<#change_type as #chime::change::ApplyChange<#field_type>>::Output
 						};
 					},
 					Ok(syn::Expr::Call(syn::ExprCall { func, args, .. })) => {
@@ -86,11 +86,11 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							else { panic!("invalid change operation, `{}`{}",
 								func.to_token_stream(), CHANGE_HELP) };
 						
-						let (op, op_trait): (syn::BinOp, syn::TypePath) = loop {
-							if path.is_ident("add_per") { break (syn::parse_quote!{+}, syn::parse_quote!{std::ops::Add}) }
-							if path.is_ident("sub_per") { break (syn::parse_quote!{-}, syn::parse_quote!{std::ops::Sub}) }
-							if path.is_ident("mul_per") { break (syn::parse_quote!{*}, syn::parse_quote!{std::ops::Mul}) }
-							if path.is_ident("div_per") { break (syn::parse_quote!{/}, syn::parse_quote!{std::ops::Div}) }
+						let (op, op_change): (syn::BinOp, syn::TypePath) = loop {
+							if path.is_ident("add_per") { break (syn::parse_quote!{+}, syn::parse_quote!{#chime::change::Plus}) }
+							if path.is_ident("sub_per") { break (syn::parse_quote!{-}, syn::parse_quote!{#chime::change::Plus}) }
+							if path.is_ident("mul_per") { break (syn::parse_quote!{*}, syn::parse_quote!{#chime::change::Times}) }
+							if path.is_ident("div_per") { break (syn::parse_quote!{/}, syn::parse_quote!{#chime::change::Times}) }
 							
 							panic!("invalid change operation, `{}`{}",
 								path.to_token_stream(), CHANGE_HELP)
@@ -107,7 +107,10 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 							(#change_expr #op #chime::Flux::per(&self.#field_member, #unit))
 						};
 						change_type = syn::parse_quote!{
-							<#change_type as #op_trait<#chime::Rate<#field_type>>>::Output
+							<#change_type as #chime::change::ApplyChange<#op_change<
+								<#field_type as #chime::Flux>::Basis,
+								<#field_type as #chime::Flux>::Change
+							>>>::Output
 						};
 					},
 					Ok(meta) => panic!("invalid change operation, `{}`{}",
@@ -132,7 +135,7 @@ pub fn derive_flux(item_tokens: TokenStream) -> TokenStream {
 				self.#basis_member
 			}
 			fn change(&self) -> Self::Change {
-				#change_expr
+				#chime::FluxAccum::into_change(#change_expr)
 			}
 		}
 	};
@@ -168,7 +171,7 @@ pub fn derive_to_moment(item_tokens: TokenStream) -> TokenStream {
 		for attr in field.attrs.iter() {
 			if attr.meta.path().is_ident("basis") {
 				expr = syn::parse_quote!{
-					#chime::poly::Poly::eval(
+					#chime::poly::Poly::<<Self as #chime::Flux>::Basis>::eval(
 						&#chime::Flux::to_poly(self),
 						#chime::linear::Linear::from_f64(time),
 					)

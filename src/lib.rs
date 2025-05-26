@@ -8,7 +8,6 @@ pub mod time;
 pub mod linear;
 pub mod poly;
 pub mod pred;
-pub mod exp;
 
 mod impls;
 
@@ -361,8 +360,7 @@ pub use bevy_moment::{ResMoment, ResMomentMut};
 
 /// Change applied per unit of time.
 /// 
-/// Generally constructed using [`Flux::per`] and applied to an
-/// [accumulator](ChangeAccum) in the [`Flux::change`] method.
+/// Generally constructed using [`Flux::per`] and applied to a [`Change`] type.
 #[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Rate<T> {
 	pub amount: T,
@@ -370,8 +368,7 @@ pub struct Rate<T> {
 }
 
 mod _rate_impls {
-	use crate::{Flux, ToMoment, ToMomentMut};
-	use crate::change::{ApplyChange, Change, ChangeUp};
+	use crate::{ToMoment, ToMomentMut};
 	use super::Rate;
 	
 	impl<T> Rate<T> {
@@ -382,31 +379,7 @@ mod _rate_impls {
 			}
 		}
 	}
-	
-	impl<T, F, const OP: char> ApplyChange<OP, Rate<F>> for T
-	where
-		T: ApplyChange<OP, <F::Change as ChangeUp<OP>>::Up>,
-		F: Flux<Change: ChangeUp<OP>>,
-	{
-		type Output = T::Output;
-		fn apply_change(self, rhs: Rate<F>) -> Self::Output {
-			let change = rhs.amount.change()
-				.up(rhs.amount.basis())
-				.scale(crate::linear::Linear::from_f64(rhs.unit.as_secs_f64().recip()));
-			self.apply_change(change)
-		}
-	}
-	
-	impl<'a, T, F, const OP: char> ApplyChange<OP, &'a Rate<F>> for T
-	where
-		T: ApplyChange<OP, Rate<&'a F>>,
-	{
-		type Output = T::Output;
-		fn apply_change(self, rhs: &'a Rate<F>) -> Self::Output {
-			self.apply_change(rhs.as_ref())
-		}
-	}
-	
+
 	impl<T: ToMoment> ToMoment for Rate<T> {
 		type Moment<'a> = Rate<T::Moment<'a>> where Self: 'a;
 		fn to_moment(&self, time: f64) -> Self::Moment<'_> {
@@ -489,7 +462,7 @@ pub trait Flux {
 	
 	/// The type of change over time (e.g. [`Nil<T>`](constant::Nil),
 	/// [`Sum<T, D>`](sum::Sum), etc.).
-	type Change: Change<Basis = Self::Basis>;
+	type Change: Change<Self::Basis>;
 	
 	/// The initial value.
 	fn basis(&self) -> Self::Basis;
@@ -498,13 +471,8 @@ pub trait Flux {
 	fn change(&self) -> Self::Change;
 	
 	/// Conversion into a standard representation.
-	fn to_poly(&self) -> <Self::Change as Change>::Poly {
+	fn to_poly(&self) -> <Self::Change as Change<Self::Basis>>::Poly {
 		self.change().into_poly(self.basis())
-	}
-	
-	/// Used with [`Self::per`] to manually implement [`Self::change`].
-	fn accum(&self) -> ChangeAccum<constant::Nil<Self::Basis>> {
-		ChangeAccum::default()
 	}
 	
 	/// Used to construct a [`Rate`] for convenient change-over-time operations.
@@ -514,6 +482,126 @@ pub trait Flux {
 		Rate {
 			amount: &self,
 			unit,
+		}
+	}
+}
+
+/// ...
+#[derive(Copy, Clone, Debug, Default)]
+pub struct FluxAccum<T=()>(T);
+
+mod _flux_accum_impls {
+	use crate::{Flux, Rate};
+	use crate::change::{ApplyChange, Change, Plus, Times};
+	use crate::linear::Linear;
+	use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
+	use super::FluxAccum;
+	
+	impl FluxAccum {
+		pub fn empty() -> Self {
+			Self(())
+		}
+	}
+	
+	impl<T> FluxAccum<T> {
+		pub fn into_change(self) -> T {
+			self.0
+		}
+	}
+	
+	impl<T, F> Add<Rate<F>> for FluxAccum<T>
+	where
+		T: ApplyChange<Plus<F::Basis, F::Change>>,
+		F: Flux,
+		Plus<F::Basis, F::Change>: Change<F::Basis>,
+	{
+		type Output = FluxAccum<T::Output>;
+		fn add(self, rhs: Rate<F>) -> Self::Output {
+			FluxAccum(self.0.apply_change(Plus {
+				basis: rhs.amount.basis(),
+				change: rhs.amount.change(),
+			}.scale(Linear::from_f64(rhs.unit.as_secs_f64().recip()))))
+		}
+	}
+	
+	impl<T, F> Sub<Rate<F>> for FluxAccum<T>
+	where
+		T: ApplyChange<Plus<F::Basis, F::Change>>,
+		F: Flux,
+		Plus<F::Basis, F::Change>: Change<F::Basis>,
+	{
+		type Output = FluxAccum<T::Output>;
+		fn sub(self, rhs: Rate<F>) -> Self::Output {
+			FluxAccum(self.0.apply_change(Plus {
+				basis: rhs.amount.basis(),
+				change: rhs.amount.change(),
+			}.scale(Linear::from_f64(-rhs.unit.as_secs_f64().recip()))))
+		}
+	}
+	
+	impl<T, F> Mul<Rate<F>> for FluxAccum<T>
+	where
+		T: ApplyChange<Times<F::Basis, F::Change>>,
+		F: Flux,
+		Times<F::Basis, F::Change>: Change<F::Basis>,
+	{
+		type Output = FluxAccum<T::Output>;
+		fn mul(self, rhs: Rate<F>) -> Self::Output {
+			FluxAccum(self.0.apply_change(Times {
+				basis: rhs.amount.basis(),
+				change: rhs.amount.change(),
+			}.scale(Linear::from_f64(rhs.unit.as_secs_f64().recip()))))
+		}
+	}
+	
+	impl<T, F> Div<Rate<F>> for FluxAccum<T>
+	where
+		T: ApplyChange<Times<F::Basis, F::Change>>,
+		F: Flux,
+		Times<F::Basis, F::Change>: Change<F::Basis>,
+	{
+		type Output = FluxAccum<T::Output>;
+		fn div(self, rhs: Rate<F>) -> Self::Output {
+			FluxAccum(self.0.apply_change(Times {
+				basis: rhs.amount.basis(),
+				change: rhs.amount.change(),
+			}.scale(Linear::from_f64(rhs.unit.as_secs_f64()/*.recip()*/))))
+		}
+	}
+	
+	impl<T, F> AddAssign<Rate<F>> for FluxAccum<T>
+	where
+		Self: Copy + Add<Rate<F>, Output=Self>
+	{
+		fn add_assign(&mut self, rhs: Rate<F>) {
+			*self = (*self).add(rhs);
+		}
+	}
+	
+	impl<T, F> SubAssign<Rate<F>> for FluxAccum<T>
+	where
+		Self: Copy + Sub<Rate<F>, Output=Self>
+	{
+		fn sub_assign(&mut self, rhs: Rate<F>) {
+			*self = (*self).sub(rhs);
+		}
+	}
+	
+	impl<T, F> MulAssign<Rate<F>> for FluxAccum<T>
+	where
+		Self: Copy + Mul<Rate<F>, Output=Self>
+	{
+		fn mul_assign(&mut self, rhs: Rate<F>) {
+			*self = (*self).mul(rhs);
+		}
+	}
+	
+	impl<T, F> DivAssign<Rate<F>> for FluxAccum<T>
+	where
+		Self: Copy + Div<Rate<F>, Output=Self>
+	{
+		fn div_assign(&mut self, rhs: Rate<F>) {
+			*self = (*self).div(rhs);
 		}
 	}
 }
@@ -562,7 +650,7 @@ mod tests {
 	use super::*;
 	use crate::time;
 	use crate::time::{SEC, TimeRanges};
-	use crate::change::{Nil, Sum2};
+	use crate::change::Plus;
 	use crate::pred::Prediction;
 	use std::cmp::Ordering;
 	
@@ -578,16 +666,16 @@ mod tests {
 	
 	impl Flux for Pos {
 		type Basis = f64;
-		type Change = Sum2<Nil<f64>, Sum2<Nil<f64>, Sum2<Nil<f64>, Sum2<Nil<f64>, Nil<f64>>>>>;
+		type Change = Plus<f64, Plus<f64, Plus<f64, Plus<f64>>>>;
 		fn basis(&self) -> Self::Basis {
 			self.value
 		}
 		fn change(&self) -> Self::Change {
-			let mut accum = self.accum().into_change() + self.spd.per(SEC);
+			let mut accum = FluxAccum::empty() + self.spd.per(SEC);
 			for spd in &self.misc {
 				accum = accum + spd.per(SEC);
 			}
-			accum
+			accum.into_change()
 		}
 	}
 	
@@ -743,48 +831,48 @@ mod tests {
 		let mut pos = position();
 		assert_poly!(
 			pos.to_poly(),
-			Temporal::new(symb_poly::Invar(crate::constant::Constant2(-63.15))
-				+ symb_poly::Invar(crate::constant::Constant2(-11.9775)) * <symb_poly::Var>::default()
-				+ symb_poly::Invar(crate::constant::Constant2(0.270416666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(0.0475)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(-0.00041666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
+			Temporal::new(symb_poly::Invar(crate::constant::Constant(-63.15))
+				+ symb_poly::Invar(crate::constant::Constant(-11.9775)) * <symb_poly::Var>::default()
+				+ symb_poly::Invar(crate::constant::Constant(0.270416666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(0.0475)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(-0.00041666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
 			, 10*SEC)
 		);
 		for _ in 0..2 {
 			pos.moment_mut(20*SEC);
 			assert_poly!(
 				pos.to_poly(),
-				Temporal::new(symb_poly::Invar(crate::constant::Constant2(-112.55))
-					+ symb_poly::Invar(crate::constant::Constant2(6.0141666666666666666)) * <symb_poly::Var>::default()
-					+ symb_poly::Invar(crate::constant::Constant2(1.4454166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
-					+ symb_poly::Invar(crate::constant::Constant2(0.0308333333333333333)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
-					+ symb_poly::Invar(crate::constant::Constant2(-0.0004166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
+				Temporal::new(symb_poly::Invar(crate::constant::Constant(-112.55))
+					+ symb_poly::Invar(crate::constant::Constant(6.0141666666666666666)) * <symb_poly::Var>::default()
+					+ symb_poly::Invar(crate::constant::Constant(1.4454166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
+					+ symb_poly::Invar(crate::constant::Constant(0.0308333333333333333)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
+					+ symb_poly::Invar(crate::constant::Constant(-0.0004166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
 				, 20*SEC)
 			);
 		}
 		pos.moment_mut(0*SEC);
 		assert_poly!(
 			pos.to_poly(),
-			Temporal::new(symb_poly::Invar(crate::constant::Constant2(32.))
-					+ symb_poly::Invar(crate::constant::Constant2(-1.4691666666666666666)) * <symb_poly::Var>::default()
-					+ symb_poly::Invar(crate::constant::Constant2(-1.4045833333333333333)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
-					+ symb_poly::Invar(crate::constant::Constant2(0.0641666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
-					+ symb_poly::Invar(crate::constant::Constant2(-0.0004166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
+			Temporal::new(symb_poly::Invar(crate::constant::Constant(32.))
+					+ symb_poly::Invar(crate::constant::Constant(-1.4691666666666666666)) * <symb_poly::Var>::default()
+					+ symb_poly::Invar(crate::constant::Constant(-1.4045833333333333333)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
+					+ symb_poly::Invar(crate::constant::Constant(0.0641666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
+					+ symb_poly::Invar(crate::constant::Constant(-0.0004166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
 			, 0*SEC)
 		);
 		
 		assert_poly!(
-			Temporal::new(symb_poly::Invar(crate::constant::Constant2(-0.8_f64))
-				+ symb_poly::Invar(crate::constant::Constant2(-2.7)) * <symb_poly::Var>::default()
-				+ symb_poly::Invar(crate::constant::Constant2(3.4)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(2.8)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(0.3)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
+			Temporal::new(symb_poly::Invar(crate::constant::Constant(-0.8_f64))
+				+ symb_poly::Invar(crate::constant::Constant(-2.7)) * <symb_poly::Var>::default()
+				+ symb_poly::Invar(crate::constant::Constant(3.4)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(2.8)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(0.3)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
 			, 4000*time::MILLISEC).at_time(320*time::MILLISEC),
-			Temporal::new(symb_poly::Invar(crate::constant::Constant2(-29.341750272_f64))
-				+ symb_poly::Invar(crate::constant::Constant2(26.2289216)) * <symb_poly::Var>::default()
-				+ symb_poly::Invar(crate::constant::Constant2(-3.13568)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(-1.616)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
-				+ symb_poly::Invar(crate::constant::Constant2(0.3)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
+			Temporal::new(symb_poly::Invar(crate::constant::Constant(-29.341750272_f64))
+				+ symb_poly::Invar(crate::constant::Constant(26.2289216)) * <symb_poly::Var>::default()
+				+ symb_poly::Invar(crate::constant::Constant(-3.13568)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(-1.616)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P3>::default()))
+				+ symb_poly::Invar(crate::constant::Constant(0.3)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P4>::default()))
 			, 320*time::MILLISEC)
 		);
 	}

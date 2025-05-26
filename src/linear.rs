@@ -536,13 +536,11 @@ mod _iso_impls {
 		B: LinearIso<A>,
 	{
 		type Basis = Self;
-		type Change = crate::change::constant::Nil<Self>;
+		type Change = ();
 		fn basis(&self) -> Self::Basis {
 			self.clone()
 		}
-		fn change(&self) -> Self::Change {
-			self.accum().into_change()
-		}
+		fn change(&self) -> Self::Change {}
 	}
 	
 	impl<A, B> crate::ToMoment for Iso<A, B>

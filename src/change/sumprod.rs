@@ -41,7 +41,7 @@ mod tests {
 		assert_eq!(a.eval(f64::INFINITY), f64::INFINITY);
 		assert_eq!(a.eval(f64::NEG_INFINITY), -11.541560327111707);
 		
-		for root in (a - symb_poly::Invar(chime::constant::Constant2(5.))).roots() {
+		for root in (a - symb_poly::Invar(chime::constant::Constant(5.))).roots() {
 			let val = a.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		}
@@ -57,7 +57,7 @@ mod tests {
 		assert_eq!(b.eval(-1.), 3.494736882644794);
 		assert_eq!(b.eval(-2.), 10.512885487523043);
 		
-		for root in (b - symb_poly::Invar(chime::constant::Constant2(5.))).roots() {
+		for root in (b - symb_poly::Invar(chime::constant::Constant(5.))).roots() {
 			let val = b.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", (val, root));
 		}

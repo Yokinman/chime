@@ -4,13 +4,12 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut, Sub};
 
-use crate::linear::{Linear, Vector};
+use crate::linear::{Basis, Linear, Vector};
 use crate::time::Time;
 use crate::{Flux, Moment, MomentMut, ToMoment, ToMomentMut};
 use crate::change::Change;
-use crate::poly::{Poly, ops as kind_ops, Roots, Deriv, Translate};
+use crate::poly::{Constant, Poly, ops as kind_ops, Roots, Deriv, Translate};
 use crate::pred::{When, WhenDis, WhenDisEq, WhenEq};
-use crate::change::constant::Constant2;
 
 /// A [`Poly`] paired with a basis time.
 /// e.g. `Temporal<1 + 2x>` => `1 + 2(x-time)`.
@@ -97,7 +96,7 @@ impl<T: Flux> Temporal<T> {
 	}
 	
 	/// Conversion into a standard representation.
-	pub fn to_poly(&self) -> Temporal<<T::Change as Change>::Poly> {
+	pub fn to_poly(&self) -> Temporal<<T::Change as Change<T::Basis>>::Poly> {
 		Temporal {
 			inner: self.inner.to_poly(),
 			time: self.time,
@@ -105,155 +104,169 @@ impl<T: Flux> Temporal<T> {
 	}
 }
 
-impl<T: Poly> Temporal<T> {
+impl<T> Temporal<T> {
 	/// Ranges when this is above/below/equal to another flux.
-	pub fn when<U>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
+	pub fn when<U, B>(self, cmp: Ordering, other: Temporal<U>) -> T::Pred
 	where
-		T: When<U::Output>,
-		U: Translate,
+		T: When<U::Output, B>,
+		U: Translate<B>,
+		B: Basis,
 	{
 		let time = self.time;
 		T::when(self, cmp, other.at_time(time))
 	}
 	
 	/// Times when this is equal to another flux.
-	pub fn when_eq<U>(self, other: Temporal<U>) -> T::Pred
+	pub fn when_eq<U, B>(self, other: Temporal<U>) -> T::Pred
 	where
-		T: WhenEq<U::Output>,
-		U: Translate,
+		T: WhenEq<U::Output, B>,
+		U: Translate<B>,
+		B: Basis,
 	{
 		let time = self.time;
 		T::when_eq(self, other.at_time(time))
 	}
 	
 	/// Ranges when this is above/below/equal to a constant.
-	pub fn when_constant(self, cmp: Ordering, other: T::Basis) -> T::Pred
+	pub fn when_constant<B>(self, cmp: Ordering, other: B) -> T::Pred
 	where
-		T: When<symb_poly::Invar<Constant2<<T as Poly>::Basis>>>,
+		T: When<symb_poly::Invar<Constant<B>>, B>,
+		B: Basis,
 	{
-		self.when(cmp, Temporal::from(symb_poly::Invar(Constant2(other))))
+		self.when(cmp, Temporal::from(symb_poly::Invar(Constant(other))))
 	}
 	
 	/// Times when this is equal to a constant.
-	pub fn when_eq_constant(self, other: T::Basis) -> T::Pred
+	pub fn when_eq_constant<B>(self, other: B) -> T::Pred
 	where
-		T: WhenEq<symb_poly::Invar<Constant2<<T as Poly>::Basis>>>,
+		T: WhenEq<symb_poly::Invar<Constant<B>>, B>,
+		B: Basis,
 	{
-		self.when_eq(Temporal::from(symb_poly::Invar(Constant2(other))))
+		self.when_eq(Temporal::from(symb_poly::Invar(Constant(other))))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to X.
-	pub fn when_dis<U, D, const SIZE: usize>(
+	pub fn when_dis<U, D, A, B, const SIZE: usize>(
 		self,
 		other: Temporal<U>,
 		cmp: Ordering,
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDis<U::Output, D::Output, SIZE>,
-		U: Translate,
-		D: Translate,
+		T: WhenDis<U::Output, D::Output, B, SIZE>,
+		U: Translate<A>,
+		D: Translate<B>,
+		A: Basis,
+		B: Basis,
 	{
 		let time = self.time;
 		T::when_dis(self, other.at_time(time), cmp, dis.at_time(time))
 	}
 	
 	/// Ranges when the distance to another vector is equal to X.
-	pub fn when_dis_eq<U, D, const SIZE: usize>(
+	pub fn when_dis_eq<U, D, A, B, const SIZE: usize>(
 		self,
 		other: Temporal<U>,
 		dis: Temporal<D>,
 	) -> T::Pred
 	where
-		T: WhenDisEq<U::Output, D::Output, SIZE>,
-		U: Translate,
-		D: Translate,
+		T: WhenDisEq<U::Output, D::Output, B, SIZE>,
+		U: Translate<A>,
+		D: Translate<B>,
+		A: Basis,
+		B: Basis,
 	{
 		let time = self.time;
 		T::when_dis_eq(self, other.at_time(time), dis.at_time(time))
 	}
 	
 	/// Ranges when the distance to another vector is above/below/equal to a constant.
-	pub fn when_dis_constant<U, const SIZE: usize>(
+	pub fn when_dis_constant<U, B, const SIZE: usize>(
 		self,
 		other: Temporal<U>,
 		cmp: Ordering,
-		dis: <T::Output as Poly>::Basis,
+		dis: B,
 	) -> T::Pred
 	where
-		T: Vector<SIZE, Output: Poly>
-			+ WhenDis<U::Output, symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>, SIZE>,
-		U: Translate,
+		T: Vector<SIZE, Output: Poly<B>>
+			+ WhenDis<U::Output, symb_poly::Invar<Constant<B>>, B, SIZE>,
+		U: Translate<B>,
+		B: Basis,
 	{
-		self.when_dis(other, cmp, Temporal::from(symb_poly::Invar(Constant2(dis))))
+		self.when_dis(other, cmp, Temporal::from(symb_poly::Invar(Constant(dis))))
 	}
 	
 	/// Ranges when the distance to another vector is equal to a constant.
-	pub fn when_dis_eq_constant<U, const SIZE: usize>(
+	pub fn when_dis_eq_constant<U, B, const SIZE: usize>(
 		self,
 		other: Temporal<U>,
-		dis: <T::Output as Poly>::Basis,
+		dis: B,
 	) -> T::Pred
 	where
-		T: Vector<SIZE, Output: Poly>
-			+ WhenDisEq<U::Output, symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>, SIZE>,
-		U: Translate,
+		T: Vector<SIZE, Output: Poly<B>>
+			+ WhenDisEq<U::Output, symb_poly::Invar<Constant<B>>, B, SIZE>,
+		U: Translate<B>,
+		B: Basis,
 	{
-		self.when_dis_eq(other, Temporal::from(symb_poly::Invar(Constant2(dis))))
+		self.when_dis_eq(other, Temporal::from(symb_poly::Invar(Constant(dis))))
 	}
 	
 	/// Ranges when a component is above/below/equal to another flux.
-	pub fn when_index<U, const SIZE: usize>(
+	pub fn when_index<U, B, const SIZE: usize>(
 		self,
 		index: usize,
 		cmp: Ordering,
 		other: Temporal<U>,
-	) -> <T::Output as When<U::Output>>::Pred
+	) -> <T::Output as When<U::Output, B>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + When<U::Output>>,
-		U: Translate,
+		T: Vector<SIZE, Output: When<U::Output, B>>,
+		U: Translate<B>,
+		B: Basis,
 	{
 		let time = self.time;
-		<T::Output as When<U::Output>>::when(self.index(index), cmp, other.at_time(time))
+		<T::Output as When<U::Output, B>>::when(self.index(index), cmp, other.at_time(time))
 	}
 	
 	/// Times when a component is equal to another flux.
-	pub fn when_index_eq<U, const SIZE: usize>(
+	pub fn when_index_eq<U, B, const SIZE: usize>(
 		self,
 		index: usize,
 		other: Temporal<U>,
-	) -> <T::Output as WhenEq<U::Output>>::Pred
+	) -> <T::Output as WhenEq<U::Output, B>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + WhenEq<U::Output>>,
-		U: Translate,
+		T: Vector<SIZE, Output: WhenEq<U::Output, B>>,
+		U: Translate<B>,
+		B: Basis,
 	{
 		let time = self.time;
-		<T::Output as WhenEq<U::Output>>::when_eq(self.index(index), other.at_time(time))
+		<T::Output as WhenEq<U::Output, B>>::when_eq(self.index(index), other.at_time(time))
 	}
 	
 	/// Ranges when a component is above/below/equal to a constant.
-	pub fn when_index_constant<const SIZE: usize>(
+	pub fn when_index_constant<B, const SIZE: usize>(
 		self,
 		index: usize,
 		cmp: Ordering,
-		other: <T::Output as Poly>::Basis,
-	) -> <T::Output as When<symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>>>::Pred
+		other: B,
+	) -> <T::Output as When<symb_poly::Invar<Constant<B>>, B>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + When<symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>>>,
+		T: Vector<SIZE, Output: When<symb_poly::Invar<Constant<B>>, B>>,
+		B: Basis,
 	{
-		self.when_index(index, cmp, Temporal::from(symb_poly::Invar(Constant2(other))))
+		self.when_index(index, cmp, Temporal::from(symb_poly::Invar(Constant(other))))
 	}
 	
 	/// Times when a component is equal to a constant.
-	pub fn when_index_eq_constant<const SIZE: usize>(
+	pub fn when_index_eq_constant<B, const SIZE: usize>(
 		self,
 		index: usize,
-		other: <T::Output as Poly>::Basis,
-	) -> <T::Output as WhenEq<symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>>>::Pred
+		other: B,
+	) -> <T::Output as WhenEq<symb_poly::Invar<Constant<B>>, B>>::Pred
 	where
-		T: Vector<SIZE, Output: Poly + WhenEq<symb_poly::Invar<Constant2<<T::Output as Poly>::Basis>>>>,
+		T: Vector<SIZE, Output: WhenEq<symb_poly::Invar<Constant<B>>, B>>,
+		B: Basis,
 	{
-		self.when_index_eq(index, Temporal::from(symb_poly::Invar(Constant2(other))))
+		self.when_index_eq(index, Temporal::from(symb_poly::Invar(Constant(other))))
 	}
 	
 	// !!!
@@ -264,33 +277,39 @@ impl<T: Poly> Temporal<T> {
 	//   which the roots may be and iterate through it.
 }
 
-impl<K: Poly> Temporal<K> {
-	pub fn eval(&self, time: Time) -> K::Basis {
+impl<K> Temporal<K> {
+	pub fn eval<B>(&self, time: Time) -> B
+	where
+		K: Poly<B>,
+		B: Basis,
+	{
 		self.inner.eval(Linear::from_f64(self.secs(time)))
 	}
 	
-	pub fn initial_order(self, time: Time) -> Option<Ordering>
+	pub fn initial_order<B>(self, time: Time) -> Option<Ordering>
 	where
-		K: Deriv,
-		K::Basis: PartialOrd,
+		K: Deriv<B>,
+		B: Basis + PartialOrd,
 	{
 		let secs = self.secs(time);
 		self.inner.initial_order(Linear::from_f64(secs))
 	}
 	
-	pub fn deriv(self) -> Temporal<K::Deriv>
+	pub fn deriv<B>(self) -> Temporal<K::Deriv>
 	where
-		K: Deriv
+		K: Deriv<B>,
+		B: Basis,
 	{
 		Temporal {
-			inner: <K as Deriv>::deriv(self.inner),
+			inner: <K as Deriv<B>>::deriv(self.inner),
 			time: self.time,
 		}
 	}
 	
-	pub fn at_time(self, time: Time) -> Temporal<K::Output>
+	pub fn at_time<B>(self, time: Time) -> Temporal<K::Output>
 	where
-		K: Translate
+		K: Translate<B>,
+		B: Basis,
 	{
 		let secs = self.secs(time);
 		Temporal {
@@ -299,17 +318,18 @@ impl<K: Poly> Temporal<K> {
 		}
 	}
 	
-	pub fn sqr(self) -> Temporal<<K as kind_ops::Sqr>::Output>
+	pub fn sqr(self) -> Temporal<K::Output>
 	where
 		K: kind_ops::Sqr
 	{
 		Temporal::new(self.inner.sqr(), self.time)
 	}
 	
-	pub fn add_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
+	pub fn add_poly<P, B>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
 		K: Add<P::Output>,
-		P: Translate,
+		P: Translate<B>,
+		B: Basis,
 	{
 		Temporal {
 			inner: self.inner + other.at_time(self.time).inner,
@@ -317,10 +337,11 @@ impl<K: Poly> Temporal<K> {
 		}
 	}
 	
-	pub fn sub_poly<P>(self, other: Temporal<P>) -> Temporal<K::Output>
+	pub fn sub_poly<P, B>(self, other: Temporal<P>) -> Temporal<K::Output>
 	where
 		K: Sub<P::Output>,
-		P: Translate,
+		P: Translate<B>,
+		B: Basis,
 	{
 		Temporal {
 			inner: self.inner - other.at_time(self.time).inner,
@@ -329,28 +350,29 @@ impl<K: Poly> Temporal<K> {
 	}
 	
 	/// Ranges when the sign is greater than, less than, or equal to zero.
-	pub(crate) fn when_sign<F>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K>, F>
+	pub(crate) fn when_sign<F, B>(self, order: Ordering, filter: F) -> crate::pred::PredFilter<crate::pred::Pred<K, B>, F>
 	where
 		F: crate::pred::TimeFilterMap,
-		K: Roots + PartialEq,
-		K::Basis: PartialOrd,
+		K: Roots<B> + PartialEq,
+		B: Basis + PartialOrd,
 	{
 		let pred = crate::pred::Pred {
 			poly: self,
-			order
+			order,
+			basis: std::marker::PhantomData,
 		};
 		crate::pred::PredFilter { pred, filter }
 	}
 	
 	/// Times when the value is equal to zero.
-	pub(crate) fn when_zero<F>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K>, F>
+	pub(crate) fn when_zero<F, B>(self, filter: F) -> crate::pred::PredFilter<crate::pred::PredEq<K, B>, F>
 	where
 		F: crate::pred::TimeFilterMap,
-		K: Roots + PartialEq,
-		K::Basis: PartialEq,
+		K: Roots<B> + PartialEq,
+		B: Basis + PartialEq,
 	{
 		crate::pred::PredFilter {
-			pred: crate::pred::PredEq { poly: self },
+			pred: crate::pred::PredEq { poly: self, basis: std::marker::PhantomData },
 			filter,
 		}
 	}
@@ -407,7 +429,7 @@ where
 
 impl<K> IntoIterator for Temporal<K>
 where
-	K: IntoIterator<Item: Poly>,
+	K: IntoIterator
 {
 	type Item = Temporal<K::Item>;
 	type IntoIter = TemporalIter<K::IntoIter>;
@@ -421,7 +443,7 @@ where
 
 impl<T> Iterator for TemporalIter<T>
 where
-	T: Iterator<Item: Poly>,
+	T: Iterator
 {
 	type Item = Temporal<T::Item>;
 	fn next(&mut self) -> Option<Self::Item> {

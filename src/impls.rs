@@ -30,13 +30,11 @@ macro_rules! impl_ {
     (@impl Simple) => {};
 	(@impl Flux) => {
 		type Basis = Self;
-		type Change = crate::change::constant::Nil<Self>;
+		type Change = ();
 		fn basis(&self) -> Self::Basis {
 			*self
 		}
-		fn change(&self) -> Self::Change {
-			self.accum().into_change()
-		}
+		fn change(&self) -> Self::Change {}
     };
     (@impl ToMoment) => {
 		type Moment<'a> = Self;

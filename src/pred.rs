@@ -35,13 +35,14 @@ impl TimeFilterMap for PreTimeFilterMap {
 }
 
 /// ...
-pub struct DiffTimeFilterMap<A, B, D> {
+pub struct DiffTimeFilterMap<A, B, D, T> {
 	a_poly: Temporal<A>,
 	b_poly: Temporal<B>,
 	diff_poly: Temporal<D>,
+	basis: std::marker::PhantomData<T>,
 }
 
-impl<A, B, D> Clone for DiffTimeFilterMap<A, B, D>
+impl<A, B, D, T> Clone for DiffTimeFilterMap<A, B, D, T>
 where
 	A: Clone,
 	B: Clone,
@@ -52,20 +53,22 @@ where
 			a_poly: self.a_poly.clone(),
 			b_poly: self.b_poly.clone(),
 			diff_poly: self.diff_poly.clone(),
+			basis: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<A, B, D> TimeFilterMap for DiffTimeFilterMap<A, B, D>
+impl<A, B, D, T> TimeFilterMap for DiffTimeFilterMap<A, B, D, T>
 where
-	A: Poly<Basis: PartialEq>,
-	B: Poly<Basis = A::Basis>,
-	D: Poly<Basis = A::Basis> + Deriv,
+	A: Poly<T>,
+	B: Poly<T>,
+	D: Poly<T> + Deriv<T>,
+	T: Basis + PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
 		
-		let Self { a_poly, b_poly, diff_poly } = self;
+		let Self { a_poly, b_poly, diff_poly, .. } = self;
 		let diff_rate = diff_poly.clone().deriv();
 		let sign = diff_rate.eval(time).map_inner(|x| x.sign());
 		
@@ -108,16 +111,17 @@ where
 }
 
 /// ...
-pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F> {
+pub struct DisTimeFilterMap<const SIZE: usize, A, B, D, E, F, T> {
 	a_pos: Temporal<A>,
 	b_pos: Temporal<B>,
 	dis_poly: Temporal<D>,
 	pos_poly: Temporal<E>,
 	diff_poly: Temporal<F>,
+	basis: std::marker::PhantomData<T>,
 }
 
-impl<const SIZE: usize, A, B, D, E, F> Clone
-	for DisTimeFilterMap<SIZE, A, B, D, E, F>
+impl<const SIZE: usize, A, B, D, E, F, T> Clone
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, T>
 where
 	A: Clone,
 	B: Clone,
@@ -132,18 +136,20 @@ where
 			dis_poly: self.dis_poly.clone(),
 			pos_poly: self.pos_poly.clone(),
 			diff_poly: self.diff_poly.clone(),
+			basis: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<const SIZE: usize, A, B, D, E, F> TimeFilterMap
-	for DisTimeFilterMap<SIZE, A, B, D, E, F>
+impl<const SIZE: usize, A, B, D, E, F, T> TimeFilterMap
+	for DisTimeFilterMap<SIZE, A, B, D, E, F, T>
 where
-	A: Vector<SIZE, Output: Poly<Basis = D::Basis>> + Clone,
-	B: Vector<SIZE, Output: Poly<Basis = D::Basis>> + Clone,
-	D: Poly<Basis: PartialEq>,
-	E: Poly<Basis = D::Basis>,
-	F: Poly<Basis = D::Basis> + Deriv,
+	A: Vector<SIZE, Output: Poly<T>> + Clone,
+	B: Vector<SIZE, Output: Poly<T>> + Clone,
+	D: Poly<T>,
+	E: Poly<T>,
+	F: Poly<T> + Deriv<T>,
+	T: Basis + PartialEq,
 {
 	fn cool(&self, mut time: Time, is_end: bool) -> Option<Time> {
 		// Covers the range of equality, but stops where the trend reverses.
@@ -151,7 +157,7 @@ where
 		// For example, a pair of IVec2 points can round towards each other up
 		// to `0.5` along each axis, or `sqrt(n)` in n-dimensional distance. 
 		
-		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly } = self;
+		let Self { a_pos, b_pos, dis_poly, pos_poly, diff_poly, .. } = self;
 		let diff_rate = diff_poly.clone().deriv();
 		let sign = diff_rate.eval(time).map_inner(|x| x.sign());
 		
@@ -172,9 +178,9 @@ where
 					
 					 // Calculate Actual Distances:
 					let dis = dis_poly.eval(next_time);
-					let mut a_dis = D::Basis::zero();
-					let mut b_dis = D::Basis::zero();
-					let mut real_diff = D::Basis::zero();
+					let mut a_dis = T::zero();
+					let mut b_dis = T::zero();
+					let mut real_diff = T::zero();
 					for i in 0..SIZE {
 						let a = a_pos.index(i).eval(next_time);
 						let b = b_pos.index(i).eval(next_time);
@@ -193,7 +199,7 @@ where
 					);
 					
 					 // Undershoot Actual Distances:
-					let diff_not_zero = |mut dis: D::Basis, diff: D::Basis| -> bool {
+					let diff_not_zero = |mut dis: T, diff: T| -> bool {
 						dis = dis.inner_id();
 						dis.clone().zip_map_inner(
 							dis.zip_map_inner(diff, Linear::add).inner_id(),
@@ -242,7 +248,7 @@ where
 				}
 				
 				 // Stop Before Inequality:
-				let mut pos = D::Basis::zero();
+				let mut pos = T::zero();
 				for i in 0..SIZE {
 					pos = Basis::each_map_inner(
 						[
@@ -338,8 +344,8 @@ macro_rules! impl_prediction {
 
 impl_prediction!{
 	for<I> time::TimeRangeBuilder<I>;
-	for<K> Pred<K>;
-	for<K> PredEq<K>;
+	for<K, B> Pred<K, B>;
+	for<K, B> PredEq<K, B>;
 	for<P, F> PredFilter<P, F>;
 	for<A, B> PredInter<A, B>;
 	for<A, B> PredUnion<A, B>;
@@ -422,12 +428,13 @@ impl<P: Prediction> Prediction for Option<P> {
 }
 
 /// ...
-pub struct Pred<K> {
+pub struct Pred<K, B> {
 	pub(crate) poly: Temporal<K>,
 	pub(crate) order: Ordering,
+	pub(crate) basis: std::marker::PhantomData<B>,
 }
 
-impl<K> Clone for Pred<K>
+impl<K, B> Clone for Pred<K, B>
 where
 	K: Clone,
 {
@@ -435,16 +442,17 @@ where
 		Self {
 			poly: self.poly.clone(),
 			order: self.order,
+			basis: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<K> Prediction for Pred<K>
+impl<K, B> Prediction for Pred<K, B>
 where
-	K: Roots + PartialEq + Deriv,
-	K::Basis: PartialOrd,
+	K: Roots<B> + PartialEq + Deriv<B>,
+	B: Basis + PartialOrd,
 {
-	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
+	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots<B>>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		let basis_order = self.poly.clone()
 			.initial_order(Time::ZERO)
@@ -459,27 +467,29 @@ where
 }
 
 /// ...
-pub struct PredEq<K> {
+pub struct PredEq<K, T> {
 	pub(crate) poly: Temporal<K>,
+	pub(crate) basis: std::marker::PhantomData<T>,
 }
 
-impl<K> Clone for PredEq<K>
+impl<K, T> Clone for PredEq<K, T>
 where
 	K: Clone,
 {
 	fn clone(&self) -> Self {
 		Self {
 			poly: self.poly.clone(),
+			basis: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<K> Prediction for PredEq<K>
+impl<K, T> Prediction for PredEq<K, T>
 where
-	K: Roots + PartialEq,
-	K::Basis: PartialEq,
+	K: Roots<T> + PartialEq,
+	T: Basis + PartialEq,
 {
-	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots>::Output as IntoTimes>::TimeIter>>;
+	type TimeRanges = time::TimeRangeBuilder<RootFilterMap<<<K as Roots<T>>::Output as IntoTimes>::TimeIter>>;
 	fn into_ranges(self, _time: Time) -> Self::TimeRanges {
 		let basis_order = if self.poly.inner.is_zero() {
 			Ordering::Equal
@@ -631,7 +641,7 @@ where
 }
 
 /// [`crate::Temporal::when`] predictive comparison.
-pub trait When<B: Poly>: Poly {
+pub trait When<B: Poly<T>, T: Basis>: Poly<T> {
 	type Pred: Prediction;
 	fn when(
 		a_poly: Temporal<Self>,
@@ -640,15 +650,15 @@ pub trait When<B: Poly>: Poly {
 	) -> Self::Pred;
 }
 
-impl<A, B> When<B> for A
+impl<A, B, T> When<B, T> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis> + Deriv>,
-	B: Poly<Basis = A::Basis>,
-	A::Basis: PartialOrd,
+	A: Poly<T> + Sub<B, Output: Roots<T> + PartialEq + Poly<T> + Deriv<T>>,
+	B: Poly<T>,
+	T: Basis + PartialOrd,
 {
 	type Pred = PredFilter<
-		Pred<<A as Sub<B>>::Output>,
-		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output>,
+		Pred<<A as Sub<B>>::Output, T>,
+		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output, T>,
 	>;
 	fn when(
 		a_poly: Temporal<A>,
@@ -660,12 +670,12 @@ where
 			time: a_poly.time,
 		};
 		diff_poly.clone()
-			.when_sign(cmp, DiffTimeFilterMap { a_poly, b_poly, diff_poly })
+			.when_sign(cmp, DiffTimeFilterMap { a_poly, b_poly, diff_poly, basis: std::marker::PhantomData })
 	}
 }
 
 /// [`crate::Temporal::when_eq`] predictive comparison.
-pub trait WhenEq<B: Poly>: Poly {
+pub trait WhenEq<B: Poly<T>, T: Basis>: Poly<T> {
 	type Pred: Prediction;
 	fn when_eq(
 		a_poly: Temporal<Self>,
@@ -675,15 +685,15 @@ pub trait WhenEq<B: Poly>: Poly {
 	// `DiffTimeFilterMap` type, and provide `when(_eq)` by default.
 }
 
-impl<A, B> WhenEq<B> for A
+impl<A, B, T> WhenEq<B, T> for A
 where
-	A: Poly + Sub<B, Output: Roots + PartialEq + Poly<Basis = A::Basis> + Deriv>,
-	B: Poly<Basis = A::Basis>,
-	A::Basis: PartialEq,
+	A: Poly<T> + Sub<B, Output: Roots<T> + PartialEq + Poly<T> + Deriv<T>>,
+	B: Poly<T>,
+	T: Basis + PartialEq,
 {
 	type Pred = PredFilter<
-		PredEq<<A as Sub<B>>::Output>,
-		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output>,
+		PredEq<<A as Sub<B>>::Output, T>,
+		DiffTimeFilterMap<A, B, <A as Sub<B>>::Output, T>,
 	>;
 	fn when_eq(
 		a_poly: Temporal<A>,
@@ -694,46 +704,49 @@ where
 			time: a_poly.time,
 		};
 		diff_poly.clone()
-			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly })
+			.when_zero(DiffTimeFilterMap { a_poly, b_poly, diff_poly, basis: std::marker::PhantomData })
 	}
 }
 
 /// [`crate::FluxVector::when_dis`] predictive distance comparison.
-pub trait WhenDis<B: Poly, D: Poly, const SIZE: usize>: Poly {
+pub trait WhenDis<B, D, T, const SIZE: usize> {
 	type Pred: Prediction;
 	fn when_dis(
 		a_poly: Temporal<Self>,
 		b_poly: Temporal<B>,
 		cmp: Ordering,
 		dis: Temporal<D>,
-	) -> Self::Pred;
+	) -> Self::Pred
+	where Self: Sized;
 }
 
-impl<A, B, D, const SIZE: usize> WhenDis<B, D, SIZE> for A
+impl<A, B, D, T, const SIZE: usize> WhenDis<B, D, T, SIZE> for A
 where
-	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly<Basis: PartialOrd> + Sqr,
+	A: Vector<SIZE, Output: Poly<T>> + Clone,
+	B: Vector<SIZE, Output: Poly<T>> + Clone,
+	D: Poly<T> + Sqr,
+	T: Basis + PartialOrd,
 	A::Output: Sub<
 		B::Output,
 		Output: Sqr<Output:
 			Add<Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
 			+ Sub<<D as Sqr>::Output,
 				Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
-			+ Roots
+			+ Roots<T>
 			+ PartialEq
-			+ Poly<Basis = D::Basis>
-			+ Deriv
+			+ Poly<T>
+			+ Deriv<T>
 		>,
 	>,
 {
 	type Pred = PredFilter<
-		Pred<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output>,
+		Pred<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output, T>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
 			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
 			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
+			T,
 		>
 	>;
 	fn when_dis(
@@ -755,45 +768,48 @@ where
 		
 		diff_poly.clone().when_sign(
 			cmp,
-			DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly },
+			DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly, basis: std::marker::PhantomData },
 		)
 	}
 }
 
 /// [`crate::FluxVector::when_dis_eq`] predictive distance comparison.
-pub trait WhenDisEq<B: Poly, D: Poly, const SIZE: usize>: Poly {
+pub trait WhenDisEq<B, D, T, const SIZE: usize> {
 	type Pred: Prediction;
 	fn when_dis_eq(
 		a_pos: Temporal<Self>,
 		b_pos: Temporal<B>,
 		dis: Temporal<D>,
-	) -> Self::Pred;
+	) -> Self::Pred
+	where Self: Sized;
 }
 
-impl<A, B, D, const SIZE: usize> WhenDisEq<B, D, SIZE> for A
+impl<A, B, D, T, const SIZE: usize> WhenDisEq<B, D, T, SIZE> for A
 where
-	A: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	B: Poly + Vector<SIZE, Output: Poly<Basis = D::Basis>>,
-	D: Poly<Basis: PartialEq> + Sqr,
+	A: Vector<SIZE, Output: Poly<T>> + Clone,
+	B: Vector<SIZE, Output: Poly<T>> + Clone,
+	D: Poly<T> + Sqr,
+	T: Basis + PartialEq,
 	A::Output: Sub<B::Output,
 		Output: Sqr<Output:
 			Add<Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
 			+ Sub<<D as Sqr>::Output,
 				Output = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output>
-			+ Roots
+			+ Roots<T>
 			+ PartialEq
-			+ Poly<Basis = D::Basis>
-			+ Deriv
+			+ Poly<T>
+			+ Deriv<T>
 		>,
 	>,
 {
 	type Pred = PredFilter<
-		PredEq<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output>,
+		PredEq<<<A::Output as Sub<B::Output>>::Output as Sqr>::Output, T>,
 		DisTimeFilterMap<
 			SIZE,
 			A, B, D,
 			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
 			<<A::Output as Sub<B::Output>>::Output as Sqr>::Output,
+			T,
 		>
 	>;
 	fn when_dis_eq(
@@ -813,7 +829,7 @@ where
 		};
 		
 		diff_poly.clone()
-			.when_zero(DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly })
+			.when_zero(DisTimeFilterMap { a_pos, b_pos, dis_poly, pos_poly, diff_poly, basis: std::marker::PhantomData })
 	}
 }
 
@@ -822,15 +838,15 @@ fn consistent_sign_pred() {
 	use crate::time::TimeRanges;
 	fn toast(time: Time) -> Vec<(Time, Time)> {
 		let poly = Temporal::new([
-			symb_poly::Invar(crate::constant::Constant2(-2.))
-				+ symb_poly::Invar(crate::constant::Constant2(5.)) * <symb_poly::Var>::default()
-				+ symb_poly::Invar(crate::constant::Constant2(-2.)) * <symb_poly::Var>::default() * <symb_poly::Var>::default(),
-			symb_poly::Invar(crate::constant::Constant2(0.))
-				+ symb_poly::Invar(crate::constant::Constant2(0.)) * <symb_poly::Var>::default()
-				+ symb_poly::Invar(crate::constant::Constant2(0.)) * <symb_poly::Var>::default() * <symb_poly::Var>::default(),
+			symb_poly::Invar(crate::constant::Constant(-2.))
+				+ symb_poly::Invar(crate::constant::Constant(5.)) * <symb_poly::Var>::default()
+				+ symb_poly::Invar(crate::constant::Constant(-2.)) * <symb_poly::Var>::default() * <symb_poly::Var>::default(),
+			symb_poly::Invar(crate::constant::Constant(0.))
+				+ symb_poly::Invar(crate::constant::Constant(0.)) * <symb_poly::Var>::default()
+				+ symb_poly::Invar(crate::constant::Constant(0.)) * <symb_poly::Var>::default() * <symb_poly::Var>::default(),
 		], time);
 		poly.when_dis(
-			Temporal::new([symb_poly::Invar(crate::constant::Constant2(0.)); 2], time),
+			Temporal::new([symb_poly::Invar(crate::constant::Constant(0.)); 2], time),
 			Ordering::Greater,
 			Temporal::new(1., time).to_poly(),
 		).into_ranges(Time::ZERO)
