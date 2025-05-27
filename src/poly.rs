@@ -36,14 +36,7 @@ pub trait Poly<B: Basis>: Clone {
 		todo!()
 	}
 	
-	fn zero() -> Self;
-	
-	fn is_zero(&self) -> bool
-	where
-		Self: PartialEq
-	{
-		self.eq(&Self::zero())
-	}
+	fn is_zero(&self) -> bool;
 }
 
 mod _impl_poly {
@@ -61,20 +54,18 @@ mod _impl_poly {
 		fn eval(&self, time: B::Inner) -> [B; SIZE] {
 			self.each_ref().map(|x| T::eval(x, time))
 		}
-		fn zero() -> Self {
-			std::array::from_fn(|_| T::zero())
+		fn is_zero(&self) -> bool {
+			self.iter().all(T::is_zero)
 		}
 	}
 	
 	impl Poly<f64> for Invar<symb_poly::Num<typenum::Z0>> {
 		const DEGREE: usize = 0;
-		
 		fn eval(&self, _time: <f64 as Basis>::Inner) -> f64 {
 			0.
 		}
-		
-		fn zero() -> Self {
-			Self::default()
+		fn is_zero(&self) -> bool {
+			true
 		}
 	}
 	
@@ -89,8 +80,8 @@ mod _impl_poly {
 			basis
 		}
 		
-		fn zero() -> Self {
-			Invar(Constant(T::zero()))
+		fn is_zero(&self) -> bool {
+			self.0.0 == T::zero()
 		}
 	}
 	
@@ -101,41 +92,39 @@ mod _impl_poly {
 		T: Basis,
 	{
 		const DEGREE: usize = 0;
-		
 		fn eval(&self, time: T::Inner) -> T {
 			let (a, b) = self.args();
 			a.eval(time).zip_map_inner(b.eval(time), Linear::add)
 		}
-		
-		fn zero() -> Self {
-			Func::from_args((A::zero(), B::zero()))
+		fn is_zero(&self) -> bool {
+			let (a, b) = self.args();
+			a.is_zero() && b.is_zero()
 		}
 	}
 	
 	impl<A, B, T> Poly<T> for Func<Prod, (A, B)>
 	where
 		A: Poly<T>,
-		B: Clone + Default + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
+		B: Clone + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
 			Output = Invar<Constant<T>>>,
 		T: Basis,
 	{
 		const DEGREE: usize = 0;
-		
 		fn eval(&self, time: T::Inner) -> T {
 			let (a, b) = self.args();
 			let Invar(Constant(b_eval)) = b.clone().replace(Invar(Constant(T::from_inner(time))));
 			a.eval(time).zip_map_inner(b_eval, Linear::mul)
 		}
-		
-		fn zero() -> Self {
-			Func::from_args((A::zero(), B::default()))
+		fn is_zero(&self) -> bool {
+			let (a, b) = self.args();
+			a.is_zero()// || b.is_zero()
 		}
 	}
 	
 	impl<A, B, T> Poly<T> for Func<Power, (A, B)>
 	where
 		A: Poly<T>,
-		B: Clone + Default + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
+		B: Clone + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
 			Output = Invar<Constant<T>>>,
 		T: Basis,
 	{
@@ -147,8 +136,9 @@ mod _impl_poly {
 			a.eval(time).zip_map_inner(b_eval, Linear::pow)
 		}
 		
-		fn zero() -> Self {
-			Func::from_args((A::zero(), B::default()))
+		fn is_zero(&self) -> bool {
+			let (a, b) = self.args();
+			a.is_zero()// && !b.is_zero()
 		}
 	}
 }

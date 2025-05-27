@@ -755,8 +755,8 @@ where
 		cmp: Ordering,
 		dis_poly: Temporal<D>,
 	) -> Self::Pred {
-		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
-		for i in 0..SIZE {
+		let mut sum = (a_pos.index(0).inner - b_pos.index(0).inner).sqr();
+		for i in 1..SIZE {
 			sum = sum + (a_pos.index(i).inner - b_pos.index(i).inner).sqr();
 		}
 		
@@ -817,8 +817,8 @@ where
 		b_pos: Temporal<B>,
 		dis_poly: Temporal<D>,
 	) -> Self::Pred {
-		let mut sum = <<A::Output as Sub<B::Output>>::Output as Sqr>::Output::zero();
-		for i in 0..SIZE {
+		let mut sum = (a_pos.index(0).inner - b_pos.index(0).inner).sqr();
+		for i in 1..SIZE {
 			sum = sum + (a_pos.index(i).inner - b_pos.index(i).inner).sqr();
 		}
 		

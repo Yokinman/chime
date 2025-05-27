@@ -121,7 +121,7 @@ mod _linear_impls {
 }
 
 /// A [`Linear`] type packaged with extra information (e.g. [`Iso`]).
-pub trait Basis: Clone {
+pub trait Basis: Clone + PartialEq {
 	type Inner: Linear;
 	
 	fn from_inner(inner: Self::Inner) -> Self;
@@ -202,6 +202,7 @@ mod _linear_plus_impls {
 	where
 		A: Basis,
 		B: LinearIso<A>,
+		Self: PartialEq,
 	{
 		type Inner = A::Inner;
 		fn from_inner(inner: Self::Inner) -> Self {
@@ -523,6 +524,7 @@ mod _iso_impls {
 	where
 		A: Basis,
 		B: LinearIso<A>,
+		Self: Basis,
 	{
 		type Output = Self;
 		fn mul(self, rhs: Self) -> Self::Output {
@@ -534,6 +536,7 @@ mod _iso_impls {
 	where
 		A: Basis,
 		B: LinearIso<A>,
+		Self: Basis,
 	{
 		type Basis = Self;
 		type Change = ();
