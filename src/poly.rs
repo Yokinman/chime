@@ -84,7 +84,7 @@ mod _impl_poly {
 		use crate::linear::Basis;
 		use crate::poly::Constant;
 		use super::{InvarPoly, Poly};
-		use symb_poly::{ExprKind, Finite, FromInvar, Known, NegInf, NumKind, Unknown, Unsymbolize, Zero};
+		use symb_poly::{ExprKind, Finite, FromInvar, Invar, Known, NegInf, NumKind, Unknown, Unsymbolize, Zero};
 		
 		impl<T, B> InvarPoly<B, NumKind<Zero>> for T
 		where
@@ -140,14 +140,15 @@ mod _impl_poly {
 		
 		impl<T, B> InvarPoly<B, ExprKind> for T
 		where
-			T: Unsymbolize<Output: Poly<B>> + Clone,
+			Invar<T>: Unsymbolize<Output: Poly<B>>,
+			T: Clone,
 			B: Basis,
 		{
 			fn invar_eval(self, time: B::Inner) -> B {
-				self.unsymbolize().eval(time)
+				Invar(self).unsymbolize().eval(time)
 			}
 			fn is_zero(&self) -> bool {
-				self.clone().unsymbolize().is_zero()
+				Invar(self.clone()).unsymbolize().is_zero()
 			}
 		}
 	}

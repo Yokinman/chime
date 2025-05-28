@@ -226,10 +226,10 @@ mod _impl_change_into_poly {
 		O: Add<<P::Output as Integ>::Output, Output: Mul<Q::Output, Output=R>>,
 		P: Div<Q::Output, Output: Integ>,
 		Q: ProdInteg<Output: Clone>,
-		R: Unsymbolize<Output: Poly<T>>,
+		R: Poly<T>,
 		T: Basis,
 	{
-		type Output = R::Output;
+		type Output = R;
 		fn change_into_poly(self, b: Times<T, B>, c: Plus<T, C>, basis: T) -> Self::Output {
 			let (o, i) = self.into_poly(basis).symbolize_inner(Default::default());
 			let (p, j) = b.change.into_poly(b.basis).symbolize_inner(i);
@@ -237,7 +237,7 @@ mod _impl_change_into_poly {
 			let q_expr = q.prod_integ();
 			let p_expr = (p / q_expr.clone()).integ();
 			let o_expr = (o + p_expr) * q_expr;
-			o_expr.unsymbolize()
+			o_expr
 		}
 	}
 	
@@ -250,10 +250,10 @@ mod _impl_change_into_poly {
 		O: Add<<<P::Output as Div<Q::Output>>::Output as Integ>::Output, Output: Mul<Q::Output, Output=R>>,
 		P: Mul<Q, Output: Div<Q::Output, Output: Integ>>,
 		Q: ProdInteg<Output: Clone> + Clone,
-		R: Unsymbolize<Output: Poly<T>>,
+		R: Poly<T>,
 		T: Basis,
 	{
-		type Output = R::Output;
+		type Output = R;
 		fn change_into_poly(self, b: Plus<T, B>, c: Times<T, C>, basis: T) -> Self::Output {
 			let (o, i) = self.into_poly(basis).symbolize_inner(Default::default());
 			let (p, j) = b.change.into_poly(b.basis).symbolize_inner(i);
@@ -261,7 +261,7 @@ mod _impl_change_into_poly {
 			let q_expr = q.clone().prod_integ();
 			let p_expr = (p * q / q_expr.clone()).integ();
 			let o_expr = (o + p_expr) * q_expr;
-			o_expr.unsymbolize()
+			o_expr
 		}
 	}
 }
