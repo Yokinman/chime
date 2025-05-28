@@ -40,10 +40,9 @@ pub trait Poly<B: Basis>: Clone {
 }
 
 mod _impl_poly {
-	use crate::constant::Constant;
 	use crate::linear::{Basis, Linear};
 	use super::Poly;
-	use symb_poly::{Invar, Func, Sum, Power, Prod};
+	use symb_poly::{Invar, InvarTerm, Func, Sum, Power, Prod, Var};
 	
 	impl<T, B, const SIZE: usize> Poly<[B; SIZE]> for [T; SIZE]
 	where
@@ -59,29 +58,110 @@ mod _impl_poly {
 		}
 	}
 	
-	impl Poly<f64> for Invar<symb_poly::Num<typenum::Z0>> {
+	impl<T, B> Poly<B> for Invar<T>
+	where
+		T: InvarTerm + InvarPoly<B, T::Kind> + Clone,
+		B: Basis,
+	{
 		const DEGREE: usize = 0;
-		fn eval(&self, _time: <f64 as Basis>::Inner) -> f64 {
-			0.
+		
+		fn eval(&self, time: B::Inner) -> B {
+			self.0.clone().invar_eval(time)
 		}
+		
 		fn is_zero(&self) -> bool {
-			true
+			InvarPoly::is_zero(&self.0)
 		}
 	}
 	
-	impl<T> Poly<T> for Invar<Constant<T>>
+	/// ...
+	pub trait InvarPoly<B: Basis, Kind> {
+		fn invar_eval(self, _time: B::Inner) -> B;
+		fn is_zero(&self) -> bool;
+	}
+	
+	mod _impl_invar_poly {
+		use crate::linear::Basis;
+		use crate::poly::Constant;
+		use super::{InvarPoly, Poly};
+		use symb_poly::{ExprKind, Finite, FromInvar, Known, NegInf, NumKind, Unknown, Unsymbolize, Zero};
+		
+		impl<T, B> InvarPoly<B, NumKind<Zero>> for T
+		where
+			B: Basis,
+			Constant<B>: FromInvar<T>,
+		{
+			fn invar_eval(self, _time: B::Inner) -> B {
+				<Constant<B>>::from_invar(self).0
+			}
+			fn is_zero(&self) -> bool {
+				true
+			}
+		}
+		
+		impl<T, B> InvarPoly<B, NumKind<NegInf>> for T
+		where
+			B: Basis,
+			Constant<B>: FromInvar<T>,
+		{
+			fn invar_eval(self, _time: B::Inner) -> B {
+				<Constant<B>>::from_invar(self).0
+			}
+			fn is_zero(&self) -> bool {
+				false
+			}
+		}
+		
+		impl<T, B, N> InvarPoly<B, NumKind<Finite<Known<N>>>> for T
+		where
+			B: Basis,
+			Constant<B>: FromInvar<T>,
+		{
+			fn invar_eval(self, _time: B::Inner) -> B {
+				<Constant<B>>::from_invar(self).0
+			}
+			fn is_zero(&self) -> bool {
+				false
+			}
+		}
+		
+		impl<B> InvarPoly<B, NumKind<Finite<Unknown>>> for Constant<B>
+		where
+			B: Basis,
+			// Constant<B>: FromInvar<T>,
+		{
+			fn invar_eval(self, _time: B::Inner) -> B {
+				/*<Constant<B>>::from_invar*/(self).0
+			}
+			fn is_zero(&self) -> bool {
+				self.0 == B::zero()
+			}
+		}
+		
+		impl<T, B> InvarPoly<B, ExprKind> for T
+		where
+			T: Unsymbolize<Output: Poly<B>> + Clone,
+			B: Basis,
+		{
+			fn invar_eval(self, time: B::Inner) -> B {
+				self.unsymbolize().eval(time)
+			}
+			fn is_zero(&self) -> bool {
+				self.clone().unsymbolize().is_zero()
+			}
+		}
+	}
+	
+	impl<T> Poly<T> for Var
 	where
 		T: Basis
 	{
 		const DEGREE: usize = 0;
-		
-		fn eval(&self, _time: T::Inner) -> T {
-			let Invar(Constant(basis)) = self.clone();
-			basis
+		fn eval(&self, time: T::Inner) -> T {
+			T::from_inner(time)
 		}
-		
 		fn is_zero(&self) -> bool {
-			self.0.0 == T::zero()
+			false
 		}
 	}
 	
@@ -105,18 +185,16 @@ mod _impl_poly {
 	impl<A, B, T> Poly<T> for Func<Prod, (A, B)>
 	where
 		A: Poly<T>,
-		B: Clone + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
-			Output = Invar<Constant<T>>>,
+		B: Poly<T>,
 		T: Basis,
 	{
 		const DEGREE: usize = 0;
 		fn eval(&self, time: T::Inner) -> T {
 			let (a, b) = self.args();
-			let Invar(Constant(b_eval)) = b.clone().replace(Invar(Constant(T::from_inner(time))));
-			a.eval(time).zip_map_inner(b_eval, Linear::mul)
+			a.eval(time).zip_map_inner(b.eval(time), Linear::mul)
 		}
 		fn is_zero(&self) -> bool {
-			let (a, b) = self.args();
+			let (a, _b) = self.args();
 			a.is_zero()// || b.is_zero()
 		}
 	}
@@ -124,20 +202,18 @@ mod _impl_poly {
 	impl<A, B, T> Poly<T> for Func<Power, (A, B)>
 	where
 		A: Poly<T>,
-		B: Clone + symb_poly::Replace<symb_poly::Variable, Invar<Constant<T>>,
-			Output = Invar<Constant<T>>>,
+		B: Poly<T>,
 		T: Basis,
 	{
 		const DEGREE: usize = 0;
 		
 		fn eval(&self, time: T::Inner) -> T {
 			let (a, b) = self.args();
-			let Invar(Constant(b_eval)) = b.clone().replace(Invar(Constant(T::from_inner(time))));
-			a.eval(time).zip_map_inner(b_eval, Linear::pow)
+			a.eval(time).zip_map_inner(b.eval(time), Linear::pow)
 		}
 		
 		fn is_zero(&self) -> bool {
-			let (a, b) = self.args();
+			let (a, _b) = self.args();
 			a.is_zero()// && !b.is_zero()
 		}
 	}
