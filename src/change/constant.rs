@@ -8,7 +8,7 @@ mod _constant_impls {
 	use super::Constant;
 	use num_traits::{Inv, Pow};
 	use std::ops::{Add, Div, Mul, Neg, Sub};
-	use symb_poly::{Exp, ExpInvar, FromInvar, InvarTerm, Ln, LnInvar, Num, NumKind};
+	use symb_poly::{CmpInvarInner, Exp, ExpInvar, FromInvar, InvarTerm, Ln, LnInvar, Num, NumKind};
 	use crate::linear::{Basis, Linear};
 
 	impl<T: Basis> Add for Constant<T> {
@@ -73,7 +73,14 @@ mod _constant_impls {
 			Constant(self.0.map_inner(Linear::exp))
 		}
 	}
-
+	
+	// ??? Temporary
+	impl<T> FromInvar<Constant<T>> for Constant<T> {
+		fn from_invar(value: Constant<T>) -> Self {
+			value
+		}
+	}
+	
 	impl<T, N, D, R> FromInvar<Num<N, D, R>> for Constant<T>
 	where
 		T: Basis<Inner: From<Num<N, D, R>>>
@@ -100,8 +107,19 @@ mod _constant_impls {
 			Self::from_invar(value.0).exp()
 		}
 	}
-
-	impl<T> InvarTerm for Constant<T> {
+	
+	impl<T> InvarTerm for Constant<T>
+	where
+		T: Basis
+	{
 		type Kind = NumKind;
+		fn is_indeterminant(&self) -> bool {
+			self.0.is_indeterminant()
+		}
 	}
+	
+	// ??? Temporary
+    impl<A, B, M, N> CmpInvarInner<Constant<B>, NumKind<M>, NumKind<N>> for Constant<A> {
+        type Output = typenum::Less;
+    }
 }

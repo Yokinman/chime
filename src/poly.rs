@@ -40,9 +40,10 @@ pub trait Poly<B: Basis>: Clone {
 }
 
 mod _impl_poly {
-	use crate::linear::{Basis, Linear};
+	use crate::linear::Basis;
+	use crate::poly::Constant;
 	use super::Poly;
-	use symb_poly::{Invar, InvarTerm, Func, Sum, Power, Prod, Var};
+	use symb_poly::{Eval, InsertVal, Invar, InvarTerm, Limit, Func, Sum, Power, Prod, Var, Variable};
 	
 	impl<T, B, const SIZE: usize> Poly<[B; SIZE]> for [T; SIZE]
 	where
@@ -171,11 +172,13 @@ mod _impl_poly {
 		A: Poly<T>,
 		B: Poly<T>,
 		T: Basis,
+		Self: InsertVal<Variable, Constant<T>, Output: Eval<Output=Constant<T>>>,
 	{
 		const DEGREE: usize = 0;
 		fn eval(&self, time: T::Inner) -> T {
-			let (a, b) = self.args();
-			a.eval(time).zip_map_inner(b.eval(time), Linear::add)
+			self.clone()
+				.insert_val(<Variable>::default(), Constant(T::from_inner(time)))
+				.eval().0
 		}
 		fn is_zero(&self) -> bool {
 			let (a, b) = self.args();
@@ -188,11 +191,13 @@ mod _impl_poly {
 		A: Poly<T>,
 		B: Poly<T>,
 		T: Basis,
+		Self: InsertVal<Variable, Constant<T>, Output: Eval<Output=Constant<T>>>,
 	{
 		const DEGREE: usize = 0;
 		fn eval(&self, time: T::Inner) -> T {
-			let (a, b) = self.args();
-			a.eval(time).zip_map_inner(b.eval(time), Linear::mul)
+			self.clone()
+				.insert_val(<Variable>::default(), Constant(T::from_inner(time)))
+				.eval().0
 		}
 		fn is_zero(&self) -> bool {
 			let (a, _b) = self.args();
@@ -205,17 +210,38 @@ mod _impl_poly {
 		A: Poly<T>,
 		B: Poly<T>,
 		T: Basis,
+		Self: InsertVal<Variable, Constant<T>, Output: Eval<Output=Constant<T>>>,
 	{
 		const DEGREE: usize = 0;
 		
 		fn eval(&self, time: T::Inner) -> T {
-			let (a, b) = self.args();
-			a.eval(time).zip_map_inner(b.eval(time), Linear::pow)
+			self.clone()
+				.insert_val(<Variable>::default(), Constant(T::from_inner(time)))
+				.eval().0
 		}
 		
 		fn is_zero(&self) -> bool {
 			let (a, _b) = self.args();
 			a.is_zero()// && !b.is_zero()
+		}
+	}
+	
+	impl<A, I, R, T> Poly<T> for Limit<A, I, R>
+	where
+		T: Basis,
+		Self: Clone + InsertVal<Variable, Constant<T>, Output: Eval<Output=Constant<T>>>,
+	{
+		const DEGREE: usize = 0;
+		
+		fn eval(&self, time: T::Inner) -> T {
+			self.clone()
+				.insert_val(<Variable>::default(), Constant(T::from_inner(time)))
+				.eval().0
+		}
+		
+		fn is_zero(&self) -> bool {
+			// self.expr.is_zero()
+			false
 		}
 	}
 }
@@ -284,6 +310,17 @@ mod _impl_deriv {
 			symb_poly::DerivExpr::deriv_expr(self, Default::default())
 		}
 	}
+	
+	impl<T, I, R, B> Deriv<B> for symb_poly::Limit<T, I, R>
+	where
+		Self: Poly<B> + symb_poly::DerivExpr<symb_poly::Variable, Output: Poly<B>>,
+		B: Basis,
+	{
+		type Deriv = <Self as symb_poly::DerivExpr<symb_poly::Variable>>::Output;
+		fn deriv(self) -> Self::Deriv {
+			symb_poly::DerivExpr::deriv_expr(self, Default::default())
+		}
+	}
 }
 
 /// ...
@@ -294,7 +331,7 @@ pub trait Translate<B: Basis>: Poly<B> {
 
 mod _impl_translate {
 	use super::Translate;
-	use symb_poly::{Func, Sum, Invar, Var, Replace, Variable};
+	use symb_poly::{Func, Sum, Invar, Limit, Var, Replace, Variable};
 	use crate::linear::Basis;
 	use crate::constant::Constant;
 	use crate::poly::Poly;
@@ -318,6 +355,24 @@ mod _impl_translate {
 		type Output = <Self as Replace<Variable, Func<Sum, (Invar<Constant<B>>, Var)>>>::Output;
 		fn translate(self, amount: B::Inner) -> Self::Output {
 			self.replace(Func::from_args((Invar(Constant(Basis::from_inner(amount))), Default::default())))
+		}
+	}
+	
+	impl<T, I, R, B> Translate<B> for Limit<T, I, R>
+	where
+		Self: Poly<B>,
+		T: Replace<Variable, Func<Sum, (Invar<Constant<B>>, Var)>>,
+		R: Replace<Variable, Func<Sum, (Invar<Constant<B>>, Var)>>,
+		B: Basis,
+		Limit<T::Output, I, R::Output>: Poly<B>,
+	{
+		type Output = Limit<T::Output, I, R::Output>;
+		fn translate(self, amount: B::Inner) -> Self::Output {
+			Limit {
+				expr: self.expr.replace(Func::from_args((Invar(Constant(Basis::from_inner(amount))), Default::default()))),
+				index: self.index,
+				result: self.result.replace(Func::from_args((Invar(Constant(Basis::from_inner(amount))), Default::default()))),
+			}
 		}
 	}
 }
@@ -915,6 +970,18 @@ mod _impl_roots {
 				-(lambert_w::lambert_wm1(z) / d_ln) - (x / y),
 				-(lambert_w::lambert_w0(z)  / d_ln) - (x / y),
 			]
+		}
+	}
+	
+	impl<T, I, R, B> Roots<B> for symb_poly::Limit<T, I, R>
+	where
+		Self: Poly<B>,
+		B: crate::linear::Basis,
+		R: Roots<B>,
+	{
+		type Output = R::Output;
+		fn roots(self) -> Self::Output {
+			self.result.roots()
 		}
 	}
 }

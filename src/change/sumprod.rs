@@ -61,29 +61,29 @@ mod tests {
 			let val = b.eval(root);
 			assert!((val - 5.).abs() < 1e-12, "{:?}", (val, root));
 		}
-
-		todo!("Fix sumprod mul=1 case");
-		// let c = Test { value: 1., add: 4., mul: 1. }.to_poly();
-		// assert_eq!(c.eval(0.), 1.);
-		// assert_eq!(c.eval(1.), 5.);
-		// assert_eq!(c.eval(2.), 9.);
-		// assert_eq!(c.eval(3.), 13.);
-		//
-		// for root in (c - symb_poly::Invar(chime::constant::Constant2(5.))).roots() {
+		
+		let c = Test { value: 1., add: 4., mul: 1. }.to_poly();
+		assert_eq!(c.eval(0.), 1.);
+		assert_eq!(c.eval(1.), 5.);
+		assert_eq!(c.eval(2.), 9.);
+		assert_eq!(c.eval(3.), 13.);
+		
+		// for root in (c - symb_poly::Invar(chime::constant::Constant(5.))).roots() {
 		// 	let val = c.eval(root);
 		// 	assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		// }
-		//
-		// let d = Test2 {
-		// 	value: 1.,
-		// 	add: Test { value: 1., add: 4., mul: 1. }
-		// }.to_poly();
-		// assert_eq!(d.eval(0.), 1.);
-		// assert_eq!(d.eval(1.), 4.);
-		// assert_eq!(d.eval(2.), 11.);
-		// assert_eq!(d.eval(3.), 22.);
-		//
-		// for root in (d - symb_poly::Invar(chime::constant::Constant2(5.))).roots() {
+		
+		let d = Test2 {
+			value: 1.,
+			add: Test { value: 1., add: 4., mul: 1. }
+		}.to_poly();
+		assert_eq!(d.eval(0.), 1.);
+		assert_eq!(d.eval(1.), 4.);
+		assert_eq!(d.eval(2.), 11.);
+		assert_eq!(d.eval(3.), 22.);
+		
+		todo!("re-add Roots exception for mul=1 case");
+		// for root in (d - symb_poly::Invar(chime::constant::Constant(5.))).roots() {
 		// 	let val = d.eval(root);
 		// 	assert!((val - 5.).abs() < 1e-12, "{:?}", val);
 		// }

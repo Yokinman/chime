@@ -848,7 +848,7 @@ fn consistent_sign_pred() {
 		poly.when_dis(
 			Temporal::new([symb_poly::Invar(crate::constant::Constant(0.)); 2], time),
 			Ordering::Greater,
-			Temporal::new(1., time).to_poly(),
+			Temporal::unlimit(Temporal::new(1., time).to_poly()),
 		).into_ranges(Time::ZERO)
 			.inclusive()
 			.map(|(a, b)| (

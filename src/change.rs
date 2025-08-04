@@ -22,14 +22,23 @@ mod _change_impls {
 	use crate::linear::Basis;
 	use crate::poly::Poly;
 	use super::{Change, Nil, PopChange};
+	use symb_poly::{Approach, Invar, Limit, Symbol, Var};
 	
 	impl<T> Change<T> for Nil
 	where
-		T: Basis
+		T: Basis + Copy,
+		T::Inner: From<symb_poly::Num<typenum::Z0>> + From<symb_poly::Num<typenum::P1>> + From<symb_poly::Num<typenum::N1>>,
 	{
-		type Poly = symb_poly::Invar<crate::change::constant::Constant<T>>;
+		type Poly = Limit<Var<Symbol<typenum::U0>>, (Approach<Symbol<typenum::U0>, crate::change::constant::Constant<T>>,), Invar<crate::change::constant::Constant<T>>>;
 		fn into_poly(self, basis: T) -> Self::Poly {
-			symb_poly::Invar(crate::change::constant::Constant(basis))
+			Limit {
+				expr: <Var<Symbol<typenum::U0>>>::default(),
+				index: (Approach {
+					symbol: <Symbol<typenum::U0>>::default(),
+					value: crate::change::constant::Constant(basis.clone()),
+				},),
+				result: Invar(crate::change::constant::Constant(basis)),
+			}
 		}
 		fn scale(self, _scalar: <T as Basis>::Inner) -> Self {
 			self

@@ -830,7 +830,7 @@ mod tests {
 		use num_traits::Pow;
 		let mut pos = position();
 		assert_poly!(
-			pos.to_poly(),
+			pos.to_poly().unlimit(),
 			Temporal::new(symb_poly::Invar(crate::constant::Constant(-63.15))
 				+ symb_poly::Invar(crate::constant::Constant(-11.9775)) * <symb_poly::Var>::default()
 				+ symb_poly::Invar(crate::constant::Constant(0.270416666666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
@@ -841,7 +841,7 @@ mod tests {
 		for _ in 0..2 {
 			pos.moment_mut(20*SEC);
 			assert_poly!(
-				pos.to_poly(),
+				pos.to_poly().unlimit(),
 				Temporal::new(symb_poly::Invar(crate::constant::Constant(-112.55))
 					+ symb_poly::Invar(crate::constant::Constant(6.0141666666666666666)) * <symb_poly::Var>::default()
 					+ symb_poly::Invar(crate::constant::Constant(1.4454166666666666666)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
@@ -852,7 +852,7 @@ mod tests {
 		}
 		pos.moment_mut(0*SEC);
 		assert_poly!(
-			pos.to_poly(),
+			pos.to_poly().unlimit(),
 			Temporal::new(symb_poly::Invar(crate::constant::Constant(32.))
 					+ symb_poly::Invar(crate::constant::Constant(-1.4691666666666666666)) * <symb_poly::Var>::default()
 					+ symb_poly::Invar(crate::constant::Constant(-1.4045833333333333333)) * <symb_poly::Var>::default().pow(symb_poly::Invar(symb_poly::Num::<typenum::P2>::default()))
@@ -888,11 +888,11 @@ mod tests {
 			},
 		});
 		
-		assert_time_ranges!(pos.to_poly().when(Ordering::Greater, acc.to_poly()), [
+		assert_time_ranges!(pos.to_poly().unlimit().when(Ordering::Greater, acc.to_poly().unlimit()), [
 			(Time::ZERO, Time::from_secs_f64(4.56)),
 			(Time::from_secs_f64(26.912), Time::from_secs_f64(127.394))
 		]);
-		assert_times!(pos.to_poly().when_eq(acc.to_poly()), [
+		assert_times!(pos.to_poly().unlimit().when_eq(acc.to_poly().unlimit()), [
 			Time::from_secs_f64(4.56),
 			Time::from_secs_f64(26.912),
 			Time::from_secs_f64(127.394)
@@ -905,9 +905,9 @@ mod tests {
 		let mut b_pos = position();
 		
 		 // Check Before:
-		assert_time_ranges!(a_pos.to_poly().when(Ordering::Greater, b_pos.to_poly()), []);
-		assert_time_ranges!(a_pos.to_poly().when(Ordering::Equal, b_pos.to_poly()), [(Time::ZERO, Time::MAX)]);
-		assert_times!(a_pos.to_poly().when_eq(b_pos.to_poly()), []);
+		assert_time_ranges!(a_pos.to_poly().unlimit().when(Ordering::Greater, b_pos.to_poly().unlimit()), []);
+		assert_time_ranges!(a_pos.to_poly().unlimit().when(Ordering::Equal, b_pos.to_poly().unlimit()), [(Time::ZERO, Time::MAX)]);
+		assert_times!(a_pos.to_poly().unlimit().when_eq(b_pos.to_poly().unlimit()), []);
 		a_pos.moment_mut(20*SEC);
 		
 		 // Apply Changes:
@@ -924,7 +924,7 @@ mod tests {
 		
 		 // Check After:
 		assert_eq!(
-			Vec::from_iter(a_pos.to_poly().when(Ordering::Greater, b_pos.to_poly())
+			Vec::from_iter(a_pos.to_poly().unlimit().when(Ordering::Greater, b_pos.to_poly().unlimit())
 				.into_ranges(Time::ZERO)
 				.inclusive()),
 			[
@@ -932,7 +932,7 @@ mod tests {
 				(50*SEC /*+ time::NANOSEC*/, Time::MAX)
 			]
 		);
-		assert_times!(a_pos.to_poly().when_eq(b_pos.to_poly()), [8*SEC, 50*SEC]);
+		assert_times!(a_pos.to_poly().unlimit().when_eq(b_pos.to_poly().unlimit()), [8*SEC, 50*SEC]);
 	}
 	
 	#[test]

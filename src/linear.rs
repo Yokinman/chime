@@ -559,7 +559,7 @@ mod _iso_impls {
 	where
 		A: Basis,
 		B: LinearIso<A>,
-		Self: Basis,
+		Self: Basis<Inner: From<symb_poly::Num<typenum::Z0>> + From<symb_poly::Num<typenum::P1>> + From<symb_poly::Num<typenum::N1>>> + Copy,
 	{
 		type Basis = Self;
 		type Change = ();

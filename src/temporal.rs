@@ -19,6 +19,16 @@ pub struct Temporal<T> {
 	pub(crate) time: Time,
 }
 
+// !!! Temporary
+impl<T, I, R> Temporal<symb_poly::Limit<T, I, R>> {
+	pub fn unlimit(self) -> Temporal<R> {
+		Temporal {
+			inner: self.inner.result,
+			time: self.time,
+		}
+	}
+}
+
 /// ... [`<Temporal as IntoIterator>::IntoIter`]
 pub struct TemporalIter<T> {
 	iter: T,
