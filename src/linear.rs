@@ -35,6 +35,8 @@ pub trait Linear: Copy + Clone + PartialEq + PartialOrd {
 	{
 		self.eq(&<Self as Linear>::zero())
 	}
+	
+	fn is_indeterminant(&self) -> bool;
 }
 
 mod _linear_impls {
@@ -78,6 +80,9 @@ mod _linear_impls {
 		fn zero() -> Self {
 			0.
 		}
+		fn is_indeterminant(&self) -> bool {
+			self.is_nan()
+		}
 	}
 	
 	impl Linear for f32 {
@@ -117,6 +122,9 @@ mod _linear_impls {
 		fn zero() -> Self {
 			0.
 		}
+		fn is_indeterminant(&self) -> bool {
+			self.is_nan()
+		}
 	}
 }
 
@@ -148,6 +156,8 @@ pub trait Basis: Clone + PartialEq {
 	// of `Basis::map`. TBD
 	fn inner_id(self) -> Self;
 	
+	fn is_indeterminant(&self) -> bool;
+	
 	fn zero() -> Self {
 		Self::from_inner(Linear::zero())
 	}
@@ -173,6 +183,9 @@ mod _linear_plus_impls {
 		fn inner_id(self) -> Self {
 			self
 		}
+		fn is_indeterminant(&self) -> bool {
+			Linear::is_indeterminant(self)
+		}
 	}
 	
 	impl<T, const N: usize> Basis for [T; N]
@@ -196,6 +209,9 @@ mod _linear_plus_impls {
 		fn inner_id(self) -> Self {
 			self.map(T::inner_id)
 		}
+		fn is_indeterminant(&self) -> bool {
+			self.iter().all(T::is_indeterminant)
+		}
 	}
 	
 	impl<A, B> Basis for Iso<A, B>
@@ -218,6 +234,9 @@ mod _linear_plus_impls {
 		}
 		fn inner_id(self) -> Self {
 			Self::from_inner(B::linear_id(self.into_inner()))
+		}
+		fn is_indeterminant(&self) -> bool {
+			false
 		}
 	}
 }
@@ -399,6 +418,10 @@ mod glam_stuff {
 				
 				fn inner_id(self) -> Self {
 					self
+				}
+				
+				fn is_indeterminant(&self) -> bool {
+					self.is_nan()
 				}
 			}
 		};
